@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TrendingUp, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { toLocalDateStr } from "@/lib/periodUtils";
 
 interface GrowthMetric {
@@ -69,7 +69,7 @@ interface Props {
 
 export default function GrowthDashboard({ projectFilter }: Props) {
   const [metrics, setMetrics] = useState<GrowthMetric[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; icon: string | null }[]>([]);
   const [selectedProject, setSelectedProject] = useState("all");
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");

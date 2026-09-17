@@ -2,11 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
-import { Competitor } from "./types";
+import { Competitor } from "@/components/projeto/concorrentes/types";
 
 interface Props {
   competitors: Competitor[];
-  updateField: (id: string, field: string, value: any) => void;
+  updateField: (id: string, field: keyof Competitor, value: string) => void;
   removeCompetitor: (id: string) => void;
 }
 

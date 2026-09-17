@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarCheck, Clock, Send, XCircle, FlaskConical } from "lucide-react";
@@ -13,75 +13,44 @@ interface KPIData {
   variantB: number;
 }
 
-export default function CampaignKPICards() {
-  const [kpi, setKpi] = useState<KPIData>({ agendados: 0, proximoDisparo: "—", enviadosHoje: 0, cancelados: 0, variantA: 0, variantB: 0 });
+const DEFAULT: KPIData = { agendados: 0, proximoDisparo: "—", enviadosHoje: 0, cancelados: 0, variantA: 0, variantB: 0 };
 
-  useEffect(() => {
-    const load = async () => {
+export default function CampaignKPICards() {
+  const { data: kpi = DEFAULT } = useQuery({
+    queryKey: ["wa-campaign-kpis", toLocalDateStr()],
+    staleTime: 60_000,
+    queryFn: async (): Promise<KPIData> => {
       const today = toLocalDateStr();
 
-      const { count: agendados } = await supabase
-        .from("imphq_wa_campaign_steps")
-        .select("id", { count: "exact", head: true })
-        .eq("is_active", true)
-        .gte("send_date", today);
-
-      const { count: offsetSteps } = await supabase
-        .from("imphq_wa_campaign_steps")
-        .select("id", { count: "exact", head: true })
-        .eq("is_active", true)
-        .is("send_date", null);
-
-      const { data: nextStep } = await supabase
-        .from("imphq_wa_campaign_steps")
-        .select("send_date, send_time")
-        .eq("is_active", true)
-        .gte("send_date", today)
-        .order("send_date", { ascending: true })
-        .order("send_time", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const [agendadosRes, offsetRes, nextStepRes, enviadosRes, canceladosRes, variantBRes] = await Promise.all([
+        supabase.from("imphq_wa_campaign_steps").select("id", { count: "exact", head: true }).eq("is_active", true).gte("send_date", today),
+        supabase.from("imphq_wa_campaign_steps").select("id", { count: "exact", head: true }).eq("is_active", true).is("send_date", null),
+        supabase.from("imphq_wa_campaign_steps").select("send_date, send_time").eq("is_active", true).gte("send_date", today).order("send_date", { ascending: true }).order("send_time", { ascending: true }).limit(1).maybeSingle(),
+        supabase.from("imphq_wa_campaign_logs").select("id", { count: "exact", head: true }).eq("status", "sent").gte("created_at", `${today}T00:00:00`),
+        supabase.from("imphq_wa_campaigns").select("id", { count: "exact", head: true }).eq("status", "cancelled"),
+        supabase.from("imphq_wa_campaign_logs").select("id", { count: "exact", head: true }).eq("status", "sent").eq("error", "VARIANT_B").gte("created_at", `${today}T00:00:00`),
+      ]);
 
       let proximoDisparo = "—";
+      const nextStep = nextStepRes.data;
       if (nextStep?.send_date) {
         const time = nextStep.send_time?.slice(0, 5) || "09:00";
         proximoDisparo = `${nextStep.send_date.split("-").reverse().join("/")} ${time}`;
       }
 
-      const { count: enviadosHoje } = await supabase
-        .from("imphq_wa_campaign_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "sent")
-        .gte("created_at", `${today}T00:00:00`);
+      const totalSent = enviadosRes.count || 0;
+      const vb = variantBRes.count || 0;
 
-      const { count: cancelados } = await supabase
-        .from("imphq_wa_campaigns")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "cancelled");
-
-      // A/B variant breakdown (today)
-      const { count: variantB } = await supabase
-        .from("imphq_wa_campaign_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "sent")
-        .eq("error", "VARIANT_B")
-        .gte("created_at", `${today}T00:00:00`);
-
-      const totalSent = enviadosHoje || 0;
-      const vb = variantB || 0;
-      const va = Math.max(0, totalSent - vb);
-
-      setKpi({
-        agendados: (agendados || 0) + (offsetSteps || 0),
+      return {
+        agendados: (agendadosRes.count || 0) + (offsetRes.count || 0),
         proximoDisparo,
         enviadosHoje: totalSent,
-        cancelados: cancelados || 0,
-        variantA: va,
+        cancelados: canceladosRes.count || 0,
+        variantA: Math.max(0, totalSent - vb),
         variantB: vb,
-      });
-    };
-    load();
-  }, []);
+      };
+    },
+  });
 
   const hasABData = kpi.variantA + kpi.variantB > 0;
 

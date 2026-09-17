@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     }
 
     let promoted = 0;
-    const results: any[] = [];
+    const results: Array<{test_id:string} & ({status:"insufficient_data";sent_a:number;sent_b:number;rate_a:string;rate_b:string} | {status:"promoted";winner:string|null;rate_winner:string;rate_loser:string})> = [];
 
     for (const test of tests) {
       // Busca variantes com contadores
@@ -142,9 +142,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, promoted, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+      const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "Unknown error";
     console.error("[ab-test-promoter] Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

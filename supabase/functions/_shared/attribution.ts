@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { errorText, record } from "./value.ts";
 // Helper compartilhado de atribuição de venda.
 // Quando uma msg outgoing carrega link de checkout, gera um attribution_id curto,
 // injeta no link como ?attr=<id> e ?xc=<id> (compat com Ticto click_id) e salva
@@ -40,7 +42,7 @@ export function detectCheckoutLink(text: string): string | null {
     try {
       const host = new URL(u).host.toLowerCase();
       if (CHECKOUT_HOSTS.some(h => host === h || host.endsWith("." + h))) return u;
-    } catch (_) {}
+    } catch { /* Ignore malformed candidate URLs; inspect the next link. */ }
   }
   return null;
 }
@@ -81,7 +83,7 @@ export type AttributionContext = {
   template_name?: string;
   campaign_id?: string;
   produto_nome?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 };
 
 /**
@@ -91,7 +93,7 @@ export type AttributionContext = {
  * @returns { text: string, attribution_id: string | null }
  */
 export async function attributeOutgoing(
-  supabase: any,
+  supabase: SupabaseClient,
   text: string,
   ctx: AttributionContext
 ): Promise<{ text: string; attribution_id: string | null; link_url: string | null }> {
@@ -116,8 +118,8 @@ export async function attributeOutgoing(
       produto_nome: ctx.produto_nome || null,
       metadata: ctx.metadata || {},
     });
-  } catch (e: any) {
-    console.warn(`[attribution] insert failed: ${e?.message}`);
+  } catch (e: unknown) {
+    console.warn(`[attribution] insert failed: ${errorText(e)}`);
   }
 
   return { text: newText, attribution_id: attrId, link_url: newLink };
@@ -128,7 +130,7 @@ export async function attributeOutgoing(
  * Match prioritário: por click_id explícito → por phone+produto (fallback).
  */
 export async function linkSaleToAttribution(
-  supabase: any,
+  supabase: SupabaseClient,
   opts: {
     project_id: string;
     venda_id: string;
@@ -139,7 +141,7 @@ export async function linkSaleToAttribution(
     valor?: number;
   }
 ): Promise<string | null> {
-  let attrRow: any = null;
+  let attrRow: { id: string; attribution_id: string; sent_at: string } | null = null;
 
   if (opts.click_id) {
     const { data } = await supabase

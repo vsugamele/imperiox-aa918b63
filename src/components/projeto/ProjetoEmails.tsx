@@ -1,3 +1,6 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,14 +15,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
-interface EmailTemplate {
+type EmailTemplate = {
   id: string;
   name: string;
   subject: string;
   html_body: string;
 }
 
-interface EmailConfig {
+type EmailConfig = {
   resend_api_key?: string;
   from_email?: string;
   from_name?: string;
@@ -29,24 +32,29 @@ interface EmailConfig {
 
 interface Props {
   projectId: string;
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
 }
 
 export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
   // Fallback: ler config do Briefing (data.checklist.resend) se email_config não tiver
-  const rawConfig: EmailConfig = project.data?.email_config || {};
-  const briefingResend = project.data?.checklist?.resend || {};
+  const projectData = jsonFields(project.data);
+  const rawConfig = jsonFields(projectData.email_config);
+  const briefingResend = jsonFields(jsonFields(projectData.checklist).resend);
   const config: EmailConfig = {
-    resend_api_key: rawConfig.resend_api_key || briefingResend.resend_api_key || "",
-    from_email: rawConfig.from_email || briefingResend.from_email || "",
-    from_name: rawConfig.from_name || briefingResend.from_name || "",
-    reply_to: rawConfig.reply_to || briefingResend.reply_to || "",
-    templates: rawConfig.templates || [],
+    resend_api_key: jsonText(rawConfig.resend_api_key) || jsonText(briefingResend.resend_api_key) || "",
+    from_email: jsonText(rawConfig.from_email) || jsonText(briefingResend.from_email) || "",
+    from_name: jsonText(rawConfig.from_name) || jsonText(briefingResend.from_name) || "",
+    reply_to: jsonText(rawConfig.reply_to) || jsonText(briefingResend.reply_to) || "",
+    templates: Array.isArray(rawConfig.templates) ? rawConfig.templates.flatMap(value => {
+      const item = jsonFields(value);
+      if (typeof item.id !== "string" || typeof item.name !== "string" || typeof item.subject !== "string" || typeof item.html_body !== "string") return [];
+      return [{ ...item, id: item.id, name: item.name, subject: item.subject, html_body: item.html_body }];
+    }) : [],
   };
   const templates = config.templates || [];
 
-  const [emailHistory, setEmailHistory] = useState<any[]>([]);
+  const [emailHistory, setEmailHistory] = useState<Tables<"imphq_events">[]>([]);
   const [showResendKey, setShowResendKey] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -79,10 +87,10 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
     loadEmailHistory();
   }, [loadEmailHistory]);
 
-  const updateConfig = useCallback((partial: Partial<EmailConfig>) => {
+  const updateConfig = (partial: Partial<EmailConfig>) => {
     const newConfig = { ...config, ...partial };
-    onUpdateData({ ...(project.data || {}), email_config: newConfig });
-  }, [config, project.data, onUpdateData]);
+    onUpdateData({ ...jsonFields(project.data), email_config: { ...rawConfig, ...newConfig } });
+  };
 
   const saveTemplate = () => {
     if (!templateForm.name.trim() || !templateForm.subject.trim()) {
@@ -138,8 +146,8 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
       });
       if (error) throw error;
       toast.success("Email de teste enviado!");
-    } catch (err: any) {
-      toast.error("Erro ao enviar: " + (err.message || "Erro desconhecido"));
+    } catch (err: unknown) {
+      toast.error("Erro ao enviar: " + (errorMessage(err) || "Erro desconhecido"));
     } finally {
       setSendingTest(false);
     }
@@ -345,13 +353,13 @@ export function ProjetoEmails({ projectId, project, onUpdateData }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {emailHistory.map((ev: any) => (
+                {emailHistory.map((ev) => (
                   <TableRow key={ev.id}>
-                    <TableCell className="text-xs">{ev.data?.to_email || "—"}</TableCell>
-                    <TableCell className="text-xs">{ev.data?.template_name || "—"}</TableCell>
+                    <TableCell className="text-xs">{jsonText(jsonFields(ev.event_data).to_email) || "—"}</TableCell>
+                    <TableCell className="text-xs">{jsonText(jsonFields(ev.event_data).template_name) || "—"}</TableCell>
                     <TableCell>
-                      <Badge variant={ev.data?.status === "sent" ? "default" : "destructive"} className={ev.data?.status === "sent" ? "bg-emerald-500/20 text-emerald-400 text-[10px]" : "text-[10px]"}>
-                        {ev.data?.status === "sent" ? "Enviado" : "Erro"}
+                      <Badge variant={jsonFields(ev.event_data).status === "sent" ? "default" : "destructive"} className={jsonFields(ev.event_data).status === "sent" ? "bg-emerald-500/20 text-emerald-400 text-[10px]" : "text-[10px]"}>
+                        {jsonFields(ev.event_data).status === "sent" ? "Enviado" : "Erro"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">

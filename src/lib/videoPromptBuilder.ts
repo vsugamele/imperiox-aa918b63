@@ -124,8 +124,8 @@ export function buildVideoPrompt(f: VideoFields): string {
   }
 }
 
-export function buildVideoPromptJson(f: VideoFields): Record<string, any> {
-  const clean = (o: Record<string, any>) =>
+export function buildVideoPromptJson(f: VideoFields): Record<string, Json> {
+  const clean = (o: Record<string, Json>) =>
     Object.fromEntries(Object.entries(o).filter(([_, v]) => v && String(v).trim()));
   return clean({
     action: clean({ main: f.movimentoPrincipal }),
@@ -179,3 +179,4 @@ export const emptyVideoFields: VideoFields = {
   aspectRatio: "9:16",
   plataforma: "veo3",
 };
+import type { Json } from "@/integrations/supabase/types";

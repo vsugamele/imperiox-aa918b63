@@ -2216,6 +2216,39 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_ai_artifacts: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_id: string | null
+          payload: Json
+          program_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_id?: string | null
+          payload?: Json
+          program_id?: string | null
+          title?: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_id?: string | null
+          payload?: Json
+          program_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       areamembrojp_authors: {
         Row: {
           avatar_url: string | null
@@ -2904,6 +2937,107 @@ export type Database = {
           muted_hsl?: string
           name?: string
           primary_hsl?: string
+        }
+        Relationships: []
+      }
+      areamembrojp_diagnostic_conversations: {
+        Row: {
+          content: string
+          created_at: string
+          diagnostic_id: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          diagnostic_id: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          diagnostic_id?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_diagnostic_conversations_diagnostic_id_fkey"
+            columns: ["diagnostic_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_diagnostics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_diagnostics: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          converted: boolean
+          converted_at: string | null
+          created_at: string
+          id: string
+          lead_email: string | null
+          lead_name: string | null
+          lead_whatsapp: string | null
+          pain_points: Json | null
+          profile_marketing: Json | null
+          profile_negocio: Json | null
+          profile_objetivos: Json | null
+          profile_tecnico: Json | null
+          recommended_plan: string | null
+          report_markdown: string | null
+          source: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          converted?: boolean
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_whatsapp?: string | null
+          pain_points?: Json | null
+          profile_marketing?: Json | null
+          profile_negocio?: Json | null
+          profile_objetivos?: Json | null
+          profile_tecnico?: Json | null
+          recommended_plan?: string | null
+          report_markdown?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          converted?: boolean
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_whatsapp?: string | null
+          pain_points?: Json | null
+          profile_marketing?: Json | null
+          profile_negocio?: Json | null
+          profile_objetivos?: Json | null
+          profile_tecnico?: Json | null
+          recommended_plan?: string | null
+          report_markdown?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -3603,6 +3737,7 @@ export type Database = {
           description_html: string | null
           duration_min: number
           id: string
+          is_hidden: boolean
           is_preview: boolean
           module_id: string
           position: number
@@ -3622,6 +3757,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id: string
           position?: number
@@ -3641,6 +3777,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id?: string
           position?: number
@@ -3900,12 +4037,148 @@ export type Database = {
         }
         Relationships: []
       }
+      areamembrojp_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      areamembrojp_mini_apps: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          html_path: string | null
+          icon_emoji: string | null
+          id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       areamembrojp_modules: {
         Row: {
           author_id: string | null
           cover_url: string | null
           created_at: string
           id: string
+          is_hidden: boolean
           position: number
           program_id: string
           title: string
@@ -3915,6 +4188,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id: string
           title: string
@@ -3924,6 +4198,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id?: string
           title?: string
@@ -4182,6 +4457,80 @@ export type Database = {
           user_email?: string | null
         }
         Relationships: []
+      }
+      areamembrojp_perf_events: {
+        Row: {
+          created_at: string
+          id: string
+          metric: string
+          rating: string | null
+          route: string | null
+          ua: string | null
+          user_id: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metric: string
+          rating?: string | null
+          route?: string | null
+          ua?: string | null
+          user_id?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metric?: string
+          rating?: string | null
+          route?: string | null
+          ua?: string | null
+          user_id?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
+      areamembrojp_personalized_tracks: {
+        Row: {
+          created_at: string
+          current_lesson_id: string | null
+          diagnostic_id: string | null
+          id: string
+          is_active: boolean
+          items: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_lesson_id?: string | null
+          diagnostic_id?: string | null
+          id?: string
+          is_active?: boolean
+          items?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_lesson_id?: string | null
+          diagnostic_id?: string | null
+          id?: string
+          is_active?: boolean
+          items?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_personalized_tracks_diagnostic_id_fkey"
+            columns: ["diagnostic_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_diagnostics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_plan_external_products: {
         Row: {
@@ -4746,11 +5095,16 @@ export type Database = {
           blocked_reason: string | null
           created_at: string
           email: string | null
+          engagement_score: number
           id: string
           is_blocked: boolean
           last_seen_at: string | null
+          lifecycle_stage: string
+          lifecycle_updated_at: string | null
           name: string | null
           push_enabled: boolean
+          score_breakdown: Json
+          score_updated_at: string | null
           updated_at: string
         }
         Insert: {
@@ -4760,11 +5114,16 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          engagement_score?: number
           id: string
           is_blocked?: boolean
           last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
           name?: string | null
           push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -4774,11 +5133,16 @@ export type Database = {
           blocked_reason?: string | null
           created_at?: string
           email?: string | null
+          engagement_score?: number
           id?: string
           is_blocked?: boolean
           last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
           name?: string | null
           push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5016,6 +5380,51 @@ export type Database = {
           },
         ]
       }
+      areamembrojp_push_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          delivered_count: number
+          failed_count: number
+          id: string
+          notif_type: string
+          recipients_count: number
+          removed_count: number
+          segment: Json
+          sent_by: string | null
+          title: string
+          url: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title: string
+          url?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       areamembrojp_push_subscriptions: {
         Row: {
           auth: string
@@ -5185,9 +5594,10 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
-          lesson_id: string
+          lesson_id: string | null
           max_attempts: number | null
           pass_score: number
+          program_id: string | null
           show_explanations: boolean
           shuffle_options: boolean
           shuffle_questions: boolean
@@ -5199,9 +5609,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          lesson_id: string
+          lesson_id?: string | null
           max_attempts?: number | null
           pass_score?: number
+          program_id?: string | null
           show_explanations?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
@@ -5213,9 +5624,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
-          lesson_id?: string
+          lesson_id?: string | null
           max_attempts?: number | null
           pass_score?: number
+          program_id?: string | null
           show_explanations?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
@@ -5228,6 +5640,13 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "areamembrojp_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_quizzes_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "areamembrojp_programs"
             referencedColumns: ["id"]
           },
         ]
@@ -5633,6 +6052,75 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      areamembrojp_tenant_magic_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_path: string
+          tenant_origin: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          redirect_path?: string
+          tenant_origin: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_path?: string
+          tenant_origin?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_tenant_settings: {
         Row: {
@@ -15197,6 +15685,963 @@ export type Database = {
         }
         Relationships: []
       }
+      guiadobuscador_admin_users: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          level: Database["public"]["Enums"]["diri_admin_level"] | null
+          location: string | null
+          permissions: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["diri_admin_level"] | null
+          location?: string | null
+          permissions?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["diri_admin_level"] | null
+          location?: string | null
+          permissions?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_banners: {
+        Row: {
+          category_id: string | null
+          category_ids: string[] | null
+          clicks: number
+          client_name: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          image_url: string
+          is_active: boolean | null
+          link_url: string | null
+          position: string | null
+          show_on_homepage: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          category_ids?: string[] | null
+          clicks?: number
+          client_name?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url: string
+          is_active?: boolean | null
+          link_url?: string | null
+          position?: string | null
+          show_on_homepage?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          category_ids?: string[] | null
+          clicks?: number
+          client_name?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string
+          is_active?: boolean | null
+          link_url?: string | null
+          position?: string | null
+          show_on_homepage?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_banners_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_blog_posts: {
+        Row: {
+          blog_id: string
+          content: string | null
+          created_at: string | null
+          featured_image: string | null
+          hat: string | null
+          id: string
+          keywords: string[] | null
+          published_at: string | null
+          status: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          blog_id: string
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          hat?: string | null
+          id?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          blog_id?: string
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          hat?: string | null
+          id?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_blog_posts_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_blogs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_blogs: {
+        Row: {
+          author: string
+          avatar_url: string | null
+          cover_image: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          author: string
+          avatar_url?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          author?: string
+          avatar_url?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_breaking_news: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          link: string | null
+          order_index: number
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          order_index?: number
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          order_index?: number
+          text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      guiadobuscador_categories: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          menu_order: number | null
+          name: string
+          show_in_header: boolean
+          show_in_menu: boolean | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_order?: number | null
+          name: string
+          show_in_header?: boolean
+          show_in_menu?: boolean | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_order?: number | null
+          name?: string
+          show_in_header?: boolean
+          show_in_menu?: boolean | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_contacts: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_read: boolean | null
+          message: string
+          name: string
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          name: string
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          name?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_galleries: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_gallery_images: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          display_order: number | null
+          gallery_id: string
+          id: string
+          image_url: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          gallery_id: string
+          id?: string
+          image_url: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          gallery_id?: string
+          id?: string
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_gallery_images_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_homepage_blocks: {
+        Row: {
+          block_type: string
+          category_id: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_visible: boolean | null
+          layout: string | null
+          posts_count: number | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          block_type?: string
+          category_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_visible?: boolean | null
+          layout?: string | null
+          posts_count?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          block_type?: string
+          category_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_visible?: boolean | null
+          layout?: string | null
+          posts_count?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_homepage_blocks_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_newsletter_subscribers: {
+        Row: {
+          email: string
+          id: string
+          is_active: boolean
+          subscribed_at: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          is_active?: boolean
+          subscribed_at?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          is_active?: boolean
+          subscribed_at?: string
+        }
+        Relationships: []
+      }
+      guiadobuscador_page_views: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          post_id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path?: string
+          post_id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          post_id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guiadobuscador_page_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_pages: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          show_in_menu: boolean
+          slug: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_in_menu?: boolean
+          slug: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_in_menu?: boolean
+          slug?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_post_shares: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform?: string
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          post_id?: string
+        }
+        Relationships: []
+      }
+      guiadobuscador_posts: {
+        Row: {
+          audio_url: string | null
+          author: string | null
+          category_id: string | null
+          content: string | null
+          created_at: string | null
+          featured_image: string | null
+          gallery_id: string | null
+          hat: string | null
+          id: string
+          image_caption: string | null
+          is_featured: boolean | null
+          keywords: string[] | null
+          published_at: string | null
+          scheduled_at: string | null
+          show_in_you_need_to_know: boolean
+          slug: string | null
+          source: string | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          audio_url?: string | null
+          author?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          gallery_id?: string | null
+          hat?: string | null
+          id?: string
+          image_caption?: string | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          show_in_you_need_to_know?: boolean
+          slug?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          audio_url?: string | null
+          author?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          gallery_id?: string | null
+          hat?: string | null
+          id?: string
+          image_caption?: string | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          show_in_you_need_to_know?: boolean
+          slug?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_posts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_posts_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_rss_import_jobs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          download_images: boolean
+          error_message: string | null
+          errors: Json
+          feed_url: string
+          finished_at: string | null
+          id: string
+          imported: number
+          item_limit: number
+          log: Json
+          skipped: number
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          download_images?: boolean
+          error_message?: string | null
+          errors?: Json
+          feed_url: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          item_limit?: number
+          log?: Json
+          skipped?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          download_images?: boolean
+          error_message?: string | null
+          errors?: Json
+          feed_url?: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          item_limit?: number
+          log?: Json
+          skipped?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guiadobuscador_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guiadobuscador_site_settings: {
+        Row: {
+          ads_txt: string | null
+          blogs_title: string | null
+          breaking_news_enabled: boolean | null
+          breaking_news_text: string | null
+          breaking_news_title: string | null
+          category_color_blocks: boolean | null
+          contact_email: string | null
+          created_at: string | null
+          custom_footer_html: string | null
+          custom_head_html: string | null
+          drop_caps_enabled: boolean | null
+          favicon_url: string | null
+          featured_post_ids: string[] | null
+          footer_disclaimer: string | null
+          footer_logo_style: string | null
+          footer_text: string | null
+          google_analytics_id: string | null
+          id: string
+          logo_url: string | null
+          maintenance_mode: boolean | null
+          meta_description: string | null
+          meta_keywords: string | null
+          newsletter_enabled: boolean | null
+          portal_color: string | null
+          primary_color: string | null
+          radio_enabled: boolean | null
+          radio_title: string | null
+          radio_url: string | null
+          section_order_blogs: number
+          section_order_latest_news: number
+          section_order_most_read: number
+          section_order_videos: number
+          section_order_you_need_to_know: number
+          separate_breaking_news: boolean | null
+          show_blogs_block: boolean | null
+          show_categories_footer: boolean | null
+          show_footer_logo: boolean | null
+          show_videos_block: boolean | null
+          site_slogan: string | null
+          site_title: string | null
+          site_url: string | null
+          social_facebook: string | null
+          social_instagram: string | null
+          social_twitter: string | null
+          social_whatsapp: string | null
+          social_youtube: string | null
+          sticky_menu: boolean | null
+          top_bar_enabled: boolean | null
+          updated_at: string | null
+          videos_title: string | null
+          weather_city: string | null
+          weather_state: string | null
+        }
+        Insert: {
+          ads_txt?: string | null
+          blogs_title?: string | null
+          breaking_news_enabled?: boolean | null
+          breaking_news_text?: string | null
+          breaking_news_title?: string | null
+          category_color_blocks?: boolean | null
+          contact_email?: string | null
+          created_at?: string | null
+          custom_footer_html?: string | null
+          custom_head_html?: string | null
+          drop_caps_enabled?: boolean | null
+          favicon_url?: string | null
+          featured_post_ids?: string[] | null
+          footer_disclaimer?: string | null
+          footer_logo_style?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          maintenance_mode?: boolean | null
+          meta_description?: string | null
+          meta_keywords?: string | null
+          newsletter_enabled?: boolean | null
+          portal_color?: string | null
+          primary_color?: string | null
+          radio_enabled?: boolean | null
+          radio_title?: string | null
+          radio_url?: string | null
+          section_order_blogs?: number
+          section_order_latest_news?: number
+          section_order_most_read?: number
+          section_order_videos?: number
+          section_order_you_need_to_know?: number
+          separate_breaking_news?: boolean | null
+          show_blogs_block?: boolean | null
+          show_categories_footer?: boolean | null
+          show_footer_logo?: boolean | null
+          show_videos_block?: boolean | null
+          site_slogan?: string | null
+          site_title?: string | null
+          site_url?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_twitter?: string | null
+          social_whatsapp?: string | null
+          social_youtube?: string | null
+          sticky_menu?: boolean | null
+          top_bar_enabled?: boolean | null
+          updated_at?: string | null
+          videos_title?: string | null
+          weather_city?: string | null
+          weather_state?: string | null
+        }
+        Update: {
+          ads_txt?: string | null
+          blogs_title?: string | null
+          breaking_news_enabled?: boolean | null
+          breaking_news_text?: string | null
+          breaking_news_title?: string | null
+          category_color_blocks?: boolean | null
+          contact_email?: string | null
+          created_at?: string | null
+          custom_footer_html?: string | null
+          custom_head_html?: string | null
+          drop_caps_enabled?: boolean | null
+          favicon_url?: string | null
+          featured_post_ids?: string[] | null
+          footer_disclaimer?: string | null
+          footer_logo_style?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          maintenance_mode?: boolean | null
+          meta_description?: string | null
+          meta_keywords?: string | null
+          newsletter_enabled?: boolean | null
+          portal_color?: string | null
+          primary_color?: string | null
+          radio_enabled?: boolean | null
+          radio_title?: string | null
+          radio_url?: string | null
+          section_order_blogs?: number
+          section_order_latest_news?: number
+          section_order_most_read?: number
+          section_order_videos?: number
+          section_order_you_need_to_know?: number
+          separate_breaking_news?: boolean | null
+          show_blogs_block?: boolean | null
+          show_categories_footer?: boolean | null
+          show_footer_logo?: boolean | null
+          show_videos_block?: boolean | null
+          site_slogan?: string | null
+          site_title?: string | null
+          site_url?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_twitter?: string | null
+          social_whatsapp?: string | null
+          social_youtube?: string | null
+          sticky_menu?: boolean | null
+          top_bar_enabled?: boolean | null
+          updated_at?: string | null
+          videos_title?: string | null
+          weather_city?: string | null
+          weather_state?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_site_stats: {
+        Row: {
+          id: string
+          total_visits: number
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      guiadobuscador_videos: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          youtube_url: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          youtube_url: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          youtube_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_videos_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "guiadobuscador_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hq_activity: {
         Row: {
           action: string
@@ -16435,6 +17880,7 @@ export type Database = {
           plataforma: string
           project_id: string | null
           resultado: string
+          source: string
           tipo: string
           valor_anterior: string | null
           valor_novo: string | null
@@ -16451,6 +17897,7 @@ export type Database = {
           plataforma?: string
           project_id?: string | null
           resultado?: string
+          source?: string
           tipo: string
           valor_anterior?: string | null
           valor_novo?: string | null
@@ -16467,6 +17914,7 @@ export type Database = {
           plataforma?: string
           project_id?: string | null
           resultado?: string
+          source?: string
           tipo?: string
           valor_anterior?: string | null
           valor_novo?: string | null
@@ -16622,6 +18070,7 @@ export type Database = {
           project_id: string | null
           purchases: number | null
           resultados: number | null
+          source: string
           spend: number | null
           stop_rate: number | null
           thumbnail_url: string | null
@@ -16669,6 +18118,7 @@ export type Database = {
           project_id?: string | null
           purchases?: number | null
           resultados?: number | null
+          source?: string
           spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
@@ -16716,6 +18166,7 @@ export type Database = {
           project_id?: string | null
           purchases?: number | null
           resultados?: number | null
+          source?: string
           spend?: number | null
           stop_rate?: number | null
           thumbnail_url?: string | null
@@ -16737,6 +18188,103 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_agent_knowledge: {
+        Row: {
+          agent_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json
+          source_name: string
+          source_path: string | null
+          source_type: string
+        }
+        Insert: {
+          agent_id: string
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          source_name: string
+          source_path?: string | null
+          source_type?: string
+        }
+        Update: {
+          agent_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          source_name?: string
+          source_path?: string | null
+          source_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_agent_knowledge_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ai_action_outcomes: {
+        Row: {
+          action_id: string
+          created_at: string
+          days_to_outcome: number | null
+          id: string
+          kind: string
+          notes: string | null
+          observed_at: string
+          projeto_id: string | null
+          result: string
+          revenue_delta: number | null
+          source: string | null
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          days_to_outcome?: number | null
+          id?: string
+          kind: string
+          notes?: string | null
+          observed_at?: string
+          projeto_id?: string | null
+          result: string
+          revenue_delta?: number | null
+          source?: string | null
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          days_to_outcome?: number | null
+          id?: string
+          kind?: string
+          notes?: string | null
+          observed_at?: string
+          projeto_id?: string | null
+          result?: string
+          revenue_delta?: number | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ai_action_outcomes_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ai_actions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -16812,6 +18360,66 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_ai_agents: {
+        Row: {
+          ativo: boolean
+          avatar_url: string | null
+          base_conhecimento: string | null
+          created_at: string
+          created_by: string | null
+          diretrizes: string | null
+          files: Json
+          id: string
+          identidade: string | null
+          instrucoes_atendimento: string | null
+          nome: string
+          objetivo: string | null
+          project_id: string | null
+          qa_pairs: Json
+          restricoes: string | null
+          updated_at: string
+          voice_config: Json
+        }
+        Insert: {
+          ativo?: boolean
+          avatar_url?: string | null
+          base_conhecimento?: string | null
+          created_at?: string
+          created_by?: string | null
+          diretrizes?: string | null
+          files?: Json
+          id?: string
+          identidade?: string | null
+          instrucoes_atendimento?: string | null
+          nome: string
+          objetivo?: string | null
+          project_id?: string | null
+          qa_pairs?: Json
+          restricoes?: string | null
+          updated_at?: string
+          voice_config?: Json
+        }
+        Update: {
+          ativo?: boolean
+          avatar_url?: string | null
+          base_conhecimento?: string | null
+          created_at?: string
+          created_by?: string | null
+          diretrizes?: string | null
+          files?: Json
+          id?: string
+          identidade?: string | null
+          instrucoes_atendimento?: string | null
+          nome?: string
+          objetivo?: string | null
+          project_id?: string | null
+          qa_pairs?: Json
+          restricoes?: string | null
+          updated_at?: string
+          voice_config?: Json
         }
         Relationships: []
       }
@@ -16940,6 +18548,117 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ai_policy: {
+        Row: {
+          auto_exec_threshold: number
+          confidence_floor: number
+          failure_rate: number
+          id: string
+          killed: boolean
+          killed_reason: string | null
+          kind: string
+          sample_size: number
+          scope: string
+          source: string | null
+          success_rate: number
+          updated_at: string
+        }
+        Insert: {
+          auto_exec_threshold?: number
+          confidence_floor?: number
+          failure_rate?: number
+          id?: string
+          killed?: boolean
+          killed_reason?: string | null
+          kind: string
+          sample_size?: number
+          scope?: string
+          source?: string | null
+          success_rate?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_exec_threshold?: number
+          confidence_floor?: number
+          failure_rate?: number
+          id?: string
+          killed?: boolean
+          killed_reason?: string | null
+          kind?: string
+          sample_size?: number
+          scope?: string
+          source?: string | null
+          success_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_ai_usage: {
+        Row: {
+          completion_tokens: number
+          cost_usd: number
+          created_at: string
+          function_name: string
+          id: string
+          model: string
+          project_id: string | null
+          prompt_tokens: number
+          provider: string
+          tag: string | null
+          total_tokens: number
+        }
+        Insert: {
+          completion_tokens?: number
+          cost_usd?: number
+          created_at?: string
+          function_name: string
+          id?: string
+          model: string
+          project_id?: string | null
+          prompt_tokens?: number
+          provider?: string
+          tag?: string | null
+          total_tokens?: number
+        }
+        Update: {
+          completion_tokens?: number
+          cost_usd?: number
+          created_at?: string
+          function_name?: string
+          id?: string
+          model?: string
+          project_id?: string | null
+          prompt_tokens?: number
+          provider?: string
+          tag?: string | null
+          total_tokens?: number
+        }
+        Relationships: []
+      }
+      imphq_alert_dismissals: {
+        Row: {
+          alert_key: string
+          dismissed_at: string
+          expires_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          alert_key: string
+          dismissed_at?: string
+          expires_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          alert_key?: string
+          dismissed_at?: string
+          expires_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_api_keys: {
         Row: {
           created_at: string | null
@@ -17042,26 +18761,69 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_automacao_versions: {
+        Row: {
+          automacao_id: string
+          criado_em: string
+          criado_por: string | null
+          id: string
+          snapshot: Json
+          versao_num: number
+        }
+        Insert: {
+          automacao_id: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          snapshot: Json
+          versao_num: number
+        }
+        Update: {
+          automacao_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          snapshot?: Json
+          versao_num?: number
+        }
+        Relationships: []
+      }
       imphq_automacoes: {
         Row: {
           acoes: Json | null
           ativo: boolean | null
           campanha_id: string | null
+          canal: string
+          circuit_breaker_error_pct: number | null
+          circuit_breaker_paused_at: string | null
+          circuit_breaker_reason: string | null
+          circuit_breaker_window_min: number | null
           created_at: string | null
           dedupe_hours: number | null
+          exclusivo: boolean
+          exit_cascade: boolean
+          exit_conditions: Json | null
+          exit_trigger_payload: Json | null
+          exit_trigger_tipo: string | null
+          flow_objective: string | null
           follow_up_hours: number | null
           follow_up_template: string | null
           id: string
           link_checkout: string | null
+          linked_blueprint_id: string | null
           nome: string
+          prioridade: number
           produto: string | null
           project_id: string | null
           provider_id: string | null
           quiet_end: number | null
           quiet_start: number | null
+          rate_limit_per_lead_24h: number | null
           stalled_hours: number | null
           stalled_operator: string | null
+          stats_cache: Json | null
           tag_filtro: string | null
+          trigger_config: Json | null
           trigger_tipo: string
           updated_at: string | null
         }
@@ -17069,21 +18831,37 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           campanha_id?: string | null
+          canal?: string
+          circuit_breaker_error_pct?: number | null
+          circuit_breaker_paused_at?: string | null
+          circuit_breaker_reason?: string | null
+          circuit_breaker_window_min?: number | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exclusivo?: boolean
+          exit_cascade?: boolean
+          exit_conditions?: Json | null
+          exit_trigger_payload?: Json | null
+          exit_trigger_tipo?: string | null
+          flow_objective?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id: string
           link_checkout?: string | null
+          linked_blueprint_id?: string | null
           nome: string
+          prioridade?: number
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          rate_limit_per_lead_24h?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
+          stats_cache?: Json | null
           tag_filtro?: string | null
+          trigger_config?: Json | null
           trigger_tipo: string
           updated_at?: string | null
         }
@@ -17091,25 +18869,48 @@ export type Database = {
           acoes?: Json | null
           ativo?: boolean | null
           campanha_id?: string | null
+          canal?: string
+          circuit_breaker_error_pct?: number | null
+          circuit_breaker_paused_at?: string | null
+          circuit_breaker_reason?: string | null
+          circuit_breaker_window_min?: number | null
           created_at?: string | null
           dedupe_hours?: number | null
+          exclusivo?: boolean
+          exit_cascade?: boolean
+          exit_conditions?: Json | null
+          exit_trigger_payload?: Json | null
+          exit_trigger_tipo?: string | null
+          flow_objective?: string | null
           follow_up_hours?: number | null
           follow_up_template?: string | null
           id?: string
           link_checkout?: string | null
+          linked_blueprint_id?: string | null
           nome?: string
+          prioridade?: number
           produto?: string | null
           project_id?: string | null
           provider_id?: string | null
           quiet_end?: number | null
           quiet_start?: number | null
+          rate_limit_per_lead_24h?: number | null
           stalled_hours?: number | null
           stalled_operator?: string | null
+          stats_cache?: Json | null
           tag_filtro?: string | null
+          trigger_config?: Json | null
           trigger_tipo?: string
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_automacoes_linked_blueprint_id_fkey"
+            columns: ["linked_blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_automacoes_project_id_fkey"
             columns: ["project_id"]
@@ -17125,6 +18926,149 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_autopilot_runs: {
+        Row: {
+          assets: Json | null
+          created_at: string
+          current_step: number
+          error: string | null
+          id: string
+          input: Json | null
+          project_id: string
+          scraped_context: string | null
+          status: string
+          steps: Json | null
+          total_steps: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assets?: Json | null
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          id?: string
+          input?: Json | null
+          project_id: string
+          scraped_context?: string | null
+          status?: string
+          steps?: Json | null
+          total_steps?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assets?: Json | null
+          created_at?: string
+          current_step?: number
+          error?: string | null
+          id?: string
+          input?: Json | null
+          project_id?: string
+          scraped_context?: string | null
+          status?: string
+          steps?: Json | null
+          total_steps?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      imphq_avatar_studio_generations: {
+        Row: {
+          avatar_project_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          library_id: string | null
+          media_type: string
+          media_url: string | null
+          metadata: Json | null
+          modo: string
+          produto_id: string | null
+          project_id: string
+          prompt: string
+          status: string
+          thumbnail_url: string | null
+        }
+        Insert: {
+          avatar_project_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          library_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          metadata?: Json | null
+          modo: string
+          produto_id?: string | null
+          project_id: string
+          prompt: string
+          status?: string
+          thumbnail_url?: string | null
+        }
+        Update: {
+          avatar_project_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          library_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          metadata?: Json | null
+          modo?: string
+          produto_id?: string | null
+          project_id?: string
+          prompt?: string
+          status?: string
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_avatar_studio_generations_avatar_project_id_fkey"
+            columns: ["avatar_project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_avatar_studio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_avatar_studio_projects: {
+        Row: {
+          avatar_photos: Json
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          estilo_base: string | null
+          id: string
+          nome: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_photos?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          estilo_base?: string | null
+          id?: string
+          nome: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_photos?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          estilo_base?: string | null
+          id?: string
+          nome?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       imphq_business_hours: {
         Row: {
@@ -17606,6 +19550,92 @@ export type Database = {
           },
         ]
       }
+      imphq_channel_messages: {
+        Row: {
+          created_at: string
+          direction: string
+          id: string
+          media_url: string | null
+          meta: Json
+          session_id: string
+          texto: string | null
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          id?: string
+          media_url?: string | null
+          meta?: Json
+          session_id: string
+          texto?: string | null
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          id?: string
+          media_url?: string | null
+          meta?: Json
+          session_id?: string
+          texto?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_channel_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_channel_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_channel_sessions: {
+        Row: {
+          avatar_url: string | null
+          canal: string
+          created_at: string
+          external_id: string
+          id: string
+          last_message_at: string
+          lead_id: string | null
+          meta: Json
+          nome: string | null
+          origin: string | null
+          project_id: string | null
+          updated_at: string
+          widget_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          canal?: string
+          created_at?: string
+          external_id: string
+          id?: string
+          last_message_at?: string
+          lead_id?: string | null
+          meta?: Json
+          nome?: string | null
+          origin?: string | null
+          project_id?: string | null
+          updated_at?: string
+          widget_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          canal?: string
+          created_at?: string
+          external_id?: string
+          id?: string
+          last_message_at?: string
+          lead_id?: string | null
+          meta?: Json
+          nome?: string | null
+          origin?: string | null
+          project_id?: string | null
+          updated_at?: string
+          widget_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_chat_messages: {
         Row: {
           content: string
@@ -17686,6 +19716,177 @@ export type Database = {
           },
         ]
       }
+      imphq_cinna_x1_configs: {
+        Row: {
+          config: Json
+          model: string
+          project_id: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          config: Json
+          model?: string
+          project_id: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          model?: string
+          project_id?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_cinna_x1_configs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cinna_x1_configs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_cinna_x1_sessions: {
+        Row: {
+          created_at: string
+          flow_config: Json
+          id: string
+          initial_decision: Json
+          lock_event: string | null
+          lock_hash: string | null
+          lock_token: string | null
+          lock_until: string | null
+          mode: string
+          model: string
+          owner_id: string
+          project_id: string
+          revision: number
+          state: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          flow_config: Json
+          id?: string
+          initial_decision: Json
+          lock_event?: string | null
+          lock_hash?: string | null
+          lock_token?: string | null
+          lock_until?: string | null
+          mode?: string
+          model: string
+          owner_id: string
+          project_id: string
+          revision: number
+          state: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          flow_config?: Json
+          id?: string
+          initial_decision?: Json
+          lock_event?: string | null
+          lock_hash?: string | null
+          lock_token?: string | null
+          lock_until?: string | null
+          mode?: string
+          model?: string
+          owner_id?: string
+          project_id?: string
+          revision?: number
+          state?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_cinna_x1_sessions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cinna_x1_sessions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cinna_x1_sessions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_cinna_x1_sessions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cinna_x1_sessions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cinna_x1_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_cinna_x1_configs"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_cinna_x1_turns: {
+        Row: {
+          created_at: string
+          decision: Json
+          event_id: string
+          input_text: string
+          message_hash: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          decision: Json
+          event_id: string
+          input_text: string
+          message_hash: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          decision?: Json
+          event_id?: string
+          input_text?: string
+          message_hash?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_cinna_x1_turns_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_cinna_x1_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_clicks: {
         Row: {
           converted_at: string | null
@@ -17748,6 +19949,66 @@ export type Database = {
           },
         ]
       }
+      imphq_cloud_phones: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          fingerprint_id: string | null
+          id: string
+          nome: string | null
+          notas: string | null
+          project_id: string | null
+          provider: string
+          proxy_geo: string | null
+          proxy_tipo: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          fingerprint_id?: string | null
+          id?: string
+          nome?: string | null
+          notas?: string | null
+          project_id?: string | null
+          provider?: string
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          fingerprint_id?: string | null
+          id?: string
+          nome?: string | null
+          notas?: string | null
+          project_id?: string | null
+          provider?: string
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_cloud_phones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cloud_phones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_cold_reactivation_rules: {
         Row: {
           ativo: boolean
@@ -17795,6 +20056,276 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      imphq_company_map_annotations: {
+        Row: {
+          created_at: string
+          height: number
+          id: string
+          kind: string
+          map_id: string
+          style: Json
+          text: string | null
+          updated_at: string
+          width: number
+          x: number
+          y: number
+          z_index: number
+        }
+        Insert: {
+          created_at?: string
+          height?: number
+          id?: string
+          kind: string
+          map_id: string
+          style?: Json
+          text?: string | null
+          updated_at?: string
+          width?: number
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Update: {
+          created_at?: string
+          height?: number
+          id?: string
+          kind?: string
+          map_id?: string
+          style?: Json
+          text?: string | null
+          updated_at?: string
+          width?: number
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_annotations_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_company_map_comments: {
+        Row: {
+          author_avatar: string | null
+          author_id: string
+          author_name: string | null
+          body: string
+          created_at: string
+          id: string
+          map_id: string
+          resolved: boolean
+          target_id: string
+          target_kind: string
+          updated_at: string
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_id: string
+          author_name?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          map_id: string
+          resolved?: boolean
+          target_id: string
+          target_kind?: string
+          updated_at?: string
+        }
+        Update: {
+          author_avatar?: string | null
+          author_id?: string
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          map_id?: string
+          resolved?: boolean
+          target_id?: string
+          target_kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_company_map_edges: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          map_id: string
+          source_handle: string | null
+          source_id: string
+          source_kind: string
+          style: string | null
+          target_handle: string | null
+          target_id: string
+          target_kind: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          map_id: string
+          source_handle?: string | null
+          source_id: string
+          source_kind?: string
+          style?: string | null
+          target_handle?: string | null
+          target_id: string
+          target_kind?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          map_id?: string
+          source_handle?: string | null
+          source_id?: string
+          source_kind?: string
+          style?: string | null
+          target_handle?: string | null
+          target_id?: string
+          target_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_edges_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_company_map_nodes: {
+        Row: {
+          checklist: Json
+          color: string
+          created_at: string
+          description: string | null
+          height: number | null
+          id: string
+          image_url: string | null
+          kind: string
+          label: string
+          linked_flow_id: string | null
+          linked_funnel_id: string | null
+          linked_project_id: string | null
+          linked_wa_provider_id: string | null
+          map_id: string
+          notes: string | null
+          position: Json
+          show_live_kpis: boolean | null
+          size: string
+          updated_at: string
+          url: string | null
+          width: number | null
+        }
+        Insert: {
+          checklist?: Json
+          color?: string
+          created_at?: string
+          description?: string | null
+          height?: number | null
+          id?: string
+          image_url?: string | null
+          kind?: string
+          label?: string
+          linked_flow_id?: string | null
+          linked_funnel_id?: string | null
+          linked_project_id?: string | null
+          linked_wa_provider_id?: string | null
+          map_id: string
+          notes?: string | null
+          position?: Json
+          show_live_kpis?: boolean | null
+          size?: string
+          updated_at?: string
+          url?: string | null
+          width?: number | null
+        }
+        Update: {
+          checklist?: Json
+          color?: string
+          created_at?: string
+          description?: string | null
+          height?: number | null
+          id?: string
+          image_url?: string | null
+          kind?: string
+          label?: string
+          linked_flow_id?: string | null
+          linked_funnel_id?: string | null
+          linked_project_id?: string | null
+          linked_wa_provider_id?: string | null
+          map_id?: string
+          notes?: string | null
+          position?: Json
+          show_live_kpis?: boolean | null
+          size?: string
+          updated_at?: string
+          url?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_map_nodes_linked_wa_provider_id_fkey"
+            columns: ["linked_wa_provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_company_map_nodes_map_id_fkey"
+            columns: ["map_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_maps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_company_maps: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          parent_node_id: string | null
+          share_token: string | null
+          updated_at: string
+          viewport: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_node_id?: string | null
+          share_token?: string | null
+          updated_at?: string
+          viewport?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_node_id?: string | null
+          share_token?: string | null
+          updated_at?: string
+          viewport?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_company_maps_parent_node_id_fkey"
+            columns: ["parent_node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_competitors: {
         Row: {
@@ -18021,6 +20552,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          intent: string
           messages: Json
           project_id: string | null
           title: string
@@ -18030,6 +20562,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          intent?: string
           messages?: Json
           project_id?: string | null
           title?: string
@@ -18039,6 +20572,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          intent?: string
           messages?: Json
           project_id?: string | null
           title?: string
@@ -18047,11 +20581,108 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_copy_engine_prompts: {
+        Row: {
+          apply_style: boolean
+          created_at: string
+          enabled: boolean
+          id: string
+          intent: string
+          label: string
+          model: string
+          notes: string | null
+          output_format: string
+          reasoning: string
+          system_prompt: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          apply_style?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent: string
+          label: string
+          model?: string
+          notes?: string | null
+          output_format?: string
+          reasoning?: string
+          system_prompt: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          apply_style?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          intent?: string
+          label?: string
+          model?: string
+          notes?: string | null
+          output_format?: string
+          reasoning?: string
+          system_prompt?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      imphq_copy_sync_bindings: {
+        Row: {
+          auto_apply: boolean
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          last_value: string | null
+          project_id: string
+          source_field: string
+          source_id: string
+          source_type: string
+          target_field: string
+          target_ref_id: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          auto_apply?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          last_value?: string | null
+          project_id: string
+          source_field: string
+          source_id: string
+          source_type: string
+          target_field: string
+          target_ref_id: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          auto_apply?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          last_value?: string | null
+          project_id?: string
+          source_field?: string
+          source_id?: string
+          source_type?: string
+          target_field?: string
+          target_ref_id?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_creative_assets: {
         Row: {
           angulo: string
           aprovado: boolean
           batch_id: string
+          card_id: string | null
           created_at: string
           edit_instruction: string | null
           exported_to_midia: boolean
@@ -18076,6 +20707,7 @@ export type Database = {
           angulo: string
           aprovado?: boolean
           batch_id: string
+          card_id?: string | null
           created_at?: string
           edit_instruction?: string | null
           exported_to_midia?: boolean
@@ -18100,6 +20732,7 @@ export type Database = {
           angulo?: string
           aprovado?: boolean
           batch_id?: string
+          card_id?: string | null
           created_at?: string
           edit_instruction?: string | null
           exported_to_midia?: boolean
@@ -18252,38 +20885,53 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string | null
+          description: string | null
           icon: string | null
           id: string
           is_active: boolean | null
           member_id: string | null
           position: number | null
           project_id: string | null
+          recurrence: string
+          start_date: string | null
+          time_of_day: string | null
           title: string
           user_id: string
+          weekdays: number[]
         }
         Insert: {
           category?: string | null
           created_at?: string | null
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           member_id?: string | null
           position?: number | null
           project_id?: string | null
+          recurrence?: string
+          start_date?: string | null
+          time_of_day?: string | null
           title: string
           user_id: string
+          weekdays?: number[]
         }
         Update: {
           category?: string | null
           created_at?: string | null
+          description?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
           member_id?: string | null
           position?: number | null
           project_id?: string | null
+          recurrence?: string
+          start_date?: string | null
+          time_of_day?: string | null
           title?: string
           user_id?: string
+          weekdays?: number[]
         }
         Relationships: [
           {
@@ -18487,35 +21135,274 @@ export type Database = {
           },
         ]
       }
-      imphq_empresa: {
+      imphq_embedding_cache: {
         Row: {
           created_at: string | null
-          extra: Json | null
+          dimensions: number
+          embedding: string | null
+          hits: number | null
           id: string
-          nome: string
-          tipo: string
-          updated_at: string | null
-          valor: string | null
+          last_used_at: string | null
+          model: string
+          text_hash: string
+          text_preview: string | null
         }
         Insert: {
           created_at?: string | null
-          extra?: Json | null
+          dimensions: number
+          embedding?: string | null
+          hits?: number | null
           id?: string
-          nome: string
-          tipo?: string
-          updated_at?: string | null
-          valor?: string | null
+          last_used_at?: string | null
+          model: string
+          text_hash: string
+          text_preview?: string | null
         }
         Update: {
           created_at?: string | null
-          extra?: Json | null
+          dimensions?: number
+          embedding?: string | null
+          hits?: number | null
           id?: string
-          nome?: string
-          tipo?: string
-          updated_at?: string | null
-          valor?: string | null
+          last_used_at?: string | null
+          model?: string
+          text_hash?: string
+          text_preview?: string | null
         }
         Relationships: []
+      }
+      imphq_empresa: {
+        Row: {
+          cloud_phone_id: string | null
+          cloud_phone_provider: string | null
+          cloud_phone_ref: string | null
+          color: string | null
+          comprador: string | null
+          created_at: string | null
+          data_criacao_conta: string | null
+          engajamento_medio: number | null
+          extra: Json | null
+          fingerprint_id: string | null
+          foto_url: string | null
+          id: string
+          idioma: string | null
+          mapa_node_id: string | null
+          marketplace: string | null
+          nicho: string | null
+          nome: string
+          observacoes_venda: string | null
+          position: number | null
+          preco_alvo: number | null
+          project_id: string | null
+          pronta_venda: boolean | null
+          proxy_endpoint: string | null
+          proxy_geo: string | null
+          proxy_tipo: string | null
+          revendedor_id: string | null
+          seguidores: number | null
+          sinais_risco: Json | null
+          status_auto_color: boolean | null
+          status_venda: string | null
+          tipo: string
+          ultimo_alcance: number | null
+          updated_at: string | null
+          valor: string | null
+          warmup_days: number | null
+          warmup_started_at: string | null
+          warmup_status: string | null
+        }
+        Insert: {
+          cloud_phone_id?: string | null
+          cloud_phone_provider?: string | null
+          cloud_phone_ref?: string | null
+          color?: string | null
+          comprador?: string | null
+          created_at?: string | null
+          data_criacao_conta?: string | null
+          engajamento_medio?: number | null
+          extra?: Json | null
+          fingerprint_id?: string | null
+          foto_url?: string | null
+          id?: string
+          idioma?: string | null
+          mapa_node_id?: string | null
+          marketplace?: string | null
+          nicho?: string | null
+          nome: string
+          observacoes_venda?: string | null
+          position?: number | null
+          preco_alvo?: number | null
+          project_id?: string | null
+          pronta_venda?: boolean | null
+          proxy_endpoint?: string | null
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          revendedor_id?: string | null
+          seguidores?: number | null
+          sinais_risco?: Json | null
+          status_auto_color?: boolean | null
+          status_venda?: string | null
+          tipo?: string
+          ultimo_alcance?: number | null
+          updated_at?: string | null
+          valor?: string | null
+          warmup_days?: number | null
+          warmup_started_at?: string | null
+          warmup_status?: string | null
+        }
+        Update: {
+          cloud_phone_id?: string | null
+          cloud_phone_provider?: string | null
+          cloud_phone_ref?: string | null
+          color?: string | null
+          comprador?: string | null
+          created_at?: string | null
+          data_criacao_conta?: string | null
+          engajamento_medio?: number | null
+          extra?: Json | null
+          fingerprint_id?: string | null
+          foto_url?: string | null
+          id?: string
+          idioma?: string | null
+          mapa_node_id?: string | null
+          marketplace?: string | null
+          nicho?: string | null
+          nome?: string
+          observacoes_venda?: string | null
+          position?: number | null
+          preco_alvo?: number | null
+          project_id?: string | null
+          pronta_venda?: boolean | null
+          proxy_endpoint?: string | null
+          proxy_geo?: string | null
+          proxy_tipo?: string | null
+          revendedor_id?: string | null
+          seguidores?: number | null
+          sinais_risco?: Json | null
+          status_auto_color?: boolean | null
+          status_venda?: string | null
+          tipo?: string
+          ultimo_alcance?: number | null
+          updated_at?: string | null
+          valor?: string | null
+          warmup_days?: number | null
+          warmup_started_at?: string | null
+          warmup_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_empresa_cloud_phone_ref_fkey"
+            columns: ["cloud_phone_ref"]
+            isOneToOne: false
+            referencedRelation: "imphq_cloud_phones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_empresa_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_empresa_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_empresa_conteudo: {
+        Row: {
+          alcance: number | null
+          comentarios: number | null
+          conta_id: string
+          created_at: string
+          erro: string | null
+          horario_agendado: string | null
+          id: string
+          legenda: string | null
+          likes: number | null
+          post_url: string | null
+          status: string | null
+          updated_at: string
+          video_origem_url: string | null
+          video_processado_url: string | null
+        }
+        Insert: {
+          alcance?: number | null
+          comentarios?: number | null
+          conta_id: string
+          created_at?: string
+          erro?: string | null
+          horario_agendado?: string | null
+          id?: string
+          legenda?: string | null
+          likes?: number | null
+          post_url?: string | null
+          status?: string | null
+          updated_at?: string
+          video_origem_url?: string | null
+          video_processado_url?: string | null
+        }
+        Update: {
+          alcance?: number | null
+          comentarios?: number | null
+          conta_id?: string
+          created_at?: string
+          erro?: string | null
+          horario_agendado?: string | null
+          id?: string
+          legenda?: string | null
+          likes?: number | null
+          post_url?: string | null
+          status?: string | null
+          updated_at?: string
+          video_origem_url?: string | null
+          video_processado_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_empresa_conteudo_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_empresa"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_empresa_eventos: {
+        Row: {
+          conta_id: string
+          created_at: string
+          id: string
+          payload: Json | null
+          tipo: string
+        }
+        Insert: {
+          conta_id: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          tipo: string
+        }
+        Update: {
+          conta_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_empresa_eventos_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_empresa"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_events: {
         Row: {
@@ -18604,54 +21491,429 @@ export type Database = {
         }
         Relationships: []
       }
-      imphq_flow_executions: {
+      imphq_flow_blueprints: {
+        Row: {
+          activated_at: string | null
+          blueprint: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          linked_automacao_id: string | null
+          objetivo: string | null
+          produto_id: string | null
+          produto_nome: string | null
+          project_id: string
+          source: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          blueprint?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_automacao_id?: string | null
+          objetivo?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id: string
+          source?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          blueprint?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_automacao_id?: string | null
+          objetivo?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          source?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_flow_dead_letter: {
         Row: {
           automacao_id: string
           created_at: string
           current_step: number
+          error_kind: string | null
           error_message: string | null
+          execution_id: string
           id: string
           lead_id: string | null
-          next_run_at: string | null
           project_id: string
-          status: string
-          step_results: Json
-          trigger_tipo: string
-          updated_at: string
+          reprocess_execution_id: string | null
+          reprocessed_at: string | null
+          retry_count: number
+          step_results: Json | null
+          step_snapshot: Json | null
         }
         Insert: {
           automacao_id: string
           created_at?: string
           current_step?: number
+          error_kind?: string | null
           error_message?: string | null
+          execution_id: string
           id?: string
           lead_id?: string | null
-          next_run_at?: string | null
           project_id: string
-          status?: string
-          step_results?: Json
-          trigger_tipo: string
-          updated_at?: string
+          reprocess_execution_id?: string | null
+          reprocessed_at?: string | null
+          retry_count?: number
+          step_results?: Json | null
+          step_snapshot?: Json | null
         }
         Update: {
           automacao_id?: string
           created_at?: string
           current_step?: number
+          error_kind?: string | null
           error_message?: string | null
+          execution_id?: string
           id?: string
           lead_id?: string | null
+          project_id?: string
+          reprocess_execution_id?: string | null
+          reprocessed_at?: string | null
+          retry_count?: number
+          step_results?: Json | null
+          step_snapshot?: Json | null
+        }
+        Relationships: []
+      }
+      imphq_flow_executions: {
+        Row: {
+          automacao_id: string
+          channel_session_id: string | null
+          created_at: string
+          current_step: number
+          error_message: string | null
+          id: string
+          last_error_at: string | null
+          last_error_kind: string | null
+          lead_id: string | null
+          max_retries: number
+          next_run_at: string | null
+          project_id: string
+          retry_count: number
+          status: string
+          step_results: Json
+          trigger_tipo: string
+          updated_at: string
+          waiting_for: string | null
+        }
+        Insert: {
+          automacao_id: string
+          channel_session_id?: string | null
+          created_at?: string
+          current_step?: number
+          error_message?: string | null
+          id?: string
+          last_error_at?: string | null
+          last_error_kind?: string | null
+          lead_id?: string | null
+          max_retries?: number
+          next_run_at?: string | null
+          project_id: string
+          retry_count?: number
+          status?: string
+          step_results?: Json
+          trigger_tipo: string
+          updated_at?: string
+          waiting_for?: string | null
+        }
+        Update: {
+          automacao_id?: string
+          channel_session_id?: string | null
+          created_at?: string
+          current_step?: number
+          error_message?: string | null
+          id?: string
+          last_error_at?: string | null
+          last_error_kind?: string | null
+          lead_id?: string | null
+          max_retries?: number
           next_run_at?: string | null
           project_id?: string
+          retry_count?: number
           status?: string
           step_results?: Json
           trigger_tipo?: string
           updated_at?: string
+          waiting_for?: string | null
         }
         Relationships: []
+      }
+      imphq_flow_image_jobs: {
+        Row: {
+          automacao_id: string | null
+          block_id: string
+          blueprint_id: string | null
+          context: Json | null
+          created_at: string
+          error: string | null
+          execution_id: string | null
+          id: string
+          prompt: string
+          send_after: boolean | null
+          size: string | null
+          status: string
+          style: string | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          automacao_id?: string | null
+          block_id: string
+          blueprint_id?: string | null
+          context?: Json | null
+          created_at?: string
+          error?: string | null
+          execution_id?: string | null
+          id?: string
+          prompt: string
+          send_after?: boolean | null
+          size?: string | null
+          status?: string
+          style?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          automacao_id?: string | null
+          block_id?: string
+          blueprint_id?: string | null
+          context?: Json | null
+          created_at?: string
+          error?: string | null
+          execution_id?: string | null
+          id?: string
+          prompt?: string
+          send_after?: boolean | null
+          size?: string | null
+          status?: string
+          style?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_image_jobs_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_media: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duration_ms: number | null
+          id: string
+          kind: string
+          label: string
+          mime_type: string | null
+          project_id: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          tags: string[] | null
+          transcript: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          id?: string
+          kind: string
+          label: string
+          mime_type?: string | null
+          project_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          id?: string
+          kind?: string
+          label?: string
+          mime_type?: string | null
+          project_id?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[] | null
+          transcript?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      imphq_flow_node_stats: {
+        Row: {
+          active: number
+          blueprint_id: string
+          completed: number
+          dropped: number
+          entered: number
+          id: string
+          node_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: number
+          blueprint_id: string
+          completed?: number
+          dropped?: number
+          entered?: number
+          id?: string
+          node_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: number
+          blueprint_id?: string
+          completed?: number
+          dropped?: number
+          entered?: number
+          id?: string
+          node_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_node_stats_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_node_variants: {
+        Row: {
+          block_id: string | null
+          blueprint_id: string
+          conversions: number
+          copy: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          impressions: number
+          node_id: string
+          status: string
+          updated_at: string
+          variant_key: string
+          weight: number
+        }
+        Insert: {
+          block_id?: string | null
+          blueprint_id: string
+          conversions?: number
+          copy?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          node_id: string
+          status?: string
+          updated_at?: string
+          variant_key: string
+          weight?: number
+        }
+        Update: {
+          block_id?: string | null
+          blueprint_id?: string
+          conversions?: number
+          copy?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          node_id?: string
+          status?: string
+          updated_at?: string
+          variant_key?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_node_variants_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_runtime_events: {
+        Row: {
+          blueprint_id: string
+          conversation_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          lead_id: string | null
+          node_id: string
+          payload: Json
+          variant_id: string | null
+        }
+        Insert: {
+          blueprint_id: string
+          conversation_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          node_id: string
+          payload?: Json
+          variant_id?: string | null
+        }
+        Update: {
+          blueprint_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          node_id?: string
+          payload?: Json
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_runtime_events_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_flow_templates: {
         Row: {
           acoes: Json
+          categoria: string | null
           created_at: string
           descricao: string | null
           icon: string | null
@@ -18663,6 +21925,7 @@ export type Database = {
         }
         Insert: {
           acoes?: Json
+          categoria?: string | null
           created_at?: string
           descricao?: string | null
           icon?: string | null
@@ -18674,6 +21937,7 @@ export type Database = {
         }
         Update: {
           acoes?: Json
+          categoria?: string | null
           created_at?: string
           descricao?: string | null
           icon?: string | null
@@ -18682,6 +21946,113 @@ export type Database = {
           ordem?: number | null
           slug?: string
           trigger_tipo?: string
+        }
+        Relationships: []
+      }
+      imphq_flow_wa_triggers: {
+        Row: {
+          active: boolean
+          blueprint_id: string
+          created_at: string
+          id: string
+          keywords: string[]
+          notes: string | null
+          pitch_link: string | null
+          produto_id: string | null
+          produto_nome: string | null
+          project_id: string
+          provider_id: string | null
+          times_matched: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          blueprint_id: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          notes?: string | null
+          pitch_link?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id: string
+          provider_id?: string | null
+          times_matched?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          blueprint_id?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          notes?: string | null
+          pitch_link?: string | null
+          produto_id?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          provider_id?: string | null
+          times_matched?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_flow_wa_triggers_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_flow_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_flow_webhooks: {
+        Row: {
+          ativo: boolean
+          automacao_id: string | null
+          created_at: string
+          evento: string | null
+          field_map: Json
+          id: string
+          last_event_id: string | null
+          last_payload: Json | null
+          last_received_at: string | null
+          nome: string
+          project_id: string | null
+          token: string
+          total_recebidos: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          automacao_id?: string | null
+          created_at?: string
+          evento?: string | null
+          field_map?: Json
+          id?: string
+          last_event_id?: string | null
+          last_payload?: Json | null
+          last_received_at?: string | null
+          nome?: string
+          project_id?: string | null
+          token?: string
+          total_recebidos?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          automacao_id?: string | null
+          created_at?: string
+          evento?: string | null
+          field_map?: Json
+          id?: string
+          last_event_id?: string | null
+          last_payload?: Json | null
+          last_received_at?: string | null
+          nome?: string
+          project_id?: string | null
+          token?: string
+          total_recebidos?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -18769,6 +22140,189 @@ export type Database = {
           },
         ]
       }
+      imphq_funnel_audit_actions: {
+        Row: {
+          action_type: string
+          audit_run_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          executed_at: string | null
+          executed_result: Json | null
+          funil_id: string | null
+          id: string
+          payload: Json
+          projeto_id: string | null
+          rejected_reason: string | null
+          risk_level: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          audit_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          executed_at?: string | null
+          executed_result?: Json | null
+          funil_id?: string | null
+          id?: string
+          payload?: Json
+          projeto_id?: string | null
+          rejected_reason?: string | null
+          risk_level?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          audit_run_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          executed_at?: string | null
+          executed_result?: Json | null
+          funil_id?: string | null
+          id?: string
+          payload?: Json
+          projeto_id?: string | null
+          rejected_reason?: string | null
+          risk_level?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_brain_signals: {
+        Row: {
+          created_at: string
+          evidence: Json | null
+          executed_at: string | null
+          expires_at: string | null
+          funil_id: string | null
+          id: string
+          node_id: string | null
+          produto_id: string | null
+          projeto_id: string
+          reasoning: string | null
+          severity: string
+          signal_type: string
+          snoozed_until: string | null
+          status: string
+          suggested_action: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json | null
+          executed_at?: string | null
+          expires_at?: string | null
+          funil_id?: string | null
+          id?: string
+          node_id?: string | null
+          produto_id?: string | null
+          projeto_id: string
+          reasoning?: string | null
+          severity?: string
+          signal_type: string
+          snoozed_until?: string | null
+          status?: string
+          suggested_action?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json | null
+          executed_at?: string | null
+          expires_at?: string | null
+          funil_id?: string | null
+          id?: string
+          node_id?: string | null
+          produto_id?: string | null
+          projeto_id?: string
+          reasoning?: string | null
+          severity?: string
+          signal_type?: string
+          snoozed_until?: string | null
+          status?: string
+          suggested_action?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_checklist: {
+        Row: {
+          assigned_to: string | null
+          auto_generated: boolean
+          category: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          flow_blueprint_id: string | null
+          id: string
+          kanban_card_id: string | null
+          metadata: Json
+          priority: string
+          product_id: string | null
+          project_id: string
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          auto_generated?: boolean
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          flow_blueprint_id?: string | null
+          id?: string
+          kanban_card_id?: string | null
+          metadata?: Json
+          priority?: string
+          product_id?: string | null
+          project_id: string
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          auto_generated?: boolean
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          flow_blueprint_id?: string | null
+          id?: string
+          kanban_card_id?: string | null
+          metadata?: Json
+          priority?: string
+          product_id?: string | null
+          project_id?: string
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_funnel_events: {
         Row: {
           created_at: string
@@ -18832,6 +22386,138 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           xcod?: string | null
+        }
+        Relationships: []
+      }
+      imphq_funnel_node_copies: {
+        Row: {
+          asset_kind: string | null
+          card_id: string | null
+          copies: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          node_id: string
+          produto_id: string | null
+          projeto_id: string
+          selected_idx: number
+          updated_at: string
+        }
+        Insert: {
+          asset_kind?: string | null
+          card_id?: string | null
+          copies?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          node_id: string
+          produto_id?: string | null
+          projeto_id: string
+          selected_idx?: number
+          updated_at?: string
+        }
+        Update: {
+          asset_kind?: string | null
+          card_id?: string | null
+          copies?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          node_id?: string
+          produto_id?: string | null
+          projeto_id?: string
+          selected_idx?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_snapshots: {
+        Row: {
+          canvas: Json
+          created_at: string
+          created_by: string | null
+          funil_id: string | null
+          id: string
+          label: string | null
+          motivo: string
+          produto_id: string | null
+          projeto_id: string
+        }
+        Insert: {
+          canvas: Json
+          created_at?: string
+          created_by?: string | null
+          funil_id?: string | null
+          id?: string
+          label?: string | null
+          motivo?: string
+          produto_id?: string | null
+          projeto_id: string
+        }
+        Update: {
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          funil_id?: string | null
+          id?: string
+          label?: string | null
+          motivo?: string
+          produto_id?: string | null
+          projeto_id?: string
+        }
+        Relationships: []
+      }
+      imphq_funnel_templates: {
+        Row: {
+          autor: string | null
+          canvas: Json
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          framework_tag: string | null
+          id: string
+          is_official: boolean
+          nicho: string | null
+          nome: string
+          objetivo: string
+          slug: string
+          thumb_url: string | null
+          updated_at: string
+          uses_count: number
+        }
+        Insert: {
+          autor?: string | null
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          framework_tag?: string | null
+          id?: string
+          is_official?: boolean
+          nicho?: string | null
+          nome: string
+          objetivo: string
+          slug: string
+          thumb_url?: string | null
+          updated_at?: string
+          uses_count?: number
+        }
+        Update: {
+          autor?: string | null
+          canvas?: Json
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          framework_tag?: string | null
+          id?: string
+          is_official?: boolean
+          nicho?: string | null
+          nome?: string
+          objetivo?: string
+          slug?: string
+          thumb_url?: string | null
+          updated_at?: string
+          uses_count?: number
         }
         Relationships: []
       }
@@ -18970,6 +22656,62 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ig_account_insights: {
+        Row: {
+          account_id: string
+          created_at: string
+          followers_count: number
+          follows_count: number
+          id: string
+          impressions: number
+          media_count: number
+          profile_views: number
+          project_id: string
+          raw: Json | null
+          reach: number
+          snapshot_date: string
+          website_clicks: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          followers_count?: number
+          follows_count?: number
+          id?: string
+          impressions?: number
+          media_count?: number
+          profile_views?: number
+          project_id: string
+          raw?: Json | null
+          reach?: number
+          snapshot_date?: string
+          website_clicks?: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          followers_count?: number
+          follows_count?: number
+          id?: string
+          impressions?: number
+          media_count?: number
+          profile_views?: number
+          project_id?: string
+          raw?: Json | null
+          reach?: number
+          snapshot_date?: string
+          website_clicks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_account_insights_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_ig_accounts: {
         Row: {
           auth_method: string
@@ -19027,13 +22769,19 @@ export type Database = {
       imphq_ig_comment_triggers: {
         Row: {
           click_count: number
+          cooldown_hours: number | null
           created_at: string | null
+          daily_cap: number | null
           dm_sent_count: number
           id: string
           is_active: boolean
+          like_comment: boolean
           match_count: number
+          media_type_filter: string | null
+          negative_keywords: string[] | null
           post_id: string
           project_id: string
+          regex_pattern: string | null
           reply_comment_template: string | null
           send_dm_template: string
           trigger_keyword: string
@@ -19041,13 +22789,19 @@ export type Database = {
         }
         Insert: {
           click_count?: number
+          cooldown_hours?: number | null
           created_at?: string | null
+          daily_cap?: number | null
           dm_sent_count?: number
           id?: string
           is_active?: boolean
+          like_comment?: boolean
           match_count?: number
+          media_type_filter?: string | null
+          negative_keywords?: string[] | null
           post_id?: string
           project_id: string
+          regex_pattern?: string | null
           reply_comment_template?: string | null
           send_dm_template: string
           trigger_keyword: string
@@ -19055,13 +22809,19 @@ export type Database = {
         }
         Update: {
           click_count?: number
+          cooldown_hours?: number | null
           created_at?: string | null
+          daily_cap?: number | null
           dm_sent_count?: number
           id?: string
           is_active?: boolean
+          like_comment?: boolean
           match_count?: number
+          media_type_filter?: string | null
+          negative_keywords?: string[] | null
           post_id?: string
           project_id?: string
+          regex_pattern?: string | null
           reply_comment_template?: string | null
           send_dm_template?: string
           trigger_keyword?: string
@@ -19087,6 +22847,7 @@ export type Database = {
       imphq_ig_comments: {
         Row: {
           account_id: string
+          ad_context: Json | null
           comment_id: string
           created_at: string
           from_user_id: string | null
@@ -19101,6 +22862,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          ad_context?: Json | null
           comment_id: string
           created_at?: string
           from_user_id?: string | null
@@ -19115,6 +22877,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          ad_context?: Json | null
           comment_id?: string
           created_at?: string
           from_user_id?: string | null
@@ -19140,11 +22903,15 @@ export type Database = {
       imphq_ig_conversations: {
         Row: {
           account_id: string
+          ai_active: boolean | null
           ai_paused: boolean | null
           ai_paused_reason: string | null
+          ai_paused_until: string | null
+          conversation_summary: string | null
           created_at: string
           follow_up_sent_at: string | null
           follow_up_status: string | null
+          ia_ativa: boolean | null
           id: string
           ig_thread_id: string | null
           last_message: string | null
@@ -19154,16 +22921,21 @@ export type Database = {
           participant_id: string
           participant_name: string | null
           participant_username: string | null
+          reengagement_sent_at: string | null
           unread_count: number
           updated_at: string
         }
         Insert: {
           account_id: string
+          ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          ai_paused_until?: string | null
+          conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
+          ia_ativa?: boolean | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -19173,16 +22945,21 @@ export type Database = {
           participant_id: string
           participant_name?: string | null
           participant_username?: string | null
+          reengagement_sent_at?: string | null
           unread_count?: number
           updated_at?: string
         }
         Update: {
           account_id?: string
+          ai_active?: boolean | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
+          ai_paused_until?: string | null
+          conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
           follow_up_status?: string | null
+          ia_ativa?: boolean | null
           id?: string
           ig_thread_id?: string | null
           last_message?: string | null
@@ -19192,6 +22969,7 @@ export type Database = {
           participant_id?: string
           participant_name?: string | null
           participant_username?: string | null
+          reengagement_sent_at?: string | null
           unread_count?: number
           updated_at?: string
         }
@@ -19201,6 +22979,124 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_media: {
+        Row: {
+          account_id: string
+          caption: string | null
+          created_at: string
+          id: string
+          ig_media_id: string
+          media_product_type: string | null
+          media_type: string | null
+          media_url: string | null
+          permalink: string | null
+          posted_at: string | null
+          project_id: string
+          raw: Json | null
+          thumbnail_url: string | null
+          updated_at: string
+          zernio_post_id: string | null
+        }
+        Insert: {
+          account_id: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          ig_media_id: string
+          media_product_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          permalink?: string | null
+          posted_at?: string | null
+          project_id: string
+          raw?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          zernio_post_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          ig_media_id?: string
+          media_product_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          permalink?: string | null
+          posted_at?: string | null
+          project_id?: string
+          raw?: Json | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          zernio_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_media_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ig_media_insights: {
+        Row: {
+          comments: number
+          created_at: string
+          engagement: number
+          id: string
+          impressions: number
+          likes: number
+          media_id: string
+          raw: Json | null
+          reach: number
+          saves: number
+          shares: number
+          snapshot_date: string
+          video_views: number
+        }
+        Insert: {
+          comments?: number
+          created_at?: string
+          engagement?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          media_id: string
+          raw?: Json | null
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_date?: string
+          video_views?: number
+        }
+        Update: {
+          comments?: number
+          created_at?: string
+          engagement?: number
+          id?: string
+          impressions?: number
+          likes?: number
+          media_id?: string
+          raw?: Json | null
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_date?: string
+          video_views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ig_media_insights_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ig_media"
             referencedColumns: ["id"]
           },
         ]
@@ -19366,6 +23262,63 @@ export type Database = {
           },
         ]
       }
+      imphq_ig_trigger_executions: {
+        Row: {
+          attempts: number
+          author_key: string | null
+          comment_id: string
+          created_at: string
+          dm_status: string | null
+          event_type: string
+          executed_at: string
+          idempotency_key: string | null
+          last_error: string | null
+          like_status: string | null
+          next_retry_at: string | null
+          payload: Json | null
+          reply_status: string | null
+          status: string
+          trigger_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          author_key?: string | null
+          comment_id: string
+          created_at?: string
+          dm_status?: string | null
+          event_type?: string
+          executed_at?: string
+          idempotency_key?: string | null
+          last_error?: string | null
+          like_status?: string | null
+          next_retry_at?: string | null
+          payload?: Json | null
+          reply_status?: string | null
+          status?: string
+          trigger_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          author_key?: string | null
+          comment_id?: string
+          created_at?: string
+          dm_status?: string | null
+          event_type?: string
+          executed_at?: string
+          idempotency_key?: string | null
+          last_error?: string | null
+          like_status?: string | null
+          next_retry_at?: string | null
+          payload?: Json | null
+          reply_status?: string | null
+          status?: string
+          trigger_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_ig_webhook_logs: {
         Row: {
           account_id: string | null
@@ -19404,6 +23357,39 @@ export type Database = {
           },
         ]
       }
+      imphq_ig_webhook_logs_archive: {
+        Row: {
+          account_id: string | null
+          archived_at: string
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          payload: Json | null
+          processed: boolean | null
+        }
+        Insert: {
+          account_id?: string | null
+          archived_at?: string
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id: string
+          payload?: Json | null
+          processed?: boolean | null
+        }
+        Update: {
+          account_id?: string | null
+          archived_at?: string
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+        }
+        Relationships: []
+      }
       imphq_integration_credentials: {
         Row: {
           created_at: string
@@ -19427,6 +23413,89 @@ export type Database = {
           id?: string
           project_id?: string
           provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_journey_steps: {
+        Row: {
+          bloco_tipo: string
+          config: Json
+          created_at: string
+          etapa: string
+          id: string
+          journey_id: string
+          order_idx: number
+          output: Json
+          status: string
+          titulo: string | null
+          updated_at: string
+        }
+        Insert: {
+          bloco_tipo: string
+          config?: Json
+          created_at?: string
+          etapa: string
+          id?: string
+          journey_id: string
+          order_idx?: number
+          output?: Json
+          status?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bloco_tipo?: string
+          config?: Json
+          created_at?: string
+          etapa?: string
+          id?: string
+          journey_id?: string
+          order_idx?: number
+          output?: Json
+          status?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_journey_steps_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_journeys: {
+        Row: {
+          created_at: string
+          id: string
+          meta: Json
+          produto_idx: number
+          produto_nome: string | null
+          projeto_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          produto_idx?: number
+          produto_nome?: string | null
+          projeto_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          produto_idx?: number
+          produto_nome?: string | null
+          projeto_id?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -19491,6 +23560,48 @@ export type Database = {
           },
         ]
       }
+      imphq_kanban_boards: {
+        Row: {
+          color: string | null
+          columns_config: Json | null
+          created_at: string
+          emoji: string | null
+          id: string
+          is_pinned: boolean
+          label: string
+          position: number
+          saved_views: Json | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          columns_config?: Json | null
+          created_at?: string
+          emoji?: string | null
+          id: string
+          is_pinned?: boolean
+          label: string
+          position?: number
+          saved_views?: Json | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          columns_config?: Json | null
+          created_at?: string
+          emoji?: string | null
+          id?: string
+          is_pinned?: boolean
+          label?: string
+          position?: number
+          saved_views?: Json | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_kanban_cards: {
         Row: {
           ai_generated: boolean | null
@@ -19503,9 +23614,11 @@ export type Database = {
           id: string
           member_id: string | null
           metadata: Json | null
+          metrics: Json
           position: number | null
           priority: string | null
           project_id: string | null
+          status_color: string | null
           tags: string[] | null
           title: string
           updated_at: string | null
@@ -19521,9 +23634,11 @@ export type Database = {
           id?: string
           member_id?: string | null
           metadata?: Json | null
+          metrics?: Json
           position?: number | null
           priority?: string | null
           project_id?: string | null
+          status_color?: string | null
           tags?: string[] | null
           title: string
           updated_at?: string | null
@@ -19539,9 +23654,11 @@ export type Database = {
           id?: string
           member_id?: string | null
           metadata?: Json | null
+          metrics?: Json
           position?: number | null
           priority?: string | null
           project_id?: string | null
+          status_color?: string | null
           tags?: string[] | null
           title?: string
           updated_at?: string | null
@@ -19695,6 +23812,66 @@ export type Database = {
           section_key?: string
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      imphq_launch_timeline: {
+        Row: {
+          color: string | null
+          created_at: string
+          depends_on: string[] | null
+          description: string | null
+          duration_min: number | null
+          funil_id: string | null
+          id: string
+          is_milestone: boolean | null
+          meta: Json | null
+          owner: string | null
+          peca_ref_id: string | null
+          peca_tipo: string
+          projeto_id: string
+          scheduled_at: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          depends_on?: string[] | null
+          description?: string | null
+          duration_min?: number | null
+          funil_id?: string | null
+          id?: string
+          is_milestone?: boolean | null
+          meta?: Json | null
+          owner?: string | null
+          peca_ref_id?: string | null
+          peca_tipo: string
+          projeto_id: string
+          scheduled_at: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          depends_on?: string[] | null
+          description?: string | null
+          duration_min?: number | null
+          funil_id?: string | null
+          id?: string
+          is_milestone?: boolean | null
+          meta?: Json | null
+          owner?: string | null
+          peca_ref_id?: string | null
+          peca_tipo?: string
+          projeto_id?: string
+          scheduled_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -19941,57 +24118,90 @@ export type Database = {
       }
       imphq_leads: {
         Row: {
+          awareness_level: number | null
           campanha_id: string | null
+          closer_message_sent_at: string | null
+          closer_triggered_at: string | null
           created_at: string | null
           criado_em: string | null
           data: Json | null
+          dor_principal: string | null
           email: string | null
           funil_id: string | null
           id: string
+          ig_closer_sent_at: string | null
+          ig_participant_id: string | null
+          lead_memory: Json | null
+          nivel_qualificacao: string | null
           nome: string | null
+          objecao_atual: string | null
           phone: string | null
           plataforma: string | null
           project_id: string | null
+          qualificacao_updated_at: string | null
           score: number | null
           status: string | null
           tags: string[] | null
           total_gasto: number | null
+          ultimo_interesse: string | null
           updated_at: string | null
         }
         Insert: {
+          awareness_level?: number | null
           campanha_id?: string | null
+          closer_message_sent_at?: string | null
+          closer_triggered_at?: string | null
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
+          dor_principal?: string | null
           email?: string | null
           funil_id?: string | null
           id: string
+          ig_closer_sent_at?: string | null
+          ig_participant_id?: string | null
+          lead_memory?: Json | null
+          nivel_qualificacao?: string | null
           nome?: string | null
+          objecao_atual?: string | null
           phone?: string | null
           plataforma?: string | null
           project_id?: string | null
+          qualificacao_updated_at?: string | null
           score?: number | null
           status?: string | null
           tags?: string[] | null
           total_gasto?: number | null
+          ultimo_interesse?: string | null
           updated_at?: string | null
         }
         Update: {
+          awareness_level?: number | null
           campanha_id?: string | null
+          closer_message_sent_at?: string | null
+          closer_triggered_at?: string | null
           created_at?: string | null
           criado_em?: string | null
           data?: Json | null
+          dor_principal?: string | null
           email?: string | null
           funil_id?: string | null
           id?: string
+          ig_closer_sent_at?: string | null
+          ig_participant_id?: string | null
+          lead_memory?: Json | null
+          nivel_qualificacao?: string | null
           nome?: string | null
+          objecao_atual?: string | null
           phone?: string | null
           plataforma?: string | null
           project_id?: string | null
+          qualificacao_updated_at?: string | null
           score?: number | null
           status?: string | null
           tags?: string[] | null
           total_gasto?: number | null
+          ultimo_interesse?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -20015,6 +24225,170 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_linfaflow_care_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          script_step: number | null
+          sender: string | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          script_step?: number | null
+          sender?: string | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          script_step?: number | null
+          sender?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_linfaflow_care_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_linfaflow_care_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_linfaflow_care_sessions: {
+        Row: {
+          automacao_id: string | null
+          checkout_clicked_at: string | null
+          checkout_url: string | null
+          contact: string | null
+          created_at: string
+          id: string
+          intake: Json
+          last_message_at: string | null
+          lead_id: string | null
+          name: string | null
+          project_id: string | null
+          public_token: string
+          score: number
+          script_step: number
+          source: string | null
+          stage: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          automacao_id?: string | null
+          checkout_clicked_at?: string | null
+          checkout_url?: string | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          intake?: Json
+          last_message_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          project_id?: string | null
+          public_token?: string
+          score?: number
+          script_step?: number
+          source?: string | null
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          automacao_id?: string | null
+          checkout_clicked_at?: string | null
+          checkout_url?: string | null
+          contact?: string | null
+          created_at?: string
+          id?: string
+          intake?: Json
+          last_message_at?: string | null
+          lead_id?: string | null
+          name?: string | null
+          project_id?: string | null
+          public_token?: string
+          score?: number
+          script_step?: number
+          source?: string | null
+          stage?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_mapas_empresa: {
+        Row: {
+          atualizado_em: string | null
+          criado_em: string | null
+          data: Json
+          id: string
+          nome: string
+          user_id: string | null
+        }
+        Insert: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          data?: Json
+          id?: string
+          nome?: string
+          user_id?: string | null
+        }
+        Update: {
+          atualizado_em?: string | null
+          criado_em?: string | null
+          data?: Json
+          id?: string
+          nome?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mapas_empresa_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -20248,6 +24622,7 @@ export type Database = {
       }
       imphq_notification_preferences: {
         Row: {
+          checkout_abandonado: boolean
           created_at: string | null
           disparo_concluido: boolean | null
           erro_conexao: boolean | null
@@ -20266,8 +24641,12 @@ export type Database = {
           user_id: string
           venda_aprovada: boolean
           venda_recusada: boolean
+          wa_briefing_enabled: boolean
+          wa_briefing_hour: number
+          wa_briefing_phone: string | null
         }
         Insert: {
+          checkout_abandonado?: boolean
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
@@ -20286,8 +24665,12 @@ export type Database = {
           user_id: string
           venda_aprovada?: boolean
           venda_recusada?: boolean
+          wa_briefing_enabled?: boolean
+          wa_briefing_hour?: number
+          wa_briefing_phone?: string | null
         }
         Update: {
+          checkout_abandonado?: boolean
           created_at?: string | null
           disparo_concluido?: boolean | null
           erro_conexao?: boolean | null
@@ -20306,6 +24689,9 @@ export type Database = {
           user_id?: string
           venda_aprovada?: boolean
           venda_recusada?: boolean
+          wa_briefing_enabled?: boolean
+          wa_briefing_hour?: number
+          wa_briefing_phone?: string | null
         }
         Relationships: [
           {
@@ -20567,6 +24953,152 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_outbound_webhook_deliveries: {
+        Row: {
+          attempt: number
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          event: string
+          id: string
+          max_attempts: number
+          next_retry_at: string | null
+          payload: Json
+          response_body: string | null
+          status: string
+          status_code: number | null
+          webhook_id: string
+        }
+        Insert: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event: string
+          id?: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload: Json
+          response_body?: string | null
+          status?: string
+          status_code?: number | null
+          webhook_id: string
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event?: string
+          id?: string
+          max_attempts?: number
+          next_retry_at?: string | null
+          payload?: Json
+          response_body?: string | null
+          status?: string
+          status_code?: number | null
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_outbound_webhook_deliveries_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_outbound_webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_outbound_webhooks: {
+        Row: {
+          active: boolean
+          created_at: string
+          events: string[]
+          headers: Json
+          id: string
+          last_delivery_at: string | null
+          last_status: string | null
+          name: string
+          project_id: string | null
+          secret: string
+          total_deliveries: number
+          total_failures: number
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          headers?: Json
+          id?: string
+          last_delivery_at?: string | null
+          last_status?: string | null
+          name: string
+          project_id?: string | null
+          secret: string
+          total_deliveries?: number
+          total_failures?: number
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          headers?: Json
+          id?: string
+          last_delivery_at?: string | null
+          last_status?: string | null
+          name?: string
+          project_id?: string | null
+          secret?: string
+          total_deliveries?: number
+          total_failures?: number
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_outbound_webhooks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_processes: {
         Row: {
           category: string
@@ -20606,6 +25138,81 @@ export type Database = {
           steps?: Json | null
           title?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_product_blueprints: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          gaps: Json
+          id: string
+          is_current: boolean
+          produto_nome: string
+          project_id: string
+          score: number | null
+          snapshot: Json
+          updated_at: string
+          versao: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          gaps?: Json
+          id?: string
+          is_current?: boolean
+          produto_nome: string
+          project_id: string
+          score?: number | null
+          snapshot?: Json
+          updated_at?: string
+          versao?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          gaps?: Json
+          id?: string
+          is_current?: boolean
+          produto_nome?: string
+          project_id?: string
+          score?: number | null
+          snapshot?: Json
+          updated_at?: string
+          versao?: number
+        }
+        Relationships: []
+      }
+      imphq_product_project_rules: {
+        Row: {
+          created_at: string
+          id: string
+          override_existing: boolean
+          produto_nome: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          override_existing?: boolean
+          produto_nome: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          override_existing?: boolean
+          produto_nome?: string
+          project_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -20792,6 +25399,41 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_project_sites: {
+        Row: {
+          created_at: string
+          id: string
+          papel: string
+          projeto_id: string
+          site_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          papel?: string
+          projeto_id: string
+          site_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          papel?: string
+          projeto_id?: string
+          site_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_project_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_project_templates: {
         Row: {
           boards_json: Json
@@ -20827,6 +25469,7 @@ export type Database = {
       }
       imphq_projects: {
         Row: {
+          active: boolean | null
           avatar: Json | null
           brand_kit: Json | null
           category: string | null
@@ -20845,7 +25488,9 @@ export type Database = {
           is_archived: boolean | null
           members: Json | null
           meta_diaria_notified_date: string | null
+          meta_offline_event_set_id: string | null
           name: string
+          owner_phone: string | null
           parent_id: string | null
           pipeline: Json | null
           settings: Json | null
@@ -20853,6 +25498,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          active?: boolean | null
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
@@ -20871,7 +25517,9 @@ export type Database = {
           is_archived?: boolean | null
           members?: Json | null
           meta_diaria_notified_date?: string | null
+          meta_offline_event_set_id?: string | null
           name: string
+          owner_phone?: string | null
           parent_id?: string | null
           pipeline?: Json | null
           settings?: Json | null
@@ -20879,6 +25527,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          active?: boolean | null
           avatar?: Json | null
           brand_kit?: Json | null
           category?: string | null
@@ -20897,7 +25546,9 @@ export type Database = {
           is_archived?: boolean | null
           members?: Json | null
           meta_diaria_notified_date?: string | null
+          meta_offline_event_set_id?: string | null
           name?: string
+          owner_phone?: string | null
           parent_id?: string | null
           pipeline?: Json | null
           settings?: Json | null
@@ -21004,26 +25655,38 @@ export type Database = {
       imphq_push_subscriptions: {
         Row: {
           created_at: string
+          device_name: string | null
           endpoint: string
           id: string
           keys_auth: string
           keys_p256dh: string
+          last_seen_at: string
+          platform: string | null
+          user_agent: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
+          device_name?: string | null
           endpoint: string
           id?: string
           keys_auth: string
           keys_p256dh: string
+          last_seen_at?: string
+          platform?: string | null
+          user_agent?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
+          device_name?: string | null
           endpoint?: string
           id?: string
           keys_auth?: string
           keys_p256dh?: string
+          last_seen_at?: string
+          platform?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -21064,6 +25727,45 @@ export type Database = {
           order_idx?: number | null
           updated_at?: string | null
           url?: string
+        }
+        Relationships: []
+      }
+      imphq_rag_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json
+          project_id: string | null
+          source_id: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          source_id: string
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          source_id?: string
+          source_type?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -21151,6 +25853,148 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ref_folder_items: {
+        Row: {
+          created_at: string
+          folder_id: string
+          id: string
+          ordem: number
+          thumb_url: string | null
+          titulo: string | null
+          url: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          id?: string
+          ordem?: number
+          thumb_url?: string | null
+          titulo?: string | null
+          url: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          id?: string
+          ordem?: number
+          thumb_url?: string | null
+          titulo?: string | null
+          url?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ref_folder_items_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_ref_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folder_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_ref_folders: {
+        Row: {
+          cor: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cor?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cor?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ref_folders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_referencias: {
         Row: {
           created_at: string | null
@@ -21165,6 +26009,11 @@ export type Database = {
           tags: string[] | null
           tipo: string | null
           titulo: string
+          transcribe_error: string | null
+          transcribe_provider: string | null
+          transcribe_status: string | null
+          transcribed_at: string | null
+          transcricao: string | null
           updated_at: string | null
           url: string | null
         }
@@ -21181,6 +26030,11 @@ export type Database = {
           tags?: string[] | null
           tipo?: string | null
           titulo: string
+          transcribe_error?: string | null
+          transcribe_provider?: string | null
+          transcribe_status?: string | null
+          transcribed_at?: string | null
+          transcricao?: string | null
           updated_at?: string | null
           url?: string | null
         }
@@ -21197,6 +26051,11 @@ export type Database = {
           tags?: string[] | null
           tipo?: string | null
           titulo?: string
+          transcribe_error?: string | null
+          transcribe_provider?: string | null
+          transcribe_status?: string | null
+          transcribed_at?: string | null
+          transcricao?: string | null
           updated_at?: string | null
           url?: string | null
         }
@@ -21216,6 +26075,27 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_referencias_pastas: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          project_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path: string
+          project_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          project_id?: string | null
+        }
+        Relationships: []
       }
       imphq_routine_checks: {
         Row: {
@@ -21389,15 +26269,72 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_sites: {
+        Row: {
+          branding_json: Json | null
+          content_md: string | null
+          created_at: string
+          github_url: string | null
+          id: string
+          last_scraped_at: string | null
+          status: string
+          summary: string | null
+          tags: string[]
+          thumbnail_url: string | null
+          tipo: string
+          titulo: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          branding_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          github_url?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          tipo?: string
+          titulo: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          branding_json?: Json | null
+          content_md?: string | null
+          created_at?: string
+          github_url?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_skill_outputs: {
         Row: {
+          card_id: string | null
           created_at: string | null
           created_by: string | null
           extra_instructions: string | null
           feedback: string | null
           feedback_correction: string | null
+          funnel_node_id: string | null
           id: string
           model: string | null
+          outcome_score: number | null
           pipeline_id: string | null
           produto: string | null
           project_id: string | null
@@ -21405,15 +26342,19 @@ export type Database = {
           result: string
           skill_id: string
           skill_nome: string | null
+          studio_node_id: string | null
         }
         Insert: {
+          card_id?: string | null
           created_at?: string | null
           created_by?: string | null
           extra_instructions?: string | null
           feedback?: string | null
           feedback_correction?: string | null
+          funnel_node_id?: string | null
           id?: string
           model?: string | null
+          outcome_score?: number | null
           pipeline_id?: string | null
           produto?: string | null
           project_id?: string | null
@@ -21421,15 +26362,19 @@ export type Database = {
           result: string
           skill_id: string
           skill_nome?: string | null
+          studio_node_id?: string | null
         }
         Update: {
+          card_id?: string | null
           created_at?: string | null
           created_by?: string | null
           extra_instructions?: string | null
           feedback?: string | null
           feedback_correction?: string | null
+          funnel_node_id?: string | null
           id?: string
           model?: string | null
+          outcome_score?: number | null
           pipeline_id?: string | null
           produto?: string | null
           project_id?: string | null
@@ -21437,6 +26382,7 @@ export type Database = {
           result?: string
           skill_id?: string
           skill_nome?: string | null
+          studio_node_id?: string | null
         }
         Relationships: [
           {
@@ -21501,6 +26447,7 @@ export type Database = {
           id: string
           nome: string
           owner_id: string | null
+          pipeline: Json | null
           slug: string | null
           status: string
           system_prompt: string | null
@@ -21517,6 +26464,7 @@ export type Database = {
           id?: string
           nome: string
           owner_id?: string | null
+          pipeline?: Json | null
           slug?: string | null
           status?: string
           system_prompt?: string | null
@@ -21533,6 +26481,7 @@ export type Database = {
           id?: string
           nome?: string
           owner_id?: string | null
+          pipeline?: Json | null
           slug?: string | null
           status?: string
           system_prompt?: string | null
@@ -21573,6 +26522,187 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_studio_canvas_edges: {
+        Row: {
+          created_at: string
+          id: string
+          source_id: string
+          target_id: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          source_id: string
+          target_id: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          source_id?: string
+          target_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_canvas_edges_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_canvas_edges_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_canvas_edges_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_studio_canvas_nodes: {
+        Row: {
+          batch_group_id: string | null
+          cached_from_hash: string | null
+          config: Json
+          config_hash: string | null
+          cost_actual: number | null
+          created_at: string
+          duration_ms: number | null
+          funnel_node_id: string | null
+          id: string
+          is_variant_winner: boolean
+          output: Json
+          position: Json
+          status: string
+          tipo: string
+          titulo: string | null
+          updated_at: string
+          variant_angulo: string | null
+          variant_label: string | null
+          variant_of: string | null
+          variant_score: number | null
+          variant_score_data: Json | null
+          workflow_id: string
+        }
+        Insert: {
+          batch_group_id?: string | null
+          cached_from_hash?: string | null
+          config?: Json
+          config_hash?: string | null
+          cost_actual?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          funnel_node_id?: string | null
+          id?: string
+          is_variant_winner?: boolean
+          output?: Json
+          position?: Json
+          status?: string
+          tipo: string
+          titulo?: string | null
+          updated_at?: string
+          variant_angulo?: string | null
+          variant_label?: string | null
+          variant_of?: string | null
+          variant_score?: number | null
+          variant_score_data?: Json | null
+          workflow_id: string
+        }
+        Update: {
+          batch_group_id?: string | null
+          cached_from_hash?: string | null
+          config?: Json
+          config_hash?: string | null
+          cost_actual?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          funnel_node_id?: string | null
+          id?: string
+          is_variant_winner?: boolean
+          output?: Json
+          position?: Json
+          status?: string
+          tipo?: string
+          titulo?: string | null
+          updated_at?: string
+          variant_angulo?: string | null
+          variant_label?: string | null
+          variant_of?: string | null
+          variant_score?: number | null
+          variant_score_data?: Json | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_canvas_nodes_variant_of_fkey"
+            columns: ["variant_of"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_canvas_nodes_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_studio_canvas_run_events: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          message: string
+          meta: Json | null
+          node_id: string | null
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          meta?: Json | null
+          node_id?: string | null
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          meta?: Json | null
+          node_id?: string | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_canvas_run_events_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_canvas_run_events_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
             referencedColumns: ["id"]
           },
         ]
@@ -21643,6 +26773,42 @@ export type Database = {
           thumbnail_url?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_studio_model_costs: {
+        Row: {
+          avg_seconds: number
+          cost_credits: number
+          created_at: string
+          id: string
+          kind: string
+          model: string
+          notes: string | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          avg_seconds?: number
+          cost_credits?: number
+          created_at?: string
+          id?: string
+          kind: string
+          model: string
+          notes?: string | null
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          avg_seconds?: number
+          cost_credits?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          model?: string
+          notes?: string | null
+          provider?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -21733,6 +26899,7 @@ export type Database = {
           nicho: string
           nivel: string
           ordem: number | null
+          performance_score: number | null
           prompt_especifico: string
           prompt_negativo: string | null
           tags: string[] | null
@@ -21750,6 +26917,7 @@ export type Database = {
           nicho?: string
           nivel?: string
           ordem?: number | null
+          performance_score?: number | null
           prompt_especifico: string
           prompt_negativo?: string | null
           tags?: string[] | null
@@ -21767,11 +26935,157 @@ export type Database = {
           nicho?: string
           nivel?: string
           ordem?: number | null
+          performance_score?: number | null
           prompt_especifico?: string
           prompt_negativo?: string | null
           tags?: string[] | null
           titulo?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_studio_publications: {
+        Row: {
+          body_id: string | null
+          caption: string | null
+          channel: string
+          created_at: string
+          cta_id: string | null
+          error: string | null
+          hook_id: string | null
+          id: string
+          media_kind: string | null
+          media_url: string | null
+          meta: Json | null
+          node_id: string | null
+          produto_idx: number | null
+          projeto_id: string | null
+          published_at: string | null
+          scheduled_at: string | null
+          source_node_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          workflow_id: string
+        }
+        Insert: {
+          body_id?: string | null
+          caption?: string | null
+          channel?: string
+          created_at?: string
+          cta_id?: string | null
+          error?: string | null
+          hook_id?: string | null
+          id?: string
+          media_kind?: string | null
+          media_url?: string | null
+          meta?: Json | null
+          node_id?: string | null
+          produto_idx?: number | null
+          projeto_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          source_node_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          workflow_id: string
+        }
+        Update: {
+          body_id?: string | null
+          caption?: string | null
+          channel?: string
+          created_at?: string
+          cta_id?: string | null
+          error?: string | null
+          hook_id?: string | null
+          id?: string
+          media_kind?: string | null
+          media_url?: string | null
+          meta?: Json | null
+          node_id?: string | null
+          produto_idx?: number | null
+          projeto_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          source_node_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_studio_publications_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_publications_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_studio_publications_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_studio_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_studio_reference_models: {
+        Row: {
+          created_at: string
+          ficha: Json | null
+          id: string
+          output_type: string | null
+          projeto_id: string | null
+          source_asset_ids: string[]
+          source_assets: Json
+          source_folder: string | null
+          source_kind: string
+          status: string
+          storyboard: Json | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ficha?: Json | null
+          id?: string
+          output_type?: string | null
+          projeto_id?: string | null
+          source_asset_ids?: string[]
+          source_assets?: Json
+          source_folder?: string | null
+          source_kind?: string
+          status?: string
+          storyboard?: Json | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ficha?: Json | null
+          id?: string
+          output_type?: string | null
+          projeto_id?: string | null
+          source_asset_ids?: string[]
+          source_assets?: Json
+          source_folder?: string | null
+          source_kind?: string
+          status?: string
+          storyboard?: Json | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -21857,7 +27171,11 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          produto_idx: number | null
           projeto_id: string | null
+          run_finished_at: string | null
+          run_started_at: string | null
+          run_status: string
           steps: Json
           template_key: string | null
           updated_at: string
@@ -21867,7 +27185,11 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          produto_idx?: number | null
           projeto_id?: string | null
+          run_finished_at?: string | null
+          run_started_at?: string | null
+          run_status?: string
           steps?: Json
           template_key?: string | null
           updated_at?: string
@@ -21877,10 +27199,41 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          produto_idx?: number | null
           projeto_id?: string | null
+          run_finished_at?: string | null
+          run_started_at?: string | null
+          run_status?: string
           steps?: Json
           template_key?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_swipe_colecoes: {
+        Row: {
+          cor: string | null
+          created_at: string
+          id: string
+          nome: string
+          ordem: number | null
+          user_id: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number | null
+          user_id: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number | null
           user_id?: string
         }
         Relationships: []
@@ -21923,76 +27276,112 @@ export type Database = {
       }
       imphq_swipes: {
         Row: {
+          audio_hash: string | null
           blocks: Json
+          colecao_id: string | null
           created_at: string
           criador: string | null
+          duration_s: number | null
+          favorito: boolean
           formato: string | null
           gatilhos: string[] | null
           id: string
+          lido_em: string | null
           mecanismo: string | null
+          media_type: string | null
           media_urls: string[] | null
           nicho: string | null
+          notas_privadas: string | null
           plataforma: string | null
           produto_id: string | null
           project_id: string | null
           rating: number | null
           raw_text: string | null
+          resultado: Json | null
           reverse_engineering: Json | null
           source_swipe_id: string | null
           source_url: string | null
           status: string
           tags: string[] | null
+          thumb_url: string | null
           title: string
+          transcribe_error: string | null
+          transcribe_status: string | null
           updated_at: string
           user_id: string
+          video_url: string | null
         }
         Insert: {
+          audio_hash?: string | null
           blocks?: Json
+          colecao_id?: string | null
           created_at?: string
           criador?: string | null
+          duration_s?: number | null
+          favorito?: boolean
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
+          lido_em?: string | null
           mecanismo?: string | null
+          media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
+          notas_privadas?: string | null
           plataforma?: string | null
           produto_id?: string | null
           project_id?: string | null
           rating?: number | null
           raw_text?: string | null
+          resultado?: Json | null
           reverse_engineering?: Json | null
           source_swipe_id?: string | null
           source_url?: string | null
           status?: string
           tags?: string[] | null
+          thumb_url?: string | null
           title?: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
           updated_at?: string
           user_id: string
+          video_url?: string | null
         }
         Update: {
+          audio_hash?: string | null
           blocks?: Json
+          colecao_id?: string | null
           created_at?: string
           criador?: string | null
+          duration_s?: number | null
+          favorito?: boolean
           formato?: string | null
           gatilhos?: string[] | null
           id?: string
+          lido_em?: string | null
           mecanismo?: string | null
+          media_type?: string | null
           media_urls?: string[] | null
           nicho?: string | null
+          notas_privadas?: string | null
           plataforma?: string | null
           produto_id?: string | null
           project_id?: string | null
           rating?: number | null
           raw_text?: string | null
+          resultado?: Json | null
           reverse_engineering?: Json | null
           source_swipe_id?: string | null
           source_url?: string | null
           status?: string
           tags?: string[] | null
+          thumb_url?: string | null
           title?: string
+          transcribe_error?: string | null
+          transcribe_status?: string | null
           updated_at?: string
           user_id?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -22371,6 +27760,90 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_ugc_jobs: {
+        Row: {
+          actor_ref_url: string | null
+          age_bracket: string | null
+          casting_image_url: string | null
+          casting_json: Json | null
+          clip1_json: Json | null
+          clip1_url: string | null
+          clip2_json: Json | null
+          clip2_url: string | null
+          cost_usd: number | null
+          created_at: string
+          current_step: string | null
+          error: string | null
+          final_916_url: string | null
+          gate_errors: Json | null
+          id: string
+          lane: string | null
+          produto: string
+          project_id: string
+          research_leads: string | null
+          script_json: Json | null
+          seam_metric: number | null
+          status: string
+          tone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actor_ref_url?: string | null
+          age_bracket?: string | null
+          casting_image_url?: string | null
+          casting_json?: Json | null
+          clip1_json?: Json | null
+          clip1_url?: string | null
+          clip2_json?: Json | null
+          clip2_url?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          current_step?: string | null
+          error?: string | null
+          final_916_url?: string | null
+          gate_errors?: Json | null
+          id?: string
+          lane?: string | null
+          produto: string
+          project_id: string
+          research_leads?: string | null
+          script_json?: Json | null
+          seam_metric?: number | null
+          status?: string
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          actor_ref_url?: string | null
+          age_bracket?: string | null
+          casting_image_url?: string | null
+          casting_json?: Json | null
+          clip1_json?: Json | null
+          clip1_url?: string | null
+          clip2_json?: Json | null
+          clip2_url?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          current_step?: string | null
+          error?: string | null
+          final_916_url?: string | null
+          gate_errors?: Json | null
+          id?: string
+          lane?: string | null
+          produto?: string
+          project_id?: string
+          research_leads?: string | null
+          script_json?: Json | null
+          seam_metric?: number | null
+          status?: string
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       imphq_user_roles: {
         Row: {
           created_at: string
@@ -22441,6 +27914,10 @@ export type Database = {
           funil_id: string | null
           id: string
           lead_id: string | null
+          learned_at: string | null
+          meta_offline_synced_at: string | null
+          nome: string | null
+          pais: string | null
           plataforma: string
           produto_id_ext: string | null
           produto_nome: string | null
@@ -22464,6 +27941,10 @@ export type Database = {
           funil_id?: string | null
           id: string
           lead_id?: string | null
+          learned_at?: string | null
+          meta_offline_synced_at?: string | null
+          nome?: string | null
+          pais?: string | null
           plataforma: string
           produto_id_ext?: string | null
           produto_nome?: string | null
@@ -22487,6 +27968,10 @@ export type Database = {
           funil_id?: string | null
           id?: string
           lead_id?: string | null
+          learned_at?: string | null
+          meta_offline_synced_at?: string | null
+          nome?: string | null
+          pais?: string | null
           plataforma?: string
           produto_id_ext?: string | null
           produto_nome?: string | null
@@ -22691,39 +28176,62 @@ export type Database = {
           ai_provider: string
           ai_temperature: number
           ai_top_p: number
+          audit_findings: Json | null
+          auto_audit_enabled: boolean | null
+          auto_drift_enabled: boolean | null
+          auto_escalation_enabled: boolean | null
+          auto_scoring_enabled: boolean | null
+          auto_tune_apply: boolean | null
+          auto_tune_enabled: boolean | null
+          back_to_hours_prefix: string | null
+          banned_phrases: string[] | null
           business_hours_end: string | null
           business_hours_only: boolean | null
           business_hours_start: string | null
           closer_mode_enabled: boolean | null
           cold_lead_hours: number | null
           cold_lead_reactivation_enabled: boolean | null
+          consultive_followup_enabled: boolean
           context_sources: string[] | null
           cooldown_seconds: number | null
           created_at: string | null
           custom_instructions: string | null
           debounce_seconds: number | null
           draft_mode: boolean
+          drift_history: Json | null
+          drift_score: number | null
           enabled: boolean | null
           escalation_keywords: string[] | null
           expert_persona: string | null
           faq: Json
+          handoff_auto_resume_minutes: number | null
           id: string
           ignored_phones: string[] | null
           instagram_comments_behavior: string | null
           instagram_comments_custom_dm: string | null
           instagram_comments_enabled: boolean | null
           instagram_enabled: boolean | null
+          last_audit_at: string | null
+          last_drift_at: string | null
+          last_tune_at: string | null
           learning_mode: boolean
           max_tokens: number | null
+          out_of_hours_message: string | null
           payment_link: string | null
           personality: string | null
+          pitch_followup_delays_hours: number[]
+          pitch_followup_enabled: boolean
+          pitch_followup_entry_product_id: string | null
+          pix_key: string | null
           product_focus: string | null
           project_id: string
           provider_id: string | null
           response_delay_seconds: number | null
+          sector_template_applied: string | null
           tone: string | null
           triage_prompt: string | null
           triage_stages: Json | null
+          tune_history: Json | null
           updated_at: string | null
           voice_clarity: number | null
           voice_name: string | null
@@ -22731,45 +28239,69 @@ export type Database = {
           voice_reply_enabled: boolean | null
           voice_stability: number | null
           welcome_message: string | null
+          wizard_completed_at: string | null
         }
         Insert: {
           ai_model?: string | null
           ai_provider?: string
           ai_temperature?: number
           ai_top_p?: number
+          audit_findings?: Json | null
+          auto_audit_enabled?: boolean | null
+          auto_drift_enabled?: boolean | null
+          auto_escalation_enabled?: boolean | null
+          auto_scoring_enabled?: boolean | null
+          auto_tune_apply?: boolean | null
+          auto_tune_enabled?: boolean | null
+          back_to_hours_prefix?: string | null
+          banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
           closer_mode_enabled?: boolean | null
           cold_lead_hours?: number | null
           cold_lead_reactivation_enabled?: boolean | null
+          consultive_followup_enabled?: boolean
           context_sources?: string[] | null
           cooldown_seconds?: number | null
           created_at?: string | null
           custom_instructions?: string | null
           debounce_seconds?: number | null
           draft_mode?: boolean
+          drift_history?: Json | null
+          drift_score?: number | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
+          handoff_auto_resume_minutes?: number | null
           id?: string
           ignored_phones?: string[] | null
           instagram_comments_behavior?: string | null
           instagram_comments_custom_dm?: string | null
           instagram_comments_enabled?: boolean | null
           instagram_enabled?: boolean | null
+          last_audit_at?: string | null
+          last_drift_at?: string | null
+          last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
+          out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
+          pitch_followup_delays_hours?: number[]
+          pitch_followup_enabled?: boolean
+          pitch_followup_entry_product_id?: string | null
+          pix_key?: string | null
           product_focus?: string | null
           project_id: string
           provider_id?: string | null
           response_delay_seconds?: number | null
+          sector_template_applied?: string | null
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
+          tune_history?: Json | null
           updated_at?: string | null
           voice_clarity?: number | null
           voice_name?: string | null
@@ -22777,45 +28309,69 @@ export type Database = {
           voice_reply_enabled?: boolean | null
           voice_stability?: number | null
           welcome_message?: string | null
+          wizard_completed_at?: string | null
         }
         Update: {
           ai_model?: string | null
           ai_provider?: string
           ai_temperature?: number
           ai_top_p?: number
+          audit_findings?: Json | null
+          auto_audit_enabled?: boolean | null
+          auto_drift_enabled?: boolean | null
+          auto_escalation_enabled?: boolean | null
+          auto_scoring_enabled?: boolean | null
+          auto_tune_apply?: boolean | null
+          auto_tune_enabled?: boolean | null
+          back_to_hours_prefix?: string | null
+          banned_phrases?: string[] | null
           business_hours_end?: string | null
           business_hours_only?: boolean | null
           business_hours_start?: string | null
           closer_mode_enabled?: boolean | null
           cold_lead_hours?: number | null
           cold_lead_reactivation_enabled?: boolean | null
+          consultive_followup_enabled?: boolean
           context_sources?: string[] | null
           cooldown_seconds?: number | null
           created_at?: string | null
           custom_instructions?: string | null
           debounce_seconds?: number | null
           draft_mode?: boolean
+          drift_history?: Json | null
+          drift_score?: number | null
           enabled?: boolean | null
           escalation_keywords?: string[] | null
           expert_persona?: string | null
           faq?: Json
+          handoff_auto_resume_minutes?: number | null
           id?: string
           ignored_phones?: string[] | null
           instagram_comments_behavior?: string | null
           instagram_comments_custom_dm?: string | null
           instagram_comments_enabled?: boolean | null
           instagram_enabled?: boolean | null
+          last_audit_at?: string | null
+          last_drift_at?: string | null
+          last_tune_at?: string | null
           learning_mode?: boolean
           max_tokens?: number | null
+          out_of_hours_message?: string | null
           payment_link?: string | null
           personality?: string | null
+          pitch_followup_delays_hours?: number[]
+          pitch_followup_enabled?: boolean
+          pitch_followup_entry_product_id?: string | null
+          pix_key?: string | null
           product_focus?: string | null
           project_id?: string
           provider_id?: string | null
           response_delay_seconds?: number | null
+          sector_template_applied?: string | null
           tone?: string | null
           triage_prompt?: string | null
           triage_stages?: Json | null
+          tune_history?: Json | null
           updated_at?: string | null
           voice_clarity?: number | null
           voice_name?: string | null
@@ -22823,6 +28379,7 @@ export type Database = {
           voice_reply_enabled?: boolean | null
           voice_stability?: number | null
           welcome_message?: string | null
+          wizard_completed_at?: string | null
         }
         Relationships: [
           {
@@ -22961,6 +28518,126 @@ export type Database = {
             referencedColumns: ["project_id"]
           },
         ]
+      }
+      imphq_wa_attribution: {
+        Row: {
+          attribution_id: string
+          campaign_id: string | null
+          click_id: string | null
+          clicked_at: string | null
+          conversation_id: string | null
+          id: string
+          link_url: string
+          matched_at: string | null
+          message_id: string | null
+          metadata: Json | null
+          phone: string | null
+          produto_nome: string | null
+          project_id: string
+          sent_at: string | null
+          source: string
+          source_detail: string | null
+          template_name: string | null
+          venda_id: string | null
+          venda_status: string | null
+        }
+        Insert: {
+          attribution_id: string
+          campaign_id?: string | null
+          click_id?: string | null
+          clicked_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          link_url: string
+          matched_at?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          phone?: string | null
+          produto_nome?: string | null
+          project_id: string
+          sent_at?: string | null
+          source: string
+          source_detail?: string | null
+          template_name?: string | null
+          venda_id?: string | null
+          venda_status?: string | null
+        }
+        Update: {
+          attribution_id?: string
+          campaign_id?: string | null
+          click_id?: string | null
+          clicked_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          link_url?: string
+          matched_at?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          phone?: string | null
+          produto_nome?: string | null
+          project_id?: string
+          sent_at?: string | null
+          source?: string
+          source_detail?: string | null
+          template_name?: string | null
+          venda_id?: string | null
+          venda_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_attribution_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_attribution_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_audience_segments: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          filters: Json
+          id: string
+          last_count: number | null
+          last_previewed_at: string | null
+          nome: string
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          filters?: Json
+          id?: string
+          last_count?: number | null
+          last_previewed_at?: string | null
+          nome: string
+          project_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          filters?: Json
+          id?: string
+          last_count?: number | null
+          last_previewed_at?: string | null
+          nome?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       imphq_wa_campaign_logs: {
         Row: {
@@ -23291,92 +28968,254 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_conversation_scores: {
+        Row: {
+          conversation_id: string
+          id: string
+          metadata: Json | null
+          outcome: string
+          postmortem: string | null
+          project_id: string
+          score: number
+          scored_at: string | null
+          what_failed: string[] | null
+          what_worked: string[] | null
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          metadata?: Json | null
+          outcome: string
+          postmortem?: string | null
+          project_id: string
+          score: number
+          scored_at?: string | null
+          what_failed?: string[] | null
+          what_worked?: string[] | null
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          metadata?: Json | null
+          outcome?: string
+          postmortem?: string | null
+          project_id?: string
+          score?: number
+          scored_at?: string | null
+          what_failed?: string[] | null
+          what_worked?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_conversation_scores_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "imphq_wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_conversations: {
         Row: {
+          ai_debounce_until: string | null
           ai_last_reply_at: string | null
           ai_lock_until: string | null
           ai_paused_until: string | null
+          ai_pending_since: string | null
+          ai_summary: string | null
+          ai_summary_updated_at: string | null
+          assigned_to: string | null
+          audited_at: string | null
           avatar_url: string | null
           buy_intent_detected: boolean | null
+          color_override: string | null
           contact_name: string | null
+          conv_status: string | null
+          conversation_summary: string | null
           created_at: string
+          current_intent: string | null
+          emotional_state: string | null
+          escalation_confidence: number | null
+          escalation_decided_at: string | null
+          escalation_reason: string | null
+          followup_state: Json
+          handoff_at: string | null
+          handoff_summary: Json | null
+          ia_ativa: boolean | null
           id: string
+          intent_tags: string[] | null
+          intent_updated_at: string | null
           jid_suffix: string
+          last_incoming_at: string | null
+          last_memory_extract_at: string | null
+          last_memory_extract_msg_count: number | null
           last_message: string | null
           last_message_at: string | null
           last_message_direction: string | null
+          last_objection: string | null
+          last_objection_at: string | null
+          last_pitch_at: string | null
+          last_pitch_link: string | null
+          last_pitch_produto: string | null
           last_reactivation_at: string | null
           last_read_at: string | null
+          lead_id: string | null
           message_count: number
           metadata: Json | null
+          nome: string | null
           phone: string
+          pitch_followup_last_at: string | null
+          pitch_followup_stage: number
           profile_pic_updated_at: string | null
           profile_pic_url: string | null
           project_id: string
           provider_id: string | null
+          qualification_questions_asked: number
+          reengagement_sent_at: string | null
           session: string
+          snoozed_until: string | null
           status: string
           temperature: string | null
           unread_count: number
           updated_at: string
+          variables: Json | null
         }
         Insert: {
+          ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          ai_pending_since?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
+          assigned_to?: string | null
+          audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
+          color_override?: string | null
           contact_name?: string | null
+          conv_status?: string | null
+          conversation_summary?: string | null
           created_at?: string
+          current_intent?: string | null
+          emotional_state?: string | null
+          escalation_confidence?: number | null
+          escalation_decided_at?: string | null
+          escalation_reason?: string | null
+          followup_state?: Json
+          handoff_at?: string | null
+          handoff_summary?: Json | null
+          ia_ativa?: boolean | null
           id?: string
+          intent_tags?: string[] | null
+          intent_updated_at?: string | null
           jid_suffix?: string
+          last_incoming_at?: string | null
+          last_memory_extract_at?: string | null
+          last_memory_extract_msg_count?: number | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_objection?: string | null
+          last_objection_at?: string | null
+          last_pitch_at?: string | null
+          last_pitch_link?: string | null
+          last_pitch_produto?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
+          lead_id?: string | null
           message_count?: number
           metadata?: Json | null
+          nome?: string | null
           phone: string
+          pitch_followup_last_at?: string | null
+          pitch_followup_stage?: number
           profile_pic_updated_at?: string | null
           profile_pic_url?: string | null
           project_id: string
           provider_id?: string | null
+          qualification_questions_asked?: number
+          reengagement_sent_at?: string | null
           session: string
+          snoozed_until?: string | null
           status?: string
           temperature?: string | null
           unread_count?: number
           updated_at?: string
+          variables?: Json | null
         }
         Update: {
+          ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
           ai_paused_until?: string | null
+          ai_pending_since?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
+          assigned_to?: string | null
+          audited_at?: string | null
           avatar_url?: string | null
           buy_intent_detected?: boolean | null
+          color_override?: string | null
           contact_name?: string | null
+          conv_status?: string | null
+          conversation_summary?: string | null
           created_at?: string
+          current_intent?: string | null
+          emotional_state?: string | null
+          escalation_confidence?: number | null
+          escalation_decided_at?: string | null
+          escalation_reason?: string | null
+          followup_state?: Json
+          handoff_at?: string | null
+          handoff_summary?: Json | null
+          ia_ativa?: boolean | null
           id?: string
+          intent_tags?: string[] | null
+          intent_updated_at?: string | null
           jid_suffix?: string
+          last_incoming_at?: string | null
+          last_memory_extract_at?: string | null
+          last_memory_extract_msg_count?: number | null
           last_message?: string | null
           last_message_at?: string | null
           last_message_direction?: string | null
+          last_objection?: string | null
+          last_objection_at?: string | null
+          last_pitch_at?: string | null
+          last_pitch_link?: string | null
+          last_pitch_produto?: string | null
           last_reactivation_at?: string | null
           last_read_at?: string | null
+          lead_id?: string | null
           message_count?: number
           metadata?: Json | null
+          nome?: string | null
           phone?: string
+          pitch_followup_last_at?: string | null
+          pitch_followup_stage?: number
           profile_pic_updated_at?: string | null
           profile_pic_url?: string | null
           project_id?: string
           provider_id?: string | null
+          qualification_questions_asked?: number
+          reengagement_sent_at?: string | null
           session?: string
+          snoozed_until?: string | null
           status?: string
           temperature?: string | null
           unread_count?: number
           updated_at?: string
+          variables?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_wa_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_wa_conversations_provider_id_fkey"
             columns: ["provider_id"]
@@ -23630,13 +29469,42 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_internal_notes: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       imphq_wa_knowledge: {
         Row: {
+          answered: boolean
           aprovada: boolean
           conversation_id: string | null
           created_at: string
           embedding: string | null
           id: string
+          last_applied_at: string | null
           lead_id: string | null
           pergunta: string
           project_id: string
@@ -23646,11 +29514,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           lead_id?: string | null
           pergunta: string
           project_id: string
@@ -23660,11 +29530,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          last_applied_at?: string | null
           lead_id?: string | null
           pergunta?: string
           project_id?: string
@@ -23674,6 +29546,76 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      imphq_wa_lead_memories: {
+        Row: {
+          content: string
+          created_at: string
+          cross_shareable: boolean
+          embedding: string | null
+          emotional_state: string | null
+          id: string
+          last_objection: string | null
+          lead_id: string | null
+          memory_type: string
+          phone: string | null
+          project_id: string
+          qualification: Json
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          cross_shareable?: boolean
+          embedding?: string | null
+          emotional_state?: string | null
+          id?: string
+          last_objection?: string | null
+          lead_id?: string | null
+          memory_type?: string
+          phone?: string | null
+          project_id: string
+          qualification?: Json
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          cross_shareable?: boolean
+          embedding?: string | null
+          emotional_state?: string | null
+          id?: string
+          last_objection?: string | null
+          lead_id?: string | null
+          memory_type?: string
+          phone?: string | null
+          project_id?: string
+          qualification?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_lead_memories_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
       }
       imphq_wa_lead_memory: {
         Row: {
@@ -23715,10 +29657,14 @@ export type Database = {
       }
       imphq_wa_messages: {
         Row: {
+          attribution_id: string | null
           content: string
           conversation_id: string
           created_at: string
           direction: string | null
+          feedback_correction_type: string | null
+          gap_analyzed: boolean | null
+          gap_score: number | null
           id: string
           media_url: string | null
           message_type: string | null
@@ -23733,12 +29679,18 @@ export type Database = {
           sent_by: string | null
           status: string | null
           tokens_used: number | null
+          transcript: string | null
+          transcription: string | null
         }
         Insert: {
+          attribution_id?: string | null
           content: string
           conversation_id: string
           created_at?: string
           direction?: string | null
+          feedback_correction_type?: string | null
+          gap_analyzed?: boolean | null
+          gap_score?: number | null
           id?: string
           media_url?: string | null
           message_type?: string | null
@@ -23753,12 +29705,18 @@ export type Database = {
           sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
+          transcript?: string | null
+          transcription?: string | null
         }
         Update: {
+          attribution_id?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
           direction?: string | null
+          feedback_correction_type?: string | null
+          gap_analyzed?: boolean | null
+          gap_score?: number | null
           id?: string
           media_url?: string | null
           message_type?: string | null
@@ -23773,6 +29731,8 @@ export type Database = {
           sent_by?: string | null
           status?: string | null
           tokens_used?: number | null
+          transcript?: string | null
+          transcription?: string | null
         }
         Relationships: [
           {
@@ -23841,6 +29801,92 @@ export type Database = {
           },
         ]
       }
+      imphq_wa_project_rules: {
+        Row: {
+          ab_decided_at: string | null
+          ab_group_id: string | null
+          ab_started_at: string | null
+          ab_status: string | null
+          active: boolean
+          approved_at: string | null
+          approved_by: string | null
+          conversion_count: number
+          created_at: string
+          created_by: string | null
+          created_from_message_id: string | null
+          embedding: string | null
+          id: string
+          last_applied_at: string | null
+          parent_id: string | null
+          pending_reason: string | null
+          project_id: string
+          rule_text: string
+          rule_type: string
+          status: string
+          times_applied: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          ab_decided_at?: string | null
+          ab_group_id?: string | null
+          ab_started_at?: string | null
+          ab_status?: string | null
+          active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          conversion_count?: number
+          created_at?: string
+          created_by?: string | null
+          created_from_message_id?: string | null
+          embedding?: string | null
+          id?: string
+          last_applied_at?: string | null
+          parent_id?: string | null
+          pending_reason?: string | null
+          project_id: string
+          rule_text: string
+          rule_type?: string
+          status?: string
+          times_applied?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          ab_decided_at?: string | null
+          ab_group_id?: string | null
+          ab_started_at?: string | null
+          ab_status?: string | null
+          active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          conversion_count?: number
+          created_at?: string
+          created_by?: string | null
+          created_from_message_id?: string | null
+          embedding?: string | null
+          id?: string
+          last_applied_at?: string | null
+          parent_id?: string | null
+          pending_reason?: string | null
+          project_id?: string
+          rule_text?: string
+          rule_type?: string
+          status?: string
+          times_applied?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_project_rules_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_project_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_wa_providers: {
         Row: {
           access_token: string | null
@@ -23858,6 +29904,8 @@ export type Database = {
           phone_number_id: string | null
           project_id: string
           provider: string
+          status: string | null
+          status_updated_at: string | null
           twilio_from: string | null
           waba_id: string | null
           webhook_verify_token: string | null
@@ -23878,6 +29926,8 @@ export type Database = {
           phone_number_id?: string | null
           project_id: string
           provider: string
+          status?: string | null
+          status_updated_at?: string | null
           twilio_from?: string | null
           waba_id?: string | null
           webhook_verify_token?: string | null
@@ -23898,9 +29948,145 @@ export type Database = {
           phone_number_id?: string | null
           project_id?: string
           provider?: string
+          status?: string | null
+          status_updated_at?: string | null
           twilio_from?: string | null
           waba_id?: string | null
           webhook_verify_token?: string | null
+        }
+        Relationships: []
+      }
+      imphq_wa_rule_applications: {
+        Row: {
+          ab_group_id: string | null
+          applied_at: string
+          conversation_id: string | null
+          converted_at: string | null
+          id: string
+          lead_id: string | null
+          project_id: string
+          rule_id: string
+          venda_id: string | null
+        }
+        Insert: {
+          ab_group_id?: string | null
+          applied_at?: string
+          conversation_id?: string | null
+          converted_at?: string | null
+          id?: string
+          lead_id?: string | null
+          project_id: string
+          rule_id: string
+          venda_id?: string | null
+        }
+        Update: {
+          ab_group_id?: string | null
+          applied_at?: string
+          conversation_id?: string | null
+          converted_at?: string | null
+          id?: string
+          lead_id?: string | null
+          project_id?: string
+          rule_id?: string
+          venda_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_wa_rule_applications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_wa_project_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_wa_scheduled: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          phone: string
+          project_id: string | null
+          provider_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          phone: string
+          project_id?: string | null
+          provider_id?: string | null
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          phone?: string
+          project_id?: string | null
+          provider_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      imphq_wa_sector_templates: {
+        Row: {
+          config_json: Json
+          created_at: string | null
+          descricao: string | null
+          emoji: string | null
+          faq_json: Json
+          flows_json: Json
+          id: string
+          nome: string
+          ordem: number | null
+          setor: string
+        }
+        Insert: {
+          config_json?: Json
+          created_at?: string | null
+          descricao?: string | null
+          emoji?: string | null
+          faq_json?: Json
+          flows_json?: Json
+          id?: string
+          nome: string
+          ordem?: number | null
+          setor: string
+        }
+        Update: {
+          config_json?: Json
+          created_at?: string | null
+          descricao?: string | null
+          emoji?: string | null
+          faq_json?: Json
+          flows_json?: Json
+          id?: string
+          nome?: string
+          ordem?: number | null
+          setor?: string
         }
         Relationships: []
       }
@@ -23973,6 +30159,7 @@ export type Database = {
       imphq_wa_triage: {
         Row: {
           ai_response: string | null
+          awareness_level: number | null
           conversation_id: string | null
           created_at: string
           escalated: boolean
@@ -23988,6 +30175,7 @@ export type Database = {
         }
         Insert: {
           ai_response?: string | null
+          awareness_level?: number | null
           conversation_id?: string | null
           created_at?: string
           escalated?: boolean
@@ -24003,6 +30191,7 @@ export type Database = {
         }
         Update: {
           ai_response?: string | null
+          awareness_level?: number | null
           conversation_id?: string | null
           created_at?: string
           escalated?: boolean
@@ -24015,6 +30204,90 @@ export type Database = {
           raw_message?: string | null
           sentiment?: string | null
           urgency?: string | null
+        }
+        Relationships: []
+      }
+      imphq_webchat_widgets: {
+        Row: {
+          allowed_origins: string[]
+          ativo: boolean
+          automacao_id: string | null
+          avatar_url: string | null
+          cor: string
+          created_at: string
+          id: string
+          nome: string
+          project_id: string | null
+          public_key: string
+          saudacao: string
+          som: boolean
+          subtitulo: string
+          tema: string
+          texto_digitando: string
+          texto_gravando: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_origins?: string[]
+          ativo?: boolean
+          automacao_id?: string | null
+          avatar_url?: string | null
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          project_id?: string | null
+          public_key?: string
+          saudacao?: string
+          som?: boolean
+          subtitulo?: string
+          tema?: string
+          texto_digitando?: string
+          texto_gravando?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_origins?: string[]
+          ativo?: boolean
+          automacao_id?: string | null
+          avatar_url?: string | null
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          project_id?: string | null
+          public_key?: string
+          saudacao?: string
+          som?: boolean
+          subtitulo?: string
+          tema?: string
+          texto_digitando?: string
+          texto_gravando?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_webhook_dedup: {
+        Row: {
+          event_id: string
+          id: string
+          processed_at: string
+          source: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          processed_at?: string
+          source: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          processed_at?: string
+          source?: string
         }
         Relationships: []
       }
@@ -24326,6 +30599,78 @@ export type Database = {
           },
         ]
       }
+      imphq_zernio_api_calls: {
+        Row: {
+          action: string | null
+          attempt: number | null
+          created_at: string
+          endpoint: string
+          error_summary: string | null
+          id: string
+          method: string
+          project_id: string | null
+          request_id: string | null
+          request_payload: Json | null
+          response_body: Json | null
+          status: number | null
+          success: boolean | null
+        }
+        Insert: {
+          action?: string | null
+          attempt?: number | null
+          created_at?: string
+          endpoint: string
+          error_summary?: string | null
+          id?: string
+          method?: string
+          project_id?: string | null
+          request_id?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          status?: number | null
+          success?: boolean | null
+        }
+        Update: {
+          action?: string | null
+          attempt?: number | null
+          created_at?: string
+          endpoint?: string
+          error_summary?: string | null
+          id?: string
+          method?: string
+          project_id?: string | null
+          request_id?: string | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          status?: number | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
+      imphq_zernio_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          payload: Json | null
+          project_id: string | null
+          received_at: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          payload?: Json | null
+          project_id?: string | null
+          received_at?: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          payload?: Json | null
+          project_id?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
       integrated_analysis: {
         Row: {
           correlation_data: Json | null
@@ -24587,6 +30932,42 @@ export type Database = {
           position?: number
           starts_at?: string | null
           title?: string
+        }
+        Relationships: []
+      }
+      jonathan_brand_personas: {
+        Row: {
+          created_at: string
+          default_model: string
+          default_provider: string
+          id: string
+          is_default: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          persona_prompt?: string
+          slug?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -25262,6 +31643,268 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_email_jobs: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          dedupe_key: string
+          generated_html: string | null
+          generated_subject: string | null
+          id: string
+          last_error: string | null
+          recipient_email: string
+          scheduled_at: string
+          sent_at: string | null
+          sequence_id: string | null
+          status: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key?: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["jonathan_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_jobs_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_email_jobs_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          event: string
+          from_email: string | null
+          html: string | null
+          id: string
+          job_id: string | null
+          payload: Json
+          resend_id: string | null
+          source: string | null
+          status: string | null
+          subject: string | null
+          to_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event?: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_sequence_steps: {
+        Row: {
+          ai_prompt_override: string | null
+          body_static_html: string | null
+          created_at: string
+          delay_hours: number
+          dynamic_reason: string | null
+          id: string
+          render_mode: string
+          sequence_id: string
+          step_order: number
+          subject_override: string | null
+          subject_static: string | null
+        }
+        Insert: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Update: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id?: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_email_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_email_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_email_sequences: {
+        Row: {
+          ai_model: string
+          ai_prompt: string
+          ai_provider: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          from_name: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject_template: string
+          trigger_config: Json
+          trigger_type: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string
+          ai_prompt: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string
+          ai_prompt?: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["jonathan_email_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_email_unsubscribes: {
+        Row: {
+          category: string
+          created_at: string
+          email: string
+          id: string
+          token: string
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       jonathan_events: {
         Row: {
           created_at: string
@@ -25328,6 +31971,47 @@ export type Database = {
           },
         ]
       }
+      jonathan_external_product_map: {
+        Row: {
+          created_at: string
+          external_product_name: string
+          grants_all_premium: boolean
+          id: string
+          notes: string | null
+          program_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_name: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_product_name?: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_external_product_map_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jonathan_hair_types: {
         Row: {
           code: string
@@ -25355,6 +32039,66 @@ export type Database = {
           short_label?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_import_audit_log: {
+        Row: {
+          batch_id: string
+          errors: Json | null
+          errors_count: number | null
+          finished_at: string | null
+          granted_entitlements: number | null
+          id: string
+          inserted_enrollments: number | null
+          inserted_profiles: number | null
+          skipped_rows: number | null
+          source: string
+          source_file: string | null
+          started_at: string
+          status: string
+          total_rows: number | null
+          triggered_by: string | null
+          updated_enrollments: number | null
+          updated_profiles: number | null
+        }
+        Insert: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Update: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source?: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
         }
         Relationships: []
       }
@@ -25420,6 +32164,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      jonathan_legacy_enrollments: {
+        Row: {
+          claimed_at: string | null
+          claimed_user_id: string | null
+          cpf: string | null
+          created_at: string
+          expires_at: string | null
+          external_product_id: string | null
+          external_product_name: string
+          first_purchase_at: string | null
+          full_name: string | null
+          grants_all_premium: boolean
+          id: string
+          is_expired: boolean
+          last_purchase_at: string | null
+          phone: string | null
+          program_id: string | null
+          raw_payload: Json | null
+          source: string
+          updated_at: string
+          user_email: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source: string
+          updated_at?: string
+          user_email: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name?: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_legacy_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       jonathan_lesson_likes: {
         Row: {
@@ -25587,6 +32405,7 @@ export type Database = {
           description_html: string | null
           duration_min: number
           id: string
+          is_hidden: boolean
           is_preview: boolean
           module_id: string
           position: number
@@ -25594,8 +32413,11 @@ export type Database = {
           thumbnail_url: string | null
           title: string
           transcript: string | null
+          transcript_error: string | null
           transcript_fetched_at: string | null
           transcript_source: string | null
+          transcript_status: string
+          transcript_updated_at: string | null
           video_url: string | null
         }
         Insert: {
@@ -25607,6 +32429,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id: string
           position?: number
@@ -25614,8 +32437,11 @@ export type Database = {
           thumbnail_url?: string | null
           title: string
           transcript?: string | null
+          transcript_error?: string | null
           transcript_fetched_at?: string | null
           transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Update: {
@@ -25627,6 +32453,7 @@ export type Database = {
           description_html?: string | null
           duration_min?: number
           id?: string
+          is_hidden?: boolean
           is_preview?: boolean
           module_id?: string
           position?: number
@@ -25634,8 +32461,11 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           transcript?: string | null
+          transcript_error?: string | null
           transcript_fetched_at?: string | null
           transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
           video_url?: string | null
         }
         Relationships: [
@@ -25885,27 +32715,168 @@ export type Database = {
         }
         Relationships: []
       }
-      jonathan_modules: {
+      jonathan_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jonathan_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jonathan_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jonathan_mini_apps: {
         Row: {
           cover_url: string | null
           created_at: string
+          description: string | null
+          html_path: string | null
+          icon_emoji: string | null
           id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      jonathan_modules: {
+        Row: {
+          author_id: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          is_hidden: boolean
           position: number
           program_id: string
           title: string
         }
         Insert: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id: string
           title: string
         }
         Update: {
+          author_id?: string | null
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_hidden?: boolean
           position?: number
           program_id?: string
           title?: string
@@ -26093,6 +33064,36 @@ export type Database = {
         }
         Relationships: []
       }
+      jonathan_password_reset_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       jonathan_payment_webhooks: {
         Row: {
           created_at: string
@@ -26137,7 +33138,9 @@ export type Database = {
       }
       jonathan_plan_external_products: {
         Row: {
+          access_duration_days: number | null
           created_at: string
+          delivery_name: string | null
           external_product_id: string
           id: string
           is_active: boolean
@@ -26145,11 +33148,15 @@ export type Database = {
           plan_id: string | null
           program_id: string | null
           provider: string
+          sale_mode: string
           scope: string
+          tag_ids: string[]
           updated_at: string
         }
         Insert: {
+          access_duration_days?: number | null
           created_at?: string
+          delivery_name?: string | null
           external_product_id: string
           id?: string
           is_active?: boolean
@@ -26157,11 +33164,15 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Update: {
+          access_duration_days?: number | null
           created_at?: string
+          delivery_name?: string | null
           external_product_id?: string
           id?: string
           is_active?: boolean
@@ -26169,7 +33180,9 @@ export type Database = {
           plan_id?: string | null
           program_id?: string | null
           provider?: string
+          sale_mode?: string
           scope?: string
+          tag_ids?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -26685,6 +33698,7 @@ export type Database = {
           blocked_at: string | null
           blocked_reason: string | null
           created_at: string
+          email: string | null
           id: string
           is_blocked: boolean
           last_seen_at: string | null
@@ -26698,6 +33712,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id: string
           is_blocked?: boolean
           last_seen_at?: string | null
@@ -26711,6 +33726,7 @@ export type Database = {
           blocked_at?: string | null
           blocked_reason?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_blocked?: boolean
           last_seen_at?: string | null
@@ -26761,6 +33777,7 @@ export type Database = {
           avatar: string | null
           model: string
           name: string
+          persona_id: string | null
           program_id: string
           provider: string
           suggestions: Json
@@ -26771,6 +33788,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name: string
+          persona_id?: string | null
           program_id: string
           provider?: string
           suggestions?: Json
@@ -26781,6 +33799,7 @@ export type Database = {
           avatar?: string | null
           model?: string
           name?: string
+          persona_id?: string | null
           program_id?: string
           provider?: string
           suggestions?: Json
@@ -26788,6 +33807,13 @@ export type Database = {
           welcome?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "jonathan_program_ai_config_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_brand_personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "jonathan_program_ai_config_program_id_fkey"
             columns: ["program_id"]
@@ -26831,6 +33857,7 @@ export type Database = {
           language: string
           learnings: Json
           long_description: string | null
+          paywall_config: Json | null
           position: number
           price_brl: number | null
           reactivation_url: string | null
@@ -26875,6 +33902,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -26919,6 +33947,7 @@ export type Database = {
           language?: string
           learnings?: Json
           long_description?: string | null
+          paywall_config?: Json | null
           position?: number
           price_brl?: number | null
           reactivation_url?: string | null
@@ -27393,6 +34422,8 @@ export type Database = {
           author_photo: string | null
           country: string | null
           created_at: string
+          featured_on_home: boolean
+          home_order: number | null
           id: string
           media_type: string
           profession: string | null
@@ -27406,6 +34437,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
@@ -27419,6 +34452,8 @@ export type Database = {
           author_photo?: string | null
           country?: string | null
           created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
           id?: string
           media_type?: string
           profession?: string | null
@@ -27627,6 +34662,8 @@ export type Database = {
           landing_signup_label: string
           landing_subtitle: string
           landing_title: string
+          logo_fit: string | null
+          logo_height_px: number | null
           logo_url: string | null
           meditations_label: string
           meditations_label_singular: string
@@ -27735,6 +34772,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -27843,6 +34882,8 @@ export type Database = {
           landing_signup_label?: string
           landing_subtitle?: string
           landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
           logo_url?: string | null
           meditations_label?: string
           meditations_label_singular?: string
@@ -28050,6 +35091,7 @@ export type Database = {
           name: string
           priority: number
           sales_url: string | null
+          source_lesson_id: string | null
           source_program_id: string | null
           subheadline: string | null
           target_program_id: string
@@ -28066,6 +35108,7 @@ export type Database = {
           name: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id: string
@@ -28082,6 +35125,7 @@ export type Database = {
           name?: string
           priority?: number
           sales_url?: string | null
+          source_lesson_id?: string | null
           source_program_id?: string | null
           subheadline?: string | null
           target_program_id?: string
@@ -28089,6 +35133,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "jonathan_upsell_offers_source_lesson_id_fkey"
+            columns: ["source_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "jonathan_lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "jonathan_upsell_offers_source_program_id_fkey"
             columns: ["source_program_id"]
@@ -28257,6 +35308,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      jonathan_user_logins: {
+        Row: {
+          created_at: string
+          device: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       jonathan_user_onboarding: {
         Row: {
@@ -29448,6 +36526,963 @@ export type Database = {
         }
         Relationships: []
       }
+      momentos_de_amor_admin_users: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          level: Database["public"]["Enums"]["diri_admin_level"] | null
+          location: string | null
+          permissions: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["diri_admin_level"] | null
+          location?: string | null
+          permissions?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          level?: Database["public"]["Enums"]["diri_admin_level"] | null
+          location?: string | null
+          permissions?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_banners: {
+        Row: {
+          category_id: string | null
+          category_ids: string[] | null
+          clicks: number
+          client_name: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          image_url: string
+          is_active: boolean | null
+          link_url: string | null
+          position: string | null
+          show_on_homepage: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          category_ids?: string[] | null
+          clicks?: number
+          client_name?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url: string
+          is_active?: boolean | null
+          link_url?: string | null
+          position?: string | null
+          show_on_homepage?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          category_ids?: string[] | null
+          clicks?: number
+          client_name?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string
+          is_active?: boolean | null
+          link_url?: string | null
+          position?: string | null
+          show_on_homepage?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_banners_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_blog_posts: {
+        Row: {
+          blog_id: string
+          content: string | null
+          created_at: string | null
+          featured_image: string | null
+          hat: string | null
+          id: string
+          keywords: string[] | null
+          published_at: string | null
+          status: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          blog_id: string
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          hat?: string | null
+          id?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          blog_id?: string
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          hat?: string | null
+          id?: string
+          keywords?: string[] | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_blog_posts_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_blogs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_blogs: {
+        Row: {
+          author: string
+          avatar_url: string | null
+          cover_image: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          author: string
+          avatar_url?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          author?: string
+          avatar_url?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      momentos_de_amor_breaking_news: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          link: string | null
+          order_index: number
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          order_index?: number
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          order_index?: number
+          text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      momentos_de_amor_categories: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          menu_order: number | null
+          name: string
+          show_in_header: boolean
+          show_in_menu: boolean | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_order?: number | null
+          name: string
+          show_in_header?: boolean
+          show_in_menu?: boolean | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_order?: number | null
+          name?: string
+          show_in_header?: boolean
+          show_in_menu?: boolean | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      momentos_de_amor_contacts: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_read: boolean | null
+          message: string
+          name: string
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          name: string
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          name?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
+      momentos_de_amor_galleries: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      momentos_de_amor_gallery_images: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          display_order: number | null
+          gallery_id: string
+          id: string
+          image_url: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          gallery_id: string
+          id?: string
+          image_url: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          gallery_id?: string
+          id?: string
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_gallery_images_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_homepage_blocks: {
+        Row: {
+          block_type: string
+          category_id: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_visible: boolean | null
+          layout: string | null
+          posts_count: number | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          block_type?: string
+          category_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_visible?: boolean | null
+          layout?: string | null
+          posts_count?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          block_type?: string
+          category_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_visible?: boolean | null
+          layout?: string | null
+          posts_count?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_homepage_blocks_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_newsletter_subscribers: {
+        Row: {
+          email: string
+          id: string
+          is_active: boolean
+          subscribed_at: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          is_active?: boolean
+          subscribed_at?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          is_active?: boolean
+          subscribed_at?: string
+        }
+        Relationships: []
+      }
+      momentos_de_amor_page_views: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          post_id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path?: string
+          post_id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          post_id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "momentos_de_amor_page_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_pages: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          show_in_menu: boolean
+          slug: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_in_menu?: boolean
+          slug: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_in_menu?: boolean
+          slug?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      momentos_de_amor_post_shares: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform?: string
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          post_id?: string
+        }
+        Relationships: []
+      }
+      momentos_de_amor_posts: {
+        Row: {
+          audio_url: string | null
+          author: string | null
+          category_id: string | null
+          content: string | null
+          created_at: string | null
+          featured_image: string | null
+          gallery_id: string | null
+          hat: string | null
+          id: string
+          image_caption: string | null
+          is_featured: boolean | null
+          keywords: string[] | null
+          published_at: string | null
+          scheduled_at: string | null
+          show_in_you_need_to_know: boolean
+          slug: string | null
+          source: string | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          audio_url?: string | null
+          author?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          gallery_id?: string | null
+          hat?: string | null
+          id?: string
+          image_caption?: string | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          show_in_you_need_to_know?: boolean
+          slug?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          audio_url?: string | null
+          author?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          featured_image?: string | null
+          gallery_id?: string | null
+          hat?: string | null
+          id?: string
+          image_caption?: string | null
+          is_featured?: boolean | null
+          keywords?: string[] | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          show_in_you_need_to_know?: boolean
+          slug?: string | null
+          source?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["diri_post_status"] | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_posts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gb_posts_gallery_id_fkey"
+            columns: ["gallery_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_galleries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_rss_import_jobs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          download_images: boolean
+          error_message: string | null
+          errors: Json
+          feed_url: string
+          finished_at: string | null
+          id: string
+          imported: number
+          item_limit: number
+          log: Json
+          skipped: number
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          download_images?: boolean
+          error_message?: string | null
+          errors?: Json
+          feed_url: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          item_limit?: number
+          log?: Json
+          skipped?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          download_images?: boolean
+          error_message?: string | null
+          errors?: Json
+          feed_url?: string
+          finished_at?: string | null
+          id?: string
+          imported?: number
+          item_limit?: number
+          log?: Json
+          skipped?: number
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "momentos_de_amor_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "momentos_de_amor_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "momentos_de_amor_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "momentos_de_amor_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "momentos_de_amor_rss_import_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      momentos_de_amor_site_settings: {
+        Row: {
+          ads_txt: string | null
+          blogs_title: string | null
+          breaking_news_enabled: boolean | null
+          breaking_news_text: string | null
+          breaking_news_title: string | null
+          category_color_blocks: boolean | null
+          contact_email: string | null
+          created_at: string | null
+          custom_footer_html: string | null
+          custom_head_html: string | null
+          drop_caps_enabled: boolean | null
+          favicon_url: string | null
+          featured_post_ids: string[] | null
+          footer_disclaimer: string | null
+          footer_logo_style: string | null
+          footer_text: string | null
+          google_analytics_id: string | null
+          id: string
+          logo_url: string | null
+          maintenance_mode: boolean | null
+          meta_description: string | null
+          meta_keywords: string | null
+          newsletter_enabled: boolean | null
+          portal_color: string | null
+          primary_color: string | null
+          radio_enabled: boolean | null
+          radio_title: string | null
+          radio_url: string | null
+          section_order_blogs: number
+          section_order_latest_news: number
+          section_order_most_read: number
+          section_order_videos: number
+          section_order_you_need_to_know: number
+          separate_breaking_news: boolean | null
+          show_blogs_block: boolean | null
+          show_categories_footer: boolean | null
+          show_footer_logo: boolean | null
+          show_videos_block: boolean | null
+          site_slogan: string | null
+          site_title: string | null
+          site_url: string | null
+          social_facebook: string | null
+          social_instagram: string | null
+          social_twitter: string | null
+          social_whatsapp: string | null
+          social_youtube: string | null
+          sticky_menu: boolean | null
+          top_bar_enabled: boolean | null
+          updated_at: string | null
+          videos_title: string | null
+          weather_city: string | null
+          weather_state: string | null
+        }
+        Insert: {
+          ads_txt?: string | null
+          blogs_title?: string | null
+          breaking_news_enabled?: boolean | null
+          breaking_news_text?: string | null
+          breaking_news_title?: string | null
+          category_color_blocks?: boolean | null
+          contact_email?: string | null
+          created_at?: string | null
+          custom_footer_html?: string | null
+          custom_head_html?: string | null
+          drop_caps_enabled?: boolean | null
+          favicon_url?: string | null
+          featured_post_ids?: string[] | null
+          footer_disclaimer?: string | null
+          footer_logo_style?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          maintenance_mode?: boolean | null
+          meta_description?: string | null
+          meta_keywords?: string | null
+          newsletter_enabled?: boolean | null
+          portal_color?: string | null
+          primary_color?: string | null
+          radio_enabled?: boolean | null
+          radio_title?: string | null
+          radio_url?: string | null
+          section_order_blogs?: number
+          section_order_latest_news?: number
+          section_order_most_read?: number
+          section_order_videos?: number
+          section_order_you_need_to_know?: number
+          separate_breaking_news?: boolean | null
+          show_blogs_block?: boolean | null
+          show_categories_footer?: boolean | null
+          show_footer_logo?: boolean | null
+          show_videos_block?: boolean | null
+          site_slogan?: string | null
+          site_title?: string | null
+          site_url?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_twitter?: string | null
+          social_whatsapp?: string | null
+          social_youtube?: string | null
+          sticky_menu?: boolean | null
+          top_bar_enabled?: boolean | null
+          updated_at?: string | null
+          videos_title?: string | null
+          weather_city?: string | null
+          weather_state?: string | null
+        }
+        Update: {
+          ads_txt?: string | null
+          blogs_title?: string | null
+          breaking_news_enabled?: boolean | null
+          breaking_news_text?: string | null
+          breaking_news_title?: string | null
+          category_color_blocks?: boolean | null
+          contact_email?: string | null
+          created_at?: string | null
+          custom_footer_html?: string | null
+          custom_head_html?: string | null
+          drop_caps_enabled?: boolean | null
+          favicon_url?: string | null
+          featured_post_ids?: string[] | null
+          footer_disclaimer?: string | null
+          footer_logo_style?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          maintenance_mode?: boolean | null
+          meta_description?: string | null
+          meta_keywords?: string | null
+          newsletter_enabled?: boolean | null
+          portal_color?: string | null
+          primary_color?: string | null
+          radio_enabled?: boolean | null
+          radio_title?: string | null
+          radio_url?: string | null
+          section_order_blogs?: number
+          section_order_latest_news?: number
+          section_order_most_read?: number
+          section_order_videos?: number
+          section_order_you_need_to_know?: number
+          separate_breaking_news?: boolean | null
+          show_blogs_block?: boolean | null
+          show_categories_footer?: boolean | null
+          show_footer_logo?: boolean | null
+          show_videos_block?: boolean | null
+          site_slogan?: string | null
+          site_title?: string | null
+          site_url?: string | null
+          social_facebook?: string | null
+          social_instagram?: string | null
+          social_twitter?: string | null
+          social_whatsapp?: string | null
+          social_youtube?: string | null
+          sticky_menu?: boolean | null
+          top_bar_enabled?: boolean | null
+          updated_at?: string | null
+          videos_title?: string | null
+          weather_city?: string | null
+          weather_state?: string | null
+        }
+        Relationships: []
+      }
+      momentos_de_amor_site_stats: {
+        Row: {
+          id: string
+          total_visits: number
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          total_visits?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      momentos_de_amor_videos: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          youtube_url: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          youtube_url: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          youtube_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gb_videos_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "momentos_de_amor_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nutri_users: {
         Row: {
           abdominal_circumference: string | null
@@ -29756,6 +37791,5175 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      orion_astro_maps: {
+        Row: {
+          analysis: Json
+          aspects: Json
+          birth_date: string
+          birth_place: string
+          birth_time: string
+          created_at: string
+          cusps: Json
+          elemental: Json
+          id: string
+          is_primary: boolean
+          modality: Json
+          name: string
+          positions: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json
+          aspects?: Json
+          birth_date: string
+          birth_place: string
+          birth_time: string
+          created_at?: string
+          cusps?: Json
+          elemental?: Json
+          id?: string
+          is_primary?: boolean
+          modality?: Json
+          name: string
+          positions?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          aspects?: Json
+          birth_date?: string
+          birth_place?: string
+          birth_time?: string
+          created_at?: string
+          cusps?: Json
+          elemental?: Json
+          id?: string
+          is_primary?: boolean
+          modality?: Json
+          name?: string
+          positions?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_astro_maps_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_authors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          position: number
+          role: string | null
+          social_links: Json
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: number
+          role?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_badge_definitions: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          is_active: boolean
+          position: number
+          rule_type: string
+          rule_value: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          rule_type?: string
+          rule_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_banners: {
+        Row: {
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          hide_title: boolean
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          link_url: string | null
+          position: number
+          starts_at: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          hide_title?: boolean
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          starts_at?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          hide_title?: boolean
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          link_url?: string | null
+          position?: number
+          starts_at?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      orion_brand_personas: {
+        Row: {
+          created_at: string
+          default_model: string
+          default_provider: string
+          id: string
+          is_default: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          persona_prompt: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_model?: string
+          default_provider?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          persona_prompt?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_cancellation_notices: {
+        Row: {
+          created_at: string
+          email: string | null
+          email_sent: boolean
+          id: string
+          plan_id: string | null
+          program_id: string | null
+          provider: string | null
+          push_sent: boolean
+          reactivation_url: string | null
+          scope: string
+          source_event: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          email_sent?: boolean
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string | null
+          push_sent?: boolean
+          reactivation_url?: string | null
+          scope?: string
+          source_event?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_certificate_templates: {
+        Row: {
+          accent_color: string
+          background_height: number | null
+          background_url: string | null
+          background_width: number | null
+          body_text: string
+          created_at: string
+          field_positions: Json
+          id: string
+          is_active: boolean
+          is_default: boolean
+          logo_url: string | null
+          mode: string
+          name: string
+          primary_color: string
+          signature_name: string | null
+          signature_role: string | null
+          signature_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
+          body_text?: string
+          created_at?: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          mode?: string
+          name: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          background_height?: number | null
+          background_url?: string | null
+          background_width?: number | null
+          body_text?: string
+          created_at?: string
+          field_positions?: Json
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          logo_url?: string | null
+          mode?: string
+          name?: string
+          primary_color?: string
+          signature_name?: string | null
+          signature_role?: string | null
+          signature_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_certificates: {
+        Row: {
+          duration_hours: number | null
+          id: string
+          instructor_name_snapshot: string | null
+          issued_at: string
+          pdf_url: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Insert: {
+          duration_hours?: number | null
+          id?: string
+          instructor_name_snapshot?: string | null
+          issued_at?: string
+          pdf_url?: string | null
+          program_id: string
+          program_title_snapshot: string
+          template_id?: string | null
+          user_id: string
+          user_name_snapshot: string
+          validation_code: string
+        }
+        Update: {
+          duration_hours?: number | null
+          id?: string
+          instructor_name_snapshot?: string | null
+          issued_at?: string
+          pdf_url?: string | null
+          program_id?: string
+          program_title_snapshot?: string
+          template_id?: string | null
+          user_id?: string
+          user_name_snapshot?: string
+          validation_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_certificates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "orion_certificate_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          program_id: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          program_id?: string | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          program_id?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_chat_messages_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_cosmic_habits: {
+        Row: {
+          best_streak: number
+          checkins: Json
+          completed: boolean
+          created_at: string
+          duration_days: number
+          element: string | null
+          emoji: string | null
+          habit_key: string
+          id: string
+          last_checkin: string | null
+          streak: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_streak?: number
+          checkins?: Json
+          completed?: boolean
+          created_at?: string
+          duration_days?: number
+          element?: string | null
+          emoji?: string | null
+          habit_key: string
+          id?: string
+          last_checkin?: string | null
+          streak?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_streak?: number
+          checkins?: Json
+          completed?: boolean
+          created_at?: string
+          duration_days?: number
+          element?: string | null
+          emoji?: string | null
+          habit_key?: string
+          id?: string
+          last_checkin?: string | null
+          streak?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_cosmic_habits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_crm_exports: {
+        Row: {
+          created_at: string
+          exported_by: string | null
+          filters: Json
+          format: string
+          id: string
+          row_count: number
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Update: {
+          created_at?: string
+          exported_by?: string | null
+          filters?: Json
+          format?: string
+          id?: string
+          row_count?: number
+          scope?: string
+        }
+        Relationships: []
+      }
+      orion_crm_member_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          tag_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          tag_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          tag_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_crm_member_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "orion_crm_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_crm_notes: {
+        Row: {
+          author_id: string | null
+          category: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          category?: string
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author_id?: string | null
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_crm_segments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_crm_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      orion_cta_leads: {
+        Row: {
+          created_at: string
+          cta_id: string | null
+          email: string
+          id: string
+          metadata: Json
+          name: string
+          source_id: string | null
+          source_type: string | null
+          user_id: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          created_at?: string
+          cta_id?: string | null
+          email: string
+          id?: string
+          metadata?: Json
+          name: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          created_at?: string
+          cta_id?: string | null
+          email?: string
+          id?: string
+          metadata?: Json
+          name?: string
+          source_id?: string | null
+          source_type?: string | null
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_cta_leads_cta_id_fkey"
+            columns: ["cta_id"]
+            isOneToOne: false
+            referencedRelation: "orion_ctas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_cta_leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_ctas: {
+        Row: {
+          button_label: string
+          capture_lead: boolean
+          created_at: string
+          delay_seconds: number
+          description: string | null
+          ends_at: string | null
+          frequency: string
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          position: string
+          random_display: boolean
+          scope: string
+          scope_id: string | null
+          starts_at: string | null
+          target_url: string
+          title: string
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          delay_seconds?: number
+          description?: string | null
+          ends_at?: string | null
+          frequency?: string
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: string
+          random_display?: boolean
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url: string
+          title: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          button_label?: string
+          capture_lead?: boolean
+          created_at?: string
+          delay_seconds?: number
+          description?: string | null
+          ends_at?: string | null
+          frequency?: string
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: string
+          random_display?: boolean
+          scope?: string
+          scope_id?: string | null
+          starts_at?: string | null
+          target_url?: string
+          title?: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_custom_palettes: {
+        Row: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at: string
+          created_by: string | null
+          foreground_hsl: string
+          id: string
+          mode: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Insert: {
+          accent_hsl: string
+          background_hsl: string
+          card_hsl: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl: string
+          id?: string
+          mode?: string
+          muted_hsl: string
+          name: string
+          primary_hsl: string
+        }
+        Update: {
+          accent_hsl?: string
+          background_hsl?: string
+          card_hsl?: string
+          created_at?: string
+          created_by?: string | null
+          foreground_hsl?: string
+          id?: string
+          mode?: string
+          muted_hsl?: string
+          name?: string
+          primary_hsl?: string
+        }
+        Relationships: []
+      }
+      orion_email_jobs: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          dedupe_key: string
+          generated_html: string | null
+          generated_subject: string | null
+          id: string
+          last_error: string | null
+          recipient_email: string
+          scheduled_at: string
+          sent_at: string | null
+          sequence_id: string | null
+          status: Database["public"]["Enums"]["orion_email_job_status"]
+          step_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["orion_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          dedupe_key?: string
+          generated_html?: string | null
+          generated_subject?: string | null
+          id?: string
+          last_error?: string | null
+          recipient_email?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          status?: Database["public"]["Enums"]["orion_email_job_status"]
+          step_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_jobs_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_email_jobs_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          event: string
+          from_email: string | null
+          html: string | null
+          id: string
+          job_id: string | null
+          payload: Json
+          resend_id: string | null
+          source: string | null
+          status: string | null
+          subject: string | null
+          to_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event?: string
+          from_email?: string | null
+          html?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json
+          resend_id?: string | null
+          source?: string | null
+          status?: string | null
+          subject?: string | null
+          to_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_email_sequence_steps: {
+        Row: {
+          ai_prompt_override: string | null
+          body_static_html: string | null
+          created_at: string
+          delay_hours: number
+          dynamic_reason: string | null
+          id: string
+          render_mode: string
+          sequence_id: string
+          step_order: number
+          subject_override: string | null
+          subject_static: string | null
+        }
+        Insert: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Update: {
+          ai_prompt_override?: string | null
+          body_static_html?: string | null
+          created_at?: string
+          delay_hours?: number
+          dynamic_reason?: string | null
+          id?: string
+          render_mode?: string
+          sequence_id?: string
+          step_order?: number
+          subject_override?: string | null
+          subject_static?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_email_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "orion_email_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_email_sequences: {
+        Row: {
+          ai_model: string
+          ai_prompt: string
+          ai_provider: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          from_name: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject_template: string
+          trigger_config: Json
+          trigger_type: Database["public"]["Enums"]["orion_email_trigger_type"]
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string
+          ai_prompt: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type: Database["public"]["Enums"]["orion_email_trigger_type"]
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string
+          ai_prompt?: string
+          ai_provider?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          from_name?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject_template?: string
+          trigger_config?: Json
+          trigger_type?: Database["public"]["Enums"]["orion_email_trigger_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_email_unsubscribes: {
+        Row: {
+          category: string
+          created_at: string
+          email: string
+          id: string
+          token: string
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          email: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      orion_events: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_external_product_map: {
+        Row: {
+          created_at: string
+          external_product_name: string
+          grants_all_premium: boolean
+          id: string
+          notes: string | null
+          program_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_product_name: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_product_name?: string
+          grants_all_premium?: boolean
+          id?: string
+          notes?: string | null
+          program_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_external_product_map_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_hair_types: {
+        Row: {
+          code: string
+          created_at: string
+          is_enabled: boolean
+          label: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_enabled?: boolean
+          label: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_enabled?: boolean
+          label?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_import_audit_log: {
+        Row: {
+          batch_id: string
+          errors: Json | null
+          errors_count: number | null
+          finished_at: string | null
+          granted_entitlements: number | null
+          id: string
+          inserted_enrollments: number | null
+          inserted_profiles: number | null
+          skipped_rows: number | null
+          source: string
+          source_file: string | null
+          started_at: string
+          status: string
+          total_rows: number | null
+          triggered_by: string | null
+          updated_enrollments: number | null
+          updated_profiles: number | null
+        }
+        Insert: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Update: {
+          batch_id?: string
+          errors?: Json | null
+          errors_count?: number | null
+          finished_at?: string | null
+          granted_entitlements?: number | null
+          id?: string
+          inserted_enrollments?: number | null
+          inserted_profiles?: number | null
+          skipped_rows?: number | null
+          source?: string
+          source_file?: string | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string | null
+          updated_enrollments?: number | null
+          updated_profiles?: number | null
+        }
+        Relationships: []
+      }
+      orion_install_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          platform: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      orion_languages: {
+        Row: {
+          code: string
+          created_at: string
+          is_default: boolean
+          is_enabled: boolean
+          name: string
+          short_label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name: string
+          short_label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_default?: boolean
+          is_enabled?: boolean
+          name?: string
+          short_label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_legacy_enrollments: {
+        Row: {
+          claimed_at: string | null
+          claimed_user_id: string | null
+          cpf: string | null
+          created_at: string
+          expires_at: string | null
+          external_product_id: string | null
+          external_product_name: string
+          first_purchase_at: string | null
+          full_name: string | null
+          grants_all_premium: boolean
+          id: string
+          is_expired: boolean
+          last_purchase_at: string | null
+          phone: string | null
+          program_id: string | null
+          raw_payload: Json | null
+          source: string
+          updated_at: string
+          user_email: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source: string
+          updated_at?: string
+          user_email: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_user_id?: string | null
+          cpf?: string | null
+          created_at?: string
+          expires_at?: string | null
+          external_product_id?: string | null
+          external_product_name?: string
+          first_purchase_at?: string | null
+          full_name?: string | null
+          grants_all_premium?: boolean
+          id?: string
+          is_expired?: boolean
+          last_purchase_at?: string | null
+          phone?: string | null
+          program_id?: string | null
+          raw_payload?: Json | null
+          source?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_legacy_enrollments_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lesson_notes: {
+        Row: {
+          content: string
+          id: string
+          lesson_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          id?: string
+          lesson_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          id?: string
+          lesson_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_lesson_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lesson_playback: {
+        Row: {
+          duration_seconds: number | null
+          lesson_id: string
+          position_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          duration_seconds?: number | null
+          lesson_id: string
+          position_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          duration_seconds?: number | null
+          lesson_id?: string
+          position_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lesson_playback_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lessons: {
+        Row: {
+          attachments: Json
+          created_at: string
+          description: string | null
+          description_html: string | null
+          duration_min: number
+          id: string
+          is_hidden: boolean
+          is_preview: boolean
+          module_id: string
+          position: number
+          thumbnail_url: string | null
+          title: string
+          transcript: string | null
+          transcript_error: string | null
+          transcript_source: string | null
+          transcript_status: string
+          transcript_updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string
+          description?: string | null
+          description_html?: string | null
+          duration_min?: number
+          id?: string
+          is_hidden?: boolean
+          is_preview?: boolean
+          module_id: string
+          position?: number
+          thumbnail_url?: string | null
+          title: string
+          transcript?: string | null
+          transcript_error?: string | null
+          transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string
+          description?: string | null
+          description_html?: string | null
+          duration_min?: number
+          id?: string
+          is_hidden?: boolean
+          is_preview?: boolean
+          module_id?: string
+          position?: number
+          thumbnail_url?: string | null
+          title?: string
+          transcript?: string | null
+          transcript_error?: string | null
+          transcript_source?: string | null
+          transcript_status?: string
+          transcript_updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "orion_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_lessons_backup_reorg: {
+        Row: {
+          id: string | null
+          module_id: string | null
+          position: number | null
+          snapshotted_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          module_id?: string | null
+          position?: number | null
+          snapshotted_at?: string | null
+        }
+        Relationships: []
+      }
+      orion_levels: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level: number
+          min_xp: number
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          level?: number
+          min_xp?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      orion_library_config: {
+        Row: {
+          created_at: string
+          description: string | null
+          fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_library_entries: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_published: boolean
+          position: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_published?: boolean
+          position?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_link_presets: {
+        Row: {
+          created_at: string
+          href: string
+          id: string
+          is_active: boolean
+          label: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          href: string
+          id?: string
+          is_active?: boolean
+          label: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          href?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_lives: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          host_name: string | null
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          link_url: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          link_url?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_meditations: {
+        Row: {
+          audio_url: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          thumbnail_url: string | null
+          title: string
+        }
+        Insert: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title: string
+        }
+        Update: {
+          audio_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          thumbnail_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      orion_mini_app_access: {
+        Row: {
+          app_id: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          program_id: string | null
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "orion_mini_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_mini_app_access_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_mini_app_events: {
+        Row: {
+          app_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          app_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          app_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_mini_app_events_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "orion_mini_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_mini_apps: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          external_url: string | null
+          html_path: string | null
+          icon_emoji: string | null
+          id: string
+          is_active: boolean
+          is_public: boolean
+          position: number
+          show_in_home: boolean
+          show_in_menu: boolean
+          slug: string
+          subtitle: string | null
+          title: string
+          token_cost: number
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug: string
+          subtitle?: string | null
+          title: string
+          token_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          html_path?: string | null
+          icon_emoji?: string | null
+          id?: string
+          is_active?: boolean
+          is_public?: boolean
+          position?: number
+          show_in_home?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          subtitle?: string | null
+          title?: string
+          token_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_modules: {
+        Row: {
+          author_id: string | null
+          cover_url: string | null
+          created_at: string
+          id: string
+          is_hidden: boolean
+          position: number
+          program_id: string
+          title: string
+        }
+        Insert: {
+          author_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          position?: number
+          program_id: string
+          title: string
+        }
+        Update: {
+          author_id?: string | null
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          position?: number
+          program_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_modules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_nav_items: {
+        Row: {
+          action_type: string
+          admin_only: boolean
+          created_at: string
+          has_megamenu: boolean
+          href: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          is_external: boolean
+          label: string
+          megamenu_config: Json
+          position: number
+          scope: string
+          show_in_mobile: boolean
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          action_type?: string
+          admin_only?: boolean
+          created_at?: string
+          has_megamenu?: boolean
+          href: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label: string
+          megamenu_config?: Json
+          position?: number
+          scope: string
+          show_in_mobile?: boolean
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          action_type?: string
+          admin_only?: boolean
+          created_at?: string
+          has_megamenu?: boolean
+          href?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          label?: string
+          megamenu_config?: Json
+          position?: number
+          scope?: string
+          show_in_mobile?: boolean
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      orion_notification_prefs: {
+        Row: {
+          enabled: boolean
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_notification_reads: {
+        Row: {
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          notification_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          notification_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "orion_notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          link: string | null
+          media_url: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      orion_oracle_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          oracle_key: string
+          rating: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          oracle_key: string
+          rating: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          oracle_key?: string
+          rating?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_oracle_readings: {
+        Row: {
+          created_at: string
+          id: string
+          input: Json
+          oracle_key: string
+          result: Json
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input?: Json
+          oracle_key: string
+          result?: Json
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input?: Json
+          oracle_key?: string
+          result?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orion_oracle_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_pages: {
+        Row: {
+          blocks: Json
+          created_at: string
+          id: string
+          is_published: boolean
+          seo_description: string | null
+          seo_image_url: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          seo_image_url?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          seo_description?: string | null
+          seo_image_url?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_palm_readings: {
+        Row: {
+          created_at: string
+          id: string
+          image_path: string | null
+          result: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          result?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          result?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_password_reset_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_payment_webhooks: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          matched_program_id: string | null
+          matched_user_id: string | null
+          processed: boolean
+          processed_at: string | null
+          provider: string
+          raw_payload: Json
+          user_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider: string
+          raw_payload: Json
+          user_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          matched_program_id?: string | null
+          matched_user_id?: string | null
+          processed?: boolean
+          processed_at?: string | null
+          provider?: string
+          raw_payload?: Json
+          user_email?: string | null
+        }
+        Relationships: []
+      }
+      orion_plan_external_products: {
+        Row: {
+          access_duration_days: number | null
+          created_at: string
+          delivery_name: string | null
+          external_product_id: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          plan_id: string | null
+          program_id: string | null
+          provider: string
+          sale_mode: string
+          scope: string
+          tag_ids: string[]
+          token_amount: number
+          updated_at: string
+        }
+        Insert: {
+          access_duration_days?: number | null
+          created_at?: string
+          delivery_name?: string | null
+          external_product_id: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          plan_id?: string | null
+          program_id?: string | null
+          provider: string
+          sale_mode?: string
+          scope?: string
+          tag_ids?: string[]
+          token_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          access_duration_days?: number | null
+          created_at?: string
+          delivery_name?: string | null
+          external_product_id?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          plan_id?: string | null
+          program_id?: string | null
+          provider?: string
+          sale_mode?: string
+          scope?: string
+          tag_ids?: string[]
+          token_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plan_external_products_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_plan_external_products_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_plan_programs: {
+        Row: {
+          created_at: string
+          plan_id: string
+          program_id: string
+        }
+        Insert: {
+          created_at?: string
+          plan_id: string
+          program_id: string
+        }
+        Update: {
+          created_at?: string
+          plan_id?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plan_programs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_plan_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_plans: {
+        Row: {
+          billing_period: string
+          color: string
+          created_at: string
+          currency: string
+          description: string | null
+          exclusion_program_ids: string[]
+          grants_all_programs: boolean
+          id: string
+          inclusion_program_ids: string[]
+          is_active: boolean
+          is_default: boolean
+          name: string
+          price_cents: number
+          reactivation_url: string | null
+          slug: string
+          tags: string[] | null
+          tier_level: number
+          trail_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string
+          color?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          exclusion_program_ids?: string[]
+          grants_all_programs?: boolean
+          id?: string
+          inclusion_program_ids?: string[]
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          price_cents?: number
+          reactivation_url?: string | null
+          slug: string
+          tags?: string[] | null
+          tier_level?: number
+          trail_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          color?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          exclusion_program_ids?: string[]
+          grants_all_programs?: boolean
+          id?: string
+          inclusion_program_ids?: string[]
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          price_cents?: number
+          reactivation_url?: string | null
+          slug?: string
+          tags?: string[] | null
+          tier_level?: number
+          trail_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_plans_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "orion_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_comments_v2: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          is_seed: boolean
+          parent_id: string | null
+          post_id: string
+          scheduled_for: string | null
+          seed_persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_seed?: boolean
+          parent_id?: string | null
+          post_id: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_seed?: boolean
+          parent_id?: string | null
+          post_id?: string
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "orion_post_comments_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_comments_v2_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_seed_personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_likes: {
+        Row: {
+          created_at: string
+          id: string
+          is_seed: boolean
+          post_id: string
+          seed_persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          post_id: string
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          post_id?: string
+          seed_persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_seed_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_post_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_type: string
+          media_url: string
+          position: number
+          post_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url: string
+          position?: number
+          post_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url?: string
+          position?: number
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "orion_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_posts: {
+        Row: {
+          comments_count: number
+          content: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_hidden: boolean
+          is_pinned: boolean
+          is_seed: boolean
+          likes_count: number
+          media_type: string | null
+          media_url: string | null
+          pinned_until: string | null
+          scheduled_for: string | null
+          seed_persona_id: string | null
+          type: string
+          updated_at: string
+          user_id: string | null
+          visibility: string
+        }
+        Insert: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          is_seed?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+          visibility?: string
+        }
+        Update: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          is_seed?: boolean
+          likes_count?: number
+          media_type?: string | null
+          media_url?: string | null
+          pinned_until?: string | null
+          scheduled_for?: string | null
+          seed_persona_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_posts_seed_persona_id_fkey"
+            columns: ["seed_persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_seed_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_presence_signals: {
+        Row: {
+          created_at: string
+          entity_label: string | null
+          entity_url: string | null
+          id: string
+          is_seed: boolean
+          persona_avatar: string | null
+          persona_name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          entity_label?: string | null
+          entity_url?: string | null
+          id?: string
+          is_seed?: boolean
+          persona_avatar?: string | null
+          persona_name?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      orion_profiles: {
+        Row: {
+          avatar: string | null
+          bio: string | null
+          blocked_at: string | null
+          blocked_reason: string | null
+          created_at: string
+          email: string | null
+          engagement_score: number
+          id: string
+          is_blocked: boolean
+          last_seen_at: string | null
+          lifecycle_stage: string
+          lifecycle_updated_at: string | null
+          name: string | null
+          push_enabled: boolean
+          score_breakdown: Json
+          score_updated_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar?: string | null
+          bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          email?: string | null
+          engagement_score?: number
+          id: string
+          is_blocked?: boolean
+          last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
+          name?: string | null
+          push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar?: string | null
+          bio?: string | null
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          created_at?: string
+          email?: string | null
+          engagement_score?: number
+          id?: string
+          is_blocked?: boolean
+          last_seen_at?: string | null
+          lifecycle_stage?: string
+          lifecycle_updated_at?: string | null
+          name?: string | null
+          push_enabled?: boolean
+          score_breakdown?: Json
+          score_updated_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_program_ai_config: {
+        Row: {
+          avatar: string | null
+          model: string
+          name: string
+          persona_id: string | null
+          program_id: string
+          provider: string
+          suggestions: Json
+          system_prompt: string
+          welcome: string | null
+        }
+        Insert: {
+          avatar?: string | null
+          model?: string
+          name: string
+          persona_id?: string | null
+          program_id: string
+          provider?: string
+          suggestions?: Json
+          system_prompt: string
+          welcome?: string | null
+        }
+        Update: {
+          avatar?: string | null
+          model?: string
+          name?: string
+          persona_id?: string | null
+          program_id?: string
+          provider?: string
+          suggestions?: Json
+          system_prompt?: string
+          welcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_program_ai_config_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "orion_brand_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_program_ai_config_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_programs: {
+        Row: {
+          author_avatar: string | null
+          author_avatar_url: string | null
+          author_bio: string | null
+          author_id: string | null
+          author_name: string | null
+          author_role: string | null
+          banner_url: string | null
+          banner_url_mobile: string | null
+          bonus_items: Json
+          category: string | null
+          checkout_url: string | null
+          created_at: string
+          curriculum_intro: string | null
+          description: string | null
+          duration_min: number
+          enrolled_count: number
+          hair_types: string[]
+          hero_media_type: string
+          hero_media_type_mobile: string | null
+          hero_media_url: string | null
+          hero_media_url_mobile: string | null
+          id: string
+          is_active: boolean
+          is_free: boolean
+          is_hidden: boolean
+          is_new: boolean
+          is_premium: boolean
+          is_published: boolean
+          is_trending: boolean
+          language: string
+          learnings: Json
+          long_description: string | null
+          paywall_config: Json | null
+          position: number
+          price_brl: number | null
+          reactivation_url: string | null
+          related_program_ids: string[]
+          subtitle: string | null
+          testimonials: Json
+          thumbnail_url: string | null
+          title: string
+          total_minutes: number
+          trailer_url: string | null
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_avatar_url?: string | null
+          author_bio?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          banner_url?: string | null
+          banner_url_mobile?: string | null
+          bonus_items?: Json
+          category?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          curriculum_intro?: string | null
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          hair_types?: string[]
+          hero_media_type?: string
+          hero_media_type_mobile?: string | null
+          hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          is_hidden?: boolean
+          is_new?: boolean
+          is_premium?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          language?: string
+          learnings?: Json
+          long_description?: string | null
+          paywall_config?: Json | null
+          position?: number
+          price_brl?: number | null
+          reactivation_url?: string | null
+          related_program_ids?: string[]
+          subtitle?: string | null
+          testimonials?: Json
+          thumbnail_url?: string | null
+          title: string
+          total_minutes?: number
+          trailer_url?: string | null
+        }
+        Update: {
+          author_avatar?: string | null
+          author_avatar_url?: string | null
+          author_bio?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: string | null
+          banner_url?: string | null
+          banner_url_mobile?: string | null
+          bonus_items?: Json
+          category?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          curriculum_intro?: string | null
+          description?: string | null
+          duration_min?: number
+          enrolled_count?: number
+          hair_types?: string[]
+          hero_media_type?: string
+          hero_media_type_mobile?: string | null
+          hero_media_url?: string | null
+          hero_media_url_mobile?: string | null
+          id?: string
+          is_active?: boolean
+          is_free?: boolean
+          is_hidden?: boolean
+          is_new?: boolean
+          is_premium?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          language?: string
+          learnings?: Json
+          long_description?: string | null
+          paywall_config?: Json | null
+          position?: number
+          price_brl?: number | null
+          reactivation_url?: string | null
+          related_program_ids?: string[]
+          subtitle?: string | null
+          testimonials?: Json
+          thumbnail_url?: string | null
+          title?: string
+          total_minutes?: number
+          trailer_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_programs_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "orion_authors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_push_log: {
+        Row: {
+          body: string | null
+          created_at: string
+          delivered_count: number
+          failed_count: number
+          id: string
+          notif_type: string
+          recipients_count: number
+          removed_count: number
+          segment: Json
+          sent_by: string | null
+          title: string
+          url: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title: string
+          url?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          notif_type?: string
+          recipients_count?: number
+          removed_count?: number
+          segment?: Json
+          sent_by?: string | null
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      orion_push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          platform: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_quiz_attempts: {
+        Row: {
+          answers: Json
+          completed_at: string
+          id: string
+          passed: boolean
+          quiz_id: string
+          score: number
+          started_at: string | null
+          time_spent_seconds: number | null
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id: string
+          score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          passed?: boolean
+          quiz_id?: string
+          score?: number
+          started_at?: string | null
+          time_spent_seconds?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "orion_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_quiz_questions: {
+        Row: {
+          created_at: string
+          explanation: string | null
+          id: string
+          image_url: string | null
+          options: Json
+          points: number
+          position: number
+          question: string
+          quiz_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json
+          points?: number
+          position?: number
+          question: string
+          quiz_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json
+          points?: number
+          position?: number
+          question?: string
+          quiz_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "orion_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_quizzes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          lesson_id: string | null
+          max_attempts: number | null
+          pass_score: number
+          program_id: string | null
+          show_explanations: boolean
+          shuffle_options: boolean
+          shuffle_questions: boolean
+          time_limit_minutes: number | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string | null
+          max_attempts?: number | null
+          pass_score?: number
+          program_id?: string | null
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lesson_id?: string | null
+          max_attempts?: number | null
+          pass_score?: number
+          program_id?: string | null
+          show_explanations?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
+          time_limit_minutes?: number | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_quizzes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_quizzes_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_searches: {
+        Row: {
+          created_at: string
+          had_results: boolean | null
+          id: string
+          query: string
+          results_count: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          had_results?: boolean | null
+          id?: string
+          query: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          had_results?: boolean | null
+          id?: string
+          query?: string
+          results_count?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_seed_personas: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          country: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          profession: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          profession?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      orion_shop_config: {
+        Row: {
+          categories: Json
+          created_at: string
+          cta_label: string
+          currency: string
+          description: string | null
+          extra_fields: Json
+          icon: string
+          id: string
+          is_enabled: boolean
+          module_name: string
+          module_name_singular: string
+          show_in_bento: boolean
+          show_in_menu: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Update: {
+          categories?: Json
+          created_at?: string
+          cta_label?: string
+          currency?: string
+          description?: string | null
+          extra_fields?: Json
+          icon?: string
+          id?: string
+          is_enabled?: boolean
+          module_name?: string
+          module_name_singular?: string
+          show_in_bento?: boolean
+          show_in_menu?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_shop_products: {
+        Row: {
+          affiliate_url: string | null
+          badge: string | null
+          category: string | null
+          compare_at_cents: number | null
+          created_at: string
+          currency: string
+          data: Json
+          description: string | null
+          gallery: Json
+          id: string
+          image_url: string | null
+          is_published: boolean
+          position: number
+          price_cents: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_url?: string | null
+          badge?: string | null
+          category?: string | null
+          compare_at_cents?: number | null
+          created_at?: string
+          currency?: string
+          data?: Json
+          description?: string | null
+          gallery?: Json
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          position?: number
+          price_cents?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_stories: {
+        Row: {
+          author_name: string
+          author_photo: string | null
+          country: string | null
+          created_at: string
+          featured_on_home: boolean
+          home_order: number | null
+          id: string
+          media_type: string
+          profession: string | null
+          program_id: string | null
+          quote: string
+          video_file_url: string | null
+          video_url: string | null
+        }
+        Insert: {
+          author_name: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
+          id?: string
+          media_type?: string
+          profession?: string | null
+          program_id?: string | null
+          quote: string
+          video_file_url?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          author_name?: string
+          author_photo?: string | null
+          country?: string | null
+          created_at?: string
+          featured_on_home?: boolean
+          home_order?: number | null
+          id?: string
+          media_type?: string
+          profession?: string | null
+          program_id?: string | null
+          quote?: string
+          video_file_url?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_stories_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_survey_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: Json
+          position: number
+          question: string
+          required: boolean
+          survey_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question: string
+          required?: boolean
+          survey_id: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: Json
+          position?: number
+          question?: string
+          required?: boolean
+          survey_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "orion_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_survey_responses: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          id: string
+          scope_id: string | null
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          scope_id?: string | null
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "orion_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_surveys: {
+        Row: {
+          created_at: string
+          description: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          title: string
+          trigger_scope_id: string | null
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          trigger_scope_id?: string | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_tenant_magic_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_path: string
+          tenant_origin: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          redirect_path?: string
+          tenant_origin: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_path?: string
+          tenant_origin?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_tenant_magic_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_tenant_settings: {
+        Row: {
+          accent_hsl: string
+          app_name: string
+          authors_card_aspect: string
+          background_hsl: string
+          body_font: string
+          card_hsl: string
+          category_hidden: Json | null
+          category_order: Json | null
+          community_free_post_quota: number
+          community_free_reel_quota: number
+          community_gating_mode: string
+          community_lock_create: boolean
+          community_lock_engage: boolean
+          community_paywall_message: string
+          community_paywall_preview_chars: number
+          default_theme: string
+          email_api_key: string | null
+          email_welcome_enabled: boolean
+          email_welcome_html: string | null
+          email_welcome_subject: string
+          favicon_url: string | null
+          footer_about_links: Json
+          footer_about_title: string
+          footer_app_availability: string
+          footer_app_eyebrow: string
+          footer_app_subtitle: string
+          footer_app_title: string
+          footer_appstore_url: string | null
+          footer_brand_description: string
+          footer_copyright_tagline: string
+          footer_facebook_url: string | null
+          footer_instagram_url: string | null
+          footer_playstore_url: string | null
+          footer_social_subtitle: string
+          footer_social_title: string
+          footer_support_links: Json
+          footer_support_title: string
+          footer_twitter_url: string | null
+          footer_youtube_url: string | null
+          foreground_hsl: string
+          hair_types_label: string
+          hair_types_label_singular: string
+          heading_font: string
+          home_authors_subtitle: string
+          home_meditations_eyebrow: string
+          home_recommend_cta: Json | null
+          home_section_order: Json
+          home_section_titles: Json
+          home_sections_enabled: Json
+          home_welcome_image: string | null
+          home_welcome_image_mobile: string | null
+          id: boolean
+          landing_cta_text: string
+          landing_footer_html: string | null
+          landing_gradient_desktop: string | null
+          landing_gradient_mobile: string | null
+          landing_hero_image: string | null
+          landing_hero_image_mobile: string | null
+          landing_logo_url: string | null
+          landing_signin_label: string
+          landing_signup_label: string
+          landing_subtitle: string
+          landing_title: string
+          logo_fit: string | null
+          logo_height_px: number | null
+          logo_url: string | null
+          meditations_label: string
+          meditations_label_singular: string
+          muted_hsl: string
+          notify_on_admin_post: boolean
+          onboarding_step: number
+          outbound_webhook_events: string[] | null
+          outbound_webhook_secret: string | null
+          outbound_webhook_tags: string[] | null
+          outbound_webhook_url: string | null
+          primary_hsl: string
+          program_card_aspect: string
+          program_card_aspect_by_section: Json
+          program_card_aspect_by_section_mobile: Json
+          program_card_aspect_mobile: string | null
+          programs_section_order: Json
+          programs_sections_enabled: Json
+          resend_from_email: string | null
+          resend_from_name: string | null
+          seed_engine_enabled: boolean
+          seed_likes_per_hour: number
+          seed_online_offset: number
+          seed_presence_frequency_seconds: number
+          seed_show_online_count: boolean
+          seed_show_ticker: boolean
+          show_continue_hero_text: boolean
+          show_program_card_text: boolean
+          show_quest_hero_text: boolean
+          show_trail_card_text: boolean
+          site_url: string | null
+          updated_at: string
+          webhook_secret: string | null
+          welcome_text: string
+        }
+        Insert: {
+          accent_hsl?: string
+          app_name?: string
+          authors_card_aspect?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
+          community_paywall_preview_chars?: number
+          default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
+          favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
+          foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
+          heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
+          home_section_order?: Json
+          home_section_titles?: Json
+          home_sections_enabled?: Json
+          home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
+          id?: boolean
+          landing_cta_text?: string
+          landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
+          landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
+          landing_subtitle?: string
+          landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
+          logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
+          muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
+          primary_hsl?: string
+          program_card_aspect?: string
+          program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
+          site_url?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+          welcome_text?: string
+        }
+        Update: {
+          accent_hsl?: string
+          app_name?: string
+          authors_card_aspect?: string
+          background_hsl?: string
+          body_font?: string
+          card_hsl?: string
+          category_hidden?: Json | null
+          category_order?: Json | null
+          community_free_post_quota?: number
+          community_free_reel_quota?: number
+          community_gating_mode?: string
+          community_lock_create?: boolean
+          community_lock_engage?: boolean
+          community_paywall_message?: string
+          community_paywall_preview_chars?: number
+          default_theme?: string
+          email_api_key?: string | null
+          email_welcome_enabled?: boolean
+          email_welcome_html?: string | null
+          email_welcome_subject?: string
+          favicon_url?: string | null
+          footer_about_links?: Json
+          footer_about_title?: string
+          footer_app_availability?: string
+          footer_app_eyebrow?: string
+          footer_app_subtitle?: string
+          footer_app_title?: string
+          footer_appstore_url?: string | null
+          footer_brand_description?: string
+          footer_copyright_tagline?: string
+          footer_facebook_url?: string | null
+          footer_instagram_url?: string | null
+          footer_playstore_url?: string | null
+          footer_social_subtitle?: string
+          footer_social_title?: string
+          footer_support_links?: Json
+          footer_support_title?: string
+          footer_twitter_url?: string | null
+          footer_youtube_url?: string | null
+          foreground_hsl?: string
+          hair_types_label?: string
+          hair_types_label_singular?: string
+          heading_font?: string
+          home_authors_subtitle?: string
+          home_meditations_eyebrow?: string
+          home_recommend_cta?: Json | null
+          home_section_order?: Json
+          home_section_titles?: Json
+          home_sections_enabled?: Json
+          home_welcome_image?: string | null
+          home_welcome_image_mobile?: string | null
+          id?: boolean
+          landing_cta_text?: string
+          landing_footer_html?: string | null
+          landing_gradient_desktop?: string | null
+          landing_gradient_mobile?: string | null
+          landing_hero_image?: string | null
+          landing_hero_image_mobile?: string | null
+          landing_logo_url?: string | null
+          landing_signin_label?: string
+          landing_signup_label?: string
+          landing_subtitle?: string
+          landing_title?: string
+          logo_fit?: string | null
+          logo_height_px?: number | null
+          logo_url?: string | null
+          meditations_label?: string
+          meditations_label_singular?: string
+          muted_hsl?: string
+          notify_on_admin_post?: boolean
+          onboarding_step?: number
+          outbound_webhook_events?: string[] | null
+          outbound_webhook_secret?: string | null
+          outbound_webhook_tags?: string[] | null
+          outbound_webhook_url?: string | null
+          primary_hsl?: string
+          program_card_aspect?: string
+          program_card_aspect_by_section?: Json
+          program_card_aspect_by_section_mobile?: Json
+          program_card_aspect_mobile?: string | null
+          programs_section_order?: Json
+          programs_sections_enabled?: Json
+          resend_from_email?: string | null
+          resend_from_name?: string | null
+          seed_engine_enabled?: boolean
+          seed_likes_per_hour?: number
+          seed_online_offset?: number
+          seed_presence_frequency_seconds?: number
+          seed_show_online_count?: boolean
+          seed_show_ticker?: boolean
+          show_continue_hero_text?: boolean
+          show_program_card_text?: boolean
+          show_quest_hero_text?: boolean
+          show_trail_card_text?: boolean
+          site_url?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+          welcome_text?: string
+        }
+        Relationships: []
+      }
+      orion_token_ledger: {
+        Row: {
+          created_at: string
+          delta: number
+          id: string
+          reason: string
+          ref: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delta: number
+          id?: string
+          reason: string
+          ref?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delta?: number
+          id?: string
+          reason?: string
+          ref?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_token_wallets: {
+        Row: {
+          balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_trail_enrollments: {
+        Row: {
+          completed_at: string | null
+          enrolled_at: string
+          id: string
+          source: string
+          trail_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          enrolled_at?: string
+          id?: string
+          source?: string
+          trail_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_trail_enrollments_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "orion_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_trail_programs: {
+        Row: {
+          created_at: string
+          id: string
+          is_required: boolean
+          position: number
+          program_id: string
+          trail_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id: string
+          trail_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          position?: number
+          program_id?: string
+          trail_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_trail_programs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_trail_programs_trail_id_fkey"
+            columns: ["trail_id"]
+            isOneToOne: false
+            referencedRelation: "orion_trails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_trails: {
+        Row: {
+          auto_enroll_on_signup: boolean
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          is_sequential: boolean
+          position: number
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          auto_enroll_on_signup?: boolean
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_sequential?: boolean
+          position?: number
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_upsell_events: {
+        Row: {
+          context_lesson_id: string | null
+          context_program_id: string | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["orion_upsell_event_type"]
+          id: string
+          offer_id: string
+          user_id: string
+        }
+        Insert: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["orion_upsell_event_type"]
+          id?: string
+          offer_id: string
+          user_id: string
+        }
+        Update: {
+          context_lesson_id?: string | null
+          context_program_id?: string | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["orion_upsell_event_type"]
+          id?: string
+          offer_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_upsell_events_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "orion_upsell_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_upsell_offers: {
+        Row: {
+          created_at: string
+          cta_label: string | null
+          headline: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          priority: number
+          sales_url: string | null
+          source_lesson_id: string | null
+          source_program_id: string | null
+          subheadline: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["orion_upsell_trigger"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cta_label?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          priority?: number
+          sales_url?: string | null
+          source_lesson_id?: string | null
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id: string
+          trigger_type: Database["public"]["Enums"]["orion_upsell_trigger"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cta_label?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          priority?: number
+          sales_url?: string | null
+          source_lesson_id?: string | null
+          source_program_id?: string | null
+          subheadline?: string | null
+          target_program_id?: string
+          trigger_type?: Database["public"]["Enums"]["orion_upsell_trigger"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_source_lesson_id_fkey"
+            columns: ["source_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_source_program_id_fkey"
+            columns: ["source_program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_upsell_offers_target_program_id_fkey"
+            columns: ["target_program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_badges: {
+        Row: {
+          badge_id: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "orion_badge_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_entitlements: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          plan_id: string | null
+          program_id: string | null
+          scope: string
+          source: string
+          source_ref: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          plan_id?: string | null
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          plan_id?: string | null
+          program_id?: string | null
+          scope?: string
+          source?: string
+          source_ref?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_entitlements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_entitlements_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_favorites: {
+        Row: {
+          created_at: string
+          program_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          program_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          program_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_favorites_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "orion_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_logins: {
+        Row: {
+          created_at: string
+          device: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_user_onboarding: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          goal: string | null
+          level: string | null
+          skipped: boolean
+          time_per_day: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          goal?: string | null
+          level?: string | null
+          skipped?: boolean
+          time_per_day?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          goal?: string | null
+          level?: string | null
+          skipped?: boolean
+          time_per_day?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_onboarding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_progress: {
+        Row: {
+          completed_at: string
+          id: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "orion_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["orion_app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["orion_app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["orion_app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areamembrojp_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_user_xp: {
+        Row: {
+          level: number
+          total_xp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          level?: number
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orion_webhook_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_type: string | null
+          external_product_id: string | null
+          id: string
+          message: string | null
+          payload: Json | null
+          plan_id: string | null
+          provider: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_type?: string | null
+          external_product_id?: string | null
+          id?: string
+          message?: string | null
+          payload?: Json | null
+          plan_id?: string | null
+          provider?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_webhook_logs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "orion_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_welcome_popup_views: {
+        Row: {
+          dismissed_at: string
+          popup_id: string
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          popup_id: string
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          popup_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "areamembrojp_welcome_popup_views_popup_id_fkey"
+            columns: ["popup_id"]
+            isOneToOne: false
+            referencedRelation: "orion_welcome_popups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orion_welcome_popups: {
+        Row: {
+          audience: string
+          body_html: string | null
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          display_mode: string
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          image_url_mobile: string | null
+          is_active: boolean
+          position: number
+          starts_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          body_html?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          display_mode?: string
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          image_url_mobile?: string | null
+          is_active?: boolean
+          position?: number
+          starts_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orion_xp_events: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id: string
+          xp: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: []
+      }
+      orion_xp_rules: {
+        Row: {
+          action: string
+          created_at: string
+          daily_cap: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          daily_cap?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: []
       }
       pa_admin_lesson_profiles: {
         Row: {
@@ -37595,6 +50799,119 @@ export type Database = {
           },
         ]
       }
+      scanner_leads: {
+        Row: {
+          admin_notes: string | null
+          age: number | null
+          answers: Json
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          profile: string
+          session_id: string | null
+          status: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          age?: number | null
+          answers?: Json
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          profile: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          age?: number | null
+          answers?: Json
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          profile?: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      scanner_sessions: {
+        Row: {
+          age: number | null
+          answers: Json
+          completed_at: string | null
+          email: string | null
+          id: string
+          last_question_index: number | null
+          last_step: string
+          lead_id: string | null
+          name: string | null
+          phone: string | null
+          profile: string | null
+          session_id: string
+          started_at: string
+          total_questions: number | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          age?: number | null
+          answers?: Json
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          last_question_index?: number | null
+          last_step?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          profile?: string | null
+          session_id: string
+          started_at?: string
+          total_questions?: number | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          age?: number | null
+          answers?: Json
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          last_question_index?: number | null
+          last_step?: string
+          lead_id?: string | null
+          name?: string | null
+          phone?: string | null
+          profile?: string | null
+          session_id?: string
+          started_at?: string
+          total_questions?: number | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scanner_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "scanner_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sequences: {
         Row: {
           created_at: string
@@ -38129,6 +51446,69 @@ export type Database = {
         }
         Relationships: []
       }
+      user_active_challenge: {
+        Row: {
+          challenge_id: string
+          completed_days: number[]
+          id: string
+          started_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed_days?: number[]
+          id?: string
+          started_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed_days?: number[]
+          id?: string
+          started_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_active_challenge_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_balances: {
         Row: {
           balance: number
@@ -38155,6 +51535,69 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_habits_history: {
+        Row: {
+          completed_habits: string[]
+          created_at: string
+          date: string
+          id: string
+          streak: number
+          user_id: string
+        }
+        Insert: {
+          completed_habits?: string[]
+          created_at?: string
+          date: string
+          id?: string
+          streak?: number
+          user_id: string
+        }
+        Update: {
+          completed_habits?: string[]
+          created_at?: string
+          date?: string
+          id?: string
+          streak?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_habits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_interactions: {
         Row: {
@@ -39047,6 +52490,7 @@ export type Database = {
           project_id: string
           purchase_value: number | null
           registered_at: string | null
+          run_id: string | null
           webinar_id: string
         }
         Insert: {
@@ -39059,6 +52503,7 @@ export type Database = {
           project_id: string
           purchase_value?: number | null
           registered_at?: string | null
+          run_id?: string | null
           webinar_id: string
         }
         Update: {
@@ -39071,6 +52516,7 @@ export type Database = {
           project_id?: string
           purchase_value?: number | null
           registered_at?: string | null
+          run_id?: string | null
           webinar_id?: string
         }
         Relationships: [
@@ -39079,6 +52525,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_leads_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
             referencedColumns: ["id"]
           },
           {
@@ -39097,6 +52550,7 @@ export type Database = {
           id: string
           is_broadcast: boolean | null
           is_simulated: boolean | null
+          run_id: string | null
           session_id: string
           text: string
           timestamp_video: number
@@ -39108,6 +52562,7 @@ export type Database = {
           id?: string
           is_broadcast?: boolean | null
           is_simulated?: boolean | null
+          run_id?: string | null
           session_id: string
           text: string
           timestamp_video: number
@@ -39119,12 +52574,20 @@ export type Database = {
           id?: string
           is_broadcast?: boolean | null
           is_simulated?: boolean | null
+          run_id?: string | null
           session_id?: string
           text?: string
           timestamp_video?: number
           webinar_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "webi_live_chat_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webi_live_chat_webinar_id_fkey"
             columns: ["webinar_id"]
@@ -39338,6 +52801,94 @@ export type Database = {
           },
         ]
       }
+      webi_retention_buckets: {
+        Row: {
+          bucket_seconds: number
+          bucket_start_seconds: number
+          created_at: string
+          id: string
+          last_timestamp_video: number | null
+          lead_email: string | null
+          lead_name: string | null
+          lead_phone: string | null
+          metadata: Json
+          project_id: string
+          run_id: string | null
+          sample_count: number
+          session_id: string
+          session_mode: string | null
+          timezone: string | null
+          updated_at: string
+          user_agent: string | null
+          watch_delta_seconds: number
+          webinar_id: string
+        }
+        Insert: {
+          bucket_seconds?: number
+          bucket_start_seconds: number
+          created_at?: string
+          id?: string
+          last_timestamp_video?: number | null
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json
+          project_id: string
+          run_id?: string | null
+          sample_count?: number
+          session_id: string
+          session_mode?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          watch_delta_seconds?: number
+          webinar_id: string
+        }
+        Update: {
+          bucket_seconds?: number
+          bucket_start_seconds?: number
+          created_at?: string
+          id?: string
+          last_timestamp_video?: number | null
+          lead_email?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json
+          project_id?: string
+          run_id?: string | null
+          sample_count?: number
+          session_id?: string
+          session_mode?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          watch_delta_seconds?: number
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_retention_buckets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_retention_buckets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_retention_buckets_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_session_events: {
         Row: {
           created_at: string | null
@@ -39346,6 +52897,7 @@ export type Database = {
           lead_id: string | null
           metadata: Json | null
           project_id: string
+          run_id: string | null
           session_id: string
           timestamp_video: number | null
           webinar_id: string
@@ -39357,6 +52909,7 @@ export type Database = {
           lead_id?: string | null
           metadata?: Json | null
           project_id: string
+          run_id?: string | null
           session_id: string
           timestamp_video?: number | null
           webinar_id: string
@@ -39368,6 +52921,7 @@ export type Database = {
           lead_id?: string | null
           metadata?: Json | null
           project_id?: string
+          run_id?: string | null
           session_id?: string
           timestamp_video?: number | null
           webinar_id?: string
@@ -39385,6 +52939,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_session_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
             referencedColumns: ["id"]
           },
           {
@@ -39443,6 +53004,101 @@ export type Database = {
           },
         ]
       }
+      webi_webhook_logs: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          response_body: string | null
+          response_status: number | null
+          webhook_url: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          response_body?: string | null
+          response_status?: number | null
+          webhook_url: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          response_body?: string | null
+          response_status?: number | null
+          webhook_url?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_webhook_logs_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webi_webinar_runs: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          metadata: Json
+          project_id: string
+          started_at: string
+          status: string
+          title: string | null
+          updated_at: string
+          webinar_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          project_id: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          webinar_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          webinar_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_webinar_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "webi_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_webinar_runs_webinar_id_fkey"
+            columns: ["webinar_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_webinars: {
         Row: {
           ai_enabled: boolean | null
@@ -39451,19 +53107,26 @@ export type Database = {
           ai_persona_avatar: string | null
           ai_persona_name: string | null
           ai_system_prompt: string | null
+          analytics_pitch_minute: number | null
           bad_words_filter: boolean | null
           chat_cpm: number | null
           chat_default_tab: string | null
           chat_end_seconds: number | null
+          chat_interval_messages: number | null
           chat_interval_minutes: number | null
           chat_mode: string | null
           chat_names: Json | null
           chat_phrases: Json | null
+          chat_phrases_elogios: Json | null
+          chat_phrases_engajamento: Json | null
+          chat_phrases_vaga: Json | null
           chat_segments: Json | null
           chat_start_seconds: number | null
           created_at: string | null
+          current_run_id: string | null
           custom_background_url: string | null
           description: string | null
+          disable_qa: boolean | null
           display_name: string | null
           duration_seconds: number | null
           evergreen_offset_seconds: number | null
@@ -39475,10 +53138,12 @@ export type Database = {
           form_fields: Json | null
           has_quiz: boolean | null
           id: string
+          is_evergreen: boolean | null
           is_panic_active: boolean | null
           landing_button_text: string | null
           landing_headline: string | null
           landing_subheadline: string | null
+          language: string | null
           name: string
           peak_viewers_max: number | null
           peak_viewers_min: number | null
@@ -39496,12 +53161,16 @@ export type Database = {
           tracking_head_code: string | null
           updated_at: string | null
           video_orientation: string | null
+          video_transcript: string | null
           video_url: string | null
           waiting_delay_seconds: number | null
           waiting_room_enabled: boolean | null
           waiting_room_message: string | null
           whatsapp_pitch_message: string | null
           whatsapp_welcome_message: string | null
+          yt_channel_avatar_url: string | null
+          yt_comments_enabled: boolean | null
+          yt_subscriber_count: string | null
         }
         Insert: {
           ai_enabled?: boolean | null
@@ -39510,19 +53179,26 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          analytics_pitch_minute?: number | null
           bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
           chat_end_seconds?: number | null
+          chat_interval_messages?: number | null
           chat_interval_minutes?: number | null
           chat_mode?: string | null
           chat_names?: Json | null
           chat_phrases?: Json | null
+          chat_phrases_elogios?: Json | null
+          chat_phrases_engajamento?: Json | null
+          chat_phrases_vaga?: Json | null
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          current_run_id?: string | null
           custom_background_url?: string | null
           description?: string | null
+          disable_qa?: boolean | null
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
@@ -39534,10 +53210,12 @@ export type Database = {
           form_fields?: Json | null
           has_quiz?: boolean | null
           id?: string
+          is_evergreen?: boolean | null
           is_panic_active?: boolean | null
           landing_button_text?: string | null
           landing_headline?: string | null
           landing_subheadline?: string | null
+          language?: string | null
           name: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -39555,12 +53233,16 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_orientation?: string | null
+          video_transcript?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
           waiting_room_message?: string | null
           whatsapp_pitch_message?: string | null
           whatsapp_welcome_message?: string | null
+          yt_channel_avatar_url?: string | null
+          yt_comments_enabled?: boolean | null
+          yt_subscriber_count?: string | null
         }
         Update: {
           ai_enabled?: boolean | null
@@ -39569,19 +53251,26 @@ export type Database = {
           ai_persona_avatar?: string | null
           ai_persona_name?: string | null
           ai_system_prompt?: string | null
+          analytics_pitch_minute?: number | null
           bad_words_filter?: boolean | null
           chat_cpm?: number | null
           chat_default_tab?: string | null
           chat_end_seconds?: number | null
+          chat_interval_messages?: number | null
           chat_interval_minutes?: number | null
           chat_mode?: string | null
           chat_names?: Json | null
           chat_phrases?: Json | null
+          chat_phrases_elogios?: Json | null
+          chat_phrases_engajamento?: Json | null
+          chat_phrases_vaga?: Json | null
           chat_segments?: Json | null
           chat_start_seconds?: number | null
           created_at?: string | null
+          current_run_id?: string | null
           custom_background_url?: string | null
           description?: string | null
+          disable_qa?: boolean | null
           display_name?: string | null
           duration_seconds?: number | null
           evergreen_offset_seconds?: number | null
@@ -39593,10 +53282,12 @@ export type Database = {
           form_fields?: Json | null
           has_quiz?: boolean | null
           id?: string
+          is_evergreen?: boolean | null
           is_panic_active?: boolean | null
           landing_button_text?: string | null
           landing_headline?: string | null
           landing_subheadline?: string | null
+          language?: string | null
           name?: string
           peak_viewers_max?: number | null
           peak_viewers_min?: number | null
@@ -39614,14 +53305,25 @@ export type Database = {
           tracking_head_code?: string | null
           updated_at?: string | null
           video_orientation?: string | null
+          video_transcript?: string | null
           video_url?: string | null
           waiting_delay_seconds?: number | null
           waiting_room_enabled?: boolean | null
           waiting_room_message?: string | null
           whatsapp_pitch_message?: string | null
           whatsapp_welcome_message?: string | null
+          yt_channel_avatar_url?: string | null
+          yt_comments_enabled?: boolean | null
+          yt_subscriber_count?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "webi_webinars_current_run_id_fkey"
+            columns: ["current_run_id"]
+            isOneToOne: false
+            referencedRelation: "webi_webinar_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "webi_webinars_project_id_fkey"
             columns: ["project_id"]
@@ -40833,6 +54535,18 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_automacao_health: {
+        Row: {
+          aguardando: number | null
+          automacao_id: string | null
+          execucoes: number | null
+          falhas: number | null
+          saidas: number | null
+          sucessos: number | null
+          taxa_sucesso: number | null
+        }
+        Relationships: []
+      }
       imphq_v_ai_drafts: {
         Row: {
           contact_identifier: string | null
@@ -40853,6 +54567,18 @@ export type Database = {
           resolved_at: string | null
           status: string | null
           suggested_text: string | null
+        }
+        Relationships: []
+      }
+      imphq_wa_funnel_daily: {
+        Row: {
+          day: string | null
+          links_clicados: number | null
+          links_enviados: number | null
+          project_id: string | null
+          source: string | null
+          vendas_aprovadas: number | null
+          vendas_geradas: number | null
         }
         Relationships: []
       }
@@ -41004,6 +54730,53 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_attribution_unified: {
+        Row: {
+          canal_atribuido: string | null
+          data_venda: string | null
+          first_click_at: string | null
+          lead_id: string | null
+          plataforma_venda: string | null
+          produto_nome: string | null
+          project_id: string | null
+          tipo_venda: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          valor: number | null
+          valor_liquido: number | null
+          venda_id: string | null
+          wa_clicked_at: string | null
+          wa_source: string | null
+          wa_source_detail: string | null
+          wa_template: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_vendas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       vw_financas_resumo: {
         Row: {
           cpa: number | null
@@ -41034,6 +54807,10 @@ export type Database = {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
       }
+      amjp_can_take_program_quiz: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
       amjp_enroll_user_plan_trails: {
         Args: { _user_id: string }
         Returns: number
@@ -41044,8 +54821,13 @@ export type Database = {
       }
       amjp_is_admin: { Args: { _uid: string }; Returns: boolean }
       amjp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
+      amjp_program_quiz_stats: { Args: { _program_id: string }; Returns: Json }
       amjp_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       archive_old_deposits: { Args: never; Returns: undefined }
+      areamembrojp_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
+      }
       areamembrojp_has_role: {
         Args: {
           _role: Database["public"]["Enums"]["areamembrojp_app_role"]
@@ -41053,7 +54835,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      areamembrojp_home_public: { Args: never; Returns: Json }
       areamembrojp_is_admin: { Args: { _uid: string }; Returns: boolean }
+      areamembrojp_link_legacy_for_user: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      areamembrojp_lookup_auth_user_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
       areamembrojp_program_metrics: {
         Args: { p_program_id: string }
         Returns: Json
@@ -41061,6 +54852,10 @@ export type Database = {
       areamembrojp_promote_admin_by_email: {
         Args: { _email: string }
         Returns: string
+      }
+      backfill_product_project_rule: {
+        Args: { p_override?: boolean; p_produto: string; p_project: string }
+        Returns: number
       }
       backup_deposits: { Args: { deposit_ids: string[] }; Returns: undefined }
       calculate_adherence_streaks: {
@@ -41101,6 +54896,30 @@ export type Database = {
         }[]
       }
       check_table_exists: { Args: { tablename: string }; Returns: boolean }
+      cinna_x1_claim: {
+        Args: {
+          p_event: string
+          p_hash: string
+          p_owner: string
+          p_revision: number
+          p_session: string
+        }
+        Returns: Json
+      }
+      cinna_x1_finish: {
+        Args: {
+          p_decision: Json
+          p_message: string
+          p_owner: string
+          p_session: string
+          p_token: string
+        }
+        Returns: undefined
+      }
+      cinna_x1_start: {
+        Args: { p_config_revision: number; p_decision: Json; p_owner: string }
+        Returns: string
+      }
       claim_legacy_enrollments_by_email: {
         Args: { _email: string; _user_id: string }
         Returns: number
@@ -41169,6 +54988,39 @@ export type Database = {
       }
       diri_increment_site_visits: { Args: never; Returns: undefined }
       diri_increment_views: { Args: { post_id: string }; Returns: undefined }
+      evaluate_wa_rules_ab: {
+        Args: { p_min_sample?: number }
+        Returns: {
+          group_id: string
+          loser_id: string
+          loser_rate: number
+          winner_id: string
+          winner_rate: number
+        }[]
+      }
+      find_wa_phone_duplicates: {
+        Args: { p_project_id: string }
+        Returns: {
+          canonical_phone: string
+          drop_id: string
+          drop_msg_count: number
+          drop_phone: string
+          keep_id: string
+          keep_msg_count: number
+          keep_phone: string
+        }[]
+      }
+      flow_roi_by_automation: {
+        Args: { p_project_id: string; p_since?: string }
+        Returns: {
+          automacao_id: string
+          automacao_nome: string
+          avg_ticket: number
+          conversions: number
+          leads_touched: number
+          revenue_total: number
+        }[]
+      }
       generate_nutrition_insights: {
         Args: { p_days_to_analyze?: number; p_user_id: string }
         Returns: {
@@ -41215,6 +55067,11 @@ export type Database = {
           ultima_data: string
         }[]
       }
+      get_lead_360: { Args: { p_lead_id: string }; Returns: Json }
+      get_lead_cross_memory: {
+        Args: { p_current_project_id?: string; p_phone: string }
+        Returns: Json
+      }
       get_lead_tag_counts: {
         Args: { p_limit?: number; p_project_id?: string }
         Returns: {
@@ -41260,6 +55117,59 @@ export type Database = {
       }
       get_user_points: { Args: { user_uuid: string }; Returns: number }
       get_user_salao_id: { Args: { _user_id: string }; Returns: string }
+      guiadobuscador_increment_banner_clicks: {
+        Args: { banner_id: string }
+        Returns: undefined
+      }
+      guiadobuscador_increment_site_visits: { Args: never; Returns: undefined }
+      guiadobuscador_increment_views: {
+        Args: { post_id: string }
+        Returns: undefined
+      }
+      guiadobuscador_top_posts_views: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          period_page_views: number
+          period_unique_visitors: number
+          post_id: string
+          slug: string
+          title: string
+          today_page_views: number
+          today_unique_visitors: number
+          total_page_views: number
+          total_unique_visitors: number
+          total_views: number
+          yesterday_page_views: number
+          yesterday_unique_visitors: number
+        }[]
+      }
+      guiadobuscador_track_page_view: {
+        Args: { p_path?: string; p_post_id?: string; p_session_id?: string }
+        Returns: undefined
+      }
+      guiadobuscador_visits_daily: {
+        Args: { p_days?: number }
+        Returns: {
+          day: string
+          page_views: number
+          unique_visitors: number
+        }[]
+      }
+      guiadobuscador_visits_summary: {
+        Args: never
+        Returns: {
+          last30_page_views: number
+          last30_unique_visitors: number
+          last7_page_views: number
+          last7_unique_visitors: number
+          today_page_views: number
+          today_unique_visitors: number
+          total_page_views: number
+          total_unique_visitors: number
+          yesterday_page_views: number
+          yesterday_unique_visitors: number
+        }[]
+      }
       handle_points_deduction: {
         Args: { points_to_deduct: number; user_uuid: string }
         Returns: boolean
@@ -41284,6 +55194,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      imphq_archive_webhook_logs: { Args: never; Returns: Json }
       imphq_train_lead_scoring_model: { Args: never; Returns: Json }
       increment_ab_variant_conversion: {
         Args: { p_variant_id: string }
@@ -41301,6 +55212,19 @@ export type Database = {
         Args: { _dist_id: string }
         Returns: undefined
       }
+      increment_flow_node_stat: {
+        Args: {
+          p_blueprint_id: string
+          p_delta?: number
+          p_field: string
+          p_node_id: string
+        }
+        Returns: undefined
+      }
+      increment_flow_variant_stat: {
+        Args: { p_delta: number; p_field: string; p_variant_id: string }
+        Returns: undefined
+      }
       increment_trigger_dms: {
         Args: { trigger_id: string }
         Returns: undefined
@@ -41309,11 +55233,17 @@ export type Database = {
         Args: { trigger_id: string }
         Returns: undefined
       }
+      increment_wa_rules_applied: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_appbrabas_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_diri_admin: { Args: never; Returns: boolean }
+      is_guiadobuscador_admin: { Args: never; Returns: boolean }
       is_imphq_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_momentos_de_amor_admin: { Args: never; Returns: boolean }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
@@ -41329,9 +55259,17 @@ export type Database = {
         Args: { _action: string; _entity_id?: string; _entity_type?: string }
         Returns: Json
       }
+      jonathan_can_take_program_quiz: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
       jonathan_enroll_user_plan_trails: {
         Args: { _user_id: string }
         Returns: number
+      }
+      jonathan_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
       }
       jonathan_has_program_access: {
         Args: { _program_id: string; _user_id: string }
@@ -41348,6 +55286,14 @@ export type Database = {
           }
       jonathan_is_admin: { Args: { _uid: string }; Returns: boolean }
       jonathan_issue_certificate: {
+        Args: { _program_id: string }
+        Returns: Json
+      }
+      jonathan_program_metrics: {
+        Args: { p_program_id: string }
+        Returns: Json
+      }
+      jonathan_program_quiz_stats: {
         Args: { _program_id: string }
         Returns: Json
       }
@@ -41370,6 +55316,10 @@ export type Database = {
       jp_is_admin: { Args: { _uid: string }; Returns: boolean }
       jp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       link_leads_by_utm: { Args: { p_campanha_id: string }; Returns: number }
+      link_wa_conversation_to_lead: {
+        Args: { p_conv_id: string; p_phone: string; p_project_id: string }
+        Returns: undefined
+      }
       list_admin_tables: { Args: never; Returns: Json }
       mark_admin_message_read: {
         Args: { message_id: string }
@@ -41379,6 +55329,20 @@ export type Database = {
       mark_wa_conversation_read: {
         Args: { _conversation_id: string }
         Returns: undefined
+      }
+      match_agent_knowledge: {
+        Args: {
+          match_count?: number
+          min_similarity?: number
+          p_agent_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          source_name: string
+        }[]
       }
       match_documents: {
         Args: {
@@ -41415,20 +55379,22 @@ export type Database = {
           min_similarity?: number
           p_project_id: string
           query_embedding: string
-          query_text: string
+          query_text?: string
         }
         Returns: {
           id: string
           pergunta: string
           resposta: string
+          score_uso: number
           similarity: number
+          source: string
         }[]
       }
       match_wa_lead_memory: {
         Args: {
-          match_count: number
-          min_similarity: number
-          p_phone: string
+          match_count?: number
+          min_similarity?: number
+          p_phone?: string
           p_project_id: string
           query_embedding: string
         }
@@ -41453,6 +55419,145 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_wa_rules: {
+        Args: {
+          p_match_count?: number
+          p_project_id: string
+          p_query_embedding: string
+          p_threshold?: number
+        }
+        Returns: {
+          ab_group_id: string
+          ab_status: string
+          id: string
+          rule_text: string
+          rule_type: string
+          similarity: number
+        }[]
+      }
+      merge_wa_conversations: {
+        Args: { p_drop_id: string; p_keep_id: string }
+        Returns: Json
+      }
+      momentos_de_amor_increment_banner_clicks: {
+        Args: { banner_id: string }
+        Returns: undefined
+      }
+      momentos_de_amor_increment_site_visits: {
+        Args: never
+        Returns: undefined
+      }
+      momentos_de_amor_increment_views: {
+        Args: { post_id: string }
+        Returns: undefined
+      }
+      momentos_de_amor_top_posts_views: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          period_page_views: number
+          period_unique_visitors: number
+          post_id: string
+          slug: string
+          title: string
+          today_page_views: number
+          today_unique_visitors: number
+          total_page_views: number
+          total_unique_visitors: number
+          total_views: number
+          yesterday_page_views: number
+          yesterday_unique_visitors: number
+        }[]
+      }
+      momentos_de_amor_track_page_view: {
+        Args: { p_path?: string; p_post_id?: string; p_session_id?: string }
+        Returns: undefined
+      }
+      momentos_de_amor_visits_daily: {
+        Args: { p_days?: number }
+        Returns: {
+          day: string
+          page_views: number
+          unique_visitors: number
+        }[]
+      }
+      momentos_de_amor_visits_summary: {
+        Args: never
+        Returns: {
+          last30_page_views: number
+          last30_unique_visitors: number
+          last7_page_views: number
+          last7_unique_visitors: number
+          today_page_views: number
+          today_unique_visitors: number
+          total_page_views: number
+          total_unique_visitors: number
+          yesterday_page_views: number
+          yesterday_unique_visitors: number
+        }[]
+      }
+      normalize_br_phone: { Args: { p_phone: string }; Returns: string[] }
+      orion_award_xp: {
+        Args: { _action: string; _entity_id?: string; _entity_type?: string }
+        Returns: Json
+      }
+      orion_credit_tokens: {
+        Args: {
+          _amount: number
+          _reason: string
+          _ref?: string
+          _user_id: string
+        }
+        Returns: number
+      }
+      orion_enroll_user_plan_trails: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      orion_ensure_monthly_allowance: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      orion_get_token_balance: { Args: { _user_id: string }; Returns: number }
+      orion_has_mini_app_access: {
+        Args: { _app_id: string; _user_id: string }
+        Returns: boolean
+      }
+      orion_has_program_access: {
+        Args: { _program_id: string; _user_id: string }
+        Returns: boolean
+      }
+      orion_has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["orion_app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      orion_is_admin: { Args: { _uid: string }; Returns: boolean }
+      orion_issue_certificate: { Args: { _program_id: string }; Returns: Json }
+      orion_link_legacy_for_user: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      orion_lookup_auth_user_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
+      orion_program_metrics: { Args: { p_program_id: string }; Returns: Json }
+      orion_promote_admin_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
+      orion_spend_tokens: {
+        Args: {
+          _amount: number
+          _reason: string
+          _ref?: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      orion_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
       postgres_fdw_disconnect: { Args: { "": string }; Returns: boolean }
       postgres_fdw_disconnect_all: { Args: never; Returns: boolean }
       postgres_fdw_get_connections: {
@@ -41460,6 +55565,7 @@ export type Database = {
         Returns: Record<string, unknown>[]
       }
       postgres_fdw_handler: { Args: never; Returns: unknown }
+      purge_old_webhook_dedup: { Args: never; Returns: undefined }
       recalc_lead_total_gasto: {
         Args: { p_lead_id: string }
         Returns: undefined
@@ -41471,6 +55577,7 @@ export type Database = {
           p_name: string
           p_phone: string
           p_project_id: string
+          p_run_id?: string
           p_webinar_id: string
         }
         Returns: {
@@ -41483,6 +55590,7 @@ export type Database = {
           project_id: string
           purchase_value: number | null
           registered_at: string | null
+          run_id: string | null
           webinar_id: string
         }
         SetofOptions: {
@@ -41504,6 +55612,8 @@ export type Database = {
         Args: { p_salao_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       spend_points: {
         Args: { p_amount: number; p_type: string; p_user_id: string }
         Returns: boolean
@@ -41542,6 +55652,7 @@ export type Database = {
         | "progress_milestone"
         | "upsell"
         | "weekly_digest"
+        | "lessons_completed_count"
       areamembrojp_upsell_event_type: "view" | "click" | "dismiss" | "convert"
       areamembrojp_upsell_trigger:
         | "lesson_preview_complete"
@@ -41556,6 +55667,20 @@ export type Database = {
       diri_post_status: "draft" | "published" | "scheduled"
       goal_priority: "urgent" | "important" | "strategic"
       jonathan_app_role: "admin" | "member"
+      jonathan_email_job_status:
+        | "pending"
+        | "sent"
+        | "failed"
+        | "skipped"
+        | "cancelled"
+      jonathan_email_trigger_type:
+        | "inactivity"
+        | "lesson_abandoned"
+        | "lesson_completed"
+        | "progress_milestone"
+        | "upsell"
+        | "weekly_digest"
+        | "lessons_completed_count"
       jonathan_upsell_event_type: "view" | "click" | "dismiss" | "convert"
       jonathan_upsell_trigger: "lesson_preview_complete" | "program_complete"
       mission_status: "pending" | "submitted" | "approved" | "rejected"
@@ -41567,6 +55692,23 @@ export type Database = {
         | "registration"
         | "instagram"
         | "telegram"
+      orion_app_role: "admin" | "member"
+      orion_email_job_status:
+        | "pending"
+        | "sent"
+        | "failed"
+        | "skipped"
+        | "cancelled"
+      orion_email_trigger_type:
+        | "inactivity"
+        | "lesson_abandoned"
+        | "lesson_completed"
+        | "progress_milestone"
+        | "upsell"
+        | "weekly_digest"
+        | "lessons_completed_count"
+      orion_upsell_event_type: "view" | "click" | "dismiss" | "convert"
+      orion_upsell_trigger: "lesson_preview_complete" | "program_complete"
       pa_app_role: "admin" | "user"
       point_transaction_type:
         | "mission_completed"
@@ -41595,12 +55737,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -41624,11 +55766,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -41649,11 +55791,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -41674,11 +55816,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -41691,11 +55833,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -41723,6 +55865,7 @@ export const Constants = {
         "progress_milestone",
         "upsell",
         "weekly_digest",
+        "lessons_completed_count",
       ],
       areamembrojp_upsell_event_type: ["view", "click", "dismiss", "convert"],
       areamembrojp_upsell_trigger: [
@@ -41739,6 +55882,22 @@ export const Constants = {
       diri_post_status: ["draft", "published", "scheduled"],
       goal_priority: ["urgent", "important", "strategic"],
       jonathan_app_role: ["admin", "member"],
+      jonathan_email_job_status: [
+        "pending",
+        "sent",
+        "failed",
+        "skipped",
+        "cancelled",
+      ],
+      jonathan_email_trigger_type: [
+        "inactivity",
+        "lesson_abandoned",
+        "lesson_completed",
+        "progress_milestone",
+        "upsell",
+        "weekly_digest",
+        "lessons_completed_count",
+      ],
       jonathan_upsell_event_type: ["view", "click", "dismiss", "convert"],
       jonathan_upsell_trigger: ["lesson_preview_complete", "program_complete"],
       mission_status: ["pending", "submitted", "approved", "rejected"],
@@ -41751,6 +55910,25 @@ export const Constants = {
         "instagram",
         "telegram",
       ],
+      orion_app_role: ["admin", "member"],
+      orion_email_job_status: [
+        "pending",
+        "sent",
+        "failed",
+        "skipped",
+        "cancelled",
+      ],
+      orion_email_trigger_type: [
+        "inactivity",
+        "lesson_abandoned",
+        "lesson_completed",
+        "progress_milestone",
+        "upsell",
+        "weekly_digest",
+        "lessons_completed_count",
+      ],
+      orion_upsell_event_type: ["view", "click", "dismiss", "convert"],
+      orion_upsell_trigger: ["lesson_preview_complete", "program_complete"],
       pa_app_role: ["admin", "user"],
       point_transaction_type: [
         "mission_completed",

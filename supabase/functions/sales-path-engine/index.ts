@@ -2,6 +2,11 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.10";
 
+declare const EdgeRuntime: { waitUntil: (task: Promise<unknown>) => void };
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function errorMessage(value: unknown) { return typeof record(value).message === "string" ? record(value).message : undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -20,7 +25,7 @@ Você NUNCA inventa números — só usa o que está no contexto. Se faltar dado
 Você pensa como um diretor comercial que vai ser cobrado pelo resultado em 72h.`;
 
 // ---------- COLETA DE DADOS ----------
-async function collectProjectSnapshot(supabase: any, projectId: string) {
+async function collectProjectSnapshot(supabase: ReturnType<typeof makeClient>, projectId: string) {
   const since90 = new Date(Date.now() - 90 * 86400000).toISOString();
   const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
   const since7 = new Date(Date.now() - 7 * 86400000).toISOString();
@@ -60,15 +65,15 @@ async function collectProjectSnapshot(supabase: any, projectId: string) {
   const lds = leads.data || [];
   const adsRows = ads30.data || [];
 
-  const sumValor = (arr: any[], col = "valor") => arr.reduce((s, r) => s + Number(r[col] || 0), 0);
+  const sumValor = (arr: Record<string, unknown>[], col = "valor") => arr.reduce((s, r) => s + Number(r[col] || 0), 0);
 
-  const aprovadas90 = v90.filter((v: any) => v.status === "aprovado");
-  const aprovadas30 = v30.filter((v: any) => v.status === "aprovado");
-  const aprovadas7 = v7.filter((v: any) => v.status === "aprovado");
+  const aprovadas90 = v90.filter((v) => v.status === "aprovado");
+  const aprovadas30 = v30.filter((v) => v.status === "aprovado");
+  const aprovadas7 = v7.filter((v) => v.status === "aprovado");
 
   // Funnel data
   const totalLeads30 = lds.length;
-  const checkouts30 = v30.filter((v: any) => ["aprovado", "pendente", "expirado", "carrinho_abandonado"].includes(v.status)).length;
+  const checkouts30 = v30.filter((v) => ["aprovado", "pendente", "expirado", "carrinho_abandonado"].includes(v.status)).length;
   const aprovadas30Count = aprovadas30.length;
 
   // Por produto
@@ -98,11 +103,11 @@ async function collectProjectSnapshot(supabase: any, projectId: string) {
 
   // Ads
   const totalAds30 = sumValor(adsRows, "valor");
-  const totalImpr = adsRows.reduce((s: number, a: any) => s + Number(a.impressions || 0), 0);
-  const totalClicks = adsRows.reduce((s: number, a: any) => s + Number(a.clicks || 0), 0);
-  const totalLeadsAds = adsRows.reduce((s: number, a: any) => s + Number(a.leads || 0), 0);
-  const totalCheckoutsAds = adsRows.reduce((s: number, a: any) => s + Number(a.checkouts || 0), 0);
-  const totalVendasAds = adsRows.reduce((s: number, a: any) => s + Number(a.vendas || 0), 0);
+  const totalImpr = adsRows.reduce((s: number, a) => s + Number(a.impressions || 0), 0);
+  const totalClicks = adsRows.reduce((s: number, a) => s + Number(a.clicks || 0), 0);
+  const totalLeadsAds = adsRows.reduce((s: number, a) => s + Number(a.leads || 0), 0);
+  const totalCheckoutsAds = adsRows.reduce((s: number, a) => s + Number(a.checkouts || 0), 0);
+  const totalVendasAds = adsRows.reduce((s: number, a) => s + Number(a.vendas || 0), 0);
 
   const ctrMedio = totalImpr > 0 ? (totalClicks / totalImpr) * 100 : 0;
   const cpaMedio = totalVendasAds > 0 ? totalAds30 / totalVendasAds : 0;
@@ -167,7 +172,7 @@ async function collectProjectSnapshot(supabase: any, projectId: string) {
     },
     leads_quentes: {
       total: (leadsQuentes.data || []).length,
-      lista: (leadsQuentes.data || []).map((l: any) => ({ nome: l.nome || l.email, score: l.score, status: l.status, ultimo_produto: l.ultimo_produto, ultimo_evento: l.ultimo_evento })),
+      lista: (leadsQuentes.data || []).map((l) => ({ nome: l.nome || l.email, score: l.score, status: l.status, ultimo_produto: l.ultimo_produto, ultimo_evento: l.ultimo_evento })),
     },
     ads_30d: {
       gasto_total: +totalAds30.toFixed(2),
@@ -184,16 +189,17 @@ async function collectProjectSnapshot(supabase: any, projectId: string) {
     ativos_marketing: {
       funis_montados: (funnels.data || []).length,
       sequencias_nutricao: (sequences.data || []).length,
-      sequencias_ativas: (sequences.data || []).filter((s: any) => s.status === "ativo").length,
+      sequencias_ativas: (sequences.data || []).filter((s) => s.status === "ativo").length,
       criativos_30d: (creatives.data || []).length,
-      integracoes_ativas: (integrations.data || []).filter((i: any) => i.status === "active").map((i: any) => i.provider),
+      integracoes_ativas: (integrations.data || []).filter((i) => i.status === "active").map((i) => i.provider),
       atividades_expert_30d: (expertLogs.data || []).length,
     },
   };
 }
 
-function extractAvatarSummary(avatar: any): any {
-  if (!avatar || typeof avatar !== "object") return null;
+function extractAvatarSummary(input: unknown) {
+  const avatar = record(input);
+  if (!input || typeof input !== "object") return null;
   return {
     dor_principal: avatar.dor || avatar.dor_principal || avatar.principais_dores || null,
     desejo: avatar.desejo || avatar.desejos || null,
@@ -202,8 +208,9 @@ function extractAvatarSummary(avatar: any): any {
   };
 }
 
-function extractBrandSummary(brand: any): any {
-  if (!brand || typeof brand !== "object") return null;
+function extractBrandSummary(input: unknown) {
+  const brand = record(input);
+  if (!input || typeof input !== "object") return null;
   return {
     tom_de_voz: brand.tom_de_voz || brand.tone || null,
     arquetipo: brand.arquetipo || brand.archetype || null,
@@ -212,7 +219,7 @@ function extractBrandSummary(brand: any): any {
 }
 
 // ---------- DIAGNÓSTICO DETERMINÍSTICO ----------
-function deterministicDiagnostics(snapshot: any) {
+function deterministicDiagnostics(snapshot: Awaited<ReturnType<typeof collectProjectSnapshot>>) {
   const flags: string[] = [];
   const f = snapshot.funil_30d;
   const ads = snapshot.ads_30d;
@@ -329,10 +336,10 @@ const PLAN_TOOL = {
   },
 };
 
-async function callAI(model: string, snapshot: any, deterministic: any, reasoningEffort: string) {
+async function callAI(model: string, snapshot: Awaited<ReturnType<typeof collectProjectSnapshot>>, deterministic: ReturnType<typeof deterministicDiagnostics>, reasoningEffort: string) {
   const userPrompt = `# DADOS REAIS DO PROJETO\n\n${JSON.stringify(snapshot, null, 2)}\n\n# DIAGNÓSTICO AUTOMÁTICO (regras determinísticas)\n\nHealth score: ${deterministic.health_score}/100\nFlags: ${deterministic.flags.join(" | ") || "nenhuma"}\n\nUse os dados acima para construir o Plano de Ataque de Vendas. Seja específico, cite números, não invente.`;
 
-  const body: any = {
+  const body: { model: string; messages: { role: string; content: string }[]; tools: typeof PLAN_TOOL[]; tool_choice: { type: string; function: { name: string } }; reasoning?: { effort: string } } = {
     model,
     messages: [
       { role: "system", content: PERSONA },
@@ -357,14 +364,13 @@ async function callAI(model: string, snapshot: any, deterministic: any, reasonin
 
   if (!res.ok) {
     const t = await res.text();
-    const err: any = new Error(`AI ${res.status}: ${t}`);
-    err.status = res.status;
+    const err = Object.assign(new Error(`AI ${res.status}: ${t}`), { status: res.status });
     throw err;
   }
   const data = await res.json();
   const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
   if (!toolCall) throw new Error("IA não retornou tool_call");
-  const args = JSON.parse(toolCall.function.arguments);
+  const args = record(JSON.parse(toolCall.function.arguments));
   return args;
 }
 
@@ -397,17 +403,16 @@ serve(async (req) => {
     // Roda IA em background pra evitar 504 (IDLE_TIMEOUT 150s)
     const runInBackground = async () => {
       try {
-        const snapshot = await collectProjectSnapshot(supabase, projectId);
+        const snapshot = { ...await collectProjectSnapshot(supabase, projectId), ...(focus ? { foco_solicitado: focus } : {}) };
         const deterministic = deterministicDiagnostics(snapshot);
-        if (focus) (snapshot as any).foco_solicitado = focus;
 
-        let plan: any;
+        let plan: Awaited<ReturnType<typeof callAI>>;
         let modelUsed = MODEL_PRIMARY;
         try {
           plan = await callAI(MODEL_PRIMARY, snapshot, deterministic, "high");
-        } catch (e: any) {
-          console.warn("Primary model falhou, tentando fallback:", e.message);
-          if (e.status === 429 || e.status === 402) throw e;
+        } catch (e) {
+          console.warn("Primary model falhou, tentando fallback:", errorMessage(e));
+          if (record(e).status === 429 || record(e).status === 402) throw e;
           plan = await callAI(MODEL_FALLBACK, snapshot, deterministic, "medium");
           modelUsed = MODEL_FALLBACK;
         }
@@ -425,25 +430,24 @@ serve(async (req) => {
           resumo_executivo: plan.resumo_executivo,
           model_used: modelUsed,
         }).eq("id", pathId);
-      } catch (innerErr: any) {
+      } catch (innerErr) {
         console.error("sales-path-engine inner error:", innerErr);
         await supabase.from("imphq_sales_paths").update({
           status: "failed",
-          error_message: innerErr.message || String(innerErr),
+          error_message: errorMessage(innerErr) || String(innerErr),
         }).eq("id", pathId);
       }
     };
 
-    // @ts-ignore EdgeRuntime fornecido pelo Supabase
     EdgeRuntime.waitUntil(runInBackground());
 
     return new Response(JSON.stringify({ id: pathId, status: "processing" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 202,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("sales-path-engine error", err);
-    return new Response(JSON.stringify({ error: err.message || "Erro interno" }), {
+    return new Response(JSON.stringify({ error: errorMessage(err) || "Erro interno" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

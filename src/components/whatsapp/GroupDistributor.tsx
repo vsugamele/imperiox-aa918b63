@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +25,17 @@ type PendingConfirm =
   | null;
 
 const GROUPS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+function stringArray(value: unknown): string[] { return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []; }
+function numberRecord(value: unknown): Record<string, number> {
+  return Object.fromEntries(Object.entries(record(value)).flatMap(([k, v]) => typeof v === "number" ? [[k, v]] : []));
+}
+function stringRecord(value: unknown): Record<string, string> {
+  return Object.fromEntries(Object.entries(record(value)).flatMap(([k, v]) => typeof v === "string" ? [[k, v]] : []));
+}
 
 interface Distributor {
   id: string;
@@ -115,8 +127,8 @@ export default function GroupDistributor() {
       const rows = (data?.groups || []) as GroupRow[];
       groupsCacheRef.current.set(providerId, { ts: Date.now(), rows });
       setAvailableGroups(rows);
-    } catch (e: any) {
-      toast.error("Erro ao buscar grupos: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao buscar grupos: " + errorMessage(e));
       setAvailableGroups([]);
     }
     setLoadingGroups(false);
@@ -132,7 +144,7 @@ export default function GroupDistributor() {
     const next = [...current, jid];
     const { error } = await supabase
       .from("imphq_wa_group_distributors")
-      .update({ redirect_order: next as any })
+      .update({ redirect_order: next })
       .eq("id", showStats.id);
     if (error) { toast.error(error.message); return; }
     setShowStats(prev => prev ? { ...prev, redirect_order: next } : prev);
@@ -155,7 +167,7 @@ export default function GroupDistributor() {
     delete newInvites[jid];
     const { error } = await supabase
       .from("imphq_wa_group_distributors")
-      .update({ redirect_order: next as any, weights: newWeights as any, group_invites: newInvites as any })
+      .update({ redirect_order: next, weights: newWeights, group_invites: newInvites })
       .eq("id", showStats.id);
     setBusyKey(`group:${jid}`, false);
     if (error) { toast.error(error.message); return; }
@@ -166,11 +178,11 @@ export default function GroupDistributor() {
 
   const loadWeeks = useCallback(async (distId: string) => {
     const { data } = await supabase
-      .from("imphq_wa_distributor_weeks" as any)
+      .from("imphq_wa_distributor_weeks")
       .select("*")
       .eq("distributor_id", distId)
       .order("week_index", { ascending: true });
-    const rows = ((data as any[]) || []) as WeekRow[];
+    const rows = data || [];
     setWeeks(rows);
 
     // 1 query agregada: pega todos os cliques desse distribuidor e agrupa local
@@ -210,7 +222,7 @@ export default function GroupDistributor() {
     setShowStats(prev => prev ? { ...prev, ...patch } : prev);
     await supabase
       .from("imphq_wa_group_distributors")
-      .update(patch as any)
+      .update(patch)
       .eq("id", showStats.id);
   };
 
@@ -220,7 +232,7 @@ export default function GroupDistributor() {
       return;
     }
     const nextIdx = (weeks[weeks.length - 1]?.week_index || 0) + 1;
-    const { error } = await supabase.from("imphq_wa_distributor_weeks" as any).insert({
+    const { error } = await supabase.from("imphq_wa_distributor_weeks").insert({
       distributor_id: showStats.id,
       week_index: nextIdx,
       group_jid: newWeek.group_jid.trim(),
@@ -244,7 +256,7 @@ export default function GroupDistributor() {
     if (!showStats) return;
     setBusyKey("advance", true);
     await supabase
-      .from("imphq_wa_distributor_weeks" as any)
+      .from("imphq_wa_distributor_weeks")
       .update({ archived_at: new Date().toISOString() })
       .eq("distributor_id", showStats.id)
       .eq("week_index", showStats.current_week || 1);
@@ -260,9 +272,9 @@ export default function GroupDistributor() {
       supabase.from("imphq_wa_group_distributors").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_wa_campaigns").select("id, name, groups").order("name"),
     ]);
-    const dists = (distRes.data as any[]) || [];
+    const dists = (distRes.data || []).map(row => ({ ...row, redirect_order: stringArray(row.redirect_order), weights: numberRecord(row.weights), group_invites: stringRecord(row.group_invites) }));
     setDistributors(dists);
-    setCampaigns((campRes.data as any[]) || []);
+    setCampaigns((campRes.data || []).map(row => ({ ...row, groups: stringArray(row.groups) })));
     setLoading(false);
 
     // 1 query agregada: pega todos os cliques de todos os distribuidores
@@ -304,7 +316,7 @@ export default function GroupDistributor() {
         .eq("is_active", true)
         .eq("provider", "evolution")
         .order("created_at");
-      const list = (data as any[]) || [];
+      const list = data || [];
       setProviders(list);
       if (!selectedProviderId && list.length > 0) {
         setSelectedProviderId(list[0].id);
@@ -340,9 +352,9 @@ export default function GroupDistributor() {
       slug: form.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, ""),
       max_per_group: form.max_per_group || 250,
       campaign_id: form.campaign_id || null,
-      redirect_order: groups as any,
+      redirect_order: groups,
       is_active: true,
-    } as any);
+    });
 
     if (error) {
       if (error.message.includes("unique")) toast.error("Slug já existe!");
@@ -360,7 +372,7 @@ export default function GroupDistributor() {
     setBusyKey(`active:${dist.id}`, true);
     await supabase
       .from("imphq_wa_group_distributors")
-      .update({ is_active: !dist.is_active } as any)
+      .update({ is_active: !dist.is_active })
       .eq("id", dist.id);
     toast.success(dist.is_active ? "Desativado" : "Ativado");
     await load();
@@ -626,7 +638,7 @@ export default function GroupDistributor() {
                   <Label className="text-[10px] text-muted-foreground">Modo</Label>
                   <Select
                     value={showStats?.rotation_mode || "none"}
-                    onValueChange={(v) => updateRotation({ rotation_mode: v as any })}
+                    onValueChange={(v) => updateRotation({ rotation_mode: v })}
                   >
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -825,7 +837,7 @@ export default function GroupDistributor() {
                             setShowStats(prev => prev ? { ...prev, weights: newWeights } : prev);
                             await supabase
                               .from("imphq_wa_group_distributors")
-                              .update({ weights: newWeights } as any)
+                              .update({ weights: newWeights })
                               .eq("id", showStats!.id);
                           }}
                         />
@@ -848,7 +860,7 @@ export default function GroupDistributor() {
                             setShowStats(prev => prev ? { ...prev, group_invites: next } : prev);
                             await supabase
                               .from("imphq_wa_group_distributors")
-                              .update({ group_invites: next } as any)
+                              .update({ group_invites: next })
                               .eq("id", showStats!.id);
                             toast.success("Convite salvo");
                           }}
@@ -973,7 +985,7 @@ export default function GroupDistributor() {
                                           const next = [...current, g.id];
                                           const { error } = await supabase
                                             .from("imphq_wa_group_distributors")
-                                            .update({ redirect_order: next as any })
+                                            .update({ redirect_order: next })
                                             .eq("id", showStats!.id);
                                           if (error) { toast.error(error.message); return; }
                                           setShowStats(prev => prev ? { ...prev, redirect_order: next } : prev);
@@ -1049,7 +1061,7 @@ export default function GroupDistributor() {
                 else if (a.kind === "remove_group") await doRemoveGroup(a.jid);
                 else if (a.kind === "advance_now") await doAdvance(a.toIndex);
                 else if (a.kind === "delete_week" && showStats) {
-                  await supabase.from("imphq_wa_distributor_weeks" as any).delete().eq("id", a.weekId);
+                  await supabase.from("imphq_wa_distributor_weeks").delete().eq("id", a.weekId);
                   await loadWeeks(showStats.id);
                   toast.success("Semana excluída");
                 }

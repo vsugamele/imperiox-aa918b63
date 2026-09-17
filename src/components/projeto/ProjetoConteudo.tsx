@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +27,7 @@ interface ContentItem {
   created_at: string;
 }
 
-const FILE_TYPE_ICONS: Record<string, any> = {
+const FILE_TYPE_ICONS: Record<string, LucideIcon> = {
   image: Image,
   video: Video,
   document: FileText,

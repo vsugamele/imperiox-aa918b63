@@ -1,4 +1,6 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,16 +10,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound } from "lucide-react";
+import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase, Palette } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ColumnColorMenu } from "@/components/kanban/ColumnColorMenu";
+import { hexToTint } from "@/components/kanban/column-color";
 import { AdAccountsTab } from "@/components/empresa/AdAccountsTab";
 import { ZernioTab } from "@/components/empresa/ZernioTab";
+import { FarmTab } from "@/components/empresa/FarmTab";
+import { DevicesTab } from "@/components/empresa/DevicesTab";
+import { AccountFarmDialog } from "@/components/empresa/AccountFarmDialog";
+import { AddAccountToMapDialog } from "@/components/empresa/AddAccountToMapDialog";
 import { toast } from "sonner";
+
 
 interface ContaEmpresa {
   id: string;
   nome: string;
   tipo: string;
   valor?: string;
+  foto_url?: string | null;
+  mapa_node_id?: string | null;
+  color?: string | null;
+  // Farm columns
+  warmup_status?: string | null;
+  warmup_days?: number | null;
+  data_criacao_conta?: string | null;
+  seguidores?: number | null;
+  engajamento_medio?: number | null;
+  ultimo_alcance?: number | null;
+  proxy_tipo?: string | null;
+  proxy_geo?: string | null;
+  cloud_phone_provider?: string | null;
+  preco_alvo?: number | null;
+  status_venda?: string | null;
+  pronta_venda?: boolean | null;
+  sinais_risco?: string[] | null;
+  cloud_phone_ref?: string | null;
+  project_id?: string | null;
   extra?: {
     senha?: string;
     telefone?: string;
@@ -28,22 +57,54 @@ interface ContaEmpresa {
     bio?: string;
     channel_url?: string;
     ativo?: string;
+    proxy_endpoint?: string;
+    proxy_user?: string;
+    proxy_pass?: string;
+    geelark_profile?: string;
+    geelark_status?: string;
   };
+
 }
+
+interface MapNode { id: string; label: string; }
+interface DeviceOpt { id: string; nome: string; provider: string; }
+interface ProjectOpt { id: string; name: string; }
+
 
 const AQUECIMENTO_STATUS = ["Inativo", "Aquecendo", "Pronto", "Banido"];
 const YOUTUBE_STATUS = ["Ativo", "Inativo", "Em Análise", "Monetizado"];
 
 export default function Empresa() {
   const [contas, setContas] = useState<ContaEmpresa[]>([]);
+  const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
+  const [devices, setDevices] = useState<DeviceOpt[]>([]);
+  const [projects, setProjects] = useState<ProjectOpt[]>([]);
   const [activeTab, setActiveTab] = useState("email");
 
   const load = async () => {
-    const { data } = await supabase.from("imphq_empresa").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase
+      .from("imphq_empresa")
+      .select("*")
+      .order("position", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false });
     setContas((data || []) as ContaEmpresa[]);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadNodes = async () => {
+    const { data } = await supabase.from("imphq_company_map_nodes").select("id, label").order("label");
+    setMapNodes((data || []) as MapNode[]);
+  };
+
+  const loadRefs = async () => {
+    const [d, p] = await Promise.all([
+      supabase.from("imphq_cloud_phones").select("id, nome, provider").order("nome"),
+      supabase.from("imphq_projects").select("id, name").order("name"),
+    ]);
+    setDevices((d.data || []).map((x) => ({ id: x.id, nome: x.nome || x.provider, provider: x.provider })));
+    setProjects(p.data || []);
+  };
+
+  useEffect(() => { load(); loadNodes(); loadRefs(); }, []);
 
   const filterByType = (tipo: string) => contas.filter(c => c.tipo === tipo);
 
@@ -59,35 +120,40 @@ export default function Empresa() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); loadRefs(); }} className="space-y-4">
         <TabsList>
           <TabsTrigger value="email"><Mail className="h-3.5 w-3.5 mr-1" /> Emails</TabsTrigger>
           <TabsTrigger value="instagram"><Instagram className="h-3.5 w-3.5 mr-1" /> Instagram</TabsTrigger>
           <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
           <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>
+          <TabsTrigger value="devices"><Smartphone className="h-3.5 w-3.5 mr-1" /> Devices</TabsTrigger>
           <TabsTrigger value="ad_accounts"><CreditCard className="h-3.5 w-3.5 mr-1" /> Ad Accounts</TabsTrigger>
           <TabsTrigger value="zernio"><KeyRound className="h-3.5 w-3.5 mr-1" /> Zernio</TabsTrigger>
+          <TabsTrigger value="farm"><Sprout className="h-3.5 w-3.5 mr-1" /> Farm</TabsTrigger>
         </TabsList>
 
         <TabsContent value="email">
-          <AccountTable contas={filterByType("email")} tipo="email"
+          <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Gmail", "Senha", "Em Uso", "Telefone", "Aquecido", "Data Compra", "Perfil Instagram"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="instagram">
-          <AccountTable contas={filterByType("instagram")} tipo="instagram"
+          <AccountTable contas={filterByType("instagram")} tipo="instagram" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="tiktok">
-          <AccountTable contas={filterByType("tiktok")} tipo="tiktok"
+          <AccountTable contas={filterByType("tiktok")} tipo="tiktok" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Perfil", "Usuário", "Senha", "Seguidores", "Bio", "Status"]}
             onRefresh={load} />
         </TabsContent>
         <TabsContent value="youtube">
-          <AccountTable contas={filterByType("youtube")} tipo="youtube"
+          <AccountTable contas={filterByType("youtube")} tipo="youtube" mapNodes={mapNodes} devices={devices} projects={projects}
             columns={["Canal", "URL do Canal", "Inscritos", "Bio", "Status"]}
             onRefresh={load} />
+        </TabsContent>
+        <TabsContent value="devices">
+          <DevicesTab />
         </TabsContent>
         <TabsContent value="ad_accounts">
           <AdAccountsTab />
@@ -95,28 +161,82 @@ export default function Empresa() {
         <TabsContent value="zernio">
           <ZernioTab />
         </TabsContent>
+        <TabsContent value="farm">
+          <FarmTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function AccountTable({ contas, tipo, columns, onRefresh }: {
+function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, projects }: {
   contas: ContaEmpresa[];
   tipo: string;
   columns: string[];
   onRefresh: () => void;
+  mapNodes: MapNode[];
+  devices: DeviceOpt[];
+  projects: ProjectOpt[];
 }) {
+
   const [showDialog, setShowDialog] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaEmpresa | null>(null);
   const [showFormPassword, setShowFormPassword] = useState(false);
+  const [showProxyPassword, setShowProxyPassword] = useState(false);
+
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const viewKey = `empresa-view-${tipo}`;
+  const [view, setView] = useState<"list" | "grid">(() => {
+    if (typeof window === "undefined") return "list";
+    return (localStorage.getItem(viewKey) as "list" | "grid") || "list";
+  });
+  useEffect(() => { try { localStorage.setItem(viewKey, view); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ } }, [view, viewKey]);
+
+  const [farmDialog, setFarmDialog] = useState<{ id: string } | null>(null);
+  const [mapDialog, setMapDialog] = useState<{ id: string; label: string } | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const reorderCards = async (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    // Reordena dentro da lista completa preservando ordem global
+    const ordered = [...contas];
+    const from = ordered.findIndex(c => c.id === sourceId);
+    const to = ordered.findIndex(c => c.id === targetId);
+    if (from < 0 || to < 0) return;
+    const [moved] = ordered.splice(from, 1);
+    ordered.splice(to, 0, moved);
+    // Otimista: atualiza posições e persiste
+    await Promise.all(
+      ordered.map((c, i) =>
+        supabase.from("imphq_empresa").update({ position: (i + 1) * 100 }).eq("id", c.id)
+      )
+    );
+    onRefresh();
+  };
+
+  // Filtros
+  const [filterProject, setFilterProject] = useState<string>("__all__");
+  const [filterDevice, setFilterDevice] = useState<string>("__all__");
+  const filteredContas = contas.filter(c => {
+    if (filterProject !== "__all__" && c.project_id !== filterProject) return false;
+    if (filterDevice !== "__all__" && c.cloud_phone_ref !== filterDevice) return false;
+    return true;
+  });
 
   const emptyForm = {
     nome: "", valor: "", senha: "", telefone: "",
     status_aquecimento: "Inativo", data_compra: "", perfil_instagram: "",
     seguidores: "", bio: "", channel_url: "", ativo: "Ativo",
+    foto_url: "" as string, mapa_node_id: "" as string,
+    cloud_phone_ref: "" as string, project_id: "" as string,
+    proxy_tipo: "" as string, proxy_geo: "" as string,
+    proxy_endpoint: "" as string, proxy_user: "" as string, proxy_pass: "" as string,
+    geelark_profile: "" as string, geelark_status: "" as string,
   };
+
   const [form, setForm] = useState(emptyForm);
+  const [uploading, setUploading] = useState(false);
 
   const openAdd = () => {
     setEditingConta(null);
@@ -139,7 +259,19 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
       bio: conta.extra?.bio || "",
       channel_url: conta.extra?.channel_url || "",
       ativo: conta.extra?.ativo || "Ativo",
+      foto_url: conta.foto_url || "",
+      mapa_node_id: conta.mapa_node_id || "",
+      cloud_phone_ref: conta.cloud_phone_ref || "",
+      project_id: conta.project_id || "",
+      proxy_tipo: conta.proxy_tipo || "",
+      proxy_geo: conta.proxy_geo || "",
+      proxy_endpoint: conta.extra?.proxy_endpoint || "",
+      proxy_user: conta.extra?.proxy_user || "",
+      proxy_pass: conta.extra?.proxy_pass || "",
+      geelark_profile: conta.extra?.geelark_profile || "",
+      geelark_status: conta.extra?.geelark_status || "",
     });
+
     setShowFormPassword(false);
     setShowDialog(true);
   };
@@ -148,12 +280,36 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
     setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `empresa/${tipo}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("company-map-images").upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("company-map-images").getPublicUrl(path);
+      setForm(f => ({ ...f, foto_url: data.publicUrl }));
+      toast.success("Foto carregada");
+    } catch (e: unknown) {
+      toast.error("Erro no upload: " + errorMessage(e));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const save = async () => {
     if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const payload = {
       nome: form.nome,
       tipo,
       valor: form.valor || null,
+      foto_url: form.foto_url || null,
+      mapa_node_id: form.mapa_node_id || null,
+      cloud_phone_ref: form.cloud_phone_ref || null,
+      project_id: form.project_id || null,
+      proxy_tipo: form.proxy_tipo || null,
+      proxy_geo: form.proxy_geo || null,
       extra: {
         senha: form.senha || null,
         telefone: form.telefone || null,
@@ -164,8 +320,14 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
         bio: form.bio || null,
         channel_url: form.channel_url || null,
         ativo: form.ativo || null,
+        proxy_endpoint: form.proxy_endpoint || null,
+        proxy_user: form.proxy_user || null,
+        proxy_pass: form.proxy_pass || null,
+        geelark_profile: form.geelark_profile || null,
+        geelark_status: form.geelark_status || null,
       },
-    } as any;
+    };
+
 
     if (editingConta) {
       const { error } = await supabase.from("imphq_empresa").update(payload).eq("id", editingConta.id);
@@ -188,21 +350,231 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
     onRefresh();
   };
 
+  const nodeLabel = (id?: string | null) => mapNodes.find(n => n.id === id)?.label;
+
+
   const labelByTipo = tipo === "email" ? "Email" : tipo === "instagram" ? "Instagram" : tipo === "tiktok" ? "TikTok" : "YouTube";
   const iconByTipo = tipo === "email" ? "📧" : tipo === "instagram" ? "📸" : tipo === "tiktok" ? "🎵" : "📺";
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end items-center gap-2">
+        <Select value={filterProject} onValueChange={setFilterProject}>
+          <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os projetos</SelectItem>
+            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterDevice} onValueChange={setFilterDevice}>
+          <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue placeholder="Device" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os devices</SelectItem>
+            {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <div className="inline-flex rounded-md border border-border bg-card p-0.5">
+          <Button size="icon" variant={view === "list" ? "secondary" : "ghost"} className="h-7 w-7" title="Lista" onClick={() => setView("list")}>
+            <List className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="icon" variant={view === "grid" ? "secondary" : "ghost"} className="h-7 w-7" title="Cards" onClick={() => setView("grid")}>
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         <Button size="sm" onClick={openAdd}>
           <Plus className="h-4 w-4 mr-1" /> Adicionar {labelByTipo}
         </Button>
       </div>
 
-      {contas.length === 0 ? (
+      {filteredContas.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p className="text-3xl mb-2">{iconByTipo}</p>
           <p className="text-sm">Nenhum {labelByTipo.toLowerCase()} cadastrado ainda</p>
+        </div>
+      ) : view === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {filteredContas.map((c) => {
+            const statusText = tipo === "youtube" ? (c.extra?.ativo || "Inativo") : (c.extra?.status_aquecimento || "Inativo");
+            const statusClass = tipo === "youtube"
+              ? (c.extra?.ativo === "Ativo" || c.extra?.ativo === "Monetizado" ? "border-emerald-500/30 text-emerald-400" : c.extra?.ativo === "Inativo" ? "border-red-500/30 text-red-400" : "")
+              : (statusText === "Pronto" ? "border-emerald-500/30 text-emerald-400" : statusText === "Aquecendo" ? "border-amber-500/30 text-amber-400" : statusText === "Banido" ? "border-red-500/30 text-red-400" : "");
+            const title = tipo === "email" || tipo === "youtube" ? c.nome : `@${c.nome}`;
+            return (
+              <div
+                key={c.id}
+                draggable
+                onDragStart={(e) => { setDraggedId(c.id); e.dataTransfer.effectAllowed = "move"; }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverId !== c.id) setDragOverId(c.id); }}
+                onDragLeave={() => { if (dragOverId === c.id) setDragOverId(null); }}
+                onDrop={(e) => { e.preventDefault(); if (draggedId && draggedId !== c.id) reorderCards(draggedId, c.id); setDraggedId(null); setDragOverId(null); }}
+                onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
+                className={`rounded-lg border border-border bg-card p-3 hover:border-primary/30 transition group flex flex-col gap-2 cursor-grab active:cursor-grabbing ${draggedId === c.id ? "opacity-40" : ""} ${dragOverId === c.id && draggedId && draggedId !== c.id ? "ring-2 ring-primary/60" : ""}`}
+                style={c.color ? { borderLeft: `3px solid ${c.color}`, backgroundColor: hexToTint(c.color, 0.06) } : undefined}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {c.foto_url ? (
+                      <img src={c.foto_url} alt={title} className="h-10 w-10 rounded-md object-cover shrink-0 border border-border" />
+                    ) : (
+                      <span className="text-base shrink-0">{iconByTipo}</span>
+                    )}
+                    <span className="text-sm font-medium truncate" title={title}>{title}</span>
+                  </div>
+                  <Badge variant="outline" className={`text-[9px] shrink-0 ${statusClass}`}>{statusText}</Badge>
+                </div>
+                {c.mapa_node_id && nodeLabel(c.mapa_node_id) && (
+                  <Link to={`/funis?view=mapa&node=${c.mapa_node_id}`} className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline w-fit">
+                    <MapIcon className="h-3 w-3" /> {nodeLabel(c.mapa_node_id)}
+                  </Link>
+                )}
+                {(c.project_id || c.cloud_phone_ref) && (
+                  <div className="flex flex-wrap gap-1">
+                    {c.project_id && (() => {
+                      const pj = projects.find(p => p.id === c.project_id);
+                      return pj ? <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5"><Briefcase className="h-2.5 w-2.5" />{pj.name}</Badge> : null;
+                    })()}
+                    {c.cloud_phone_ref && (() => {
+                      const dv = devices.find(d => d.id === c.cloud_phone_ref);
+                      return dv ? <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5"><Smartphone className="h-2.5 w-2.5" />{dv.nome}</Badge> : null;
+                    })()}
+                  </div>
+                )}
+
+
+                <div className="space-y-1 text-[11px] text-muted-foreground border-t border-border/50 pt-2">
+                  {tipo === "email" && (
+                    <>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="opacity-70">Senha</span>
+                        <span className="flex items-center gap-1 text-foreground/80 font-mono">
+                          {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
+                          {c.extra?.senha && (
+                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => togglePasswordVisibility(c.id)}>
+                              {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Em uso</span><span className="text-foreground/80 truncate">{c.valor || "—"}</span></div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Telefone</span><span className="text-foreground/80">{c.extra?.telefone || "—"}</span></div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Data compra</span><span className="text-foreground/80">{c.extra?.data_compra || "—"}</span></div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Perfil IG</span><span className="text-foreground/80 truncate">{c.extra?.perfil_instagram || "—"}</span></div>
+                    </>
+                  )}
+
+                  {tipo === "youtube" && (
+                    <>
+                      <div className="flex justify-between gap-2">
+                        <span className="opacity-70">Canal</span>
+                        {c.extra?.channel_url ? (
+                          <a href={c.extra.channel_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[60%]">{c.extra.channel_url}</a>
+                        ) : <span className="text-foreground/80">—</span>}
+                      </div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Inscritos</span><span className="text-foreground/80">{c.extra?.seguidores || "—"}</span></div>
+                      {c.extra?.bio && <p className="text-foreground/70 line-clamp-2 pt-1">{c.extra.bio}</p>}
+                    </>
+                  )}
+
+                  {(tipo === "instagram" || tipo === "tiktok") && (
+                    <>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Usuário</span><span className="text-foreground/80 truncate">{c.valor || "—"}</span></div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="opacity-70">Senha</span>
+                        <span className="flex items-center gap-1 text-foreground/80 font-mono">
+                          {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
+                          {c.extra?.senha && (
+                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => togglePasswordVisibility(c.id)}>
+                              {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Seguidores</span><span className="text-foreground/80">{c.extra?.seguidores || "—"}</span></div>
+                      {c.extra?.bio && <p className="text-foreground/70 line-clamp-2 pt-1">{c.extra.bio}</p>}
+                    </>
+                  )}
+                </div>
+
+                {/* Farm section — só mostra se houver algum dado de farm */}
+                {(c.warmup_status || c.seguidores || c.proxy_tipo || c.cloud_phone_provider || c.pronta_venda || (c.sinais_risco && c.sinais_risco.length > 0)) && (
+                  <div className="space-y-1 text-[11px] border-t border-border/50 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] uppercase tracking-wider text-primary/70 flex items-center gap-1">
+                        <Sprout className="h-3 w-3" /> Farm
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {c.pronta_venda && <Badge className="h-4 px-1 text-[9px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">pronta</Badge>}
+                        {c.sinais_risco && c.sinais_risco.length > 0 && (
+                          <Badge variant="outline" className="h-4 px-1 text-[9px] border-red-500/30 text-red-400 gap-0.5">
+                            <ShieldAlert className="h-2.5 w-2.5" /> risco
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    {c.warmup_status && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Warmup</span><span className="text-foreground/80">{c.warmup_status}{c.warmup_days ? ` · ${c.warmup_days}d` : ""}</span></div>
+                    )}
+                    {(c.seguidores || c.engajamento_medio) && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Seg./Eng.</span><span className="text-foreground/80">{c.seguidores || 0} · {c.engajamento_medio || 0}%</span></div>
+                    )}
+                    {(c.proxy_tipo || c.proxy_geo) && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Proxy</span><span className="text-foreground/80 truncate">{c.proxy_tipo || "—"}{c.proxy_geo ? ` · ${c.proxy_geo}` : ""}</span></div>
+                    )}
+                    {c.cloud_phone_provider && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Cloud</span><span className="text-foreground/80 truncate">{c.cloud_phone_provider}</span></div>
+                    )}
+                    {c.status_venda && c.status_venda !== "mantida" && (
+                      <div className="flex justify-between gap-2"><span className="opacity-70">Venda</span><span className="text-foreground/80">{c.status_venda}</span></div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-1 border-t border-border/50 pt-2 mt-auto">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Cor do card">
+                        <Palette className="h-3 w-3" style={c.color ? { color: c.color } : undefined} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="end">
+                      <ColumnColorMenu
+                        currentColor={c.color}
+                        onPick={async (hex) => {
+                          await supabase.from("imphq_empresa").update({ color: hex }).eq("id", c.id);
+                          onRefresh();
+                        }}
+                      />
+                      {c.color && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full mt-1 h-7 text-xs text-muted-foreground"
+                          onClick={async () => {
+                            await supabase.from("imphq_empresa").update({ color: null }).eq("id", c.id);
+                            onRefresh();
+                          }}
+                        >
+                          Sem cor
+                        </Button>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Farm da conta" onClick={() => setFarmDialog({ id: c.id })}>
+                    <Sprout className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Adicionar ao Mapa da Empresa" onClick={() => setMapDialog({ id: c.id, label: tipo === "email" || tipo === "youtube" ? c.nome : `@${c.nome}` })}>
+                    <MapPinPlus className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="Editar" onClick={() => openEdit(c)}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Remover" onClick={() => remove(c.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-lg border border-border overflow-auto">
@@ -214,11 +586,12 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contas.map((c) => (
+              {filteredContas.map((c) => (
                 <TableRow key={c.id}>
                   {tipo === "email" ? (
                     <>
-                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={c.nome} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
+
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
                         {c.extra?.senha && (
@@ -237,7 +610,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                     </>
                   ) : tipo === "youtube" ? (
                     <>
-                      <TableCell className="font-medium text-sm">{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={c.nome} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {c.extra?.channel_url ? (
                           <a href={c.extra.channel_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px] block">
@@ -255,7 +628,7 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                     </>
                   ) : (
                     <>
-                      <TableCell className="font-medium text-sm">@{c.nome}</TableCell>
+                      <TableCell className="font-medium text-sm"><NameCell conta={c} title={`@${c.nome}`} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.valor || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
                         {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
@@ -357,13 +730,184 @@ function AccountTable({ contas, tipo, columns, onRefresh }: {
                 </div>
               </>
             )}
+
+            {/* Foto e Vínculo com Mapa (comum a todos) */}
+            <div className="pt-3 border-t border-border/50 space-y-3">
+              <div>
+                <Label>Foto do card</Label>
+                <div className="flex items-center gap-3 mt-1">
+                  {form.foto_url ? (
+                    <div className="relative">
+                      <img src={form.foto_url} alt="preview" className="h-14 w-14 rounded-md object-cover border border-border" />
+                      <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setForm({ ...form, foto_url: "" })}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-14 w-14 rounded-md border border-dashed border-border flex items-center justify-center text-muted-foreground text-xs">Sem foto</div>
+                  )}
+                  <label className="cursor-pointer">
+                    <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+                    <span className={`inline-flex items-center gap-1 text-xs px-3 py-2 rounded-md border border-border hover:bg-secondary/50 ${uploading ? "opacity-50" : ""}`}>
+                      <Upload className="h-3.5 w-3.5" /> {uploading ? "Enviando..." : form.foto_url ? "Trocar" : "Enviar foto"}
+                    </span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <Label>Vincular a nó do Mapa Mental</Label>
+                <Select value={form.mapa_node_id || "__none__"} onValueChange={v => setForm({ ...form, mapa_node_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {mapNodes.map(n => <SelectItem key={n.id} value={n.id}>{n.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Projeto</Label>
+                <Select value={form.project_id || "__none__"} onValueChange={v => setForm({ ...form, project_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Device (Cloud Phone)</Label>
+                <Select value={form.cloud_phone_ref || "__none__"} onValueChange={v => setForm({ ...form, cloud_phone_ref: v === "__none__" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {devices.map(d => <SelectItem key={d.id} value={d.id}>{d.provider} — {d.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+
+
+            {/* Proxy */}
+            <div className="pt-3 border-t border-border/50">
+              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground mb-2">Proxy</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Tipo</Label>
+                  <Select value={form.proxy_tipo || "__none__"} onValueChange={v => setForm({ ...form, proxy_tipo: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhum</SelectItem>
+                      <SelectItem value="Residential">Residential</SelectItem>
+                      <SelectItem value="Mobile">Mobile (4G/5G)</SelectItem>
+                      <SelectItem value="Datacenter">Datacenter</SelectItem>
+                      <SelectItem value="ISP">ISP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Geo</Label>
+                  <Input placeholder="BR-SP, US-NY..." value={form.proxy_geo} onChange={e => setForm({ ...form, proxy_geo: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Endpoint (host:porta)</Label>
+                  <Input placeholder="proxy.exemplo.com:8080" value={form.proxy_endpoint} onChange={e => setForm({ ...form, proxy_endpoint: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Usuário</Label>
+                  <Input value={form.proxy_user} onChange={e => setForm({ ...form, proxy_user: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Senha</Label>
+                  <div className="relative">
+                    <Input type={showProxyPassword ? "text" : "password"} value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} className="pr-10" />
+                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowProxyPassword(!showProxyPassword)}>
+                      {showProxyPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* GeeLark */}
+            <div className="pt-3 border-t border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-editorial text-muted-foreground">GeeLark</p>
+                {form.geelark_profile && (
+                  <a
+                    href={`https://app.geelark.com/profile/${encodeURIComponent(form.geelark_profile)}`}
+                    target="_blank" rel="noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    abrir no GeeLark ↗
+                  </a>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Profile ID</Label>
+                  <Input placeholder="GL-4823" value={form.geelark_profile} onChange={e => setForm({ ...form, geelark_profile: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Status</Label>
+                  <Select value={form.geelark_status || "__none__"} onValueChange={v => setForm({ ...form, geelark_status: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">—</SelectItem>
+                      <SelectItem value="Novo">Novo</SelectItem>
+                      <SelectItem value="Ativo">Ativo</SelectItem>
+                      <SelectItem value="Pausado">Pausado</SelectItem>
+                      <SelectItem value="Banido">Banido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </div>
+
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
             <Button onClick={save}>{editingConta ? "Atualizar" : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {farmDialog && (
+        <AccountFarmDialog
+          open={!!farmDialog}
+          onOpenChange={(v) => !v && setFarmDialog(null)}
+          accountId={farmDialog.id}
+          onSaved={() => { setFarmDialog(null); onRefresh(); }}
+        />
+      )}
+      {mapDialog && (
+        <AddAccountToMapDialog
+          open={!!mapDialog}
+          onOpenChange={(v) => !v && setMapDialog(null)}
+          accountId={mapDialog.id}
+          accountLabel={mapDialog.label}
+        />
+      )}
+    </div>
+  );
+}
+
+function NameCell({ conta, title, nodeLabel }: { conta: ContaEmpresa; title: string; nodeLabel?: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      {conta.foto_url && (
+        <img src={conta.foto_url} alt={title} className="h-6 w-6 rounded object-cover border border-border shrink-0" />
+      )}
+      <div className="flex flex-col min-w-0">
+        <span className="truncate">{title}</span>
+        {conta.mapa_node_id && nodeLabel && (
+          <Link to={`/funis?view=mapa&node=${conta.mapa_node_id}`} className="inline-flex items-center gap-1 text-[9px] text-primary hover:underline w-fit">
+            <MapIcon className="h-2.5 w-2.5" /> {nodeLabel}
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

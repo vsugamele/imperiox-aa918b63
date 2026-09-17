@@ -50,11 +50,11 @@ export default function LiveFunnelPanel({ projectFilter }: Props) {
       const since2min = new Date(Date.now() - 2 * 60 * 1000).toISOString();
       const sinceToday = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 
-      let liveQ: any = supabase
+      let liveQ = supabase
         .from("imphq_funnel_events")
         .select("step, session_id, created_at")
         .gte("created_at", since2min);
-      let todayQ: any = supabase
+      let todayQ = supabase
         .from("imphq_funnel_events")
         .select("step, created_at")
         .gte("created_at", sinceToday)
@@ -65,11 +65,12 @@ export default function LiveFunnelPanel({ projectFilter }: Props) {
         todayQ = todayQ.eq("project_id", projectFilter);
       }
 
-      const [liveRes, todayRes]: any = await Promise.all([liveQ, todayQ]);
+      const [liveRes, todayRes] = await Promise.all([liveQ, todayQ]);
       if (cancelled) return;
+      if (liveRes.error || todayRes.error) return;
 
-      const liveRows: any[] = liveRes.data || [];
-      const todayRows: any[] = todayRes.data || [];
+      const liveRows = liveRes.data || [];
+      const todayRows = todayRes.data || [];
 
       setHasData(todayRows.length > 0 || liveRows.length > 0);
 
@@ -101,12 +102,17 @@ export default function LiveFunnelPanel({ projectFilter }: Props) {
     }
 
     load();
-    const id = setInterval(load, 60_000); // safety fallback — Realtime handles instant updates
+    const id = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000); // safety fallback — Realtime handles instant updates; pausa em tab oculta
 
     // Realtime: novos eventos invalidam imediatamente
+    // Onda 7: filtra por project_id no servidor quando possível
+    const rtFilter: { event: "INSERT"; schema: string; table: string; filter?: string } = { event: "INSERT", schema: "public", table: "imphq_funnel_events" };
+    if (projectFilter && projectFilter !== "all" && projectFilter !== "none") {
+      rtFilter.filter = `project_id=eq.${projectFilter}`;
+    }
     const ch = supabase
-      .channel("funnel_live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_funnel_events" }, load)
+      .channel(`funnel_live_${projectFilter || "all"}`)
+      .on("postgres_changes", rtFilter, load)
       .subscribe();
 
     return () => {

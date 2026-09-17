@@ -1,3 +1,5 @@
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -15,14 +17,14 @@ import { toast } from "sonner";
 interface Props {
   open: boolean;
   onClose: () => void;
-  campaign: any;
+  campaign: Pick<Tables<"imphq_wa_campaigns">, "id" | "name"> & Partial<Pick<Tables<"imphq_wa_campaigns">, "produto" | "project_id" | "provider_id" | "fallback_provider_id" | "auto_fallback" | "pause_on_failure" | "start_date" | "send_window_start" | "send_window_end" | "exit_message">> | null;
   projects: { id: string; name: string }[];
-  providers: any[];
+  providers: Pick<Tables<"imphq_wa_providers">, "id" | "project_id" | "provider" | "instance_name" | "twilio_from">[];
   onSaved: () => void;
 }
 
 export default function CampaignSettingsDialog({ open, onClose, campaign, projects, providers, onSaved }: Props) {
-  const [form, setForm] = useState<any>({});
+  const [form, setForm] = useState<TablesUpdate<"imphq_wa_campaigns">>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function CampaignSettingsDialog({ open, onClose, campaign, projec
   const save = async () => {
     setSaving(true);
     try {
-      const payload: any = {
+      const payload: TablesUpdate<"imphq_wa_campaigns"> = {
         name: form.name,
         produto: form.produto || null,
         project_id: form.project_id || null,
@@ -63,20 +65,22 @@ export default function CampaignSettingsDialog({ open, onClose, campaign, projec
       toast.success("Configurações salvas");
       onSaved();
       onClose();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
     } finally {
       setSaving(false);
     }
   };
 
-  const renderProviderOption = (p: any) => {
-    const statusColor = p.status === "open" || p.status === "connected" ? "text-emerald-400" : "text-amber-400";
+  const renderProviderOption = (p: Pick<Tables<"imphq_wa_providers">, "id" | "project_id" | "provider" | "instance_name" | "twilio_from">) => {
+    // Connection status is optional runtime data, not a persisted provider column.
+    const status = "status" in p && typeof p.status === "string" ? p.status : undefined;
+    const statusColor = status === "open" || status === "connected" ? "text-emerald-400" : "text-amber-400";
     return (
       <span className="flex items-center gap-2">
-        <span className={`h-1.5 w-1.5 rounded-full ${p.status === "open" || p.status === "connected" ? "bg-emerald-500" : "bg-amber-500"}`} />
+        <span className={`h-1.5 w-1.5 rounded-full ${status === "open" || status === "connected" ? "bg-emerald-500" : "bg-amber-500"}`} />
         <span>{p.instance_name || p.twilio_from || "—"}</span>
-        <span className={`text-[10px] ${statusColor}`}>({p.status || "?"})</span>
+        <span className={`text-[10px] ${statusColor}`}>({status || "?"})</span>
       </span>
     );
   };

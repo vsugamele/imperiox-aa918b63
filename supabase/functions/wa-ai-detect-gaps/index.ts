@@ -32,7 +32,7 @@ async function classifyResponse(leadQuestion: string, aiResponse: string): Promi
   const url = LOVABLE_API_KEY
     ? "https://ai.gateway.lovable.dev/v1/chat/completions"
     : "https://openrouter.ai/api/v1/chat/completions";
-  const model = LOVABLE_API_KEY ? "google/gemini-2.5-flash" : "openai/gpt-4o-mini";
+  const model = "google/gemini-2.5-flash";
 
   const prompt = `Classifique a qualidade da resposta de uma IA de vendas. Retorne JSON.
 
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[detect-gaps] ${aiMsgs.length} respostas IA para analisar`);
-    const gapsCreated: any[] = [];
+    const gapsCreated: Array<{msg_id:string;score:number;reason:string}> = [];
     let analyzed = 0;
 
     for (const aiMsg of aiMsgs) {
@@ -180,9 +180,10 @@ Deno.serve(async (req) => {
       sample: gapsCreated.slice(0, 5),
       dry_run: dryRun,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-ai-detect-gaps] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

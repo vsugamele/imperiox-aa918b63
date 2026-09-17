@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_automacoes ADD COLUMN IF NOT EXISTS trigger_config jsonb DEFAULT '{}'::jsonb;

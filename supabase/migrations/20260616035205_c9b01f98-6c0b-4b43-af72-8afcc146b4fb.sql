@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_daily_routines ADD COLUMN IF NOT EXISTS description text;

@@ -1,9 +1,10 @@
+import type { Json } from "@/integrations/supabase/types";
 export type WorkflowStep = {
   kind: "image" | "video" | "audio";
   provider: "openrouter" | "kie" | "luma" | "elevenlabs";
   model: string;
   prompt: string;
-  params?: Record<string, any>;
+  params?: Record<string, Json>;
   voice_id?: string;
   // Optional: reference an upstream step output as input image. e.g. "{{step1.output}}"
   image_url?: string;

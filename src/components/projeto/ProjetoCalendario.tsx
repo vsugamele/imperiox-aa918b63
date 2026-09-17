@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
@@ -93,15 +94,15 @@ export function ProjetoCalendario({ projectId }: Props) {
     setDialogOpen(true);
   };
 
-  const syncToGoogle = async (eventData: any) => {
+  const syncToGoogle = async (eventData: Pick<CalendarEvent, "title" | "event_date"> & Partial<CalendarEvent>) => {
     try {
-      const { data, error } = await supabase.functions.invoke("google-calendar-sync", {
+      const { data, error } = await supabase.functions.invoke<{ google_event_id?: string }>("google-calendar-sync", {
         body: { action: "sync_to_google", event: eventData },
       });
       if (error) throw error;
       return data?.google_event_id;
-    } catch (err: any) {
-      console.warn("Google sync failed:", err.message);
+    } catch (err: unknown) {
+      console.warn("Google sync failed:", errorMessage(err));
       return null;
     }
   };
@@ -140,16 +141,21 @@ export function ProjetoCalendario({ projectId }: Props) {
   };
 
   const deleteEvent = async (id: string, googleEventId?: string | null) => {
+    try {
     if (googleEventId) {
-      try {
-        await supabase.functions.invoke("google-calendar-sync", {
+        const { data, error } = await supabase.functions.invoke<{ success?: boolean }>("google-calendar-sync", {
           body: { action: "delete_from_google", event: { google_event_id: googleEventId } },
         });
-      } catch {}
+        if (error) throw error;
+        if (data?.success !== true) throw new Error("Google Calendar não confirmou a exclusão.");
     }
-    await supabase.from("imphq_calendar_events").delete().eq("id", id);
+    const { error } = await supabase.from("imphq_calendar_events").delete().eq("id", id);
+    if (error) throw error;
     toast.success("Evento removido");
     loadEvents();
+    } catch (error: unknown) {
+      toast.error("Não foi possível remover o evento", { description: errorMessage(error) });
+    }
   };
 
   const syncAllToGoogle = async () => {
@@ -173,8 +179,8 @@ export function ProjetoCalendario({ projectId }: Props) {
       if (error) throw error;
       toast.success(`${data?.imported || 0} eventos importados do Google Calendar`);
       loadEvents();
-    } catch (err: any) {
-      toast.error("Erro ao importar: " + (err.message || "Verifique as credenciais Google"));
+    } catch (err: unknown) {
+      toast.error("Erro ao importar: " + (errorMessage(err) || "Verifique as credenciais Google"));
     }
     setSyncing(false);
   };

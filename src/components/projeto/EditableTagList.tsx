@@ -9,6 +9,12 @@ interface EditableTagListProps {
   placeholder?: string;
 }
 
+function tagLabel(tag: unknown): string {
+  if (typeof tag === "string") return tag;
+  if (tag && typeof tag === "object" && "pergunta" in tag && typeof tag.pergunta === "string") return tag.pergunta;
+  return JSON.stringify(tag) ?? "";
+}
+
 export function EditableTagList({ tags, onChange, placeholder = "Adicionar..." }: EditableTagListProps) {
   const [input, setInput] = useState("");
 
@@ -24,7 +30,7 @@ export function EditableTagList({ tags, onChange, placeholder = "Adicionar..." }
     <div className="flex flex-wrap gap-2 items-center">
       {tags.map((tag, i) => (
         <Badge key={i} variant="secondary" className="gap-1 pr-1">
-          {typeof tag === "object" ? (tag as any).pergunta || JSON.stringify(tag) : tag}
+          {tagLabel(tag)}
           <button onClick={() => onChange(tags.filter((_, j) => j !== i))} className="ml-1 hover:text-destructive">
             <X className="h-3 w-3" />
           </button>

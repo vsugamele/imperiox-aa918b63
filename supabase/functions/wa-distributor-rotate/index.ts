@@ -49,7 +49,7 @@ serve(async (req) => {
       .neq("rotation_mode", "none");
     if (error) throw error;
 
-    const results: any[] = [];
+    const results: Array<{ id: string } & ({ skipped: true } | { no_next_week: true } | { advanced_to: number })> = [];
     for (const d of dists || []) {
       const lastAt = d.last_rotation_at ? new Date(d.last_rotation_at) : null;
       if (!nextRotationDue(lastAt, d.rotation_cron)) {

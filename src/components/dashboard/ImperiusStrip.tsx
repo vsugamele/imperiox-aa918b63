@@ -39,7 +39,7 @@ export function ImperiusStrip({ projectId }: Props) {
       if (projectId && projectId !== "all") q = q.eq("projeto_id", projectId);
       const { data } = await q;
       if (!mounted) return;
-      setActions((data as any) || []);
+      setActions((data) || []);
       setLoading(false);
     })();
     return () => { mounted = false; };

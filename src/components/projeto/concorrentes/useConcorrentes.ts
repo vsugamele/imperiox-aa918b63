@@ -1,7 +1,30 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Competitor, COMPETITOR_COLORS } from "./types";
+import { Competitor, COMPETITOR_COLORS } from "@/components/projeto/concorrentes/types";
+import type { Json, Tables, TablesInsert } from "@/integrations/supabase/types";
+import { objectFields, jsonText } from "@/lib/json-fields";
+
+function toCompetitor(row: Tables<"imphq_competitors">): Competitor {
+  const strings = (v: Json): string[] => Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  return { ...row, canais_keywords: strings(row.canais_keywords), stack_tecnologico: strings(row.stack_tecnologico), paginas_funil: strings(row.paginas_funil) };
+}
+
+function importFields(raw: Record<string, unknown>): Record<string, Json> {
+  const result: Record<string, Json> = {};
+  for (const key of ["url", "ponto_forte", "fraqueza", "nicho", "sub_nicho", "publico_alvo", "mecanismo_unico", "headline", "hook", "cta", "oferta_principal", "preco", "garantia", "bonus", "trafego_est", "insights"]) {
+    if (typeof raw[key] === "string" && raw[key]) result[key] = raw[key];
+  }
+  for (const key of ["score_escala", "score_max"]) {
+    if (typeof raw[key] === "number" && Number.isFinite(raw[key])) result[key] = Math.round(raw[key]);
+  }
+  for (const key of ["canais_keywords", "stack_tecnologico", "paginas_funil"]) {
+    const value = raw[key];
+    if (Array.isArray(value) && value.every((v): v is string => typeof v === "string")) result[key] = value;
+  }
+  if (typeof raw.ads_ativos === "boolean") result.ads_ativos = raw.ads_ativos;
+  return result;
+}
 
 export function useConcorrentes(projectId: string) {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -15,7 +38,7 @@ export function useConcorrentes(projectId: string) {
       .eq("project_id", projectId)
       .order("created_at");
     if (error) { toast.error("Erro ao carregar concorrentes"); return; }
-    setCompetitors((data as any[]) || []);
+    setCompetitors((data || []).map(toCompetitor));
     setLoading(false);
   }, [projectId]);
 
@@ -27,11 +50,11 @@ export function useConcorrentes(projectId: string) {
     const color = COMPETITOR_COLORS[competitors.length % COMPETITOR_COLORS.length];
     const { data, error } = await supabase
       .from("imphq_competitors")
-      .insert({ project_id: projectId, user_id: user.id, name: "Novo Concorrente", color } as any)
+      .insert({ project_id: projectId, user_id: user.id, name: "Novo Concorrente", color })
       .select()
       .single();
     if (error) { toast.error("Erro ao adicionar"); return; }
-    setCompetitors(prev => [...prev, data as any]);
+    setCompetitors(prev => [...prev, toCompetitor(data)]);
     toast.success("Concorrente adicionado");
   }, [projectId, competitors.length]);
 
@@ -42,14 +65,14 @@ export function useConcorrentes(projectId: string) {
     toast.success("Concorrente removido");
   }, []);
 
-  const updateField = useCallback((id: string, field: string, value: any) => {
+  const updateField = useCallback((id: string, field: string, value: Json) => {
     setCompetitors(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
     const key = `${id}-${field}`;
     clearTimeout(timers.current[key]);
     timers.current[key] = setTimeout(async () => {
       const { error } = await supabase
         .from("imphq_competitors")
-        .update({ [field]: value } as any)
+        .update({ [field]: value })
         .eq("id", id);
       if (error) toast.error("Erro ao salvar");
     }, 800);
@@ -69,15 +92,16 @@ export function useConcorrentes(projectId: string) {
     toast.success("Screenshot enviado");
   }, [projectId, updateField]);
 
-  const importCompetitors = useCallback(async (parsed: Record<string, any>[]) => {
+  const importCompetitors = useCallback(async (parsed: Record<string, unknown>[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error("Faça login primeiro"); return; }
 
     let imported = 0;
     let updated = 0;
 
-    for (const comp of parsed) {
-      const compName = comp.name || "Concorrente importado";
+    for (const rawComp of parsed) {
+      const comp = importFields(rawComp);
+      const compName = jsonText(rawComp.name) || "Concorrente importado";
 
       // Check if competitor with same name already exists (case-insensitive)
       const existing = competitors.find(
@@ -93,22 +117,22 @@ export function useConcorrentes(projectId: string) {
 
       if (existing) {
         // MERGE: update only non-empty fields
-        const updates: Record<string, any> = {};
+        const updates: Record<string, Json> = {};
         for (const f of fields) {
           if (comp[f] !== undefined && comp[f] !== "" && comp[f] !== null) {
             // Don't overwrite if existing has data and new is empty
-            const existingVal = (existing as any)[f];
+            const existingVal = objectFields(existing)[f];
             if (!existingVal || existingVal === "" || (Array.isArray(existingVal) && existingVal.length === 0)) {
               updates[f] = (f === "score_escala" || f === "score_max") && typeof comp[f] === "number" ? Math.round(comp[f]) : comp[f];
-            } else if (typeof comp[f] === "string" && comp[f].length > (existingVal?.length || 0)) {
+            } else if (typeof comp[f] === "string" && comp[f].length > (typeof existingVal === "string" ? existingVal.length : 0)) {
               updates[f] = comp[f];
             }
           }
         }
 
         // Also populate canais_principais for merge
-        if (comp.canais_keywords?.length && !updates.canais_principais) {
-          const existing_cp = (existing as any).canais_principais;
+        if (Array.isArray(comp.canais_keywords) && comp.canais_keywords.length && !updates.canais_principais) {
+          const existing_cp = existing.canais_principais;
           if (!existing_cp) {
             updates.canais_principais = (comp.canais_keywords as string[]).join(", ");
           }
@@ -117,7 +141,7 @@ export function useConcorrentes(projectId: string) {
         if (Object.keys(updates).length > 0) {
           const { error } = await supabase
             .from("imphq_competitors")
-            .update(updates as any)
+            .update(updates)
             .eq("id", existing.id);
           if (!error) {
             setCompetitors(prev => prev.map(c => c.id === existing.id ? { ...c, ...updates } : c));
@@ -127,7 +151,7 @@ export function useConcorrentes(projectId: string) {
       } else {
         // INSERT new competitor
         const color = COMPETITOR_COLORS[(competitors.length + imported) % COMPETITOR_COLORS.length];
-        const row: Record<string, any> = {
+        const row: TablesInsert<"imphq_competitors"> & Record<string, Json> = {
           project_id: projectId,
           user_id: user.id,
           name: compName,
@@ -146,20 +170,20 @@ export function useConcorrentes(projectId: string) {
         }
 
         // Populate canais_principais from canais_keywords
-        if (comp.canais_keywords?.length) {
+        if (Array.isArray(comp.canais_keywords) && comp.canais_keywords.length) {
           row.canais_principais = (comp.canais_keywords as string[]).join(", ");
         }
 
         const { data, error } = await supabase
           .from("imphq_competitors")
-          .insert(row as any)
+          .insert(row)
           .select()
           .single();
 
         if (error) {
           console.error("Erro ao importar concorrente:", compName, error);
         } else if (data) {
-          setCompetitors(prev => [...prev, data as any]);
+          setCompetitors(prev => [...prev, toCompetitor(data)]);
           imported++;
         }
       }

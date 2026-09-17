@@ -1,4 +1,6 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -8,18 +10,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ChevronRight as ChevronExpandRight, ChevronDown, SlidersHorizontal, ImageIcon, History } from "lucide-react";
 import { toast } from "sonner";
-import { StatusToggle } from "./StatusToggle";
-import { RoasBadge, CpaCell } from "./RoasBadge";
-import { BudgetEditor } from "./BudgetEditor";
-import { BulkActionsBar } from "./BulkActionsBar";
-import { BulkBudgetDialog, type BulkBudgetMode } from "./BulkBudgetDialog";
-import { DeltaBadge } from "./DeltaBadge";
-import { Sparkline } from "./Sparkline";
-import { AnomalyBadge } from "./AnomalyBadge";
-import { QuickFilters, type QuickFilterKey } from "./QuickFilters";
-import { InlineRename } from "./InlineRename";
-import { RowHistoryDrawer } from "./RowHistoryDrawer";
-import { CampaignComparator } from "./CampaignComparator";
+import { StatusToggle } from "@/components/gerenciador/StatusToggle";
+import { RoasBadge, CpaCell } from "@/components/gerenciador/RoasBadge";
+import { BudgetEditor } from "@/components/gerenciador/BudgetEditor";
+import { BulkActionsBar } from "@/components/gerenciador/BulkActionsBar";
+import { BulkBudgetDialog, type BulkBudgetMode } from "@/components/gerenciador/BulkBudgetDialog";
+import { DeltaBadge } from "@/components/gerenciador/DeltaBadge";
+import { Sparkline } from "@/components/gerenciador/Sparkline";
+import { AnomalyBadge } from "@/components/gerenciador/AnomalyBadge";
+import { QuickFilters, type QuickFilterKey } from "@/components/gerenciador/QuickFilters";
+import { InlineRename } from "@/components/gerenciador/InlineRename";
+import { RowHistoryDrawer } from "@/components/gerenciador/RowHistoryDrawer";
+import { CampaignComparator } from "@/components/gerenciador/CampaignComparator";
 import { computeVerdict, verdictColor, type Verdict } from "@/lib/adsVerdict";
 import { cn } from "@/lib/utils";
 import { useRevenueMode, getRevenue, type RevenueMode } from "@/lib/revenueMode";
@@ -31,9 +33,10 @@ interface VendaItem {
   valor_liquido?: number | null;
 }
 
+type AdInput = Partial<Tables<"imphq_ads_spend">>;
 interface Props {
-  ads: any[];
-  adsPrev?: any[];
+  ads: AdInput[];
+  adsPrev?: AdInput[];
   vendas?: VendaItem[];
   projectId?: string;
   onAfterToggle?: () => void;
@@ -56,6 +59,7 @@ interface Row {
   thumbnail_url?: string | null;
   creative_body?: string | null;
   creative_title?: string | null;
+  source?: string | null;
   valor: number;
   impressoes: number;
   cliques: number;
@@ -71,6 +75,13 @@ interface Row {
   ticket?: number;
 }
 
+const fnFor = (row: Row) => row.source === "zernio" ? "zernio-ads-toggle" : "facebook-ads-toggle";
+const hasValidId = (row: Row) => !!row.id && row.id !== "—" && (row.source === "zernio" || /^\d+$/.test(row.id));
+function actionError(value: unknown): string {
+  if (!value || typeof value !== "object" || !("error" in value) || !value.error) return "";
+  return typeof value.error === "string" ? value.error : "Falha na ação";
+}
+
 const PAGE_SIZES = [10, 20, 50] as const;
 
 const COLUMN_GROUPS = {
@@ -83,7 +94,7 @@ const DEFAULT_VISIBLE = new Set<SortKey>([
   "trend", "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
 ]);
 
-function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
+function buildRows(ads: AdInput[], vendas: VendaItem[], revenueMode: RevenueMode): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
   // Receita por nome de campanha (utm) — respeita modo bruto/líquido
   const revByCamp = new Map<string, number>();
   let avgTicket = 0;
@@ -97,11 +108,11 @@ function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): {
     }
   }
 
-  const aggregate = (key: string, rows: any[], level: Level, name: string, parent_id?: string | null): Row => {
+  const aggregate = (key: string, rows: AdInput[], level: Level, name: string, parent_id?: string | null): Row => {
     const r: Row = {
       level, id: key, parent_id: parent_id ?? null, name,
       effective_status: null, daily_budget: null,
-      thumbnail_url: null, creative_body: null, creative_title: null,
+      thumbnail_url: null, creative_body: null, creative_title: null, source: null,
       valor: 0, impressoes: 0, cliques: 0, link_clicks: 0, init_checkout: 0, compras: 0,
       hook_rate: 0, cpm: 0, frequencia: 0, alcance: 0, lp_views: 0, receita: 0,
     };
@@ -123,6 +134,7 @@ function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): {
       if (!r.thumbnail_url && a.thumbnail_url) r.thumbnail_url = a.thumbnail_url;
       if (!r.creative_body && a.creative_body) r.creative_body = a.creative_body;
       if (!r.creative_title && a.creative_title) r.creative_title = a.creative_title;
+      if (!r.source && a.source) r.source = a.source;
     }
     r.hook_rate = hookN ? hookSum / hookN : 0;
     r.cpm = cpmN ? cpmSum / cpmN : 0;
@@ -134,7 +146,7 @@ function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): {
   };
 
   // Group by campaign
-  const byCamp = new Map<string, any[]>();
+  const byCamp = new Map<string, AdInput[]>();
   for (const a of ads) {
     const k = a.campaign_id || a.campanha || "Sem nome";
     if (!byCamp.has(k)) byCamp.set(k, []);
@@ -150,7 +162,7 @@ function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): {
     campaigns.push(aggregate(campKey, campRows, "campaign", campName));
 
     // adsets
-    const byAdset = new Map<string, any[]>();
+    const byAdset = new Map<string, AdInput[]>();
     for (const a of campRows) {
       const ak = a.adset_id || a.conjunto_anuncios || "—";
       if (!byAdset.has(ak)) byAdset.set(ak, []);
@@ -162,7 +174,7 @@ function buildRows(ads: any[], vendas: VendaItem[], revenueMode: RevenueMode): {
       adsetRows.push(aggregate(adsetKey, adsetRowsArr, "adset", adsetName, campKey));
 
       // ads
-      const byAd = new Map<string, any[]>();
+      const byAd = new Map<string, AdInput[]>();
       for (const a of adsetRowsArr) {
         const adk = a.ad_id || a.anuncio || "—";
         if (!byAd.has(adk)) byAd.set(adk, []);
@@ -225,7 +237,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const prevByCamp = useMemo(() => {
     const m = new Map<string, { valor: number; compras: number; cpa: number }>();
     if (!adsPrev?.length) return m;
-    const grouped = new Map<string, any[]>();
+    const grouped = new Map<string, AdInput[]>();
     for (const a of adsPrev) {
       const k = a.campaign_id || a.campanha || "—";
       if (!grouped.has(k)) grouped.set(k, []);
@@ -254,8 +266,8 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
     const filtered = campaigns.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
     const e = filtered.map(r => enrich(r, ticketMedioGlobal));
     e.sort((a, b) => {
-      const av = (a as any)[sortKey] ?? (sortKey === "name" ? a.name : 0);
-      const bv = (b as any)[sortKey] ?? (sortKey === "name" ? b.name : 0);
+      const av = sortKey === "trend" ? 0 : a[sortKey] ?? 0;
+      const bv = sortKey === "trend" ? 0 : b[sortKey] ?? 0;
       if (typeof av === "string" || typeof bv === "string") {
         return sortDir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
       }
@@ -268,7 +280,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const quickCounts = useMemo(() => {
     const c = { ESCALAR: 0, MATAR: 0, SATURADO: 0, SEM_VENDA: 0, PAUSADO: 0 };
     for (const r of enrichedCampaigns) {
-      const v = (r as any).verdict as Verdict;
+      const v = r.verdict;
       if (v === "ESCALAR") c.ESCALAR++;
       if (v === "MATAR") c.MATAR++;
       if (r.frequencia > 4) c.SATURADO++;
@@ -283,7 +295,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
   const filteredByQuick = useMemo(() => {
     if (!quickFilter) return enrichedCampaigns;
     return enrichedCampaigns.filter((r) => {
-      const v = (r as any).verdict as Verdict;
+      const v = r.verdict;
       const status = optimistic.get(r.id) ?? r.effective_status;
       if (quickFilter === "ESCALAR") return v === "ESCALAR";
       if (quickFilter === "MATAR") return v === "MATAR";
@@ -308,19 +320,19 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const callToggle = async (entity_type: Level, row: Row, next: "ACTIVE" | "PAUSED") => {
     if (!projectId) { toast.error("Selecione um projeto antes."); return false; }
-    if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta. Sincronize primeiro."); return false; }
+    if (!hasValidId(row)) { toast.error("Entidade sem ID. Sincronize primeiro."); return false; }
     setTogglingId(row.id);
     const prev = optimistic.get(row.id) ?? row.effective_status;
     setOptimistic(m => new Map(m).set(row.id, next));
     try {
-      const { data, error } = await supabase.functions.invoke("facebook-ads-toggle", {
+      const { data, error } = await supabase.functions.invoke<unknown>(fnFor(row), {
         body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: row.name, action: next, previous_status: prev },
       });
-      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
+      if (error || actionError(data)) throw new Error(actionError(data) || error?.message || "Falha");
       return true;
-    } catch (e: any) {
+    } catch (e: unknown) {
       setOptimistic(m => { const n = new Map(m); n.set(row.id, prev || "PAUSED"); return n; });
-      toast.error(e.message || "Erro ao alterar status");
+      toast.error(errorMessage(e) || "Erro ao alterar status");
       return false;
     } finally {
       setTogglingId(null);
@@ -337,30 +349,30 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const handleBudget = async (entity_type: Level, row: Row, next: number) => {
     if (!projectId) { toast.error("Selecione um projeto antes."); return; }
-    if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta."); return; }
+    if (!hasValidId(row)) { toast.error("Entidade sem ID."); return; }
     const prev = row.daily_budget;
     setOptimisticBudget(m => new Map(m).set(row.id, next));
     try {
-      const { data, error } = await supabase.functions.invoke("facebook-ads-toggle", {
+      const { data, error } = await supabase.functions.invoke<unknown>(fnFor(row), {
         body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: row.name, action: "UPDATE_BUDGET", daily_budget: next, previous_budget: prev },
       });
-      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
+      if (error || actionError(data)) throw new Error(actionError(data) || error?.message || "Falha");
       toast.success(`Orçamento atualizado: ${brl(next)}`);
       onAfterToggle?.();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setOptimisticBudget(m => { const n = new Map(m); if (prev != null) n.set(row.id, prev); else n.delete(row.id); return n; });
-      toast.error(e.message || "Erro ao atualizar orçamento");
+      toast.error(errorMessage(e) || "Erro ao atualizar orçamento");
     }
   };
 
   const runBulk = async (action: "ACTIVE" | "PAUSED" | "DUPLICATE_CAMPAIGN") => {
     if (!projectId) { toast.error("Selecione um projeto antes."); return; }
-    const rows = enrichedCampaigns.filter(r => selected.has(r.id) && /^\d+$/.test(r.id));
+    const rows = enrichedCampaigns.filter(r => selected.has(r.id) && hasValidId(r));
     if (rows.length === 0) { toast.error("Nenhuma campanha válida selecionada"); return; }
     setBulkLoading(true);
     let okCount = 0, errCount = 0;
     const results = await Promise.allSettled(rows.map(r =>
-      supabase.functions.invoke("facebook-ads-toggle", {
+      supabase.functions.invoke<unknown>(fnFor(r), {
         body: {
           project_id: projectId, entity_type: "campaign", entity_id: r.id, entity_name: r.name,
           action, previous_status: r.effective_status,
@@ -368,7 +380,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
       })
     ));
     for (const res of results) {
-      if (res.status === "fulfilled" && !(res.value as any)?.error && !(res.value as any)?.data?.error) okCount++;
+      if (res.status === "fulfilled" && !res.value.error && !actionError(res.value.data)) okCount++;
       else errCount++;
     }
     setBulkLoading(false);
@@ -398,7 +410,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
       const adsetBudget = optimisticBudget.has(adset.id) ? optimisticBudget.get(adset.id)! : adset.daily_budget;
       return (
         <ReactFragment key={`adset-${adset.id}`} adset={adset} adsetStatus={adsetStatus} adsetBudget={adsetBudget} adsetExpanded={adsetExpanded}
-          onExpand={() => setExpanded(s => { const n = new Set(s); n.has(adset.id) ? n.delete(adset.id) : n.add(adset.id); return n; })}
+          onExpand={() => setExpanded(s => { const n = new Set(s); if (n.has(adset.id)) { n.delete(adset.id); } else { n.add(adset.id); } return n; })}
           onToggle={(next) => handleToggle("adset", adset, next)}
           onBudget={(next) => handleBudget("adset", adset, next)}
           loading={togglingId === adset.id}
@@ -447,7 +459,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                         <label key={c} className="flex items-center gap-1.5 cursor-pointer hover:text-foreground">
                           <Checkbox
                             checked={visible.has(c)}
-                            onCheckedChange={(v) => setVisible(s => { const n = new Set(s); v ? n.add(c) : n.delete(c); return n; })}
+                            onCheckedChange={(v) => setVisible(s => { const n = new Set(s); if (v) { n.add(c); } else { n.delete(c); } return n; })}
                           />
                           <span className="capitalize">{labelFor(c)}</span>
                         </label>
@@ -515,21 +527,24 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                 <>
                   <TableRow key={id} className="group border-border/20 text-xs hover:bg-secondary/20">
                     <TableCell>
-                      <button onClick={() => setExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; })} className="text-muted-foreground hover:text-primary">
+                      <button onClick={() => setExpanded(s => { const n = new Set(s); if (n.has(id)) { n.delete(id); } else { n.add(id); } return n; })} className="text-muted-foreground hover:text-primary">
                         {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronExpandRight className="h-3.5 w-3.5" />}
                       </button>
                     </TableCell>
                     <TableCell><Checkbox checked={checked} onCheckedChange={(v) => {
-                      setSelected(s => { const n = new Set(s); v ? n.add(id) : n.delete(id); return n; });
+                      setSelected(s => { const n = new Set(s); if (v) { n.add(id); } else { n.delete(id); } return n; });
                     }} /></TableCell>
                     <TableCell>
                       <StatusToggle status={status} loading={togglingId === id} onChange={(next) => handleToggle("campaign", row, next)} />
                     </TableCell>
                     <TableCell className="font-medium text-foreground/90 max-w-[320px]">
                       <div className="flex items-center gap-1.5 min-w-0">
+                        {row.source === "zernio" && (
+                          <span className="shrink-0 text-[9px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30" title="Sincronizado via Zernio">Zernio</span>
+                        )}
                         <InlineRename
                           value={optimisticName.get(id) ?? row.name}
-                          disabled={!/^\d+$/.test(id)}
+                          disabled={!hasValidId(row)}
                           onSave={async (next) => {
                             const prev = optimisticName.get(id) ?? row.name;
                             setOptimisticName(m => new Map(m).set(id, next));
@@ -582,11 +597,11 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
                     {isVisible("receita") && <TableCell className="text-right tabular-nums">{row.receita ? brl(row.receita) : "—"}</TableCell>}
                     {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={row.roas} /></TableCell>}
                     {isVisible("daily_budget") && <TableCell className="text-right">
-                      <BudgetEditor value={dailyBudget} disabled={!/^\d+$/.test(id)} onSave={(n) => handleBudget("campaign", row, n)} />
+                      <BudgetEditor value={dailyBudget} disabled={!hasValidId(row)} onSave={(n) => handleBudget("campaign", row, n)} />
                     </TableCell>}
                     {isVisible("verdict") && <TableCell className="text-right">
-                      <span className={cn("inline-block px-2 py-0.5 rounded border text-[10px] font-medium tracking-wider", verdictColor((row as any).verdict as Verdict))} title={(row as any).verdictReason}>
-                        {(row as any).verdict}
+                      <span className={cn("inline-block px-2 py-0.5 rounded border text-[10px] font-medium tracking-wider", verdictColor(row.verdict))} title={row.verdictReason}>
+                        {row.verdict}
                       </span>
                     </TableCell>}
                   </TableRow>
@@ -612,7 +627,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
       <CampaignComparator
         open={compareOpen}
         onOpenChange={setCompareOpen}
-        campaigns={enrichedCampaigns.filter(c => selected.has(c.id)).slice(0, 4) as any}
+        campaigns={enrichedCampaigns.filter(c => selected.has(c.id)).slice(0, 4)}
         dailySpendByCamp={dailySpendByCamp}
       />
 
@@ -623,7 +638,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
         loading={bulkLoading}
         onConfirm={async (mode, value) => {
           if (!projectId) { toast.error("Selecione um projeto antes."); return; }
-          const rows = enrichedCampaigns.filter(r => selected.has(r.id) && /^\d+$/.test(r.id) && r.daily_budget != null);
+          const rows = enrichedCampaigns.filter(r => selected.has(r.id) && hasValidId(r) && r.daily_budget != null);
           if (rows.length === 0) { toast.error("Nenhuma campanha com orçamento editável"); return; }
           setBulkLoading(true);
           const results = await Promise.allSettled(rows.map(r => {
@@ -631,13 +646,13 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
             const next = mode === "increase_pct" ? prev * (1 + value / 100)
               : mode === "decrease_pct" ? prev * (1 - value / 100)
               : value;
-            return supabase.functions.invoke("facebook-ads-toggle", {
+            return supabase.functions.invoke<unknown>(fnFor(r), {
               body: { project_id: projectId, entity_type: "campaign", entity_id: r.id, entity_name: r.name, action: "UPDATE_BUDGET", daily_budget: Number(next.toFixed(2)), previous_budget: prev },
             });
           }));
           let ok = 0, err = 0;
           for (const rr of results) {
-            if (rr.status === "fulfilled" && !(rr.value as any)?.error && !(rr.value as any)?.data?.error) ok++; else err++;
+            if (rr.status === "fulfilled" && !rr.value.error && !actionError(rr.value.data)) ok++; else err++;
           }
           setBulkLoading(false);
           setBulkBudgetOpen(false);
@@ -661,16 +676,16 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
 async function callRename(supabaseClient: typeof supabase, projectId: string | undefined, entity_type: Level, row: Row, next: string, prev: string) {
   if (!projectId) { toast.error("Selecione um projeto antes."); return false; }
-  if (!/^\d+$/.test(row.id)) { toast.error("Entidade sem ID Meta."); return false; }
+  if (!hasValidId(row)) { toast.error("Entidade sem ID."); return false; }
   try {
-    const { data, error } = await supabaseClient.functions.invoke("facebook-ads-toggle", {
+    const { data, error } = await supabaseClient.functions.invoke<unknown>(fnFor(row), {
       body: { project_id: projectId, entity_type, entity_id: row.id, entity_name: prev, action: "RENAME", new_name: next, previous_name: prev },
     });
-    if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message || "Falha");
+    if (error || actionError(data)) throw new Error(actionError(data) || error?.message || "Falha");
     toast.success("Renomeado");
     return true;
-  } catch (e: any) {
-    toast.error(e.message || "Erro ao renomear");
+  } catch (e: unknown) {
+    toast.error(errorMessage(e) || "Erro ao renomear");
     return false;
   }
 }
@@ -742,7 +757,7 @@ function ReactFragment(props: {
         {isVisible("receita") && <TableCell className="text-right tabular-nums">{adset.receita ? brl(adset.receita) : "—"}</TableCell>}
         {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={adset.roas} /></TableCell>}
         {isVisible("daily_budget") && <TableCell className="text-right">
-          <BudgetEditor value={adsetBudget} disabled={!/^\d+$/.test(adset.id)} onSave={onBudget} />
+          <BudgetEditor value={adsetBudget} disabled={!hasValidId(adset)} onSave={onBudget} />
         </TableCell>}
         {isVisible("verdict") && <TableCell></TableCell>}
       </TableRow>
@@ -797,7 +812,7 @@ function ReactFragment(props: {
             {isVisible("receita") && <TableCell className="text-right tabular-nums">{ad.receita ? brl(ad.receita) : "—"}</TableCell>}
             {isVisible("roas") && <TableCell className="text-right"><RoasBadge value={ad.roas} /></TableCell>}
             {isVisible("daily_budget") && <TableCell className="text-right">
-              <BudgetEditor value={adBudget} disabled={!/^\d+$/.test(ad.id)} onSave={(n) => onAdBudget(ad, n)} />
+              <BudgetEditor value={adBudget} disabled={!hasValidId(ad)} onSave={(n) => onAdBudget(ad, n)} />
             </TableCell>}
             {isVisible("verdict") && <TableCell></TableCell>}
           </TableRow>

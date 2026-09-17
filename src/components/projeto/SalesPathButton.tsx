@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { salesPathSchema, type SalesPath } from "@/lib/sales-path-data";
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Crown, Loader2, Sparkles, AlertTriangle, TrendingUp, Target, Calendar, ShieldAlert, ChevronRight, History, RefreshCw, CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -19,7 +22,7 @@ function hashAction(text: string): string {
   return "a" + Math.abs(h).toString(36);
 }
 const statusOrder: ActionStatus[] = ["todo", "doing", "done", "skip"];
-const statusMeta: Record<ActionStatus, { icon: any; cls: string; label: string }> = {
+const statusMeta: Record<ActionStatus, { icon: LucideIcon; cls: string; label: string }> = {
   todo:  { icon: Circle,        cls: "text-muted-foreground",          label: "A fazer" },
   doing: { icon: Loader2,       cls: "text-amber-400",                 label: "Em andamento" },
   done:  { icon: CheckCircle2,  cls: "text-emerald-400",               label: "Feito" },
@@ -31,20 +34,7 @@ interface SalesPathButtonProps {
   projectName?: string;
 }
 
-interface SalesPath {
-  id?: string;
-  resumo_executivo: string;
-  health_score: number;
-  diagnostico: any[];
-  oportunidades: any[];
-  acoes_72h: any[];
-  acoes_30d: any[];
-  sales_path: { trafego: string; captura: string; nutricao: string; oferta: string; upsell: string };
-  riscos: string[];
-  model_used?: string;
-  created_at?: string;
-  progress?: Record<string, ActionStatus>;
-}
+
 
 const severidadeColor: Record<string, string> = {
   critica: "bg-red-500/15 text-red-400 border-red-500/30",
@@ -69,7 +59,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
   const [history, setHistory] = useState<SalesPath[]>([]);
   const [view, setView] = useState<"plan" | "history">("plan");
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     const { data } = await supabase
       .from("imphq_sales_paths")
       .select("*")
@@ -77,12 +67,12 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
       .eq("status", "ready")
       .order("created_at", { ascending: false })
       .limit(20);
-    setHistory((data as any) || []);
-  };
+    setHistory((data || []).map(row => salesPathSchema.parse(row)));
+  }, [projectId]);
 
   useEffect(() => {
     if (open) loadHistory();
-  }, [open, projectId]);
+  }, [open, loadHistory]);
 
   const generate = async () => {
     setLoading(true);
@@ -110,18 +100,18 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
           .maybeSingle();
         if (!row) continue;
         if (row.status === "ready") {
-          setPlan(row as any);
+          setPlan(salesPathSchema.parse(row));
           loadHistory();
           toast.success("Plano de Ataque pronto.");
           return;
         }
         if (row.status === "failed") {
-          throw new Error((row as any).error_message || "Falha ao gerar plano");
+          throw new Error(row.error_message || "Falha ao gerar plano");
         }
       }
       throw new Error("Timeout: análise demorou mais de 8 minutos");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao gerar plano");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao gerar plano");
       setOpen(false);
     } finally {
       setLoading(false);
@@ -139,7 +129,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
   const allActionKeys = useMemo(() => {
     if (!plan) return [] as string[];
     const list = [...(plan.acoes_72h || []), ...(plan.acoes_30d || [])];
-    return list.map((a: any) => hashAction(String(a?.acao || "")));
+    return list.map((a) => hashAction(String(a?.acao || "")));
   }, [plan]);
 
   const progressStats = useMemo(() => {
@@ -294,7 +284,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
 
                   <TabsContent value="acoes_72h" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> O que fazer nas próximas 72h</h3>
-                    {plan.acoes_72h?.map((a: any, i: number) => {
+                    {plan.acoes_72h?.map((a, i: number) => {
                       const key = hashAction(String(a?.acao || ""));
                       const st = (plan.progress || {})[key] || "todo";
                       const M = statusMeta[st]; const Icon = M.icon;
@@ -324,7 +314,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
 
                   <TabsContent value="diagnostico" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-primary" /> Onde está sangrando</h3>
-                    {plan.diagnostico?.map((d: any, i: number) => (
+                    {plan.diagnostico?.map((d, i: number) => (
                       <Card key={i} className={`bg-secondary/40 border ${severidadeColor[d.severidade] || ""}`}>
                         <CardContent className="pt-4 space-y-2">
                           <div className="flex items-start justify-between gap-3">
@@ -342,7 +332,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
 
                   <TabsContent value="oportunidades" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Alavancas mapeadas</h3>
-                    {plan.oportunidades?.map((o: any, i: number) => (
+                    {plan.oportunidades?.map((o, i: number) => (
                       <Card key={i} className="bg-secondary/40 border-border/40">
                         <CardContent className="pt-4 space-y-2">
                           <div className="flex items-start justify-between gap-3">
@@ -375,7 +365,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                   <TabsContent value="30d" className="mt-4 space-y-2">
                     <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" /> Sequência estratégica 30 dias</h3>
                     {[1, 2, 3, 4].map((semana) => {
-                      const acoes = (plan.acoes_30d || []).filter((a: any) => a.semana === semana);
+                      const acoes = (plan.acoes_30d || []).filter((a) => a.semana === semana);
                       if (acoes.length === 0) return null;
                       return (
                         <Card key={semana} className="bg-secondary/40 border-border/40">
@@ -383,7 +373,7 @@ export function SalesPathButton({ projectId, projectName }: SalesPathButtonProps
                             <CardTitle className="text-xs uppercase text-primary tracking-wider font-semibold">Semana {semana}</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            {acoes.map((a: any, i: number) => {
+                            {acoes.map((a, i: number) => {
                               const key = hashAction(String(a?.acao || ""));
                               const st = (plan.progress || {})[key] || "todo";
                               const M = statusMeta[st]; const Icon = M.icon;

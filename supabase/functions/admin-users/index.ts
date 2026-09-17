@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+interface TeamMember { id: string; user_id: string | null; email: string | null; name: string | null; role: string | null; department: string | null; created_at: string }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -51,16 +53,16 @@ Deno.serve(async (req) => {
       const { data: roles } = await adminClient.from("imphq_user_roles").select("*");
       const roleMap: Record<string, { role: string; status: string }> = {};
       const imphqUserIds = new Set<string>();
-      (roles || []).forEach((r: any) => {
+      (roles || []).forEach((r) => {
         roleMap[r.user_id] = { role: r.role, status: r.status || "approved" };
         imphqUserIds.add(r.user_id);
       });
 
       // Get team members
       const { data: teamMembers } = await adminClient.from("imphq_team_members").select("*");
-      const teamMap: Record<string, any> = {};
-      const teamByEmail: Record<string, any> = {};
-      (teamMembers || []).forEach((t: any) => {
+      const teamMap: Record<string, TeamMember> = {};
+      const teamByEmail: Record<string, TeamMember> = {};
+      (teamMembers || []).forEach((t) => {
         if (t.user_id) {
           imphqUserIds.add(t.user_id);
           teamMap[t.user_id] = t;
@@ -71,10 +73,10 @@ Deno.serve(async (req) => {
       });
 
       // Build user list: auth users that are in imphq scope
-      const authUserIds = new Set(users.map((u: any) => u.id));
+      const authUserIds = new Set(users.map((u) => u.id));
       const mapped = users
-        .filter((u: any) => imphqUserIds.has(u.id))
-        .map((u: any) => {
+        .filter((u) => imphqUserIds.has(u.id))
+        .map((u) => {
           const roleInfo = roleMap[u.id];
           const team = teamMap[u.id] || (u.email ? teamByEmail[u.email.toLowerCase()] : null);
           const preferredEmail = team?.email || u.email;
@@ -84,7 +86,7 @@ Deno.serve(async (req) => {
             email: preferredEmail,
             created_at: u.created_at,
             last_sign_in_at: u.last_sign_in_at,
-            banned: u.banned_until ? true : false,
+            banned: "banned_until" in u && !!u.banned_until,
             role: roleInfo?.role || (team?.role?.toLowerCase()) || "user",
             status: roleInfo?.status || "approved",
             team_name: team?.name || null,
@@ -95,10 +97,10 @@ Deno.serve(async (req) => {
         });
 
       // Include team members whose user_id doesn't match any auth user OR who have no user_id
-      const mappedIds = new Set(mapped.map((m: any) => m.id));
-      const authEmails = new Set(users.map((u: any) => u.email?.toLowerCase()));
+      const mappedIds = new Set(mapped.map((m) => m.id));
+      const authEmails = new Set(users.map((u) => u.email?.toLowerCase()));
       const unlinkedTeam = (teamMembers || [])
-        .filter((t: any) => {
+        .filter((t) => {
           // No user_id and email not in auth → truly unlinked
           if (!t.user_id) return t.email && !authEmails.has(t.email.toLowerCase());
           // Has user_id but that user_id wasn't found in auth users → stale link
@@ -106,7 +108,7 @@ Deno.serve(async (req) => {
           // Already included in mapped
           return false;
         })
-        .map((t: any) => ({
+        .map((t) => ({
           id: t.user_id || `team_${t.id}`,
           email: t.email,
           created_at: t.created_at,
@@ -201,11 +203,11 @@ Deno.serve(async (req) => {
 
       // If rejecting, also ban
       if (status === "rejected") {
-        await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" } as any);
+        await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "876000h" });
       }
       // If approving, unban
       if (status === "approved") {
-        await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" } as any);
+        await adminClient.auth.admin.updateUserById(user_id, { ban_duration: "none" });
       }
 
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -223,14 +225,14 @@ Deno.serve(async (req) => {
         ? { ban_duration: "876000h" }
         : { ban_duration: "none" };
 
-      const { error } = await adminClient.auth.admin.updateUserById(user_id, updateData as any);
+      const { error } = await adminClient.auth.admin.updateUserById(user_id, updateData);
       if (error) throw error;
 
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : err && typeof err === "object" && "message" in err ? err.message : undefined }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

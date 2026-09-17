@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,8 +16,8 @@ import { Plus, Target, Trash2, Pencil } from "lucide-react";
 import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
 import { GuideDrawer } from "@/components/assistente/GuideDrawer";
 
-const Lancamentos = lazy(() => import("./Lancamentos"));
-const ABTests = lazy(() => import("./ABTests"));
+const Lancamentos = lazy(() => import("@/pages/Lancamentos"));
+const ABTests = lazy(() => import("@/pages/ABTests"));
 
 const SubLoader = () => (
   <div className="flex items-center justify-center min-h-[40vh]">
@@ -32,7 +33,7 @@ interface Campaign {
   funil: string | null;
   form_type_default: string | null;
   status: string;
-  data: any;
+  data: Json;
   created_at: string;
 }
 
@@ -74,14 +75,14 @@ export default function Campanhas() {
       supabase.from("imphq_projects").select("id,name").order("name"),
       supabase.from("imphq_nurture_sequences").select("id,nome,project_id").order("created_at", { ascending: false }),
       supabase.from("imphq_vendas").select("produto_nome").not("produto_nome", "is", null).limit(2000),
-    ] as PromiseLike<any>[]);
-    setCampaigns((cps || []) as any);
-    setProjects(((prjs || []) as any[]).map((p: any) => ({ id: p.id, nome: p.name })));
-    setProdutoOptions(Array.from(new Set((vendas || []).map((v: any) => v.produto_nome).filter(Boolean))).sort() as string[]);
-    setSequences((seqs || []) as any);
+    ]);
+    setCampaigns(cps || []);
+    setProjects((prjs || []).map((p) => ({ id: p.id, nome: p.name })));
+    setProdutoOptions(Array.from(new Set((vendas || []).map((v) => v.produto_nome).filter(Boolean))).sort() as string[]);
+    setSequences(seqs || []);
 
     // Aggregate leads per campaign_id via leads.data.campaign_id
-    const ids = (cps || []).map((c: any) => c.id);
+    const ids = (cps || []).map((c) => c.id);
     if (ids.length) {
       const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
       const { data: leads } = await supabase
@@ -91,8 +92,8 @@ export default function Campanhas() {
         .limit(5000);
       const counts: Record<string, { d7: number; d30: number; total: number }> = {};
       const now = Date.now();
-      (leads || []).forEach((l: any) => {
-        const cid = l.data?.campaign_id;
+      (leads || []).forEach((l) => {
+        const cid = jsonText(jsonFields(l.data).campaign_id);
         if (!cid) return;
         const ageDays = (now - new Date(l.criado_em).getTime()) / 86400000;
         counts[cid] = counts[cid] || { d7: 0, d30: 0, total: 0 };
@@ -119,7 +120,7 @@ export default function Campanhas() {
     if (!edit?.nome?.trim()) { toast.error("Nome obrigatório"); return; }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const payload: any = {
+    const payload = {
       nome: edit.nome.trim(),
       project_id: edit.project_id || null,
       produto: edit.produto || null,
@@ -329,16 +330,16 @@ export default function Campanhas() {
             <div>
               <Label>Tags (segmentação)</Label>
               <TagAutocomplete
-                tags={((edit?.data as any)?.tags || []) as string[]}
-                onChange={(tags) => setEdit({ ...edit!, data: { ...(edit?.data || {}), tags } })}
+                tags={(Array.isArray(jsonFields(edit?.data).tags) ? (jsonFields(edit?.data).tags as Json[]).filter((tag): tag is string => typeof tag === "string") : [])}
+                onChange={(tags) => setEdit({ ...edit!, data: { ...jsonFields(edit?.data), tags } })}
                 placeholder="Adicionar tag..."
               />
             </div>
             <div>
               <Label>Sequência de nutrição padrão (auto-enroll de novos leads)</Label>
               <Select
-                value={(edit?.data as any)?.default_sequence_id || "__none__"}
-                onValueChange={v => setEdit({ ...edit!, data: { ...(edit?.data || {}), default_sequence_id: v === "__none__" ? null : v } })}
+                value={jsonText(jsonFields(edit?.data).default_sequence_id) || "__none__"}
+                onValueChange={v => setEdit({ ...edit!, data: { ...jsonFields(edit?.data), default_sequence_id: v === "__none__" ? null : v } })}
               >
                 <SelectTrigger className="bg-background"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
                 <SelectContent>
@@ -360,3 +361,4 @@ export default function Campanhas() {
     </div>
   );
 }
+import { jsonFields, jsonText } from "@/lib/json-fields";

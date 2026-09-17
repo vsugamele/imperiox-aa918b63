@@ -90,14 +90,14 @@ serve(async (req) => {
 
       // Check if all variants reached minimum sample size
       const minSample = test.min_sample_size || 100;
-      const ready = variants.every((v: any) => (v.sent_count || 0) >= minSample);
+      const ready = variants.every((v) => (v.sent_count || 0) >= minSample);
 
       if (!ready) {
         evaluated.push({
           test_id: test.id,
           name: test.name,
           status: "running",
-          reason: "Coletando amostras. Progresso: " + variants.map((v: any) => `${v.name}: ${v.sent_count}/${minSample}`).join(", "),
+          reason: "Coletando amostras. Progresso: " + variants.map((v) => `${v.name}: ${v.sent_count}/${minSample}`).join(", "),
         });
         continue;
       }
@@ -156,9 +156,10 @@ serve(async (req) => {
           const steps = Array.isArray(auto.steps) ? auto.steps : [];
           let updatedSteps = false;
 
-          const nextSteps = steps.map((s: any) => {
+          const nextSteps = steps.map((s: unknown) => {
+            if (!s || typeof s !== "object" || !("tipo" in s)) return s;
             if (s.tipo === "whatsapp" || s.tipo === "mensagem") {
-              s.mensagem = winner.message_template;
+              Object.assign(s, { mensagem: winner.message_template });
               updatedSteps = true;
             }
             return s;
@@ -202,7 +203,7 @@ serve(async (req) => {
       } else {
         // Check if sample size is extremely high and still not significant (draw)
         const maxSample = minSample * 4;
-        const limitReached = variants.every((v: any) => (v.sent_count || 0) >= maxSample);
+        const limitReached = variants.every((v) => (v.sent_count || 0) >= maxSample);
 
         if (limitReached) {
           // Conclude test as draw
@@ -246,9 +247,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("A/B test evaluator error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: errMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

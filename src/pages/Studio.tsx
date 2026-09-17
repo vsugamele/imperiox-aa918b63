@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault, Film } from "lucide-react";
+import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault, Film, UserSquare2, ScrollText, Layers } from "lucide-react";
+import { ModelagemTab } from "@/components/studio/ModelagemTab";
 import { StudioPrompts } from "@/components/studio/StudioPrompts";
 import { StudioGenerator } from "@/components/studio/StudioGenerator";
 import { StudioWorkflow } from "@/components/studio/StudioWorkflow";
 import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
 import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
 import { VideoPromptGenerator } from "@/components/studio/VideoPromptGenerator";
+import { AvatarStudioTab } from "@/components/studio/AvatarStudioTab";
+import { RoteirosTab } from "@/components/studio/RoteirosTab";
 import type { HyperFields } from "@/lib/hyperPromptBuilder";
+import { ProdutoTabs } from "@/components/produto/ProdutoTabs";
 
 export default function Studio() {
   const [tab, setTab] = useState("generator");
@@ -16,6 +20,7 @@ export default function Studio() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <ProdutoTabs />
       <div className="flex items-center gap-3">
         <Clapperboard className="h-7 w-7 text-primary" />
         <div>
@@ -27,9 +32,18 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-6xl grid-cols-8">
+        <TabsList className="grid w-full max-w-6xl grid-cols-11">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
+          </TabsTrigger>
+          <TabsTrigger value="modelagem" className="gap-2">
+            <Layers className="h-4 w-4" /> Modelagem
+          </TabsTrigger>
+          <TabsTrigger value="roteiros" className="gap-2">
+            <ScrollText className="h-4 w-4" /> Roteiros
+          </TabsTrigger>
+          <TabsTrigger value="avatar-studio" className="gap-2">
+            <UserSquare2 className="h-4 w-4" /> Avatar Studio
           </TabsTrigger>
           <TabsTrigger value="video" className="gap-2">
             <Film className="h-4 w-4" /> Vídeo
@@ -53,6 +67,20 @@ export default function Studio() {
             <BookOpen className="h-4 w-4" /> Playbook
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="roteiros" className="mt-6">
+          <RoteirosTab />
+        </TabsContent>
+
+        <TabsContent value="modelagem" className="mt-6">
+          <ModelagemTab />
+        </TabsContent>
+
+
+
+        <TabsContent value="avatar-studio" className="mt-6">
+          <AvatarStudioTab />
+        </TabsContent>
 
         <TabsContent value="generator" className="mt-6">
           <StudioGenerator />

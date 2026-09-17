@@ -85,7 +85,9 @@ function pickVariant(level: Level, vendaId: string): Variant {
   return level.variants[Math.abs(h) % level.variants.length];
 }
 
-async function findActiveProvider(supabase: any, projectId: string | null) {
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface Provider { id: string; provider: string; api_url: string; api_key: string; instance_name: string }
+async function findActiveProvider(supabase: ReturnType<typeof makeClient>, projectId: string | null | undefined) {
   if (projectId) {
     const { data } = await supabase
       .from("imphq_whatsapp_config")
@@ -105,7 +107,7 @@ async function findActiveProvider(supabase: any, projectId: string | null) {
   return data;
 }
 
-async function sendWhatsApp(provider: any, phone: string, message: string): Promise<{ ok: boolean; error?: string }> {
+async function sendWhatsApp(provider: Provider | null, phone: string, message: string): Promise<{ ok: boolean; error?: string }> {
   if (!provider) return { ok: false, error: "no_provider" };
   try {
     if (provider.provider === "evolution") {
@@ -119,8 +121,9 @@ async function sendWhatsApp(provider: any, phone: string, message: string): Prom
       return { ok: true };
     }
     return { ok: false, error: "provider_unsupported" };
-  } catch (e: any) {
-    return { ok: false, error: String(e?.message || e) };
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return { ok: false, error: String(eMessage || e) };
   }
 }
 
@@ -148,11 +151,12 @@ Deno.serve(async (req) => {
 
     let sent = 0;
     let skipped = 0;
-    const details: any[] = [];
+    const details: { venda_id: string; level: number; variant: string; ok: boolean; error?: string }[] = [];
 
     for (const v of vendas) {
       const ageMin = (now.getTime() - new Date(v.created_at).getTime()) / 60000;
-      const meta: any = v.data || {};
+      const rawMeta: unknown = v.data;
+      const meta: Record<string, unknown> = rawMeta && typeof rawMeta === "object" && !Array.isArray(rawMeta) ? { ...rawMeta } : {};
       const sentLevels: number[] = Array.isArray(meta.recovery_sent_levels) ? meta.recovery_sent_levels : [];
 
       const targetLevel = RECOVERY_LEVELS.find(
@@ -187,13 +191,13 @@ Deno.serve(async (req) => {
           metadata: { venda_id: v.id, level: targetLevel.level, valor: v.valor },
         });
         message = result.text;
-      } catch (_) {}
+      } catch (_) { /* optional enrichment; continue without it */ }
 
       const result = await sendWhatsApp(provider, phone, message);
 
       const newMeta = {
         ...meta,
-        recovery_sent_levels: [...sentLevels, targetLevel.level],
+        recovery_sent_levels: result.ok ? [...sentLevels, targetLevel.level] : sentLevels,
         recovery_last: {
           level: targetLevel.level,
           variant: variant.id,
@@ -243,10 +247,11 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, processed: vendas.length, sent, skipped, details }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[payment-recovery] Error:", err);
     return new Response(
-      JSON.stringify({ error: String(err?.message || err) }),
+      JSON.stringify({ error: String(errMessage || err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

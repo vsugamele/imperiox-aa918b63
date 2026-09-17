@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ interface Block {
   description: string;
   gradient: string;
   color: string;
-  icon: any;
+  icon: LucideIcon;
   angles: SubAngle[];
 }
 

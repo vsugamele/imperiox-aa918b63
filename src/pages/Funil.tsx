@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useProjectList } from "@/hooks/useProjectList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,14 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, MessageSquare, MousePointerClick, CreditCard, CheckCircle2,
-  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles
+  TrendingDown, RefreshCw, Target, ArrowRight, Sparkles, Trophy, Link2
 } from "lucide-react";
 import { toast } from "sonner";
 
 type FunnelStage = {
   label: string;
   count: number;
-  icon: any;
+  icon: LucideIcon;
   color: string;
   description: string;
 };
@@ -42,7 +45,7 @@ type AttributionRow = {
 };
 
 export default function Funil() {
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const { data: projects = [] } = useProjectList();
   const [projectId, setProjectId] = useState<string>("");
   const [days, setDays] = useState<number>(30);
   const [loading, setLoading] = useState(true);
@@ -51,16 +54,14 @@ export default function Funil() {
   const [sourceBreakdown, setSourceBreakdown] = useState<SourceBreakdown[]>([]);
   const [recentMatches, setRecentMatches] = useState<AttributionRow[]>([]);
   const [topTemplates, setTopTemplates] = useState<{ template: string; sent: number; sales: number; rate: number }[]>([]);
+  const [revenue, setRevenue] = useState<{ total: number; ticket: number; count: number }>({ total: 0, ticket: 0, count: 0 });
+
 
   useEffect(() => {
-    supabase.from("imphq_projects").select("id, name").order("name").then(({ data }) => {
-      const list = (data || []) as any[];
-      setProjects(list);
-      if (list.length > 0) setProjectId(list[0].id);
-    });
-  }, []);
+    if (!projectId && projects.length > 0) setProjectId(projects[0].id);
+  }, [projects, projectId]);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
     try {
@@ -89,9 +90,27 @@ export default function Funil() {
         .gte("sent_at", since);
 
       const linksEnviados = (attrs || []).length;
-      const linksClicados = (attrs || []).filter((a: any) => a.clicked_at).length;
-      const vendasGeradas = (attrs || []).filter((a: any) => a.venda_id).length;
-      const vendasAprovadas = (attrs || []).filter((a: any) => a.venda_status === "aprovado").length;
+      const linksClicados = (attrs || []).filter((a) => a.clicked_at).length;
+      const vendasGeradas = (attrs || []).filter((a) => a.venda_id).length;
+      const vendasAprovadas = (attrs || []).filter((a) => a.venda_status === "aprovado").length;
+
+      // Receita real via venda_ids atribuídos a esse funil
+      const vendaIds = Array.from(new Set((attrs || []).filter((a) => a.venda_id).map((a) => a.venda_id)));
+      let totalRev = 0; let countRev = 0;
+      if (vendaIds.length > 0) {
+        const { data: vendas } = await supabase
+          .from("imphq_vendas")
+          .select("id, valor, valor_liquido, status")
+          .in("id", vendaIds);
+        for (const v of (vendas || [])) {
+          if ((v.status || "").toLowerCase() === "aprovado") {
+            totalRev += Number(v.valor_liquido ?? v.valor) || 0;
+            countRev++;
+          }
+        }
+      }
+      setRevenue({ total: totalRev, ticket: countRev > 0 ? totalRev / countRev : 0, count: countRev });
+
 
       setStages([
         { label: "Leads capturados", count: leadsCount || 0, icon: Users, color: "blue", description: "Entraram no sistema" },
@@ -110,7 +129,7 @@ export default function Funil() {
         .gte("day", since);
 
       const agg = new Map<string, SourceBreakdown>();
-      for (const r of (funnelView || []) as any[]) {
+      for (const r of (funnelView || [])) {
         const cur = agg.get(r.source) || { source: r.source, links_enviados: 0, links_clicados: 0, vendas_geradas: 0, vendas_aprovadas: 0 };
         cur.links_enviados += Number(r.links_enviados) || 0;
         cur.links_clicados += Number(r.links_clicados) || 0;
@@ -129,7 +148,7 @@ export default function Funil() {
         .not("template_name", "is", null);
 
       const tplMap = new Map<string, { sent: number; sales: number }>();
-      for (const r of (templates || []) as any[]) {
+      for (const r of (templates || [])) {
         const cur = tplMap.get(r.template_name) || { sent: 0, sales: 0 };
         cur.sent++;
         if (r.venda_status === "aprovado") cur.sales++;
@@ -150,17 +169,17 @@ export default function Funil() {
         .order("matched_at", { ascending: false })
         .limit(15);
       setRecentMatches((recent || []) as AttributionRow[]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[funil] erro:", e);
-      toast.error("Erro: " + e.message);
+      toast.error("Erro: " + errorMessage(e));
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, days]);
 
   useEffect(() => {
     if (projectId) reload();
-  }, [projectId, days]);
+  }, [projectId, reload]);
 
   const totalLeads = stages[0]?.count || 0;
   const totalSales = stages[5]?.count || 0;
@@ -200,16 +219,30 @@ export default function Funil() {
 
       {/* KPI principal */}
       <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-transparent">
-        <CardContent className="p-4 flex flex-col md:flex-row md:items-end gap-4 justify-between">
+        <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Conversão lead → venda</p>
-            <p className="text-4xl font-bold text-emerald-400">{conversionRate}%</p>
-            <p className="text-[10px] text-muted-foreground mt-1">{totalSales} vendas / {totalLeads} leads em {days} dias</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Conversão lead → venda</p>
+            <p className="text-3xl font-bold text-emerald-400">{conversionRate}%</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{totalSales} vendas / {totalLeads} leads</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita atribuída</p>
+            <p className="text-3xl font-bold text-primary">
+              R$ {revenue.total >= 1000 ? `${(revenue.total / 1000).toFixed(1)}k` : revenue.total.toFixed(0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">{revenue.count} vendas aprovadas em {days}d</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Ticket médio</p>
+            <p className="text-3xl font-bold text-foreground">
+              R$ {revenue.ticket >= 1000 ? `${(revenue.ticket / 1000).toFixed(1)}k` : revenue.ticket.toFixed(0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">por venda aprovada</p>
           </div>
           {stages.length > 0 && (
-            <div className="text-right space-y-1">
-              <p className="text-[10px] text-muted-foreground uppercase">Maior gargalo</p>
-              <p className="text-sm font-semibold text-amber-400">
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Maior gargalo</p>
+              <p className="text-sm font-semibold text-amber-400 mt-2">
                 {(() => {
                   let maxDrop = 0; let maxIdx = 0;
                   for (let i = 1; i < stages.length; i++) {
@@ -226,6 +259,7 @@ export default function Funil() {
           )}
         </CardContent>
       </Card>
+
 
       {/* Funil visual */}
       <Card>
@@ -276,9 +310,9 @@ export default function Funil() {
       {/* Tabs: source breakdown / templates / matches recentes */}
       <Tabs defaultValue="sources" className="w-full">
         <TabsList>
-          <TabsTrigger value="sources">🎯 Por origem</TabsTrigger>
-          <TabsTrigger value="templates">🏆 Templates campeões</TabsTrigger>
-          <TabsTrigger value="matches">🔗 Últimas vendas atribuídas</TabsTrigger>
+          <TabsTrigger value="sources" className="gap-1.5"><Target className="h-3.5 w-3.5" /> Por origem</TabsTrigger>
+          <TabsTrigger value="templates" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Templates campeões</TabsTrigger>
+          <TabsTrigger value="matches" className="gap-1.5"><Link2 className="h-3.5 w-3.5" /> Últimas vendas atribuídas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sources" className="mt-4 space-y-2">

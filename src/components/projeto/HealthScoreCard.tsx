@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -34,12 +35,12 @@ export function HealthScoreCard({ health, projectId }: Props) {
         title: `Health Score ${health.score} — gerar plano de recuperação`,
         reason: `Score ${health.score}/100 (${health.statusLabel}). ROAS=${Math.round(health.roasScore)}, Conv=${Math.round(health.conversaoScore)}, Ativ=${Math.round(health.atividadeScore)}, Conteúdo=${Math.round(health.conteudoScore)}.`,
         source: "health_score_card",
-        payload: { breakdown: health },
-      } as any);
+        payload: { breakdown: { ...health } },
+      });
       if (error) throw error;
       toast.success("Plano solicitado ao Imperius");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao enviar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao enviar");
     } finally {
       setEnq(false);
     }

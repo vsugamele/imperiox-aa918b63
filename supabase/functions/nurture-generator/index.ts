@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAnglesForDay } from "../_shared/creativeAngles.ts";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +18,9 @@ function detectStage(diasDesdeInicio: number): { estagio: string; instrucao: str
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { lead_id, sequence_id, enrollment_id } = await req.json();
@@ -46,7 +51,10 @@ Deno.serve(async (req) => {
     const dia_numero = diasDesdeInicio + 1;
     const { estagio, instrucao } = detectStage(diasDesdeInicio);
 
-    const projectData: any = project?.data || {};
+    // Ângulo do dia (rotaciona pelo catálogo Filemon) — evita e-mails repetitivos
+    const anguloDia = getAnglesForDay(1, new Date(Date.now() + dia_numero * 86400000))[0];
+
+    const projectData: {avatar?:unknown;copy_arsenal?:unknown;briefing?:{avatar?:unknown;copy_arsenal?:unknown}} = project?.data || {};
     const avatar = projectData?.avatar || projectData?.briefing?.avatar || {};
     const copyArsenal = projectData?.copy_arsenal || projectData?.briefing?.copy_arsenal || {};
 
@@ -56,6 +64,9 @@ Produto: ${sequence.produto_nome}
 Objetivo da sequência: ${sequence.objetivo || "Converter lead em comprador"}
 Marca: ${project?.name || ""}
 Estágio atual: ${estagio} — ${instrucao}
+
+🎯 ÂNGULO PSICOLÓGICO DESTE E-MAIL: ${anguloDia.nome} — ${anguloDia.gatilho}.
+Use este ângulo como espinha dorsal. Exemplo de tom: "${anguloDia.exemploHook}"
 
 Avatar (resumo): ${JSON.stringify(avatar).slice(0, 1500)}
 Copy Arsenal (frases-chave): ${JSON.stringify(copyArsenal).slice(0, 800)}
@@ -127,14 +138,15 @@ Retorne JSON: { "assunto": "...", "corpo_html": "...", "corpo_texto": "..." }`;
     // Append tracking pixel
     corpo_html += `<img src="${trackBase}?eid=${eid}&type=open" width="1" height="1" alt="" style="display:none" />`;
 
-    await supabase.from("imphq_nurture_emails").update({ corpo_html } as any).eq("id", eid);
+    await supabase.from("imphq_nurture_emails").update({ corpo_html }).eq("id", eid);
     newEmail.corpo_html = corpo_html;
 
     return new Response(JSON.stringify({ success: true, email: newEmail }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[nurture-generator]", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: errMessage }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

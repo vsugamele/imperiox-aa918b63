@@ -1,3 +1,6 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, Loader2, UserCheck, FileText, Clock, ExternalLink } from "lucide-react";
 
-interface ExtractedData {
+type ExtractedData = {
   nome?: string;
   area?: string;
   bio?: string;
@@ -21,20 +24,39 @@ interface ExtractedData {
   raw_content?: string;
 }
 
-interface ResearchEntry {
+type ResearchEntry = {
   url: string;
   date: string;
   extracted: ExtractedData;
 }
 
+function parseExtracted(value: Json | undefined): ExtractedData {
+  const fields = jsonFields(value);
+  return {
+    ...fields,
+    nome: jsonText(fields.nome),
+    area: jsonText(fields.area),
+    bio: jsonText(fields.bio),
+    tom_voz: jsonText(fields.tom_voz),
+    metodo: jsonText(fields.metodo),
+    transformacao: jsonText(fields.transformacao),
+    raw_content: jsonText(fields.raw_content),
+    temas: Array.isArray(fields.temas) ? fields.temas.filter((item): item is string => typeof item === "string") : undefined,
+    palavras_usa: Array.isArray(fields.palavras_usa) ? fields.palavras_usa.filter((item): item is string => typeof item === "string") : undefined,
+  };
+}
+
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
 }
 
 export function ProjetoPesquisa({ project, onUpdateData }: Props) {
-  const data = project.data || {};
-  const history: ResearchEntry[] = data.research_history || [];
+  const data = jsonFields(project.data);
+  const history: ResearchEntry[] = Array.isArray(data.research_history) ? data.research_history.flatMap(value => {
+    const entry = jsonFields(value);
+    return typeof entry.url === "string" && typeof entry.date === "string" ? [{ ...entry, url: entry.url, date: entry.date, extracted: parseExtracted(entry.extracted) }] : [];
+  }) : [];
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ExtractedData | null>(null);
@@ -45,15 +67,16 @@ export function ProjetoPesquisa({ project, onUpdateData }: Props) {
     setResult(null);
 
     try {
-      const { data: resData, error } = await supabase.functions.invoke("expert-research", {
+      const { data: resData, error } = await supabase.functions.invoke<Json>("expert-research", {
         body: { url: url.trim(), project_id: project.id },
       });
 
       if (error) throw error;
-      if (!resData?.success) throw new Error(resData?.error || "Falha na pesquisa");
+      const response = jsonFields(resData);
+      if (!response.success) throw new Error(jsonText(response.error) || "Falha na pesquisa");
 
-      const extracted = resData.extracted as ExtractedData;
-      extracted.raw_content = resData.raw_content;
+      const extracted = parseExtracted(response.extracted);
+      extracted.raw_content = jsonText(response.raw_content);
       setResult(extracted);
 
       // Save to history
@@ -64,9 +87,9 @@ export function ProjetoPesquisa({ project, onUpdateData }: Props) {
       onUpdateData({ ...data, research_history: newHistory });
 
       toast.success("Dados extraídos com sucesso!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Research error:", err);
-      toast.error(err.message || "Erro ao pesquisar");
+      toast.error(errorMessage(err) || "Erro ao pesquisar");
     } finally {
       setLoading(false);
     }
@@ -74,7 +97,7 @@ export function ProjetoPesquisa({ project, onUpdateData }: Props) {
 
   const applyToExpert = () => {
     if (!result) return;
-    const expert = data.expert || {};
+    const expert = jsonFields(data.expert);
     const updated = {
       ...expert,
       ...(result.nome && { nome: result.nome }),
@@ -96,13 +119,14 @@ export function ProjetoPesquisa({ project, onUpdateData }: Props) {
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) return;
 
-      await supabase.from("imphq_kb").insert({
-        user_id: session.session.user.id,
+      const { error } = await supabase.from("imphq_kb").insert({
+        id: crypto.randomUUID(),
         section_key: `research_${Date.now()}`,
         title: `Pesquisa: ${url}`,
         content: result.raw_content,
         is_custom: true,
-      } as any);
+      });
+      if (error) throw error;
       toast.success("Salvo na Knowledge Base!");
     } catch (err) {
       toast.error("Erro ao salvar documento");

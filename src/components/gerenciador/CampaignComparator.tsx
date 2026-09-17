@@ -1,5 +1,5 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Sparkline } from "./Sparkline";
+import { Sparkline } from "@/components/gerenciador/Sparkline";
 
 interface Campaign {
   id: string;
@@ -27,7 +27,7 @@ const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", curren
 const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
 
 export function CampaignComparator({ open, onOpenChange, campaigns, dailySpendByCamp }: Props) {
-  const rows: Array<{ key: string; label: string; fmt: (c: Campaign) => string; cmp?: "max" | "min" }> = [
+  const rows: Array<{ key: keyof Campaign; label: string; fmt: (c: Campaign) => string; cmp?: "max" | "min" }> = [
     { key: "valor", label: "Gasto", fmt: c => brl(c.valor), cmp: "min" },
     { key: "receita", label: "Receita", fmt: c => brl(c.receita), cmp: "max" },
     { key: "roas", label: "ROAS", fmt: c => c.roas.toFixed(2) + "x", cmp: "max" },
@@ -40,9 +40,9 @@ export function CampaignComparator({ open, onOpenChange, campaigns, dailySpendBy
     { key: "daily_budget", label: "Orçamento diário", fmt: c => c.daily_budget ? brl(c.daily_budget) : "—" },
   ];
 
-  const winner = (key: string, cmp?: "max" | "min") => {
+  const winner = (key: keyof Campaign, cmp?: "max" | "min") => {
     if (!cmp) return null;
-    const vals = campaigns.map(c => Number((c as any)[key]) || 0);
+    const vals = campaigns.map(c => Number(c[key]) || 0);
     const target = cmp === "max" ? Math.max(...vals) : Math.min(...vals.filter(v => v > 0));
     return target;
   };
@@ -74,7 +74,7 @@ export function CampaignComparator({ open, onOpenChange, campaigns, dailySpendBy
                       <tr key={r.key} className="border-t border-border/20">
                         <td className="px-3 py-2 text-muted-foreground">{r.label}</td>
                         {campaigns.map(c => {
-                          const val = Number((c as any)[r.key]) || 0;
+                          const val = Number(c[r.key]) || 0;
                           const isWinner = r.cmp && val === win && val > 0;
                           return (
                             <td key={c.id} className={`text-right px-3 py-2 tabular-nums ${isWinner ? "text-primary font-semibold" : ""}`}>

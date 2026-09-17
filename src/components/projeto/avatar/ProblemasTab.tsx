@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import { avatarConfidence } from "@/components/projeto/avatar/avatar-health";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,12 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
-import { AIGenerateButton } from "../AIGenerateButton";
-import { ConfidenceBadge } from "./ConfidenceBadge";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
+import { ConfidenceBadge } from "@/components/projeto/avatar/ConfidenceBadge";
 
 interface Props {
-  avatar: any;
-  onUpdate: (avatar: any) => void;
+  avatar: Json;
+  onUpdate: (avatar: Json) => void;
   projectId?: string;
 }
 
@@ -34,14 +37,15 @@ const SCORE_META: Record<string, { label: string; color: string }> = {
 };
 const FALLBACK_SCORE_KEYS = ["dor","desejo","piora","veloc_","pagar","comun_","freq_"];
 
-export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
+export function ProblemasTab({ avatar: rawAvatar, onUpdate, projectId }: Props) {
   const [expanded, setExpanded] = useState<number | null>(null);
-  const problemas = avatar.problemas || [];
+  const avatar = jsonFields(rawAvatar);
+  const problemas = Array.isArray(avatar.problemas) ? avatar.problemas.map(jsonFields) : [];
 
   // Determine active score keys from first problem that has scores, or fallback
   const activeScoreKeys = (() => {
-    const first = problemas.find((p: any) => p.scores && Object.keys(p.scores).length > 0);
-    if (first) return Object.keys(first.scores);
+    const first = problemas.find((p) => p.scores && Object.keys(jsonFields(p.scores)).length > 0);
+    if (first) return Object.keys(jsonFields(first.scores));
     return FALLBACK_SCORE_KEYS;
   })();
 
@@ -58,10 +62,10 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
 
   const remove = (i: number) => {
     if (expanded === i) setExpanded(null);
-    onUpdate({ ...avatar, problemas: problemas.filter((_: any, j: number) => j !== i) });
+    onUpdate({ ...avatar, problemas: problemas.filter((_, j: number) => j !== i) });
   };
 
-  const edit = (i: number, field: string, val: any) => {
+  const edit = (i: number, field: string, val: Json) => {
     const updated = [...problemas];
     updated[i] = { ...updated[i], [field]: val };
     onUpdate({ ...avatar, problemas: updated });
@@ -69,13 +73,13 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
 
   const editScore = (i: number, scoreKey: string, val: number) => {
     const updated = [...problemas];
-    const scores = { ...(updated[i].scores || {}), [scoreKey]: val };
-    const total = Object.values(scores).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+    const scores = { ...jsonFields(updated[i].scores), [scoreKey]: val };
+    const total = Object.values(scores).reduce((s: number, v) => s + (Number(v) || 0), 0);
     updated[i] = { ...updated[i], scores, total };
     onUpdate({ ...avatar, problemas: updated });
   };
 
-  const sorted = [...problemas].sort((a: any, b: any) => (b.total || 0) - (a.total || 0));
+  const sorted = [...problemas].sort((a, b) => (jsonNumber(b.total) || 0) - (jsonNumber(a.total) || 0));
 
   const getScoreColor = (score: number) => {
     if (score >= 28) return "text-red-400 border-red-500/30 bg-red-500/10";
@@ -91,7 +95,7 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">Ranking de Problemas</CardTitle>
-              <ConfidenceBadge meta={(avatar._avatar_meta || {}).problemas} />
+              <ConfidenceBadge meta={avatarConfidence(jsonFields(avatar._avatar_meta).problemas)} />
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">Top 5 = base de hooks, VSL e headlines</p>
           </div>
@@ -112,7 +116,7 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
         </CardHeader>
         <CardContent className="space-y-1.5">
           {sorted.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Nenhum problema cadastrado.</p>}
-          {sorted.map((p: any, i: number) => {
+          {sorted.map((p, i: number) => {
             const origIdx = problemas.indexOf(p);
             const isOpen = expanded === origIdx;
             return (
@@ -124,15 +128,15 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
                   <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">#{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <Input
-                      value={p.nome || ""}
+                      value={jsonText(p.nome) || ""}
                       onChange={e => { e.stopPropagation(); edit(origIdx, "nome", e.target.value); }}
                       onClick={e => e.stopPropagation()}
                       className="bg-transparent border-none p-0 h-auto text-sm font-medium focus-visible:ring-0"
                       placeholder="Nome do problema..."
                     />
                   </div>
-                  <Badge variant="outline" className={`text-xs font-mono shrink-0 border ${getScoreColor(p.total || 0)}`}>
-                    {p.total || 0}/35
+                  <Badge variant="outline" className={`text-xs font-mono shrink-0 border ${getScoreColor(jsonNumber(p.total) || 0)}`}>
+                    {jsonNumber(p.total) || 0}/35
                   </Badge>
                   <Button
                     size="icon" variant="ghost"
@@ -153,7 +157,7 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
                             <Label className={`text-[10px] font-mono uppercase ${meta.color}`}>{meta.label}</Label>
                             <Input
                               type="number" min={0} max={5}
-                              value={p.scores?.[sk] || 0}
+                              value={jsonNumber(jsonFields(p.scores)[sk]) || 0}
                               onChange={e => editScore(origIdx, sk, Number(e.target.value))}
                               className="bg-secondary h-8 text-sm text-center mt-1 px-1"
                             />
@@ -164,7 +168,7 @@ export function ProblemasTab({ avatar, onUpdate, projectId }: Props) {
                     <div>
                       <Label className="text-xs text-muted-foreground">Cena de Voyerismo Associada</Label>
                       <Textarea
-                        value={p.cena_voyerismo || ""}
+                        value={jsonText(p.cena_voyerismo) || ""}
                         onChange={e => edit(origIdx, "cena_voyerismo", e.target.value)}
                         className="bg-secondary text-sm min-h-[40px] mt-1"
                         placeholder="Ex: Mao treme ao pegar a tesoura..."

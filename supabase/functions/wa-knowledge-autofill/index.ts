@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         .limit(10);
 
       const knowledgeExamples = (existingKnowledge || [])
-        .map((k: any) => `P: ${k.pergunta}\nR: ${k.resposta}`)
+        .map((k) => `P: ${k.pergunta}\nR: ${k.resposta}`)
         .join("\n\n");
 
       const systemPrompt = `Você é um especialista em vendas e atendimento ao cliente do projeto "${projName}".
@@ -90,7 +90,7 @@ Para cada pergunta, gere uma resposta concisa, informativa e no tom adequado par
 Se não tiver informações suficientes para responder, escreva "PRECISA_DE_REVISÃO: [motivo]" para que o operador preencha.
 Responda APENAS com JSON no formato: {"respostas": [{"id": "uuid", "resposta": "texto"}]}`;
 
-      const questionsJson = batch.map((q: any) => ({ id: q.id, pergunta: q.pergunta }));
+      const questionsJson = batch.map((q) => ({ id: q.id, pergunta: q.pergunta }));
 
       const payload = {
         model: "google/gemini-2.5-flash-lite",
@@ -123,8 +123,9 @@ Responda APENAS com JSON no formato: {"respostas": [{"id": "uuid", "resposta": "
           const parsed = JSON.parse(content);
           drafts = parsed.respostas || [];
         }
-      } catch (e: any) {
-        console.error(`[wa-knowledge-autofill] LLM error for project ${projectId}:`, e.message);
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+        console.error(`[wa-knowledge-autofill] LLM error for project ${projectId}:`, eMessage);
         continue;
       }
 
@@ -132,7 +133,7 @@ Responda APENAS com JSON no formato: {"respostas": [{"id": "uuid", "resposta": "
       for (const draft of drafts) {
         if (!draft.id || !draft.resposta) continue;
 
-        const question = batch.find((q: any) => q.id === draft.id);
+        const question = batch.find((q) => q.id === draft.id);
         if (!question) continue;
 
         // Embedding do par pergunta+resposta
@@ -155,7 +156,7 @@ Responda APENAS com JSON no formato: {"respostas": [{"id": "uuid", "resposta": "
             const embData = await embRes.json();
             embedding = embData?.data?.[0]?.embedding || null;
           }
-        } catch (_) {}
+        } catch (_) { /* optional enrichment; continue without it */ }
 
         // Atualiza o registro existente com o rascunho
         const updatePayload: Record<string, unknown> = {
@@ -179,9 +180,10 @@ Responda APENAS com JSON no formato: {"respostas": [{"id": "uuid", "resposta": "
     return new Response(JSON.stringify({ ok: true, drafted: totalDrafted }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-knowledge-autofill] Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

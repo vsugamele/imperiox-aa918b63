@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { ptBR } from "date-fns/locale";
 interface WaSession {
   id: string; phone: string; contact_name: string | null;
   session: string; project_id: string; status: string;
-  message_count: number; metadata: any; created_at: string;
+  message_count: number; metadata: unknown; created_at: string;
   provider_id: string | null;
 }
 
@@ -34,6 +35,19 @@ interface Props {
   projectName: string;
   providerLabel: string;
   onDelete: (id: string) => void;
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function stringField(value: unknown, key: string): string {
+  const field = record(value)[key];
+  return typeof field === "string" ? field : "";
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 const STAGES = [
@@ -102,9 +116,9 @@ export default function SessionDetailView({ session, projectName, providerLabel,
 
   useEffect(() => { loadCrm(); }, [loadCrm]);
 
-  const [lead, setLead] = useState<any>(null);
+  const [lead, setLead] = useState<Tables<"imphq_leads"> | null>(null);
   const [loadingLead, setLoadingLead] = useState(false);
-  const [sessionEvents, setSessionEvents] = useState<any[]>([]);
+  const [sessionEvents, setSessionEvents] = useState<Tables<"imphq_lead_session_events">[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const loadSessionEvents = useCallback(async () => {
@@ -168,18 +182,18 @@ export default function SessionDetailView({ session, projectName, providerLabel,
 
   const saveCrm = async () => {
     setSaving(true);
-    const payload = {
+    const payload: TablesInsert<"imphq_wa_crm"> = {
       conversation_id: session.id,
       stage: crm.stage,
-      tags: crm.tags as any,
+      tags: crm.tags,
       notes: crm.notes,
       value: crm.value,
     };
 
     if (crm.id) {
-      await supabase.from("imphq_wa_crm").update(payload as any).eq("id", crm.id);
+      await supabase.from("imphq_wa_crm").update(payload).eq("id", crm.id);
     } else {
-      const { data } = await supabase.from("imphq_wa_crm").insert(payload as any).select().single();
+      const { data } = await supabase.from("imphq_wa_crm").insert(payload).select().single();
       if (data) setCrm(prev => ({ ...prev, id: data.id }));
     }
     toast.success("CRM salvo!");
@@ -201,7 +215,7 @@ export default function SessionDetailView({ session, projectName, providerLabel,
 
   const getWaLink = () => {
     const clean = session.phone.replace(/\D/g, "");
-    const msg = (session.metadata as any)?.default_message;
+    const msg = stringField(session.metadata, "default_message");
     return `https://wa.me/${clean}${msg ? `?text=${encodeURIComponent(msg)}` : ""}`;
   };
 
@@ -257,7 +271,8 @@ export default function SessionDetailView({ session, projectName, providerLabel,
             </h4>
 
             {(() => {
-              const aiProfile = lead.data?.ai_profile || {};
+              const profile = record(lead.data).ai_profile;
+              const aiProfile = { pains: stringList(record(profile).pains), desires: stringList(record(profile).desires), moments: stringList(record(profile).moments), seekings: stringList(record(profile).seekings) };
               const hasPains = Array.isArray(aiProfile.pains) && aiProfile.pains.length > 0;
               const hasDesires = Array.isArray(aiProfile.desires) && aiProfile.desires.length > 0;
               const hasMoments = Array.isArray(aiProfile.moments) && aiProfile.moments.length > 0;
@@ -318,7 +333,7 @@ export default function SessionDetailView({ session, projectName, providerLabel,
                   )}
 
                   <div className="pt-2 flex items-center justify-between text-[10px] text-muted-foreground border-t border-border/40 mt-1">
-                    <span>Eugene Schwartz: <span className="font-semibold text-foreground">{lead.data?.desejo_schwartz ? String(lead.data.desejo_schwartz).toUpperCase() : "Não detectado"}</span></span>
+                    <span>Eugene Schwartz: <span className="font-semibold text-foreground">{stringField(lead.data, "desejo_schwartz") ? stringField(lead.data, "desejo_schwartz").toUpperCase() : "Não detectado"}</span></span>
                     <span>Score: <span className="font-semibold text-foreground">{lead.score || 0}/100</span></span>
                   </div>
                 </div>
@@ -348,16 +363,17 @@ export default function SessionDetailView({ session, projectName, providerLabel,
                   let icon = <Eye className="h-3.5 w-3.5" />;
                   let color = "text-blue-400 bg-blue-500/10 border-blue-500/20";
                   let title = evt.event_name;
-                  let subtitle = evt.url || "";
+                  const payload = record(evt.payload);
+                  const subtitle = evt.url || "";
 
                   if (evt.event_name.toLowerCase().includes("click")) {
                     icon = <Activity className="h-3.5 w-3.5" />;
                     color = "text-amber-400 bg-amber-500/10 border-amber-500/20";
-                    title = evt.payload?.button_text ? `Clique: ${evt.payload.button_text}` : "Clique em Botão";
+                    title = stringField(payload, "button_text") ? `Clique: ${stringField(payload, "button_text")}` : "Clique em Botão";
                   } else if (evt.event_name.toLowerCase().includes("checkout") || evt.event_name.toLowerCase().includes("buy")) {
                     icon = <DollarSign className="h-3.5 w-3.5" />;
                     color = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-                    title = evt.payload?.product_name ? `Checkout: ${evt.payload.product_name}` : "Checkout Acessado";
+                    title = stringField(payload, "product_name") ? `Checkout: ${stringField(payload, "product_name")}` : "Checkout Acessado";
                   } else if (evt.event_name.toLowerCase().includes("page") || evt.event_name.toLowerCase().includes("view")) {
                     icon = <Eye className="h-3.5 w-3.5" />;
                     color = "text-blue-400 bg-blue-500/10 border-blue-500/20";
@@ -378,7 +394,7 @@ export default function SessionDetailView({ session, projectName, providerLabel,
                           </span>
                         </div>
                         {subtitle && <p className="text-[10px] text-muted-foreground break-all">{subtitle}</p>}
-                        {evt.payload && Object.keys(evt.payload).length > 0 && !evt.payload.button_text && !evt.payload.product_name && (
+                        {evt.payload && Object.keys(evt.payload).length > 0 && !stringField(payload, "button_text") && !stringField(payload, "product_name") && (
                           <pre className="text-[9px] bg-slate-950/40 p-1.5 rounded border border-border/15 font-mono text-muted-foreground mt-1 max-h-16 overflow-y-auto">
                             {JSON.stringify(evt.payload, null, 2)}
                           </pre>

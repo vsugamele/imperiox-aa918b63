@@ -1,18 +1,12 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { History, Trash2 } from "lucide-react";
 
-interface Search {
-  id: string;
-  mode: string;
-  query: string | null;
-  result_md: string | null;
-  intel_data: any;
-  project_id: string | null;
-  created_at: string;
-}
+type Search = Tables<"imphq_mi_searches">;
 
 interface Props {
   onLoad: (s: Search) => void;
@@ -34,7 +28,7 @@ export function SearchHistory({ onLoad, refreshKey }: Props) {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(10);
-    setItems((data as Search[]) || []);
+    setItems(data || []);
   };
 
   useEffect(() => { load(); }, [refreshKey]);
@@ -70,8 +64,8 @@ export function SearchHistory({ onLoad, refreshKey }: Props) {
                   </span>
                 </div>
                 <p className="text-xs font-medium text-foreground/90 truncate">{s.query || "(sem termo)"}</p>
-                {s.intel_data?.resumo && (
-                  <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{s.intel_data.resumo}</p>
+                {jsonText(jsonFields(s.intel_data).resumo) && (
+                  <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{jsonText(jsonFields(s.intel_data).resumo)}</p>
                 )}
               </button>
               <button onClick={() => remove(s.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0 transition">

@@ -1,3 +1,7 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +20,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ReferenciasDoProjetoSection } from "@/components/projeto/ReferenciasDoProjetoSection";
+
+function photoUrls(value: Json | undefined): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
 
 const PHOTO_CATEGORIES = [
   { key: "expert", label: "📸 Fotos do Expert" },
@@ -32,33 +41,19 @@ const CONTENT_TABS = [
   { key: "todos", label: "📂 Todos", icon: FileText },
 ];
 
-const FILE_TYPE_ICONS: Record<string, any> = { image: Image, video: Video, document: FileText, audio: Music };
+const FILE_TYPE_ICONS: Record<string, LucideIcon> = { image: Image, video: Video, document: FileText, audio: Music };
 const FILE_TYPE_LABELS: Record<string, string> = { image: "Imagem", video: "Vídeo", document: "Documento", audio: "Áudio" };
 
-interface ContentItem {
-  id: string;
-  project_id: string;
-  user_id: string;
-  title: string;
-  file_url: string;
-  file_type: string;
-  thumbnail_url: string | null;
-  tags: string[] | null;
-  description: string | null;
-  size_bytes: number | null;
-  content_category: string | null;
-  publish_date: string | null;
-  created_at: string;
-}
+type ContentItem = Tables<"imphq_content_library">;
 
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
 }
 
 export function ProjetoMidia({ project, onUpdateData }: Props) {
-  const data = project.data || {};
-  const midia = data.midia || {};
+  const data = jsonFields(project.data);
+  const midia = jsonFields(data.midia);
   const [newUrl, setNewUrl] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("fotos");
 
@@ -77,7 +72,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
 
   // Task attachments state
-  const [taskAttachments, setTaskAttachments] = useState<any[]>([]);
+  const [taskAttachments, setTaskAttachments] = useState<(Tables<"imphq_card_attachments"> & { card_title: string })[]>([]);
   // AI edit state
   const [aiEditDialog, setAiEditDialog] = useState(false);
   const [aiEditItem, setAiEditItem] = useState<ContentItem | null>(null);
@@ -92,7 +87,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
-    setItems((data as ContentItem[]) || []);
+    setItems(data || []);
   }, [projectId]);
 
   const loadTaskAttachments = useCallback(async () => {
@@ -118,19 +113,19 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   const addImage = (cat: string, url?: string) => {
     const finalUrl = url || newUrl[cat]?.trim();
     if (!finalUrl) return;
-    const current = midia[cat] || [];
+    const current = Array.isArray(midia[cat]) ? midia[cat] : [];
     onUpdateData({ ...data, midia: { ...midia, [cat]: [...current, finalUrl] } });
     if (!url) setNewUrl({ ...newUrl, [cat]: "" });
   };
 
   const addImagesMultiple = (cat: string, urls: string[]) => {
-    const current = midia[cat] || [];
+    const current = Array.isArray(midia[cat]) ? midia[cat] : [];
     onUpdateData({ ...data, midia: { ...midia, [cat]: [...current, ...urls] } });
   };
 
   const removeImage = (cat: string, i: number) => {
-    const current = midia[cat] || [];
-    onUpdateData({ ...data, midia: { ...midia, [cat]: current.filter((_: string, j: number) => j !== i) } });
+    const current = Array.isArray(midia[cat]) ? midia[cat] : [];
+    onUpdateData({ ...data, midia: { ...midia, [cat]: current.filter((_, j) => j !== i) } });
   };
 
   // Content functions
@@ -216,6 +211,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   };
 
   // Extract folders from content_category patterns like "reels/folder-name"
+  // Includes empty folders via placeholder rows (file_type='folder').
   const getFoldersForTab = (tab: string): string[] => {
     const relevant = tab === "todos" ? items : items.filter(i => (i.content_category || "geral").startsWith(tab));
     const folders = new Set<string>();
@@ -228,26 +224,42 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
   };
 
   const getFilteredItems = (tab: string) => {
+    // Hide folder placeholders from the grid — they only exist so empty folders persist
+    const visible = items.filter(i => i.file_type !== "folder");
     if (tab === "todos") {
-      if (currentFolder) return items.filter(i => (i.content_category || "").includes(`/${currentFolder}`));
-      return items;
+      if (currentFolder) return visible.filter(i => (i.content_category || "").includes(`/${currentFolder}`));
+      return visible;
     }
     if (currentFolder) {
-      return items.filter(i => (i.content_category || "geral") === `${tab}/${currentFolder}`);
+      return visible.filter(i => (i.content_category || "geral") === `${tab}/${currentFolder}`);
     }
-    return items.filter(i => {
+    return visible.filter(i => {
       const cat = i.content_category || "geral";
       return cat === tab || cat.startsWith(`${tab}/`);
     });
   };
 
-  const createFolder = () => {
-    const name = newFolderName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
+  const createFolder = async () => {
+    const name = newFolderName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
     if (!name) return;
+    const baseCategory = activeTab === "todos" ? "geral" : activeTab;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error("Faça login"); return; }
+    const { error } = await supabase.from("imphq_content_library").insert({
+      project_id: projectId,
+      user_id: user.id,
+      title: "__folder__",
+      file_url: "folder://placeholder",
+      file_type: "folder",
+      content_category: `${baseCategory}/${name}`,
+      tags: [],
+    });
+    if (error) { toast.error("Erro ao criar pasta"); return; }
     setCurrentFolder(name);
     setNewFolderName("");
     setFolderDialogOpen(false);
-    toast.success(`Pasta "${name}" criada. Faça upload de arquivos nela.`);
+    toast.success(`Pasta "${name}" criada em ${baseCategory}.`);
+    loadItems();
   };
 
   const moveItemToFolder = async (itemId: string, folder: string | null) => {
@@ -291,12 +303,13 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
         setAiEditDialog(false);
         setAiEditInstruction("");
       } else throw new Error(aiData?.error || "Erro ao editar");
-    } catch (err: any) { toast.error(err.message || "Erro ao editar imagem"); }
+    } catch (err: unknown) { toast.error(errorMessage(err) || "Erro ao editar imagem"); }
     finally { setAiEditing(false); }
   };
 
   return (
     <div className="space-y-4">
+      <ReferenciasDoProjetoSection projectId={projectId} />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-secondary flex-wrap h-auto gap-1 p-1">
           {CONTENT_TABS.map(t => (
@@ -318,7 +331,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
               <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">{c.label}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {(midia[c.key] || []).map((url: string, i: number) => (
+                  {photoUrls(midia[c.key]).map((url: string, i: number) => (
                     <div key={i} className="relative group aspect-square rounded-md overflow-hidden border border-border bg-secondary">
                       <img src={url} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
                       <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -338,7 +351,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
                       </div>
                     </div>
                   ))}
-                  {(midia[c.key] || []).length === 0 && (
+                  {photoUrls(midia[c.key]).length === 0 && (
                     <div className="aspect-square rounded-md border border-dashed border-border flex items-center justify-center text-muted-foreground">
                       <Image className="h-8 w-8" />
                     </div>
@@ -437,7 +450,7 @@ export function ProjetoMidia({ project, onUpdateData }: Props) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {taskAttachments.map((a: any) => {
+              {taskAttachments.map((a) => {
                 const isImg = a.file_type?.startsWith("image");
                 return (
                   <div key={a.id} className="relative rounded-lg border border-border bg-secondary/30 overflow-hidden group">

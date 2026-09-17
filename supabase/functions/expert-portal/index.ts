@@ -1,16 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function makeClient(url: string, key: string) { return createClient(url, key); }
+function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function jsonRes(body: any, status = 200) {
+function jsonRes(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function notifyManagers(sb: any, projectId: string, prefKey: string, title: string, message: string) {
+async function notifyManagers(sb: ReturnType<typeof makeClient>, projectId: string, prefKey: string, title: string, message: string) {
   try {
     // Find users that should be notified (project owners / team)
     const { data: project } = await sb.from("imphq_projects").select("user_id").eq("id", projectId).maybeSingle();
@@ -18,7 +21,7 @@ async function notifyManagers(sb: any, projectId: string, prefKey: string, title
     if (project?.user_id) userIds.add(project.user_id);
 
     const { data: members } = await sb.from("imphq_team_members").select("user_id").eq("project_id", projectId);
-    (members || []).forEach((m: any) => m.user_id && userIds.add(m.user_id));
+    (members || []).forEach((m) => m.user_id && userIds.add(m.user_id));
 
     if (userIds.size === 0) return;
 
@@ -28,7 +31,7 @@ async function notifyManagers(sb: any, projectId: string, prefKey: string, title
       .in("user_id", Array.from(userIds))
       .eq(prefKey, true);
 
-    const targets = (prefs || []).map((p: any) => p.user_id);
+    const targets = (prefs || []).map((p) => p.user_id);
     for (const uid of targets) {
       await sb.functions.invoke("send-push", { body: { user_id: uid, title, message } });
     }
@@ -149,32 +152,32 @@ serve(async (req) => {
     const expertDocIds: string[] = d.expert_doc_ids || [];
     const allDocs = docsRes.data || [];
     const sharedDocs = expertDocIds.length > 0
-      ? allDocs.filter((doc: any) => expertDocIds.includes(doc.id))
+      ? allDocs.filter((doc) => expertDocIds.includes(doc.id))
       : [];
 
-    const tasks = (taskRes.data || []).map((t: any) => {
-      const checklist = t.checklist || [];
+    const tasks = (taskRes.data || []).map((t) => {
+      const checklist: unknown[] = Array.isArray(t.checklist) ? t.checklist : [];
       return {
         id: t.id, title: t.title, priority: t.priority, due_date: t.due_date,
         column_id: t.column_id, checklist_total: checklist.length,
-        checklist_done: checklist.filter((c: any) => c.done).length,
+        checklist_done: checklist.filter((c) => record(c).done).length,
       };
     });
 
     const adAccounts = adsRes.data || [];
-    const activeAds = adAccounts.filter((a: any) => a.is_active);
+    const activeAds = adAccounts.filter((a) => a.is_active);
     const waCampaigns = waCampRes.data || [];
 
     const operational_status = {
       ads_connected: adAccounts.length > 0,
       ads_active: activeAds.length,
-      ads_accounts: adAccounts.map((a: any) => ({ platform: a.platform, name: a.account_name, active: a.is_active })),
+      ads_accounts: adAccounts.map((a) => ({ platform: a.platform, name: a.account_name, active: a.is_active })),
       wa_campaigns_active: waCampaigns.length,
-      wa_campaigns: waCampaigns.map((c: any) => ({ name: c.name })),
+      wa_campaigns: waCampaigns.map((c) => ({ name: c.name })),
     };
 
     const avatarRaw = typeof project.avatar === "string" ? JSON.parse(project.avatar) : (project.avatar || {});
-    const avatarSummary: any = {};
+    const avatarSummary: { perfil_psicologico?: unknown; dores?: unknown[]; desejos?: unknown[]; gatilhos?: unknown[]; voyerismos?: unknown[]; problemas?: unknown[]; desejo_externo?: unknown; desejo_interno?: unknown; inimigo?: unknown; resultado_sonhado?: unknown; camadas_psique?: unknown } = {};
     if (avatarRaw.perfil_psicologico) avatarSummary.perfil_psicologico = avatarRaw.perfil_psicologico;
     if (avatarRaw.dores && Array.isArray(avatarRaw.dores) && avatarRaw.dores.length > 0) avatarSummary.dores = avatarRaw.dores.slice(0, 10);
     if (avatarRaw.desejos && Array.isArray(avatarRaw.desejos) && avatarRaw.desejos.length > 0) avatarSummary.desejos = avatarRaw.desejos.slice(0, 10);
@@ -190,8 +193,8 @@ serve(async (req) => {
     // Build chat messages from logs (action=message OR manager_message)
     const allLogs = logsRes.data || [];
     const chatMessages = allLogs
-      .filter((l: any) => l.action === "message" || l.action === "manager_message")
-      .map((l: any) => ({
+      .filter((l) => l.action === "message" || l.action === "manager_message")
+      .map((l) => ({
         id: l.id,
         from: l.action === "manager_message" ? "manager" : "expert",
         content: l.metadata?.content || "",
@@ -212,13 +215,13 @@ serve(async (req) => {
       brand_kit: project.brand_kit || {},
       events: evRes.data || [],
       tasks,
-      processes: (procRes.data || []).map((p: any) => ({
+      processes: (procRes.data || []).map((p) => ({
         id: p.id, title: p.title || p.name, steps: p.steps || [],
       })),
       operational_status,
       expert_logs: allLogs,
       chat_messages: chatMessages,
-      shared_docs: sharedDocs.map((doc: any) => ({
+      shared_docs: sharedDocs.map((doc) => ({
         id: doc.id,
         title: doc.title,
         content: doc.content,
@@ -227,8 +230,8 @@ serve(async (req) => {
     };
 
     return jsonRes(response);
-  } catch (e: any) {
+  } catch (e) {
     console.error("expert-portal error:", e);
-    return jsonRes({ error: e.message || "Erro interno" }, 500);
+    return jsonRes({ error: (e instanceof Error ? e.message : record(e).message) || "Erro interno" }, 500);
   }
 });

@@ -7,12 +7,12 @@ import { Target, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Metas() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<Array<{ id: string; nome: string; meta: number; receita: number; pct: number; projecao: number; cor: string }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const sb: any = supabase;
+      const sb = supabase;
       const now = new Date();
       const ano = now.getFullYear();
       const mes = now.getMonth() + 1;
@@ -22,14 +22,14 @@ export default function Metas() {
       const { data: goals } = await sb.from("imphq_project_goals").select("*").eq("ano", ano).eq("mes", mes);
       const { data: vendas } = await sb.from("imphq_vendas").select("project_id, valor").eq("status", "aprovado").gte("created_at", monthStart);
 
-      const goalMap = new Map((goals || []).map((g: any) => [g.project_id, g]));
+      const goalMap = new Map((goals || []).map((g) => [g.project_id, g]));
       const vendasMap = new Map<string, number>();
-      (vendas || []).forEach((v: any) => {
+      (vendas || []).forEach((v) => {
         vendasMap.set(v.project_id, (vendasMap.get(v.project_id) || 0) + (Number(v.valor) || 0));
       });
 
-      const result = (projects || []).map((p: any) => {
-        const g: any = goalMap.get(p.id);
+      const result = (projects || []).map((p) => {
+        const g = goalMap.get(p.id);
         const receita = vendasMap.get(p.id) || 0;
         const meta = Number(g?.meta_receita) || 0;
         const pct = meta > 0 ? Math.min(100, (receita / meta) * 100) : 0;

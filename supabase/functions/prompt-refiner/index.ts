@@ -1,4 +1,5 @@
 // Refines a hyper-realistic image prompt using Lovable AI Gateway.
+import { requireUser } from "../_shared/require-auth.ts";
 // Input: { prompt: string, target?: "midjourney"|"dalle"|"firefly"|"sora", briefing?: string }
 // Output: { refined: string }
 
@@ -11,6 +12,9 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const { prompt, target = "midjourney", briefing = "", mode = "compact" } = await req.json();
@@ -65,8 +69,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ refined }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "erro" }), {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : "erro";
+    return new Response(JSON.stringify({ error: message || "erro" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +31,7 @@ export default function FlowROIDashboard({ projectId }: Props) {
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState(30);
 
-  const fetchROI = async () => {
+  const fetchROI = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
     try {
@@ -41,15 +42,15 @@ export default function FlowROIDashboard({ projectId }: Props) {
       });
       if (error) throw error;
       setRows((data as ROIRow[]) || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[FlowROIDashboard]", err);
-      toast.error("Erro ao carregar ROI dos fluxos: " + err.message);
+      toast.error("Erro ao carregar ROI dos fluxos: " + errorMessage(err));
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, period]);
 
-  useEffect(() => { fetchROI(); }, [projectId, period]);
+  useEffect(() => { fetchROI(); }, [fetchROI]);
 
   const totalRevenue = rows.reduce((s, r) => s + Number(r.revenue_total), 0);
   const totalConversions = rows.reduce((s, r) => s + Number(r.conversions), 0);

@@ -1,3 +1,5 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -13,15 +15,15 @@ const PIPELINE_KEYS = [
 ];
 
 interface Props {
-  project: any;
-  onUpdatePipeline: (pipeline: any) => void;
-  onUpdateData: (data: any) => void;
+  project: Pick<Tables<"imphq_projects">, "data" | "pipeline">;
+  onUpdatePipeline: (pipeline: Json) => void;
+  onUpdateData: (data: Json) => void;
 }
 
 export function ProjetoPipeline({ project, onUpdatePipeline, onUpdateData }: Props) {
-  const pipeline = project.pipeline || {};
-  const data = project.data || {};
-  const notes = data.pipeline_notes || {};
+  const pipeline = jsonFields(project.pipeline);
+  const data = jsonFields(project.data);
+  const notes = jsonFields(data.pipeline_notes);
 
   const updateVal = (key: string, val: number) => {
     onUpdatePipeline({ ...pipeline, [key]: val });
@@ -34,7 +36,7 @@ export function ProjetoPipeline({ project, onUpdatePipeline, onUpdateData }: Pro
   return (
     <div className="space-y-4">
       {PIPELINE_KEYS.map((p) => {
-        const val = pipeline[p.key] ?? 0;
+        const val = jsonNumber(pipeline[p.key]) ?? 0;
         return (
           <Card key={p.key} className="bg-card border-border">
             <CardHeader className="pb-2">
@@ -54,7 +56,7 @@ export function ProjetoPipeline({ project, onUpdatePipeline, onUpdateData }: Pro
               <div>
                 <Label className="text-xs text-muted-foreground">Notas</Label>
                 <Textarea
-                  value={notes[p.key] || ""}
+                  value={jsonText(notes[p.key]) || ""}
                   onChange={(e) => updateNote(p.key, e.target.value)}
                   className="bg-secondary text-sm min-h-[50px]"
                   placeholder="Observações desta etapa..."

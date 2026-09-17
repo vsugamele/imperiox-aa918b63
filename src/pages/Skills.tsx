@@ -1,9 +1,12 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { parseProjectData } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -136,7 +139,7 @@ export default function Skills() {
   // Execute skill states
   const [showExecute, setShowExecute] = useState(false);
   const [executeSkill, setExecuteSkill] = useState<Skill | null>(null);
-  const [execProjects, setExecProjects] = useState<any[]>([]);
+  const [execProjects, setExecProjects] = useState<Pick<Tables<"imphq_projects">, "id" | "name" | "data">[]>([]);
   const [execProjectId, setExecProjectId] = useState("");
   const [execProduto, setExecProduto] = useState("");
   const [execModel, setExecModel] = useState("google/gemini-3-flash-preview");
@@ -149,7 +152,7 @@ export default function Skills() {
   useEffect(() => {
     if (!user) return;
     supabase.from("imphq_skills").select("*").order("created_at").then(({ data }) => {
-      setCustomSkills((data || []).map((s: any) => ({
+      setCustomSkills((data || []).map((s) => ({
         id: s.id, nome: s.nome, descricao: s.descricao,
         categoria: s.categoria as Categoria, status: s.status as Status,
         icone: s.icone || "Zap",
@@ -281,10 +284,10 @@ export default function Skills() {
   const onExecProjectChange = (pid: string) => {
     setExecProjectId(pid);
     setExecProduto("");
-    const proj = execProjects.find((p: any) => p.id === pid);
+    const proj = execProjects.find((p) => p.id === pid);
     if (proj) {
-      const d = typeof proj.data === "string" ? JSON.parse(proj.data) : (proj.data || {});
-      const prods = (d.produtos || []).map((p: any) => p.nome || p.name).filter(Boolean);
+      const d = parseProjectData(proj.data);
+      const prods = (d.produtos || []).map((p) => p.nome || p.name).filter(Boolean);
       setExecProdutos(prods);
     } else {
       setExecProdutos([]);
@@ -390,8 +393,8 @@ export default function Skills() {
       if (outputData) {
         setLastOutputId(outputData.id);
       }
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao executar skill");
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Erro ao executar skill");
     } finally {
       setExecLoading(false);
     }
@@ -434,8 +437,8 @@ export default function Skills() {
               try {
                 await downloadAllSkillsZip(allSkills);
                 toast.success("Pacote pronto!", { description: "Arraste cada .zip em Claude → Settings → Capabilities → Skills" });
-              } catch (e: any) {
-                toast.error("Falha ao gerar pacote", { description: e.message });
+              } catch (e: unknown) {
+                toast.error("Falha ao gerar pacote", { description: errorMessage(e) });
               }
             }}
           >
@@ -544,7 +547,7 @@ export default function Skills() {
               {showDetail.system_prompt && (() => {
                   // Parse sections from the system prompt
                   const sections = parsePromptSections(showDetail.system_prompt);
-                  const sectionIcons: Record<string, any> = {
+                  const sectionIcons: Record<string, LucideIcon> = {
                     "IDENTIDADE": Brain, "IDENTITY": Brain, "QUEM": Brain, "PERSONA": Brain,
                     "INSTRUÇÕES": FileText, "INSTRUCTIONS": FileText, "REGRAS": FileText, "RULES": FileText, "COMO": FileText,
                     "OUTPUT": Terminal, "SAÍDA": Terminal, "FORMATO": Terminal, "FORMAT": Terminal, "ENTREGA": Terminal,
@@ -552,7 +555,7 @@ export default function Skills() {
                     "CONTEXTO": Info, "CONTEXT": Info, "BACKGROUND": Info,
                   };
                   const getSectionIcon = (title: string) => {
-                    const upper = title.toUpperCase().replace(/[#\s*→\-]/g, " ").trim();
+                    const upper = title.toUpperCase().replace(/[#\s*→-]/g, " ").trim();
                     for (const [key, icon] of Object.entries(sectionIcons)) {
                       if (upper.includes(key)) return icon;
                     }
@@ -735,7 +738,7 @@ export default function Skills() {
               <Label>Projeto</Label>
               <Select value={execProjectId} onValueChange={onExecProjectChange}>
                 <SelectTrigger><SelectValue placeholder="Selecione o projeto..." /></SelectTrigger>
-                <SelectContent>{execProjects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{execProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             {execProdutos.length > 0 && (
@@ -943,8 +946,8 @@ function SkillGrid({ grouped, onDetail, onEdit, onDelete }: {
                             try {
                               await downloadSkillZip(skill);
                               toast.success("Skill baixada!", { description: "Arraste em Claude → Settings → Capabilities → Skills" });
-                            } catch (err: any) {
-                              toast.error("Falha no download", { description: err.message });
+                            } catch (err: unknown) {
+                              toast.error("Falha no download", { description: errorMessage(err) });
                             }
                           }}
                         >

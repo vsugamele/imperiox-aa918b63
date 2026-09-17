@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
-  const json = (data: any, status = 200) =>
+  const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
@@ -68,9 +68,9 @@ Deno.serve(async (req) => {
           supabase.from("imphq_kanban_cards").select("id, board, priority").contains("tags", [projectId]),
           supabase.from("imphq_project_revenue").select("valor").eq("project_id", projectId),
         ]);
-        const totalRevenue = (revenueRes.data || []).reduce((s: number, r: any) => s + (parseFloat(r.valor) || 0), 0);
+        const totalRevenue = (revenueRes.data || []).reduce((s: number, r) => s + (parseFloat(r.valor) || 0), 0);
         const leadsByStatus: Record<string, number> = {};
-        (leadsRes.data || []).forEach((l: any) => {
+        (leadsRes.data || []).forEach((l) => {
           leadsByStatus[l.status || "lead"] = (leadsByStatus[l.status || "lead"] || 0) + 1;
         });
         return json({
@@ -113,16 +113,16 @@ Deno.serve(async (req) => {
         if (error) throw error;
 
         // Buscar nomes de projetos para enriquecer resposta
-        const projectIds = Array.from(new Set((vendas || []).map((v: any) => v.project_id).filter(Boolean)));
+        const projectIds = Array.from(new Set((vendas || []).map((v) => v.project_id).filter(Boolean)));
         const projectsMap: Record<string, string> = {};
         if (projectIds.length > 0) {
           const { data: projs } = await supabase.from("imphq_projects").select("id,name").in("id", projectIds);
-          (projs || []).forEach((p: any) => { projectsMap[p.id] = p.name; });
+          (projs || []).forEach((p) => { projectsMap[p.id] = p.name; });
         }
 
         // Agrupar por (project_id, produto_nome)
-        const agg: Record<string, any> = {};
-        (vendas || []).forEach((v: any) => {
+        const agg: Record<string, { project_id: string | null; project_name: string | null; produto_nome: string | null; produto_tipo: string | null; total_vendas: number; vendas_aprovadas: number; receita_total: number; ticket_medio: number; ultima_venda: string | null }> = {};
+        (vendas || []).forEach((v) => {
           const key = `${v.project_id || "sem_projeto"}::${v.produto_nome}`;
           if (!agg[key]) {
             agg[key] = {
@@ -146,11 +146,11 @@ Deno.serve(async (req) => {
           if (!item.ultima_venda || v.data_venda > item.ultima_venda) item.ultima_venda = v.data_venda;
         });
 
-        const products = Object.values(agg).map((p: any) => ({
+        const products = Object.values(agg).map((p) => ({
           ...p,
           receita_total: Math.round(p.receita_total * 100) / 100,
           ticket_medio: p.vendas_aprovadas > 0 ? Math.round((p.receita_total / p.vendas_aprovadas) * 100) / 100 : 0,
-        })).sort((a: any, b: any) => b.receita_total - a.receita_total);
+        })).sort((a, b) => b.receita_total - a.receita_total);
 
         return json({ success: true, total: products.length, products });
       }
@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
       if (action === "update_card") {
         const { card_id, title, description, priority, tags, due_date, assigned_to } = body;
         if (!card_id) throw new Error("card_id is required");
-        const payload: any = {};
+        const payload: { title?: string | null; description?: string | null; priority?: string | null; tags?: string[] | null; due_date?: string | null; assigned_to?: string | null } = {};
         if (title !== undefined) payload.title = title;
         if (description !== undefined) payload.description = description;
         if (priority !== undefined) payload.priority = priority;
@@ -307,7 +307,7 @@ Deno.serve(async (req) => {
       if (action === "update_lead") {
         const { lead_id, status, tags, nome, email, phone, data: leadData } = body;
         if (!lead_id) throw new Error("lead_id is required");
-        const payload: any = {};
+        const payload: { status?: string | null; tags?: string[] | null; nome?: string | null; email?: string | null; phone?: string | null; data?: unknown } = {};
         if (status !== undefined) payload.status = status;
         if (tags !== undefined) payload.tags = tags;
         if (nome !== undefined) payload.nome = nome;
@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
         DELETE: ["delete_card"],
       }
     }, 400);
-  } catch (err: any) {
-    return json({ error: err.message }, 500);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : err && typeof err === "object" && "message" in err ? err.message : undefined }, 500);
   }
 });

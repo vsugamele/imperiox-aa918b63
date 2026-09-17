@@ -4,10 +4,17 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ProactiveAlertsBell } from "@/components/ProactiveAlertsBell";
+
 import { PushOptIn } from "@/components/PushOptIn";
 import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
+import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
+import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
+import { MobilePushNudge } from "@/components/mobile/MobilePushNudge";
+import { useIsMobile } from "@/hooks/use-mobile";
+
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 
@@ -29,6 +36,9 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   financas: { kicker: "Capital", title: "Finanças" },
   gerenciador: { kicker: "Mídia paga", title: "Gerenciador" },
   funis: { kicker: "Estrutura", title: "Funis" },
+  "funis/linfaflow-x1": { kicker: "Conversão", title: "LinfaFlow X1" },
+  "funis/linfaflow-x1-ready": { kicker: "Conversão", title: "LinfaFlow X1 Ready" },
+  "funis/linfaflow-care": { kicker: "Conversão", title: "LinfaFlow Care Room" },
   metas: { kicker: "Norte", title: "Metas" },
   cohort: { kicker: "Análise", title: "Cohort & LTV" },
   nutricao: { kicker: "E-mail", title: "Nutrição" },
@@ -59,8 +69,10 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
 
 function EditorialBreadcrumb() {
   const { pathname } = useLocation();
-  const first = pathname.split("/").filter(Boolean)[0] || "dashboard";
-  const meta = ROUTE_META[first] || { kicker: "Imperio HQ", title: first };
+  const parts = pathname.split("/").filter(Boolean);
+  const first = parts[0] || "dashboard";
+  const compound = parts.slice(0, 2).join("/");
+  const meta = ROUTE_META[compound] || ROUTE_META[first] || { kicker: "Imperio HQ", title: first };
   return (
     <div className="hidden md:flex items-baseline gap-2 min-w-0">
       <span className="text-[9px] uppercase tracking-[0.28em] text-gold/70 shrink-0">
@@ -92,7 +104,7 @@ function CmdKHint() {
       const n = parseInt(localStorage.getItem(CMDK_LS_KEY) || "0", 10);
       localStorage.setItem(CMDK_LS_KEY, String(n + 1));
       if (n + 1 >= 5) setTimeout(() => setVisible(false), 8000);
-    } catch {}
+    } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   }, [visible]);
 
   if (!visible) return null;
@@ -104,7 +116,11 @@ function CmdKHint() {
   );
 }
 
+// Preferência de view persistente (compartilhada com ProtectedRoute e MobileCockpit)
+const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
+
 export function AppLayout() {
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem(SIDEBAR_LS_KEY);
@@ -112,35 +128,47 @@ export function AppLayout() {
   });
 
   useEffect(() => {
-    try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch {}
+    try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   }, [open]);
+
+  // Mobile auto-redirect removido — app desktop agora responsivo no celular.
+  // Cockpit continua acessível via /mobile-cockpit se o usuário quiser.
+
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="relative h-14 flex items-center px-4 shrink-0 bg-background/70 backdrop-blur-xl sticky top-0 z-10 gap-3">
-            <SidebarTrigger className="text-muted-foreground/60 hover:text-gold transition-colors" />
-            <div className="h-5 w-px bg-border/60" />
+          <header className="relative h-14 flex items-center px-3 md:px-4 shrink-0 bg-background/70 backdrop-blur-xl sticky top-0 z-10 gap-2 md:gap-3" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+            <SidebarTrigger className="text-muted-foreground/60 hover:text-gold transition-colors h-10 w-10 md:h-8 md:w-8" />
+            <div className="hidden md:block h-5 w-px bg-border/60" />
             <EditorialBreadcrumb />
-            <div className="flex-1 flex justify-center px-4 max-w-2xl mx-auto">
+            <div className="hidden md:flex flex-1 justify-center px-4 max-w-2xl mx-auto">
               <GlobalSearch />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 md:gap-2">
               <CmdKHint />
               <CommandPalette />
               <ActionInbox />
               <PushOptIn />
+              <ProactiveAlertsBell />
               <NotificationBell />
             </div>
+
             <div className="header-hairline" />
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">
+          {isMobile && <MobilePushNudge />}
+          <main
+            className="flex-1 overflow-auto p-3 md:p-6"
+            style={{ paddingBottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
             <Outlet />
           </main>
         </div>
-        <CopilotFab />
+        {!isMobile && <CopilotFab />}
+        <ImperiusRail />
+        {isMobile && <MobileBottomNav />}
       </div>
     </SidebarProvider>
   );

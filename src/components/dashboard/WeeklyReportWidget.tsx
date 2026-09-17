@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 /**
  * WeeklyReportWidget — Exibe o último relatório semanal gerado
  * Lê o evento `weekly_report_generated` mais recente de imphq_events
@@ -56,8 +57,8 @@ export function WeeklyReportWidget({ projectFilter }: WeeklyReportWidgetProps) {
       } else {
         setReport(null);
       }
-    } catch (e: any) {
-      console.error("WeeklyReportWidget:", e.message);
+    } catch (e: unknown) {
+      console.error("WeeklyReportWidget:", errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -73,8 +74,8 @@ export function WeeklyReportWidget({ projectFilter }: WeeklyReportWidgetProps) {
       if (error) throw error;
       toast.success("Relatório gerado! Atualizando...");
       setTimeout(loadReport, 2000);
-    } catch (e: any) {
-      toast.error("Erro ao gerar relatório: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao gerar relatório: " + errorMessage(e));
     } finally {
       setTriggering(false);
     }

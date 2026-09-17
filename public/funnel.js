@@ -64,18 +64,12 @@
     UTM_KEYS.forEach(function (k) { if (utms[k]) payload[k] = utms[k]; });
     if (extra) Object.keys(extra).forEach(function (k) { payload[k] = extra[k]; });
 
-    try {
-      if (navigator.sendBeacon) {
-        var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-        navigator.sendBeacon(ENDPOINT, blob);
-        return;
-      }
-    } catch (e) {}
     fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       keepalive: true,
+      credentials: "omit",
     }).catch(function () {});
   }
 

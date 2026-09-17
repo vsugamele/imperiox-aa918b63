@@ -1,20 +1,22 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, ExternalLink, Link } from "lucide-react";
 
-interface LinkItem { label: string; url: string; }
+type LinkItem = { label: string; url: string; };
 
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Pick<Tables<"imphq_projects">, "data">;
+  onUpdateData: (data: Json) => void;
 }
 
 export function ProjetoLinks({ project, onUpdateData }: Props) {
-  const data = project.data || {};
+  const data = jsonFields(project.data);
   const rawLinks = data.links;
-  const links: LinkItem[] = Array.isArray(rawLinks) ? rawLinks : [];
+  const links: LinkItem[] = Array.isArray(rawLinks) ? rawLinks.flatMap(value => { const link = jsonFields(value); return typeof link.label === "string" && typeof link.url === "string" ? [{ label: link.label, url: link.url }] : []; }) : [];
   const [newLabel, setNewLabel] = useState("");
   const [newUrl, setNewUrl] = useState("");
 

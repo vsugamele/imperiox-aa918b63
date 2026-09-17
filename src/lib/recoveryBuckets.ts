@@ -6,9 +6,9 @@ export type RecoveryChannel = "whatsapp" | "email";
 export type RecoveryBucketId = "pix_urgent" | "pix_cooling" | "boleto_due" | "abandoned_cart" | "refunds";
 export type RecoveryTemplateType = "pix_2h" | "pix_24h" | "boleto" | "carrinho" | "reembolso";
 
-type SaleRow = Database["public"]["Tables"]["imphq_vendas"]["Row"];
-type LeadRow = Database["public"]["Tables"]["imphq_leads"]["Row"];
-type RecoveryLogRow = Database["public"]["Tables"]["imphq_recovery_logs"]["Row"];
+type SaleRow = Pick<Database["public"]["Tables"]["imphq_vendas"]["Row"], "id" | "project_id" | "lead_id" | "produto_nome" | "status" | "valor" | "created_at" | "data_venda" | "data">;
+type LeadRow = Pick<Database["public"]["Tables"]["imphq_leads"]["Row"], "id" | "project_id" | "nome" | "email" | "phone" | "status" | "criado_em" | "updated_at" | "data">;
+type RecoveryLogRow = Pick<Database["public"]["Tables"]["imphq_recovery_logs"]["Row"], "id" | "project_id" | "lead_id" | "venda_id" | "bucket" | "status" | "valor" | "created_at"> & Partial<Pick<Database["public"]["Tables"]["imphq_recovery_logs"]["Row"], "acao">>;
 type RecoveryTemplateRow = Database["public"]["Tables"]["imphq_recovery_templates"]["Row"];
 
 export interface RecoveryItem {

@@ -1,5 +1,9 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
-import { MessageCircle, ExternalLink, Zap, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { MessageCircle, MessageSquare, ExternalLink, Zap, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,22 +28,25 @@ interface Automation {
 }
 
 interface Props {
-  lead: any;
+  lead: { id: string; project_id?: string | null; nome?: string; email?: string | null; phone?: string | null; data?: Json };
   automations: Automation[];
 }
 
 export default function LeadActionsMenu({ lead, automations }: Props) {
   const [running, setRunning] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const projectAutomations = (automations || []).filter(
     (a) => a.ativo && (!a.project_id || a.project_id === lead.project_id),
   );
 
-  const waUrl = lead.phone
-    ? `https://wa.me/${(() => {
-        const d = String(lead.phone).replace(/\D/g, "");
-        return d.startsWith("55") ? d : "55" + d;
-      })()}`
+  const phoneDigits = lead.phone ? String(lead.phone).replace(/\D/g, "") : "";
+  const normalizedPhone = phoneDigits
+    ? (phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits)
+    : "";
+  const waUrl = normalizedPhone ? `https://wa.me/${normalizedPhone}` : null;
+  const internalChatUrl = normalizedPhone
+    ? `/inbox?tab=whatsapp&phone=${normalizedPhone}${lead.project_id ? `&project=${lead.project_id}` : ""}`
     : null;
 
   const runAutomation = async (auto: Automation) => {
@@ -59,7 +66,7 @@ export default function LeadActionsMenu({ lead, automations }: Props) {
             nome: lead.nome,
             email: lead.email,
             phone: lead.phone,
-            produto: (lead.data as any)?.ultimo_produto,
+            produto: jsonFields(lead.data).ultimo_produto,
           },
         },
       });
@@ -67,8 +74,8 @@ export default function LeadActionsMenu({ lead, automations }: Props) {
       toast.success(`Automação "${auto.nome}" disparada.`, {
         description: data?.executed ? `${data.executed} step(s) executados.` : undefined,
       });
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao disparar automação.");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao disparar automação.");
     } finally {
       setRunning(null);
     }
@@ -97,11 +104,17 @@ export default function LeadActionsMenu({ lead, automations }: Props) {
       >
         <DropdownMenuLabel className="text-[11px]">Ações no lead</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {internalChatUrl ? (
+          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); navigate(internalChatUrl); }} className="cursor-pointer">
+            <MessageSquare className="h-3.5 w-3.5 mr-2 text-primary" />
+            Abrir chat interno
+          </DropdownMenuItem>
+        ) : null}
         {waUrl ? (
           <DropdownMenuItem asChild>
             <a href={waUrl} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
               <ExternalLink className="h-3.5 w-3.5 mr-2 text-emerald-400" />
-              Abrir WhatsApp
+              Abrir wa.me
             </a>
           </DropdownMenuItem>
         ) : (

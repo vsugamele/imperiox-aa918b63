@@ -69,7 +69,7 @@ export function AcoesHistorico({ projectId }: { projectId?: string }) {
           .or(`ad_id.in.(${entityIds.map(e => `"${e}"`).join(",")}),adset_id.in.(${entityIds.map(e => `"${e}"`).join(",")}),campaign_id.in.(${entityIds.map(e => `"${e}"`).join(",")})`)
           .limit(5000);
 
-        const rows = (spendRows || []) as any[];
+        const rows = spendRows || [];
         const map: Record<string, Impact> = {};
         for (const a of list) {
           const t = new Date(a.created_at).getTime();
@@ -82,8 +82,8 @@ export function AcoesHistorico({ projectId }: { projectId?: string }) {
           const before = entRows.filter(r => r.data_ref >= beforeStart && r.data_ref <= beforeEnd);
           const after = entRows.filter(r => r.data_ref >= afterStart && r.data_ref <= afterEnd);
 
-          const avgCtr = (arr: any[]) => arr.length ? arr.reduce((s, r) => s + Number(r.ctr ?? 0), 0) / arr.length : 0;
-          const sumSpend = (arr: any[]) => arr.reduce((s, r) => s + Number(r.valor ?? 0), 0);
+          const avgCtr = (arr: typeof rows) => arr.length ? arr.reduce((s, r) => s + Number(r.ctr ?? 0), 0) / arr.length : 0;
+          const sumSpend = (arr: typeof rows) => arr.reduce((s, r) => s + Number(r.valor ?? 0), 0);
 
           map[a.id] = {
             spendBefore: sumSpend(before),

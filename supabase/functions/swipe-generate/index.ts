@@ -1,5 +1,12 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 // Swipe File — Motor de geração: variations | extract_template | bulk_campaign
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireUser } from "../_shared/require-auth.ts";
+
+function makeClient(url: string, key: string) { return createClient(url, key); }
+const ProjectContext = z.object({ produtos: z.array(z.object({ id: z.string().nullish(), nome: z.string().nullish() }).passthrough()).nullish(), avatar: z.unknown(), branding: z.unknown() }).passthrough();
+const GeneratedCopy = z.object({ title: z.string().nullish(), blocks: z.record(z.unknown()).nullish(), source_index: z.number().optional() }).passthrough();
+const GeneratedCopies = z.object({ variations: z.array(GeneratedCopy).nullish(), copies: z.array(GeneratedCopy).nullish() }).passthrough();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +17,7 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function callAI(messages: any[], json = true) {
+async function callAI(messages: { role: string; content: string }[], json = true) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
@@ -25,13 +32,13 @@ async function callAI(messages: any[], json = true) {
   return d.choices?.[0]?.message?.content || "{}";
 }
 
-async function getProjectContext(supabase: any, project_id: string | null, produto_id: string | null) {
+async function getProjectContext(supabase: ReturnType<typeof makeClient>, project_id: string | null, produto_id: string | null) {
   if (!project_id) return "";
   const { data: p } = await supabase.from("imphq_projects").select("nome, data").eq("id", project_id).single();
   if (!p) return "";
-  const d = typeof p.data === "string" ? JSON.parse(p.data) : (p.data || {});
+  const d = ProjectContext.parse(typeof p.data === "string" ? JSON.parse(p.data) : (p.data || {}));
   const produtos = d.produtos || [];
-  const produto = produto_id ? produtos.find((x: any) => x.id === produto_id || x.nome === produto_id) : produtos[0];
+  const produto = produto_id ? produtos.find((x) => x.id === produto_id || x.nome === produto_id) : produtos[0];
   return `\n\nCONTEXTO DO PROJETO "${p.nome}":
 - Avatar: ${JSON.stringify(d.avatar || {}).slice(0, 1500)}
 - Branding/tom: ${JSON.stringify(d.branding || {}).slice(0, 800)}
@@ -40,6 +47,9 @@ async function getProjectContext(supabase: any, project_id: string | null, produ
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "no auth" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -71,8 +81,8 @@ ${ctx}
 Devolva JSON: { "variations": [ { "title": "...", "blocks": { "gancho":"...", "participacao_ativa":"...", "narrativa":"...", "reframe":"...", "cta_engajamento":"...", "cta_venda":"..." } } ] }` },
       ]);
       const parsed = JSON.parse(out);
-      const variations = parsed.variations || [];
-      const rows = variations.map((v: any) => ({
+      const variations = GeneratedCopies.parse(parsed).variations || [];
+      const rows = variations.map((v) => ({
         user_id: user.id,
         project_id: target_project_id,
         produto_id: target_produto_id,
@@ -88,7 +98,7 @@ Devolva JSON: { "variations": [ { "title": "...", "blocks": { "gancho":"...", "p
         source_swipe_id: swipe.id,
         status: "rascunho",
       }));
-      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows as any).select();
+      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows).select();
       return new Response(JSON.stringify({ ok: true, count: inserted?.length || 0, variations: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -101,7 +111,7 @@ Devolva JSON: { "variations": [ { "title": "...", "blocks": { "gancho":"...", "p
         { role: "user", content: `Analise as copys abaixo e destile a FÓRMULA reutilizável que elas compartilham.
 
 COPYS:
-${swipes.map((s: any, i: number) => `--- COPY ${i + 1}: ${s.title} ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
+${swipes.map((s, i: number) => `--- COPY ${i + 1}: ${s.title} ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
 
 Devolva JSON: { "name": "nome curto", "formula": "descrição em 1 frase", "skeleton": { "gancho": "template com {placeholders}", "participacao_ativa": "...", "narrativa": "...", "reframe": "...", "cta_engajamento": "...", "cta_venda": "..." }, "notes": "quando usar essa fórmula" }` },
       ]);
@@ -113,7 +123,7 @@ Devolva JSON: { "name": "nome curto", "formula": "descrição em 1 frase", "skel
         skeleton: parsed.skeleton || {},
         notes: parsed.notes || "",
         source_swipe_ids: ids,
-      } as any).select().single();
+      }).select().single();
       return new Response(JSON.stringify({ ok: true, template: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -126,7 +136,7 @@ Devolva JSON: { "name": "nome curto", "formula": "descrição em 1 frase", "skel
         { role: "user", content: `Pegue cada copy-fonte abaixo e gere UMA copy nova adaptada ao contexto, mantendo a estrutura única de cada fonte.
 
 COPYS-FONTE:
-${swipes.map((s: any, i: number) => `--- ${i + 1}. ${s.title} (${s.mecanismo || "?"}) ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
+${swipes.map((s, i: number) => `--- ${i + 1}. ${s.title} (${s.mecanismo || "?"}) ---\n${JSON.stringify(s.blocks)}`).join("\n\n")}
 
 BRIEFING: ${briefing || "(nenhum)"}
 ${ctx}
@@ -134,9 +144,9 @@ ${ctx}
 Devolva JSON: { "copies": [ { "source_index": 0, "title": "...", "blocks": {...} }, ... ] }` },
       ]);
       const parsed = JSON.parse(out);
-      const copies = parsed.copies || [];
-      const rows = copies.map((c: any) => {
-        const src = swipes[c.source_index] || swipes[0];
+      const copies = GeneratedCopies.parse(parsed).copies || [];
+      const rows = copies.map((c) => {
+        const src = swipes[c.source_index ?? -1] || swipes[0];
         return {
           user_id: user.id,
           project_id: target_project_id,
@@ -153,13 +163,91 @@ Devolva JSON: { "copies": [ { "source_index": 0, "title": "...", "blocks": {...}
           status: "rascunho",
         };
       });
-      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows as any).select();
+      const { data: inserted } = await supabase.from("imphq_swipes").insert(rows).select();
       return new Response(JSON.stringify({ ok: true, count: inserted?.length || 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (mode === "vsl_from_swipe") {
+      const { data: swipe } = await supabase.from("imphq_swipes").select("*").eq("id", swipe_id).eq("user_id", user.id).single();
+      if (!swipe) throw new Error("Swipe não encontrado");
+      const re = swipe.reverse_engineering || {};
+      const isVsl = (swipe.blocks?.__schema === "vsl7") || (swipe.formato || "").toLowerCase() === "vsl" || re.__schema === "vsl7";
+      if (!isVsl) throw new Error("Esta swipe não está marcada como VSL. Rode a engenharia reversa primeiro com schema VSL.");
+      const ctx = await getProjectContext(supabase, target_project_id, target_produto_id);
+
+      const out = await callAI([
+        { role: "system", content: "Você é um copywriter sênior especializado em VSLs de alto ticket. Sempre devolve JSON válido. Os 7 blocos devem ser texto narrativo e literal, prontos para serem narrados em vídeo (não bullets)." },
+        { role: "user", content: `Use a estrutura de 7 blocos da VSL de referência abaixo como MOTOR e gere uma NOVA VSL completa adaptada ao produto/avatar do contexto. Preserve a fórmula, mas troque exemplos, mecanismo, números, bônus e CTA pelo contexto real.
+
+ESTRUTURA DE 7 BLOCOS:
+B1 Gancho & Interrupção (0:00-1:30)
+B2 Agitação do Problema (1:30-4:00)
+B3 História de Origem & Epifania (4:00-8:30)
+B4 Mecanismo Único (8:30-11:00)
+B5 Revelação da Oferta & Escada de Ancoragem (11:00-14:00)
+B6 Value Stack & Bônus (14:00-17:00)
+B7 Garantia & CTA Final (17:00-19:30)
+
+VSL DE REFERÊNCIA (esqueleto + blocos originais):
+${JSON.stringify({ title: swipe.title, blocks: swipe.blocks, mecanismo: swipe.mecanismo }, null, 2).slice(0, 6000)}
+
+ENGENHARIA REVERSA DA REFERÊNCIA:
+${JSON.stringify(re, null, 2).slice(0, 5000)}
+
+BRIEFING DO USUÁRIO: ${briefing || "(nenhum — use só o contexto do projeto)"}
+${ctx}
+
+Devolva JSON:
+{
+  "title": "título da nova VSL",
+  "promessa_central": "1 frase",
+  "mecanismo_unico": { "nome": "...", "analogia": "...", "pilares": ["..."] },
+  "blocks": {
+    "__schema": "vsl7",
+    "b1_gancho": "texto narrativo completo (200-400 palavras)",
+    "b2_agitacao": "texto narrativo completo (400-700 palavras)",
+    "b3_origem": "texto narrativo completo (600-1000 palavras)",
+    "b4_mecanismo": "texto narrativo completo (400-700 palavras)",
+    "b5_oferta": "texto narrativo completo com escada de ancoragem (300-600 palavras)",
+    "b6_value_stack": "texto narrativo com bônus mapeados a objeções (300-600 palavras)",
+    "b7_garantia_cta": "texto narrativo com garantia + CTA + urgência (200-400 palavras)"
+  }
+}` },
+      ]);
+      const parsed = JSON.parse(out);
+      const newBlocks = { ...(parsed.blocks || {}), __schema: "vsl7" };
+      const { data: inserted } = await supabase
+        .from("imphq_swipes")
+        .insert({
+          user_id: user.id,
+          project_id: target_project_id,
+          produto_id: target_produto_id,
+          title: parsed.title || `VSL gerada de ${swipe.title}`,
+          plataforma: "LP",
+          formato: "VSL",
+          mecanismo: parsed.mecanismo_unico?.nome || swipe.mecanismo,
+          gatilhos: swipe.gatilhos,
+          nicho: swipe.nicho,
+          tags: ["vsl-gerada", "motor"],
+          blocks: newBlocks,
+          source_swipe_id: swipe.id,
+          status: "rascunho",
+          reverse_engineering: {
+            __schema: "vsl7",
+            promessa_central: parsed.promessa_central,
+            mecanismo_unico: parsed.mecanismo_unico,
+            origem: `Gerada a partir de "${swipe.title}"`,
+          },
+        })
+        .select()
+        .single();
+      return new Response(JSON.stringify({ ok: true, swipe: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ error: "mode inválido" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[swipe-generate]", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
+

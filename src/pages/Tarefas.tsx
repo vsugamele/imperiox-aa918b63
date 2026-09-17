@@ -1,7 +1,10 @@
+import { processPayload } from "@/lib/tarefas-data";
+import { record, toJson } from "@/lib/funis-data";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,9 +26,14 @@ import {
   CalendarDays, AlertTriangle, Clock, Plus, CheckCircle2,
   Flame, ListTodo, Trash2, User, FileDown, FileSpreadsheet,
   RotateCcw, Users, UserCircle, MoreVertical, Pencil, ArrowRightLeft, CalendarIcon,
-  BookOpen, GripVertical, MessageSquare, Kanban
+  BookOpen, GripVertical, MessageSquare, Kanban, ChevronDown, ChevronUp
 } from "lucide-react";
-import Chat from "./Chat";
+import { EditorialHeader } from "@/components/dashboard/cockpit/EditorialHeader";
+import { ProjectSellingGrid } from "@/components/dashboard/cockpit/ProjectSellingGrid";
+import { DecisionQueue } from "@/components/dashboard/cockpit/DecisionQueue";
+import { BlendedFunnelStrip } from "@/components/dashboard/cockpit/BlendedFunnelStrip";
+import { OperationsFooter } from "@/components/dashboard/cockpit/OperationsFooter";
+import Chat from "@/pages/Chat";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -35,7 +43,7 @@ import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toLocalDateStr } from "@/lib/periodUtils";
 
-const KanbanPage = lazy(() => import("./KanbanPage"));
+const KanbanPage = lazy(() => import("@/pages/KanbanPage"));
 const KanbanLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -82,6 +90,7 @@ interface Routine {
   id: string;
   user_id: string;
   title: string;
+  description?: string | null;
   category: string;
   member_id?: string | null;
   project_id?: string | null;
@@ -89,6 +98,10 @@ interface Routine {
   position: number;
   is_active: boolean;
   created_at: string;
+  start_date?: string | null;
+  recurrence?: string | null; // 'daily' | 'weekdays'
+  weekdays?: number[] | null;
+  time_of_day?: string | null;
 }
 
 interface RoutineCheck {
@@ -98,6 +111,9 @@ interface RoutineCheck {
   checked_by?: string;
   checked_at: string;
 }
+
+  type Process = Omit<Tables<"imphq_processes">, "steps"> & { steps: { text: string; done: boolean }[]; horario?: string; referencias?: { tipo: "imagem" | "link"; url: string; label?: string }[] };
+  const parseProcess = (row: Tables<"imphq_processes">): Process => ({ ...row, steps: Array.isArray(row.steps) ? row.steps.map(value => { const step = record(value); return { ...step, text: typeof step.text === "string" ? step.text : "", done: !!step.done }; }) : [] });
 
 const DONE_TITLES = ["feito", "done", "concluído", "concluido"];
 const FIRST_COL_TITLES = ["backlog", "a fazer", "to do", "todo"];
@@ -125,9 +141,17 @@ export default function Tarefas() {
   const [params, setParams] = useSearchParams();
   const viewParam = params.get("view");
   const { user } = useAuth();
+  const [cockpitOpen, setCockpitOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("cockpit.open");
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    try { localStorage.setItem("cockpit.open", cockpitOpen ? "1" : "0"); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
+  }, [cockpitOpen]);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; icon: string | null }[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState("");
@@ -150,10 +174,10 @@ export default function Tarefas() {
   const [checks, setChecks] = useState<RoutineCheck[]>([]);
   const [showRoutineDialog, setShowRoutineDialog] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
-  const [routineForm, setRoutineForm] = useState({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+  const [routineForm, setRoutineForm] = useState({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none", start_date: "", recurrence: "daily", weekdays: [] as number[], time_of_day: "" });
 
   // Calendar state
-  const [calEvents, setCalEvents] = useState<any[]>([]);
+  const [calEvents, setCalEvents] = useState<(Tables<"imphq_calendar_events"> & { imphq_projects: { name: string; icon: string | null } | null })[]>([]);
   const [calDate, setCalDate] = useState<Date | undefined>(new Date());
   const [calFilterProject, setCalFilterProject] = useState("all");
   const [calFilterType, setCalFilterType] = useState("all");
@@ -161,7 +185,7 @@ export default function Tarefas() {
   const [eventForm, setEventForm] = useState({ title: "", event_date: "", event_type: "general", color: "#6366f1", description: "", project_id: "none" });
 
   // Process state
-  interface Process { id: string; title: string; description?: string; steps: any[]; member_id?: string; project_id?: string; category: string; is_active: boolean; created_at: string; }
+
   const [processes, setProcesses] = useState<Process[]>([]);
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [editingProcess, setEditingProcess] = useState<Process | null>(null);
@@ -190,29 +214,29 @@ export default function Tarefas() {
     const [colRes, cardRes, projRes, memberRes, routineRes, checksRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("id, title, board, position").order("position", { ascending: true }),
       cardQuery,
-      supabase.from("imphq_projects").select("id, name"),
+      supabase.from("imphq_projects").select("id, name, icon"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role").eq("is_active", true),
       supabase.from("imphq_daily_routines").select("*").eq("is_active", true).order("position", { ascending: true }),
       supabase.from("imphq_routine_checks").select("*").eq("check_date", todayStr),
     ]);
-    setColumns((colRes.data as any[]) || []);
-    setCards((cardRes.data as any[]) || []);
-    setProjects((projRes.data as any[]) || []);
-    setMembers((memberRes.data as any[]) || []);
-    setRoutines((routineRes.data as any[]) || []);
-    setChecks((checksRes.data as any[]) || []);
+    setColumns(colRes.data || []);
+    setCards(cardRes.data || []);
+    setProjects(projRes.data || []);
+    setMembers(memberRes.data || []);
+    setRoutines(routineRes.data || []);
+    setChecks(checksRes.data || []);
     // Fetch processes
     const { data: procData } = await supabase.from("imphq_processes").select("*").eq("is_active", true).order("position", { ascending: true });
-    setProcesses((procData as any[]) || []);
+    setProcesses((procData || []).map(parseProcess));
     setLoading(false);
-  }, [todayStr]);
+  }, [todayStr, user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Calendar data
   const fetchCalEvents = useCallback(async () => {
     const { data } = await supabase.from("imphq_calendar_events").select("*, imphq_projects(name, icon)").order("event_date", { ascending: true });
-    setCalEvents((data as any[]) || []);
+    setCalEvents(data || []);
   }, []);
   useEffect(() => { fetchCalEvents(); }, [fetchCalEvents]);
 
@@ -246,7 +270,7 @@ export default function Tarefas() {
       description: eventForm.description,
       project_id: eventForm.project_id !== "none" ? eventForm.project_id : null,
       user_id: user.id,
-    } as any);
+    });
     if (error) { toast.error("Erro ao criar evento"); return; }
     toast.success("Evento criado!");
     setShowEventDialog(false);
@@ -276,28 +300,38 @@ export default function Tarefas() {
         routine_id: routineId,
         check_date: todayStr,
         checked_by: user.id,
-      } as any).select().single();
+      }).select().single();
       if (!error && data) {
-        setChecks(prev => [...prev, data as any]);
+        setChecks(prev => [...prev, data]);
       }
     }
   };
 
   const saveRoutine = async () => {
     if (!user || !routineForm.title.trim()) return;
+    const desc = routineForm.description.trim() || null;
+    const scheduleFields = {
+      start_date: routineForm.start_date || null,
+      recurrence: routineForm.recurrence || "daily",
+      weekdays: routineForm.recurrence === "weekdays" ? routineForm.weekdays : [],
+      time_of_day: routineForm.time_of_day || null,
+    };
     if (editingRoutine) {
       const { error } = await supabase.from("imphq_daily_routines").update({
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
-      } as any).eq("id", editingRoutine.id);
+        ...scheduleFields,
+      }).eq("id", editingRoutine.id);
       if (!error) {
         setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? {
-          ...r, title: routineForm.title.trim(), icon: routineForm.icon, category: routineForm.category,
+          ...r, title: routineForm.title.trim(), description: desc, icon: routineForm.icon, category: routineForm.category,
           member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
           project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
+          ...scheduleFields,
         } : r));
         toast.success("Rotina atualizada");
       }
@@ -305,20 +339,22 @@ export default function Tarefas() {
       const { data, error } = await supabase.from("imphq_daily_routines").insert({
         user_id: user.id,
         title: routineForm.title.trim(),
+        description: desc,
         icon: routineForm.icon,
         category: routineForm.category,
         member_id: routineForm.member_id !== "none" ? routineForm.member_id : null,
         project_id: routineForm.project_id !== "none" ? routineForm.project_id : null,
         position: routines.length,
-      } as any).select().single();
+        ...scheduleFields,
+      }).select().single();
       if (!error && data) {
-        setRoutines(prev => [...prev, data as any]);
+        setRoutines(prev => [...prev, data]);
         toast.success("Rotina criada! ✅");
       }
     }
     setShowRoutineDialog(false);
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category: "team", member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category: "team", member_id: "none", project_id: "none", start_date: "", recurrence: "daily", weekdays: [], time_of_day: "" });
   };
 
   const deleteRoutine = async (id: string) => {
@@ -329,7 +365,7 @@ export default function Tarefas() {
 
   const toggleCategory = async (routine: Routine) => {
     const newCat = routine.category === "team" ? "personal" : "team";
-    await supabase.from("imphq_daily_routines").update({ category: newCat } as any).eq("id", routine.id);
+    await supabase.from("imphq_daily_routines").update({ category: newCat }).eq("id", routine.id);
     setRoutines(prev => prev.map(r => r.id === routine.id ? { ...r, category: newCat } : r));
     toast.success(`Movida para ${newCat === "team" ? "Time" : "Pessoal"}`);
   };
@@ -338,19 +374,39 @@ export default function Tarefas() {
     setEditingRoutine(routine);
     setRoutineForm({
       title: routine.title,
+      description: routine.description || "",
       icon: routine.icon,
       category: routine.category,
       member_id: routine.member_id || "none",
       project_id: routine.project_id || "none",
+      start_date: routine.start_date || "",
+      recurrence: routine.recurrence || "daily",
+      weekdays: routine.weekdays || [],
+      time_of_day: routine.time_of_day || "",
     });
     setShowRoutineDialog(true);
   };
 
-  const openNewRoutine = (category: string = "team") => {
+  const openNewRoutine = (category: string = "team", projectId?: string) => {
     setEditingRoutine(null);
-    setRoutineForm({ title: "", icon: "✅", category, member_id: "none", project_id: "none" });
+    setRoutineForm({ title: "", description: "", icon: "✅", category, member_id: "none", project_id: projectId || "none", start_date: "", recurrence: "daily", weekdays: [], time_of_day: "" });
     setShowRoutineDialog(true);
   };
+
+  // Projeta rotinas no calendário: só rotinas com start_date aparecem
+  const routineOccursOn = (r: Routine, date: Date): boolean => {
+    if (!r.is_active || !r.start_date) return false;
+    const start = parseISO(r.start_date);
+    const d0 = new Date(date); d0.setHours(0, 0, 0, 0);
+    const s0 = new Date(start); s0.setHours(0, 0, 0, 0);
+    if (d0 < s0) return false;
+    if (r.recurrence === "weekdays") {
+      const wds = r.weekdays || [];
+      return wds.length > 0 && wds.includes(d0.getDay());
+    }
+    return true; // daily (default)
+  };
+
 
   // === PROCESSES LOGIC ===
   const filteredProcesses = processes.filter(p => {
@@ -361,16 +417,7 @@ export default function Tarefas() {
 
   const saveProcess = async () => {
     if (!user || !processForm.title.trim()) { toast.error("Título obrigatório"); return; }
-    const payload = {
-      title: processForm.title.trim(),
-      description: processForm.description || null,
-      steps: processForm.steps,
-      category: processForm.category,
-      member_id: processForm.member_id !== "none" ? processForm.member_id : null,
-      project_id: processForm.project_id !== "none" ? processForm.project_id : null,
-      horario: processForm.horario || null,
-      referencias: processForm.referencias.length > 0 ? processForm.referencias : null,
-    } as any;
+    const payload = processPayload(processForm);
 
     if (editingProcess) {
       const { error } = await supabase.from("imphq_processes").update(payload).eq("id", editingProcess.id);
@@ -378,11 +425,9 @@ export default function Tarefas() {
       setProcesses(prev => prev.map(p => p.id === editingProcess.id ? { ...p, ...payload } : p));
       toast.success("Processo atualizado!");
     } else {
-      payload.user_id = user.id;
-      payload.position = processes.length;
-      const { data, error } = await supabase.from("imphq_processes").insert(payload).select().single();
+      const { data, error } = await supabase.from("imphq_processes").insert({ ...payload, user_id: user.id, position: processes.length }).select().single();
       if (error) { toast.error("Erro: " + error.message); return; }
-      setProcesses(prev => [...prev, data as any]);
+      setProcesses(prev => [...prev, parseProcess(data)]);
       toast.success("Processo criado!");
     }
     setShowProcessDialog(false);
@@ -398,7 +443,7 @@ export default function Tarefas() {
 
   const openEditProcess = (proc: Process) => {
     setEditingProcess(proc);
-    const procData = proc as any;
+    const procData = proc;
     setProcessForm({
       title: proc.title, description: proc.description || "",
       steps: Array.isArray(proc.steps) ? proc.steps : [],
@@ -415,7 +460,7 @@ export default function Tarefas() {
   const toggleProcessStepDone = async (proc: Process, stepIndex: number) => {
     const steps = Array.isArray(proc.steps) ? [...proc.steps] : [];
     steps[stepIndex] = { ...steps[stepIndex], done: !steps[stepIndex].done };
-    await supabase.from("imphq_processes").update({ steps } as any).eq("id", proc.id);
+    await supabase.from("imphq_processes").update({ steps }).eq("id", proc.id);
     setProcesses(prev => prev.map(p => p.id === proc.id ? { ...p, steps } : p));
   };
 
@@ -454,13 +499,13 @@ export default function Tarefas() {
     if (done) {
       const firstCol = findFirstColumn(card.board);
       if (!firstCol) { toast.error("Coluna inicial não encontrada"); return; }
-      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: firstCol.id } as any).eq("id", card.id);
+      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: firstCol.id }).eq("id", card.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: firstCol.id } : c));
     } else {
       const doneCol = findDoneColumn(card.board);
       if (!doneCol) { toast.error("Coluna 'Concluído' não encontrada neste board"); return; }
-      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: doneCol.id } as any).eq("id", card.id);
+      const { error } = await supabase.from("imphq_kanban_cards").update({ column_id: doneCol.id }).eq("id", card.id);
       if (error) { toast.error("Erro ao atualizar"); return; }
       setCards(prev => prev.map(c => c.id === card.id ? { ...c, column_id: doneCol.id } : c));
       toast.success("Tarefa concluída! ✅");
@@ -494,11 +539,11 @@ export default function Tarefas() {
         tags: [],
         project_id: newProjectId !== "none" ? newProjectId : null,
         member_id: newMemberId !== "none" ? newMemberId : null,
-      } as any)
+      })
       .select()
       .single();
     if (error) { toast.error("Erro ao criar tarefa"); return; }
-    setCards(prev => [...prev, data as any]);
+    setCards(prev => [...prev, data]);
     // Notificação instantânea
     if (data && user) {
       const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
@@ -506,7 +551,7 @@ export default function Tarefas() {
         if (m.user_id && m.user_id !== user.id) {
           await supabase.from("imphq_notifications").insert({
             user_id: m.user_id, title: `📝 Nova tarefa: ${newTask.trim()}`,
-            type: "tarefa", entity_type: "card", entity_id: (data as any).id,
+            type: "tarefa", entity_type: "card", entity_id: (data).id,
           });
         }
       }
@@ -531,11 +576,11 @@ export default function Tarefas() {
         tags: [],
         project_id: createForm.project_id !== "none" ? createForm.project_id : null,
         member_id: createForm.member_id !== "none" ? createForm.member_id : null,
-      } as any)
+      })
       .select()
       .single();
     if (error) { toast.error("Erro ao criar tarefa"); return; }
-    setCards(prev => [...prev, data as any]);
+    setCards(prev => [...prev, data]);
     // Notificação instantânea
     if (data && user) {
       const otherUsers = (await supabase.from("imphq_team_members").select("user_id").not("user_id", "is", null)).data || [];
@@ -544,7 +589,7 @@ export default function Tarefas() {
           await supabase.from("imphq_notifications").insert({
             user_id: m.user_id, title: `📝 Nova tarefa: ${createForm.title.trim()}`,
             message: createForm.description || null,
-            type: "tarefa", entity_type: "card", entity_id: (data as any).id,
+            type: "tarefa", entity_type: "card", entity_id: (data).id,
           });
         }
       }
@@ -596,6 +641,11 @@ export default function Tarefas() {
           <span className={`text-sm font-medium block ${isChecked ? "line-through text-muted-foreground" : ""}`}>
             {routine.title}
           </span>
+          {routine.description && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug" title={routine.description}>
+              {routine.description}
+            </p>
+          )}
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {projName && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{projName}</Badge>}
             {member && (
@@ -713,6 +763,40 @@ export default function Tarefas() {
 
   return (
     <div className="space-y-6">
+      {/* ═══ COCKPIT DA EMPRESA ═══ */}
+      <section className="border border-border/60 rounded-lg bg-background/40 backdrop-blur-sm">
+        <button
+          onClick={() => setCockpitOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-secondary/20 transition-colors rounded-t-lg"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] tracking-[0.32em] uppercase text-gold/80 font-medium">
+              Cockpit da Empresa
+            </span>
+            <span className="text-[10px] text-muted-foreground/60">
+              {cockpitOpen ? "recolher" : "expandir"}
+            </span>
+          </div>
+          {cockpitOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        {cockpitOpen && (
+          <div className="px-4 pb-4 pt-2 space-y-6 animate-fade-in">
+            <EditorialHeader />
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+              <div className="space-y-6 min-w-0">
+                <ProjectSellingGrid />
+                <BlendedFunnelStrip />
+              </div>
+              <div className="xl:sticky xl:top-16 xl:self-start xl:max-h-[calc(100vh-5rem)]">
+                <DecisionQueue />
+              </div>
+            </div>
+            <OperationsFooter />
+          </div>
+        )}
+      </section>
+
+      {/* ═══ FOCO DO DIA — Tarefas ═══ */}
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -752,7 +836,8 @@ export default function Tarefas() {
                 if (rows.length === 0) return;
                 doc.setFontSize(12); doc.setTextColor(60); doc.text(title, 14, startY); startY += 2;
                 autoTable(doc, { head, body: rows, startY, theme: "grid", headStyles: { fillColor: [30, 30, 30], fontSize: 8 }, bodyStyles: { fontSize: 8 }, margin: { left: 14, right: 14 } });
-                startY = (doc as any).lastAutoTable.finalY + 8;
+                const table = record("lastAutoTable" in doc ? doc.lastAutoTable : undefined);
+                if (typeof table.finalY === "number") startY = table.finalY + 8;
               };
               addSection(`⚠️ Atrasadas (${overdue.length})`, buildRows(overdue));
               addSection(`🔥 Hoje (${todayCards.length})`, buildRows(todayCards));
@@ -844,6 +929,58 @@ export default function Tarefas() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Kanban por projeto */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Kanban className="h-4 w-4" /> Rotinas por Projeto
+                <Badge variant="outline" className="text-[10px]">{projects.length}</Badge>
+              </h3>
+              <Button size="sm" variant="outline" onClick={() => openNewRoutine("team")} className="h-7 text-xs">
+                <Plus className="h-3 w-3 mr-1" /> Nova Rotina
+              </Button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1">
+              {[...projects.map(p => ({ id: p.id, name: p.name })), { id: "__none__", name: "Sem projeto" }].map(proj => {
+                const projRoutines = routines.filter(r =>
+                  proj.id === "__none__" ? !r.project_id : r.project_id === proj.id
+                );
+                if (projRoutines.length === 0 && proj.id === "__none__") return null;
+                const doneInCol = projRoutines.filter(r => checkedRoutineIds.has(r.id)).length;
+                return (
+                  <div key={proj.id} className="shrink-0 w-72 bg-secondary/30 border border-border/40 rounded-lg p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-semibold truncate flex-1">{proj.name}</div>
+                      <Badge variant="outline" className="text-[10px] shrink-0">{doneInCol}/{projRoutines.length}</Badge>
+                      {proj.id !== "__none__" && (
+                        <button
+                          onClick={() => openNewRoutine("team", proj.id)}
+                          title={`Nova rotina para ${proj.name}`}
+                          className="shrink-0 h-6 w-6 rounded-md bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <AnimatePresence>
+                        {projRoutines.map(r => <RoutineCard key={r.id} routine={r} />)}
+                      </AnimatePresence>
+                      {projRoutines.length === 0 && (
+                        <button
+                          onClick={() => openNewRoutine("team", proj.id)}
+                          className="text-[11px] text-muted-foreground border border-dashed border-border/40 rounded p-3 hover:bg-secondary/40 transition"
+                        >
+                          + Adicionar rotina para {proj.name}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Team routines */}
           <div>
@@ -1033,11 +1170,12 @@ export default function Tarefas() {
                     const dateStr = format(date, "yyyy-MM-dd");
                     const dayEvents = filteredCalEvents.filter(e => toDateOnly(e.event_date) === dateStr);
                     const dayTasks = cards.filter(c => toDateOnly(c.due_date) === dateStr && !doneColumnIds.includes(c.column_id));
+                    const dayRoutines = routines.filter(r => routineOccursOn(r, date));
                     return (
                       <div className="flex flex-col items-center gap-0.5 w-full">
                         <span className="text-sm">{date.getDate()}</span>
                         <div className="flex gap-0.5 flex-wrap justify-center max-w-full">
-                          {dayEvents.slice(0, 3).map((ev: any, i: number) => {
+                          {dayEvents.slice(0, 3).map((ev, i: number) => {
                             const typeColors: Record<string, string> = {
                               launch: "bg-orange-500", live: "bg-red-500", deadline: "bg-amber-500",
                               meeting: "bg-blue-500", content: "bg-emerald-500", general: "bg-primary",
@@ -1047,11 +1185,15 @@ export default function Tarefas() {
                           {dayTasks.slice(0, 2).map((_, i) => (
                             <div key={`t${i}`} className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                           ))}
+                          {dayRoutines.slice(0, 2).map((r, i) => (
+                            <div key={`r${i}`} className="h-1.5 w-1.5 rounded-full bg-violet-400" title={r.title} />
+                          ))}
                         </div>
-                        {(dayEvents.length + dayTasks.length) > 0 && (
+                        {(dayEvents.length + dayTasks.length + dayRoutines.length) > 0 && (
                           <span className="text-[9px] text-muted-foreground leading-none">
                             {dayEvents.length > 0 && `${dayEvents.length}ev`}
                             {dayTasks.length > 0 && ` ${dayTasks.length}t`}
+                            {dayRoutines.length > 0 && ` ${dayRoutines.length}r`}
                           </span>
                         )}
                       </div>
@@ -1073,41 +1215,64 @@ export default function Tarefas() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {eventsOnDate.length === 0 && (!calDate || cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).length === 0) ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento ou tarefa nesta data</p>
-                ) : (
-                  <>
-                    {eventsOnDate.map((ev: any) => {
-                      const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
-                      const proj = ev.imphq_projects;
-                      return (
-                        <div key={ev.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/30">
-                          <span className="text-lg">{typeInfo.emoji}</span>
+                {(() => {
+                  const dayCards = calDate ? cards.filter(c => toDateOnly(c.due_date) === selectedDateStr) : [];
+                  const dayRoutines = calDate ? routines.filter(r => routineOccursOn(r, calDate)) : [];
+                  if (eventsOnDate.length === 0 && dayCards.length === 0 && dayRoutines.length === 0) {
+                    return <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento, tarefa ou rotina nesta data</p>;
+                  }
+                  return (
+                    <>
+                      {eventsOnDate.map((ev) => {
+                        const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
+                        const proj = ev.imphq_projects;
+                        return (
+                          <div key={ev.id} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/30">
+                            <span className="text-lg">{typeInfo.emoji}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{ev.title}</p>
+                              {ev.description && <p className="text-[10px] text-muted-foreground">{ev.description}</p>}
+                              <div className="flex items-center gap-1 mt-1">
+                                <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
+                                {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dayRoutines.map(r => {
+                        const proj = projects.find(p => p.id === r.project_id);
+                        return (
+                          <div key={`r-${r.id}`} className="flex items-start gap-2 p-2 rounded-lg bg-violet-500/5 border border-violet-500/20 cursor-pointer hover:bg-violet-500/10" onClick={() => openEditRoutine(r)}>
+                            <span className="text-lg">{r.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{r.title}</p>
+                              {r.description && <p className="text-[10px] text-muted-foreground line-clamp-2">{r.description}</p>}
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] text-violet-400 border-violet-400/30">Rotina</Badge>
+                                {r.time_of_day && <Badge variant="outline" className="text-[10px] font-mono">{r.time_of_day.slice(0,5)}</Badge>}
+                                {r.recurrence === "weekdays" && <Badge variant="outline" className="text-[10px]">Dias úteis</Badge>}
+                                {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dayCards.map(card => (
+                        <div key={card.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10" onClick={() => setSelectedCard(card)}>
+                          <ListTodo className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">{ev.title}</p>
-                            {ev.description && <p className="text-[10px] text-muted-foreground">{ev.description}</p>}
-                            <div className="flex items-center gap-1 mt-1">
-                              <Badge variant="outline" className="text-[10px]">{typeInfo.label}</Badge>
-                              {proj && <Badge variant="secondary" className="text-[10px]">{proj.icon || "📁"} {proj.name}</Badge>}
+                            <p className="text-sm font-medium">{card.title}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Badge variant="outline" className="text-[10px]">{card.priority}</Badge>
+                              {doneColumnIds.includes(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                    {calDate && cards.filter(c => toDateOnly(c.due_date) === selectedDateStr).map(card => (
-                      <div key={card.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10" onClick={() => setSelectedCard(card)}>
-                        <ListTodo className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{card.title}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Badge variant="outline" className="text-[10px]">{card.priority}</Badge>
-                            {doneColumnIds.includes(card.column_id) && <Badge className="text-[10px] bg-success/20 text-success">Concluída</Badge>}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
+                      ))}
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -1122,7 +1287,7 @@ export default function Tarefas() {
                 {filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">Nenhum evento futuro</p>
                 ) : (
-                  filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).slice(0, 12).map((ev: any) => {
+                  filteredCalEvents.filter(e => toDateOnly(e.event_date) >= todayStr).slice(0, 12).map((ev) => {
                     const typeInfo = EVENT_TYPE_LABELS[ev.event_type] || EVENT_TYPE_LABELS.general;
                     const proj = ev.imphq_projects;
                     return (
@@ -1179,7 +1344,7 @@ export default function Tarefas() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredProcesses.map(proc => {
                 const steps = Array.isArray(proc.steps) ? proc.steps : [];
-                const doneSteps = steps.filter((s: any) => s.done).length;
+                const doneSteps = steps.filter((s) => s.done).length;
                 const member = members.find(m => m.id === proc.member_id);
                 const project = projects.find(p => p.id === proc.project_id);
                 return (
@@ -1190,7 +1355,7 @@ export default function Tarefas() {
                           <CardTitle className="text-sm font-semibold truncate">{proc.title}</CardTitle>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <Badge variant="outline" className="text-[10px]">{proc.category}</Badge>
-                            {(proc as any).horario && <Badge variant="secondary" className="text-[10px]"><Clock className="h-2.5 w-2.5 mr-0.5" />{(proc as any).horario}</Badge>}
+                            {proc.horario && <Badge variant="secondary" className="text-[10px]"><Clock className="h-2.5 w-2.5 mr-0.5" />{proc.horario}</Badge>}
                             {member && <Badge variant="secondary" className="text-[10px]"><User className="h-2.5 w-2.5 mr-0.5" />{member.name}</Badge>}
                             {project && <Badge variant="secondary" className="text-[10px]">📁 {project.name}</Badge>}
                           </div>
@@ -1213,7 +1378,7 @@ export default function Tarefas() {
                             <span>{doneSteps}/{steps.length}</span>
                           </div>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {steps.map((step: any, idx: number) => (
+                            {steps.map((step, idx: number) => (
                               <div key={idx} className="flex items-center gap-2 py-0.5">
                                 <Checkbox checked={step.done} onCheckedChange={() => toggleProcessStepDone(proc, idx)} className="h-3.5 w-3.5" />
                                 <span className={`text-xs ${step.done ? "line-through text-muted-foreground" : ""}`}>{step.text || `Etapa ${idx + 1}`}</span>
@@ -1223,9 +1388,9 @@ export default function Tarefas() {
                         </>
                       )}
                       {/* Referências thumbnails */}
-                      {Array.isArray((proc as any).referencias) && (proc as any).referencias.length > 0 && (
+                      {Array.isArray(proc.referencias) && proc.referencias.length > 0 && (
                         <div className="flex gap-1.5 flex-wrap mt-1">
-                          {(proc as any).referencias.map((ref: any, idx: number) => (
+                          {proc.referencias.map((ref, idx: number) => (
                             ref.tipo === "imagem" ? (
                               <img key={idx} src={ref.url} alt={ref.label || "ref"} className="h-10 w-10 rounded object-cover border border-border" />
                             ) : (
@@ -1260,7 +1425,7 @@ export default function Tarefas() {
               </div>
               <div>
                 <Label>Horário</Label>
-                <Input type="time" value={processForm.horario} onChange={e => setProcessForm(f => ({ ...f, horario: e.target.value }))} className="bg-secondary" />
+                <Input disabled aria-describedby="process-storage-note" type="time" value={processForm.horario} onChange={e => setProcessForm(f => ({ ...f, horario: e.target.value }))} className="bg-secondary" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1285,8 +1450,9 @@ export default function Tarefas() {
                 </Select>
               </div>
             </div>
+            <p id="process-storage-note" className="text-xs text-muted-foreground">Horário e referências estão indisponíveis: o armazenamento atual de processos não suporta esses campos. Os demais dados podem ser salvos.</p>
             {/* Referências */}
-            <div>
+            <fieldset disabled aria-describedby="process-storage-note" className="opacity-60">
               <div className="flex items-center justify-between mb-2">
                 <Label>Referências (fotos / links)</Label>
               </div>
@@ -1321,7 +1487,7 @@ export default function Tarefas() {
                   onUpload={(url) => setProcessForm(f => ({ ...f, referencias: [...f.referencias, { tipo: "imagem", url }] }))}
                 />
               </div>
-            </div>
+            </fieldset>
             {/* Steps */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -1395,6 +1561,15 @@ export default function Tarefas() {
               <Input value={routineForm.title} onChange={e => setRoutineForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: Verificar Comunidade do Clube" onKeyDown={e => e.key === "Enter" && saveRoutine()} />
             </div>
             <div>
+              <label className="text-sm font-medium mb-1 block">Descrição <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              <Textarea
+                value={routineForm.description}
+                onChange={e => setRoutineForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="O que precisa ser feito, critério de conclusão, links úteis..."
+                className="bg-secondary min-h-[70px] text-sm leading-6"
+              />
+            </div>
+            <div>
               <label className="text-sm font-medium mb-1 block">Ícone</label>
               <div className="flex flex-wrap gap-1.5">
                 {EMOJI_OPTIONS.map(emoji => (
@@ -1435,6 +1610,55 @@ export default function Tarefas() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Agendamento / Recorrência */}
+            <div className="border-t border-border pt-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">📅 Agendamento (opcional)</p>
+              <p className="text-[11px] text-muted-foreground -mt-2">Defina uma data para projetar essa rotina no calendário. Sem data, ela só aparece na lista diária.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Data inicial</label>
+                  <Input type="date" value={routineForm.start_date} onChange={e => setRoutineForm(f => ({ ...f, start_date: e.target.value }))} className="bg-secondary text-xs" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Horário</label>
+                  <Input type="time" value={routineForm.time_of_day} onChange={e => setRoutineForm(f => ({ ...f, time_of_day: e.target.value }))} className="bg-secondary text-xs" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Recorrência</label>
+                <Select value={routineForm.recurrence} onValueChange={v => setRoutineForm(f => ({ ...f, recurrence: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Todo dia</SelectItem>
+                    <SelectItem value="weekdays">Dias da semana específicos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {routineForm.recurrence === "weekdays" && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Dias</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((label, idx) => {
+                      const active = routineForm.weekdays.includes(idx);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setRoutineForm(f => ({
+                            ...f,
+                            weekdays: active ? f.weekdays.filter(w => w !== idx) : [...f.weekdays, idx].sort(),
+                          }))}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80 text-muted-foreground"}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -1544,14 +1768,14 @@ export default function Tarefas() {
                 tags: [],
                 project_id: nextStepCard.project_id || null,
                 member_id: nextStepForm.member_id !== "none" ? nextStepForm.member_id : null,
-              } as any).select().single();
+              }).select().single();
               if (error) { toast.error("Erro ao criar próximo passo"); return; }
               // Create relation
               await supabase.from("imphq_card_relations").insert({
                 card_id: nextStepCard.id,
-                related_card_id: (newCard as any).id,
+                related_card_id: newCard.id,
                 relation_type: "sequencia",
-              } as any);
+              });
               // Notify assigned member
               if (nextStepForm.member_id !== "none" && user) {
                 const assignedMember = members.find(m => m.id === nextStepForm.member_id);
@@ -1561,11 +1785,11 @@ export default function Tarefas() {
                     user_id: memberRecord.data.user_id,
                     title: `➡️ Próximo passo: ${nextStepForm.title.trim()}`,
                     message: `${nextStepCard.title} foi concluída. Agora é com você!`,
-                    type: "tarefa", entity_type: "card", entity_id: (newCard as any).id,
+                    type: "tarefa", entity_type: "card", entity_id: newCard.id,
                   });
                 }
               }
-              setCards(prev => [...prev, newCard as any]);
+              setCards(prev => [...prev, newCard]);
               setShowNextStepDialog(false); setNextStepCard(null);
               setNextStepForm({ title: "", member_id: "none", observation: "" });
               toast.success("Próximo passo criado! ➡️");

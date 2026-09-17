@@ -1,3 +1,5 @@
+import { record, toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,7 +68,7 @@ function loadDraft(): VideoFields {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) return { ...emptyVideoFields, ...JSON.parse(raw) };
-  } catch {}
+  } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   return emptyVideoFields;
 }
 
@@ -80,7 +82,7 @@ export function VideoPromptGenerator() {
   const set = (k: keyof VideoFields, v: string) => {
     setF((p) => {
       const next = { ...p, [k]: v };
-      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(next)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
       return next;
     });
   };
@@ -122,15 +124,15 @@ export function VideoPromptGenerator() {
         body: { prompt: promptText, mode: "video_editorial", platform: f.plataforma },
       });
       if (error) throw error;
-      const refined = (data as any)?.refined || (data as any)?.prompt;
-      if (refined) {
+      const refined = record(data).refined || record(data).prompt;
+      if (typeof refined === "string" && refined) {
         await navigator.clipboard.writeText(refined);
         toast.success("Refinado pela IA — copiado");
       } else {
         toast.error("Refinador não retornou texto");
       }
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao refinar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao refinar");
     } finally {
       setRefining(false);
     }
@@ -147,13 +149,13 @@ export function VideoPromptGenerator() {
         nome,
         plataforma: f.plataforma,
         prompt_text: promptText,
-        campos: { __type: "video", fields: f, json: buildVideoPromptJson(f) } as any,
+        campos: toJson({ __type: "video", fields: f, json: buildVideoPromptJson(f) }),
         tags: ["video"],
-      } as any);
+      });
       if (error) throw error;
       toast.success("Salvo no Cofre");
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao salvar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao salvar");
     } finally {
       setSaving(false);
     }

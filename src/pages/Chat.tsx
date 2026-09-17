@@ -1,6 +1,10 @@
+import type { Json } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Send, Plus, ListTodo, CalendarIcon, FolderKanban, Users, Hash, MessageSquare, Trash2, Search, X, Brain, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +21,7 @@ interface ChatMessage {
   user_id: string;
   content: string;
   message_type: string;
-  metadata: any;
+  metadata: Json;
   project_id: string | null;
   created_at: string;
 }
@@ -65,7 +69,7 @@ export default function Chat() {
         });
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "imphq_chat_messages" }, (payload) => {
-        setMessages((prev) => prev.filter(m => m.id !== (payload.old as any).id));
+        setMessages((prev) => prev.filter(m => m.id !== payload.old.id));
       })
       .subscribe();
 
@@ -98,7 +102,7 @@ export default function Chat() {
     const { data } = await supabase.from("imphq_team_members").select("user_id, name");
     if (data) {
       const map: Record<string, string> = {};
-      data.forEach((m: any) => { if (m.user_id && m.name) map[m.user_id] = m.name; });
+      data.forEach((m) => { if (m.user_id && m.name) map[m.user_id] = m.name; });
       setMemberNames(map);
     }
   }
@@ -173,33 +177,34 @@ export default function Chat() {
         if (proj) {
           const { data: fullProj } = await supabase.from("imphq_projects").select("*").eq("id", activeProject).maybeSingle();
           if (fullProj) {
-            const fp = fullProj as any;
-            contextStr += `\nProjeto: ${fp.name}\nProduto: ${fp.produto || "—"}\nCategoria: ${fp.category || fp.categoria || "—"}\nObjetivo: ${fp.objetivo || "—"}\nContexto: ${fp.contexto || "—"}\n`;
-            const av = fp.avatar as any;
+            const fp = fullProj;
+            contextStr += `\nProjeto: ${fp.name}\nProduto: ${jsonText(jsonFields(fp.data).produto) || "—"}\nCategoria: ${fp.category || "—"}\nObjetivo: ${jsonText(jsonFields(fp.data).objetivo) || "—"}\nContexto: ${fp.description || "—"}\n`;
+            const av = jsonFields(fp.avatar);
             if (av) {
               contextStr += `\n── AVATAR ──\n`;
               if (av.desejo_externo) contextStr += `Desejo externo: ${av.desejo_externo}\n`;
               if (av.desejo_interno) contextStr += `Desejo interno: ${av.desejo_interno}\n`;
-              if (av.dores_superficiais?.length) contextStr += `Dores: ${av.dores_superficiais.join(", ")}\n`;
-              if (av.problemas?.length) contextStr += `Problemas: ${av.problemas.join(", ")}\n`;
-              if (av.gatilhos?.length) contextStr += `Gatilhos: ${av.gatilhos.join(", ")}\n`;
+              if (Array.isArray(av.dores_superficiais) && av.dores_superficiais.length) contextStr += `Dores: ${av.dores_superficiais.filter((value): value is string => typeof value === "string").join(", ")}\n`;
+              if (Array.isArray(av.problemas) && av.problemas.length) contextStr += `Problemas: ${av.problemas.filter((value): value is string => typeof value === "string").join(", ")}\n`;
+              if (Array.isArray(av.gatilhos) && av.gatilhos.length) contextStr += `Gatilhos: ${av.gatilhos.filter((value): value is string => typeof value === "string").join(", ")}\n`;
             }
-            const d = fp.data as any;
+            const d = jsonFields(fp.data);
             if (d?.branding) {
-              contextStr += `\n── BRANDING ──\nTom: ${d.branding.tom_de_voz || "—"}\nArquétipo: ${d.branding.arquetipo || "—"}\n`;
+              contextStr += `\n── BRANDING ──\nTom: ${jsonText(jsonFields(d.branding).tom_de_voz) || "—"}\nArquétipo: ${jsonText(jsonFields(d.branding).arquetipo) || "—"}\n`;
             }
             if (d?.copy_arsenal) {
               contextStr += `\n── COPY ARSENAL ──\n`;
               for (const b of ["promessa", "inimigo_comum", "metodo"]) {
-                if (d.copy_arsenal[b]?.length) contextStr += `${b}: ${d.copy_arsenal[b].join(" | ")}\n`;
+                const entries = jsonFields(d.copy_arsenal)[b];
+                if (Array.isArray(entries) && entries.length) contextStr += `${b}: ${entries.filter((value): value is string => typeof value === "string").join(" | ")}\n`;
               }
             }
           }
           // Competitors
-          const { data: comps } = await supabase.from("imphq_competitors").select("nome,ponto_forte").eq("project_id", activeProject).limit(5);
+          const { data: comps } = await supabase.from("imphq_competitors").select("name,ponto_forte").eq("project_id", activeProject).limit(5);
           if (comps?.length) {
             contextStr += `\n── CONCORRENTES ──\n`;
-            comps.forEach((c: any) => { contextStr += `- ${c.nome}: ${c.ponto_forte || ""}\n`; });
+            comps.forEach((c) => { contextStr += `- ${c.name}: ${c.ponto_forte || ""}\n`; });
           }
         }
       }
@@ -228,8 +233,8 @@ export default function Chat() {
           project_id: activeProject,
         });
         await loadMessages();
-      } catch (err: any) {
-        toast.error("Erro IA: " + (err.message || "Verifique a edge function"));
+      } catch (err: unknown) {
+        toast.error("Erro IA: " + (errorMessage(err) || "Verifique a edge function"));
       } finally {
         setAiLoading(false);
       }
@@ -457,8 +462,10 @@ export default function Chat() {
   );
 }
 
-function CommandResult({ metadata }: { metadata: any }) {
-  const icons: Record<string, any> = {
+function CommandResult({ metadata: value }: { metadata: Json }) {
+  const fields = jsonFields(value);
+  const metadata = { type: jsonText(fields.type) || "", icon: jsonText(fields.icon), title: jsonText(fields.title), name: jsonText(fields.name), nome: jsonText(fields.nome), date: jsonText(fields.date), telefone: jsonText(fields.telefone) };
+  const icons: Record<string, LucideIcon> = {
     task_created: ListTodo,
     event_created: CalendarIcon,
     project_linked: FolderKanban,

@@ -12,18 +12,24 @@ import {
   isTransientConnError,
 } from "./senders.ts";
 import { attributeOutgoing } from "../../_shared/attribution.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SendProvider } from "./senders.ts";
+import { errorText, record } from "../../_shared/value.ts";
+
+interface Provider extends SendProvider { id: string; provider: string; project_id: string }
+interface Conversation { id: string; message_count: number | null; contact_name?: string | null }
 
 export type SendMessageDeps = {
-  supabase: any;
+  supabase: SupabaseClient;
   corsHeaders: Record<string, string>;
-  getProvider: (id: string) => Promise<any>;
+  getProvider: (id: string) => Promise<Provider>;
   findOrCreateConversation: (
     phone: string,
     projectId: string,
     providerId: string | null,
     contactName?: string,
     jidSuffix?: string,
-  ) => Promise<any>;
+  ) => Promise<Conversation>;
   updateConversationAfterMessage: (
     conversationId: string,
     content: string,
@@ -74,8 +80,8 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
       });
       content = result.text;
       attribution_id = result.attribution_id;
-    } catch (e: any) {
-      console.warn(`[send_message] attribution failed: ${e?.message}`);
+    } catch (e: unknown) {
+      console.warn(`[send_message] attribution failed: ${errorText(e)}`);
     }
   }
 
@@ -131,7 +137,7 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
   let usedFailover = false;
   let originalProviderName: string | null = null;
 
-  async function attemptSend(p: any) {
+  async function attemptSend(p: Provider) {
     if (p.provider === "evolution") {
       if (buttons && Array.isArray(buttons) && buttons.length > 0) {
         return await sendEvolutionButtons(p, phone, content || "", buttons);
@@ -149,12 +155,12 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
     }
   }
 
-  let result: any;
+  let result: Record<string, unknown> | undefined;
   try {
     result = await attemptSend(provider);
-  } catch (sendErr: any) {
-    console.error("[send_message] provider error:", sendErr.message);
-    const isConnectionClosed = isTransientConnError(sendErr.message || "");
+  } catch (sendErr: unknown) {
+    console.error("[send_message] provider error:", errorText(sendErr));
+    const isConnectionClosed = isTransientConnError(errorText(sendErr) || "");
 
     if (!_no_failover && project_id) {
       const { data: siblings } = await supabase
@@ -177,8 +183,8 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
             usedFailover = true;
             break;
           }
-        } catch (e: any) {
-          console.warn(`[send_message] failover attempt failed on ${sib.instance_name}:`, e.message);
+        } catch (e: unknown) {
+          console.warn(`[send_message] failover attempt failed on ${sib.instance_name}:`, errorText(e));
         }
       }
     }
@@ -189,14 +195,14 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
           type: "wa_session_disconnected",
           entity_type: "wa_provider",
           entity_id: provider.id,
-          metadata: { instance: provider.instance_name, error: sendErr.message?.slice(0, 300) },
+          metadata: { instance: provider.instance_name, error: errorText(sendErr)?.slice(0, 300) },
         }).then(() => {}, () => {});
       }
       return new Response(JSON.stringify({
         success: false,
         error: isConnectionClosed
           ? "Sessão WhatsApp desconectada e nenhum chip alternativo disponível. Reconecte via QR Code."
-          : `Falha ao enviar: ${sendErr.message}`,
+          : `Falha ao enviar: ${errorText(sendErr)}`,
         fallback: true,
       }), {
         status: 200,
@@ -226,14 +232,14 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
 
   if (!conv) throw new Error("Conversa não encontrada nem criada");
 
-  const msgPayload: any = {
+  const msgPayload: Record<string, unknown> = {
     conversation_id: conv.id,
     direction: "outgoing",
     phone,
     content: content || (media_url ? "Mídia" : ""),
     project_id: project_id || provider.project_id,
     provider: provider.provider,
-    provider_message_id: result?.key?.id || result?.sid || null,
+    provider_message_id: record(result?.key).id || result?.sid || null,
     status: "sent",
     sent_by,
   };
@@ -265,7 +271,7 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
   if (sent_by === "human" && content && content.length > 15) {
     supabase.functions.invoke("wa-learn-from-human", {
       body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: project_id || provider.project_id },
-    }).catch((e: any) => console.warn("[send_message] learn invoke skip:", e?.message));
+    }).catch((e: unknown) => console.warn("[send_message] learn invoke skip:", errorText(e)));
   }
 
   return new Response(JSON.stringify({

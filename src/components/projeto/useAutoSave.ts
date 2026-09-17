@@ -1,12 +1,13 @@
 import { useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
 
 export function useAutoSave(projectId: string | undefined) {
   const timer = useRef<NodeJS.Timeout>();
 
   const save = useCallback(
-    (field: string, value: any) => {
+    (field: string, value: Json) => {
       if (!projectId) return;
       clearTimeout(timer.current);
       timer.current = setTimeout(async () => {

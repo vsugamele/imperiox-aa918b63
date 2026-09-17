@@ -32,7 +32,7 @@ export function useLeadTags(projectId?: string | null) {
         if (alive) setLoading(false);
         return;
       }
-      const arr: LeadTagCount[] = (data || []).map((r: any) => ({
+      const arr: LeadTagCount[] = (data || []).map((r) => ({
         tag: r.tag,
         count: Number(r.count) || 0,
       }));

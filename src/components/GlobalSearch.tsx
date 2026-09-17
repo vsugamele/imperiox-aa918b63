@@ -62,12 +62,12 @@ export function GlobalSearch() {
     ]);
 
     const items: SearchResult[] = [
-      ...(projRes.data || []).map((p: any) => ({ id: p.id, title: p.name, type: "projeto" as const, url: `/projetos/${p.id}`, subtitle: p.category })),
-      ...(taskRes.data || []).map((t: any) => ({ id: t.id, title: t.title, type: "tarefa" as const, url: "/kanban", subtitle: t.board })),
-      ...(leadRes.data || []).map((l: any) => ({ id: l.id, title: l.nome || l.email, type: "lead" as const, url: "/leads", subtitle: l.email })),
-      ...(docRes.data || []).map((d: any) => ({ id: d.id, title: d.title, type: "doc" as const, url: "/docs" })),
-      ...(funilRes.data || []).map((f: any) => ({ id: f.id, title: f.nome, type: "funil" as const, url: "/funis" })),
-      ...(chatRes.data || []).map((c: any) => ({ id: c.id, title: c.content?.slice(0, 80), type: "doc" as const, url: "/chat", subtitle: "Mensagem do chat" })),
+      ...(projRes.data || []).map((p) => ({ id: p.id, title: p.name, type: "projeto" as const, url: `/projetos/${p.id}`, subtitle: p.category })),
+      ...(taskRes.data || []).map((t) => ({ id: t.id, title: t.title, type: "tarefa" as const, url: "/kanban", subtitle: t.board })),
+      ...(leadRes.data || []).map((l) => ({ id: l.id, title: l.nome || l.email, type: "lead" as const, url: "/leads", subtitle: l.email })),
+      ...(docRes.data || []).map((d) => ({ id: d.id, title: d.title, type: "doc" as const, url: "/docs" })),
+      ...(funilRes.data || []).map((f) => ({ id: f.id, title: f.nome, type: "funil" as const, url: "/funis" })),
+      ...(chatRes.data || []).map((c) => ({ id: c.id, title: c.content?.slice(0, 80), type: "doc" as const, url: "/chat", subtitle: "Mensagem do chat" })),
     ];
     setResults(items);
   }, []);

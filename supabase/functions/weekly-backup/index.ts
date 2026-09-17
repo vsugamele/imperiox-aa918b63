@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function arrayToCsv(data: any[]): string {
+function arrayToCsv(data: Record<string, unknown>[]): string {
   if (!data || data.length === 0) return "Sem dados";
   
   // Extract all unique keys as headers
@@ -60,32 +60,36 @@ Deno.serve(async (req) => {
       });
     }
 
-    const backupResults: any[] = [];
+    const backupResults: { project_id: string; project_name: string; leads_count: number; sales_count: number; ads_count: number }[] = [];
     const dateStr = new Date().toISOString().split("T")[0];
 
     for (const project of projects) {
       console.log(`[weekly-backup] Exporting data for project: ${project.name} (${project.id})...`);
 
       // Fetch leads
-      const { data: leads } = await supabase
+      const { data: leads, error: leadsError } = await supabase
         .from("imphq_leads")
         .select("*")
         .eq("project_id", project.id)
         .limit(5000);
 
       // Fetch sales
-      const { data: sales } = await supabase
+      const { data: sales, error: salesError } = await supabase
         .from("imphq_vendas")
         .select("*")
         .eq("project_id", project.id)
         .limit(5000);
 
       // Fetch ads spend
-      const { data: adsSpend } = await supabase
+      const { data: adsSpend, error: adsSpendError } = await supabase
         .from("imphq_ads_spend")
         .select("*")
         .eq("projeto_id", project.id) // note: matches schema column
         .limit(5000);
+
+      if (leadsError) throw leadsError;
+      if (salesError) throw salesError;
+      if (adsSpendError) throw adsSpendError;
 
       // Convert to CSV
       const leadsCsv = arrayToCsv(leads || []);
@@ -97,14 +101,22 @@ Deno.serve(async (req) => {
       const salesPath = `${project.id}/${dateStr}_vendas.csv`;
       const adsPath = `${project.id}/${dateStr}_ads_spend.csv`;
 
-      await supabase.storage.from("backups").upload(leadsPath, leadsCsv, { contentType: "text/csv", upsert: true });
-      await supabase.storage.from("backups").upload(salesPath, salesCsv, { contentType: "text/csv", upsert: true });
-      await supabase.storage.from("backups").upload(adsPath, adsCsv, { contentType: "text/csv", upsert: true });
+      const { error: leadsUploadError } = await supabase.storage.from("backups").upload(leadsPath, leadsCsv, { contentType: "text/csv", upsert: true });
+      if (leadsUploadError) throw leadsUploadError;
+      const { error: salesUploadError } = await supabase.storage.from("backups").upload(salesPath, salesCsv, { contentType: "text/csv", upsert: true });
+      if (salesUploadError) throw salesUploadError;
+      const { error: adsUploadError } = await supabase.storage.from("backups").upload(adsPath, adsCsv, { contentType: "text/csv", upsert: true });
+      if (adsUploadError) throw adsUploadError;
 
       // Generate signed URLs (expire in 7 days)
-      const { data: leadsUrl } = await supabase.storage.from("backups").createSignedUrl(leadsPath, 60 * 60 * 24 * 7);
-      const { data: salesUrl } = await supabase.storage.from("backups").createSignedUrl(salesPath, 60 * 60 * 24 * 7);
-      const { data: adsUrl } = await supabase.storage.from("backups").createSignedUrl(adsPath, 60 * 60 * 24 * 7);
+      const { data: leadsUrl, error: leadsUrlError } = await supabase.storage.from("backups").createSignedUrl(leadsPath, 60 * 60 * 24 * 7);
+      const { data: salesUrl, error: salesUrlError } = await supabase.storage.from("backups").createSignedUrl(salesPath, 60 * 60 * 24 * 7);
+      const { data: adsUrl, error: adsUrlError } = await supabase.storage.from("backups").createSignedUrl(adsPath, 60 * 60 * 24 * 7);
+
+      if (leadsUrlError) throw leadsUrlError;
+      if (salesUrlError) throw salesUrlError;
+      if (adsUrlError) throw adsUrlError;
+      if (!leadsUrl?.signedUrl || !salesUrl?.signedUrl || !adsUrl?.signedUrl) throw new Error("Backup download URL unavailable");
 
       // Get Resend config for this project
       let resendKey = RESEND_API_KEY || "";
@@ -147,7 +159,7 @@ Deno.serve(async (req) => {
             </div>
           `;
 
-          await fetch("https://api.resend.com/emails", {
+          const emailResponse = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${resendKey}`,
@@ -160,9 +172,11 @@ Deno.serve(async (req) => {
               html: emailHtml,
             }),
           });
+          if (!emailResponse.ok) throw new Error(`Resend HTTP ${emailResponse.status}`);
           console.log(`[weekly-backup] Email sent to ${toEmail} for project ${project.name}`);
-        } catch (mailErr: any) {
-          console.error(`[weekly-backup] Failed to send email for project ${project.name}:`, mailErr.message);
+        } catch (mailErr) {
+    const mailErrMessage = mailErr instanceof Error ? mailErr.message : mailErr && typeof mailErr === "object" && "message" in mailErr && typeof mailErr.message === "string" ? mailErr.message : undefined;
+          console.error(`[weekly-backup] Failed to send email for project ${project.name}:`, mailErrMessage);
         }
       }
 
@@ -178,9 +192,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, results: backupResults }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[weekly-backup] Fatal:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

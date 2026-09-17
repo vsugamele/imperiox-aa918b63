@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
     const payload = JSON.stringify({
       title,
       body: message || "",
-      icon: "/icons/icon-192x192.png",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
       url: url || "/",
     });
 
@@ -78,9 +79,11 @@ Deno.serve(async (req) => {
             { TTL: 86400 }
           );
           sent++;
-        } catch (err: any) {
-          const status = err?.statusCode;
-          console.error(`[send-push] Push error status=${status}:`, err?.body || err?.message);
+        } catch (err) {
+          const status = err && typeof err === "object" && "statusCode" in err && typeof err.statusCode === "number" ? err.statusCode : undefined;
+          const body = err && typeof err === "object" && "body" in err ? err.body : undefined;
+          const message = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err ? err.message : undefined;
+          console.error(`[send-push] Push error status=${status}:`, body || message);
           if (status === 404 || status === 410) {
             await supabase
               .from("imphq_push_subscriptions")

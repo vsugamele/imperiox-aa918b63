@@ -1,3 +1,5 @@
+import { record, toJson } from "@/lib/funis-data";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -34,7 +36,7 @@ interface KanbanCard {
   position?: number;
   member_id?: string;
   project_id?: string;
-  metadata?: any;
+  metadata?: unknown;
 }
 
 interface Column {
@@ -94,7 +96,7 @@ interface CardDetailPanelProps {
   onUpdate: () => void;
   columns: Column[];
   members: TeamMember[];
-  projects?: { id: string; name: string; data?: any }[];
+  projects?: { id: string; name: string; data?: unknown }[];
 }
 
 const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas"];
@@ -144,6 +146,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [creatives, setCreatives] = useState<Array<Pick<Tables<"imphq_creative_assets">,"id"|"image_url"|"angulo"|"formato"|"aprovado">>>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Relations
@@ -166,31 +169,43 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     setProjectId(card.project_id || "none");
     setTags(card.tags || []);
 
-    const meta = card.metadata || {};
-    setStartDate(meta.start_date || "");
-    setTimeEstimate(meta.time_estimate || "");
-    setCustomFields(meta.custom_fields || {});
+    const meta = record(card.metadata);
+    setStartDate(typeof meta.start_date === "string" ? meta.start_date : "");
+    setTimeEstimate(typeof meta.time_estimate === "string" ? meta.time_estimate : "");
+    setCustomFields(Object.fromEntries(Object.entries(record(meta.custom_fields)).map(([k,v])=>[k,String(v)])));
 
     loadChecklist(card.id);
     loadComments(card.id);
     loadAttachments(card.id);
+    loadCreatives(card.id);
     loadRelations(card.id);
     loadAllCards();
   }, [card]);
 
   const loadChecklist = async (cardId: string) => {
     const { data } = await supabase.from("imphq_card_checklists").select("*").eq("card_id", cardId).order("position");
-    setChecklist((data as any[]) || []);
+    setChecklist(data || []);
   };
 
   const loadComments = async (cardId: string) => {
     const { data } = await supabase.from("imphq_card_comments").select("*").eq("card_id", cardId).order("created_at", { ascending: false });
-    setComments((data as any[]) || []);
+    setComments(data || []);
   };
 
   const loadAttachments = async (cardId: string) => {
     const { data } = await supabase.from("imphq_card_attachments").select("*").eq("card_id", cardId).order("created_at", { ascending: false });
-    setAttachments((data as any[]) || []);
+    setAttachments(data || []);
+  };
+
+  const loadCreatives = async (cardId: string) => {
+    const { data } = await supabase.from("imphq_creative_assets").select("id, image_url, angulo, formato, aprovado").eq("card_id", cardId).order("created_at", { ascending: false });
+    setCreatives(data || []);
+  };
+
+  const unlinkCreative = async (id: string) => {
+    await supabase.from("imphq_creative_assets").update({ card_id: null }).eq("id", id);
+    setCreatives(prev => prev.filter(c => c.id !== id));
+    toast.success("Criativo desvinculado");
   };
 
   const loadRelations = async (cardId: string) => {
@@ -198,13 +213,13 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     if (!data) { setRelations([]); return; }
 
     // Load related card titles
-    const relatedIds = (data as any[]).map(r => r.card_id === cardId ? r.related_card_id : r.card_id);
+    const relatedIds = data.map(r => r.card_id === cardId ? r.related_card_id : r.card_id);
     const { data: relatedCards } = await supabase.from("imphq_kanban_cards").select("id, title, priority, board").in("id", relatedIds);
 
-    const enriched = (data as any[]).map(r => {
+    const enriched = data.map(r => {
       const isSource = r.card_id === cardId;
       const relId = isSource ? r.related_card_id : r.card_id;
-      const relCard = (relatedCards || []).find((c: any) => c.id === relId);
+      const relCard = (relatedCards || []).find((c) => c.id === relId);
       return {
         ...r,
         relation_type: isSource ? r.relation_type : (r.relation_type === "blocks" ? "blocked_by" : r.relation_type === "blocked_by" ? "blocks" : r.relation_type),
@@ -216,25 +231,27 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
 
   const loadAllCards = async () => {
     const { data } = await supabase.from("imphq_kanban_cards").select("id, title, priority, board").limit(500);
-    setAllCards((data as any[]) || []);
+    setAllCards(data || []);
   };
 
-  const autoSave = useCallback((field: string, value: any) => {
+  const autoSave = useCallback(<K extends keyof TablesUpdate<"imphq_kanban_cards">>(field: K, value: TablesUpdate<"imphq_kanban_cards">[K]) => {
     if (!card) return;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      await supabase.from("imphq_kanban_cards").update({ [field]: value } as any).eq("id", card.id);
+      const { error } = await supabase.from("imphq_kanban_cards").update({ [field]: value }).eq("id", card.id);
+      if (error) { toast.error(error.message); return; }
       onUpdate();
     }, 600);
   }, [card, onUpdate]);
 
-  const saveMetadata = useCallback((updates: Record<string, any>) => {
+  const saveMetadata = useCallback((updates: Record<string, unknown>) => {
     if (!card) return;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      const currentMeta = card.metadata || {};
+      const currentMeta = record(card.metadata);
       const newMeta = { ...currentMeta, ...updates };
-      await supabase.from("imphq_kanban_cards").update({ metadata: newMeta } as any).eq("id", card.id);
+      const { error } = await supabase.from("imphq_kanban_cards").update({ metadata: toJson(newMeta) }).eq("id", card.id);
+      if (error) { toast.error(error.message); return; }
       onUpdate();
     }, 600);
   }, [card, onUpdate]);
@@ -252,7 +269,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     if (!card) return;
     setColumnId(v);
     const target = columns.find(c => c.id === v);
-    const updates: any = { column_id: v };
+    const updates: TablesUpdate<"imphq_kanban_cards"> = { column_id: v };
     if (target && target.board && target.board !== card.board) {
       updates.board = target.board;
     }
@@ -266,7 +283,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     const newBoardCols = columns.filter(c => c.board === newBoard).sort((a, b) => (a.position || 0) - (b.position || 0));
     const firstCol = newBoardCols[0];
     if (!firstCol) { toast.error("Board sem colunas"); return; }
-    await supabase.from("imphq_kanban_cards").update({ board: newBoard, column_id: firstCol.id } as any).eq("id", card.id);
+    await supabase.from("imphq_kanban_cards").update({ board: newBoard, column_id: firstCol.id }).eq("id", card.id);
     setColumnId(firstCol.id);
     toast.success(`Movido para board "${newBoard}"`);
     onUpdate();
@@ -310,7 +327,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   // Checklist
   const addCheckItem = async () => {
     if (!card || !newCheckItem.trim()) return;
-    const insertData: any = { card_id: card.id, title: newCheckItem.trim(), position: checklist.length };
+    const insertData: TablesInsert<"imphq_card_checklists"> = { card_id: card.id, title: newCheckItem.trim(), position: checklist.length };
     if (newCheckMember !== "none") insertData.member_id = newCheckMember;
     await supabase.from("imphq_card_checklists").insert(insertData);
     setNewCheckItem("");
@@ -318,7 +335,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     loadChecklist(card.id);
   };
   const toggleCheckItem = async (item: ChecklistItem) => {
-    await supabase.from("imphq_card_checklists").update({ is_done: !item.is_done } as any).eq("id", item.id);
+    await supabase.from("imphq_card_checklists").update({ is_done: !item.is_done }).eq("id", item.id);
     setChecklist(prev => prev.map(c => c.id === item.id ? { ...c, is_done: !c.is_done } : c));
   };
   const deleteCheckItem = async (id: string) => {
@@ -327,14 +344,14 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
   };
   const updateCheckMember = async (itemId: string, memberId: string) => {
     const val = memberId === "none" ? null : memberId;
-    await supabase.from("imphq_card_checklists").update({ member_id: val } as any).eq("id", itemId);
+    await supabase.from("imphq_card_checklists").update({ member_id: val }).eq("id", itemId);
     setChecklist(prev => prev.map(c => c.id === itemId ? { ...c, member_id: val || undefined } : c));
   };
 
   // Comments
   const addComment = async () => {
     if (!card || !newComment.trim()) return;
-    await supabase.from("imphq_card_comments").insert({ card_id: card.id, author_name: "Time", content: newComment.trim() } as any);
+    await supabase.from("imphq_card_comments").insert({ card_id: card.id, author_name: "Time", content: newComment.trim() });
     setNewComment("");
     loadComments(card.id);
   };
@@ -349,7 +366,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
     let fileType = "application/octet-stream";
     if (imageExts.includes(ext)) fileType = `image/${ext === "jpg" ? "jpeg" : ext}`;
     else if (videoExts.includes(ext)) fileType = `video/${ext}`;
-    await supabase.from("imphq_card_attachments").insert({ card_id: card.id, file_url: url, file_name: fileName, file_type: fileType } as any);
+    await supabase.from("imphq_card_attachments").insert({ card_id: card.id, file_url: url, file_name: fileName, file_type: fileType });
     loadAttachments(card.id);
     onUpdate();
   };
@@ -384,7 +401,7 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
       card_id: card.id,
       related_card_id: relatedCardId,
       relation_type: newRelationType,
-    } as any);
+    });
     if (error) { toast.error("Erro ao vincular tarefa"); return; }
     setShowRelationSearch(false);
     setRelationSearch("");
@@ -608,12 +625,12 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
               {projects.length > 0 && (() => {
                 const expertMap = new Map<string, { id: string; name: string }[]>();
                 projects.forEach(p => {
-                  const exp = p.data?.expert?.nome || "Sem Expert";
+                  const exp = String(record(record(p.data).expert).nome || "Sem Expert");
                   if (!expertMap.has(exp)) expertMap.set(exp, []);
                   expertMap.get(exp)!.push({ id: p.id, name: p.name });
                 });
                 const currentProj = projects.find(p => p.id === projectId);
-                const currentExpert = currentProj?.data?.expert?.nome || "none";
+                const currentExpert = String(record(record(currentProj?.data).expert).nome || "none");
                 const handleExpertChange = (expertName: string) => {
                   if (expertName === "none") { handleProjectChange("none"); return; }
                   const projsOfExpert = expertMap.get(expertName) || [];
@@ -822,6 +839,38 @@ export default function CardDetailPanel({ card, open, onClose, onUpdate, columns
               </div>
 
               <Separator />
+
+              {/* Criativos vinculados */}
+              <div>
+                <Label className="text-[11px] text-muted-foreground flex items-center gap-1 mb-2">
+                  <FolderOpen className="h-3 w-3" /> Criativos do Studio ({creatives.length})
+                </Label>
+                {creatives.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {creatives.map(c => (
+                      <div key={c.id} className="relative group rounded-md border border-border overflow-hidden bg-muted/20">
+                        <img src={c.image_url} alt={c.angulo} className="w-full h-20 object-cover cursor-pointer hover:opacity-80" onClick={() => setLightboxUrl(c.image_url)} />
+                        <div className="px-1.5 py-1 flex items-center justify-between gap-1">
+                          <span className="text-[9px] text-muted-foreground truncate">{c.angulo}</span>
+                          {c.aprovado && <Badge className="h-3 px-1 text-[8px] bg-emerald-500/20 text-emerald-300 border-emerald-500/30">✓</Badge>}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); unlinkCreative(c.id); }}
+                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-destructive/80 hover:bg-destructive text-destructive-foreground rounded-full p-1 transition-opacity"
+                          title="Desvincular"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-3 italic">Nenhum criativo vinculado. Vincule pelo Studio.</p>
+                )}
+              </div>
+
+              <Separator />
+
 
               {/* Checklist */}
               <div>

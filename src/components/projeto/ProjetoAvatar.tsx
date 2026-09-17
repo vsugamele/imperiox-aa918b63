@@ -1,3 +1,5 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -6,21 +8,21 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, Eye, CheckCircle, Package, Activity, AlertTriangle } from "lucide-react";
-import { PerfilTab } from "./avatar/PerfilTab";
-import { DesejosTab } from "./avatar/DesejosTab";
-import { DoresTab } from "./avatar/DoresTab";
-import { VoyerismosTab } from "./avatar/VoyerismosTab";
-import { ProblemasTab } from "./avatar/ProblemasTab";
-import { CopyArsenalTab } from "./avatar/CopyArsenalTab";
-import { GatilhosTab } from "./avatar/GatilhosTab";
-import { AvatarImporter } from "./avatar/AvatarImporter";
-import { AvatarPipelineRunner } from "./avatar/AvatarPipelineRunner";
-import { computeAvatarHealthScore } from "./avatar/ConfidenceBadge";
+import { PerfilTab } from "@/components/projeto/avatar/PerfilTab";
+import { DesejosTab } from "@/components/projeto/avatar/DesejosTab";
+import { DoresTab } from "@/components/projeto/avatar/DoresTab";
+import { VoyerismosTab } from "@/components/projeto/avatar/VoyerismosTab";
+import { ProblemasTab } from "@/components/projeto/avatar/ProblemasTab";
+import { CopyArsenalTab } from "@/components/projeto/avatar/CopyArsenalTab";
+import { GatilhosTab } from "@/components/projeto/avatar/GatilhosTab";
+import { AvatarImporter } from "@/components/projeto/avatar/AvatarImporter";
+import { AvatarPipelineRunner } from "@/components/projeto/avatar/AvatarPipelineRunner";
+import { computeAvatarHealthScore } from "@/components/projeto/avatar/avatar-health";
 
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
-  onUpdateAvatar: (avatar: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
+  onUpdateAvatar: (avatar: Json) => void;
 }
 
 const AVATAR_PRINCIPAL = "__principal__";
@@ -31,17 +33,17 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState(AVATAR_PRINCIPAL);
 
-  const data = project.data || {};
-  const produtos: any[] = data.produtos || [];
-  const avatarsPorProduto: Record<string, any> = data.avatars_por_produto || {};
+  const data = jsonFields(project.data);
+  const produtos = useMemo(() => Array.isArray(data.produtos) ? data.produtos.map(jsonFields) : [], [data.produtos]);
+  const avatarsPorProduto = useMemo(() => jsonFields(data.avatars_por_produto), [data.avatars_por_produto]);
 
   // Resolve current avatar based on selection
   const avatar = useMemo(() => {
-    if (selectedProduct === AVATAR_PRINCIPAL) return project.avatar || {};
-    return avatarsPorProduto[selectedProduct] || {};
+    if (selectedProduct === AVATAR_PRINCIPAL) return jsonFields(project.avatar);
+    return jsonFields(avatarsPorProduto[selectedProduct]);
   }, [selectedProduct, project.avatar, avatarsPorProduto]);
 
-  const handleUpdateAvatar = (newAvatar: any) => {
+  const handleUpdateAvatar = (newAvatar: Json) => {
     if (selectedProduct === AVATAR_PRINCIPAL) {
       onUpdateAvatar(newAvatar);
     } else {
@@ -52,7 +54,7 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
 
   useEffect(() => {
     if (showHtmlViewer && avatar.html_original) {
-      const blob = new Blob([avatar.html_original], { type: "text/html" });
+      const blob = new Blob([jsonText(avatar.html_original) || ""], { type: "text/html" });
       const url = URL.createObjectURL(blob);
       setBlobUrl(url);
       return () => URL.revokeObjectURL(url);
@@ -63,15 +65,15 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
 
   const hasHtmlOriginal = !!avatar.html_original;
 
-  const handleImport = (imported: any) => {
-    const merged = { ...avatar, ...imported };
+  const handleImport = (imported: Json) => {
+    const merged = { ...avatar, ...jsonFields(imported) };
     handleUpdateAvatar(merged);
   };
 
   const productLabel = useMemo(() => {
     if (selectedProduct === AVATAR_PRINCIPAL) return "Avatar Principal";
-    const prod = produtos.find((_: any, i: number) => String(i) === selectedProduct);
-    return prod ? `Avatar — ${prod.nome || `Produto ${Number(selectedProduct) + 1}`}` : "Avatar";
+    const prod = produtos.find((_, i: number) => String(i) === selectedProduct);
+    return prod ? `Avatar — ${jsonText(prod.nome) || `Produto ${Number(selectedProduct) + 1}`}` : "Avatar";
   }, [selectedProduct, produtos]);
 
   const health = useMemo(() => computeAvatarHealthScore(avatar), [avatar]);
@@ -144,9 +146,9 @@ export function ProjetoAvatar({ project, onUpdateData, onUpdateAvatar }: Props) 
             <SelectItem value={AVATAR_PRINCIPAL}>
               🧠 Avatar Principal (Projeto)
             </SelectItem>
-            {produtos.map((p: any, i: number) => (
+            {produtos.map((p, i: number) => (
               <SelectItem key={i} value={String(i)}>
-                📦 {p.nome || `Produto ${i + 1}`} {p.tipo ? `(${p.tipo})` : ""}
+                📦 {jsonText(p.nome) || `Produto ${i + 1}`} {p.tipo ? `(${p.tipo})` : ""}
               </SelectItem>
             ))}
           </SelectContent>

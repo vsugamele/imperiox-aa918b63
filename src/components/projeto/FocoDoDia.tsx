@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { errorMessage } from "@/lib/error-message";
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,11 +9,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface FocoItem {
-  icon: any;
+  icon: LucideIcon;
   tone: "danger" | "warn" | "info" | "good";
   title: string;
   detail: string;
-  cta?: { label: string; kind: string; payload?: any };
+  cta?: { label: string; kind: string; payload?: Json };
 }
 
 interface Props {
@@ -107,11 +110,11 @@ export function FocoDoDia({ projectId, signals }: Props) {
         reason: it.detail,
         source: "foco_do_dia",
         payload: it.cta.payload || {},
-      } as any);
+      });
       if (error) throw error;
       toast.success("Ação enviada para o Imperius");
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao enviar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao enviar");
     } finally {
       setEnqueueing(null);
     }

@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import type { Tables } from "@/integrations/supabase/types";
+import type { User } from "@supabase/supabase-js";
+import { errorMessage } from "@/lib/error-message";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/contexts/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,14 +13,19 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText, Tag } from "lucide-react";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText, Tag, Package } from "lucide-react";
 import { toast } from "sonner";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { IntegrationStatusTab } from "@/components/configuracoes/IntegrationStatusTab";
 import { WebhookLogTab } from "@/components/configuracoes/WebhookLogTab";
 import { NotificationPreferencesTab } from "@/components/configuracoes/NotificationPreferencesTab";
+import { WaBriefingCard } from "@/components/configuracoes/WaBriefingCard";
 import { TagRoutingRulesTab } from "@/components/configuracoes/TagRoutingRulesTab";
+import { ProductRoutingRulesTab } from "@/components/configuracoes/ProductRoutingRulesTab";
+import { OutboundWebhooksTab } from "@/components/configuracoes/OutboundWebhooksTab";
+
+
 
 
 export default function Configuracoes() {
@@ -60,6 +68,12 @@ export default function Configuracoes() {
           <TabsTrigger value="tag-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Tag className="h-3.5 w-3.5 mr-2" /> Tag → Projeto
           </TabsTrigger>
+          <TabsTrigger value="product-routing" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Package className="h-3.5 w-3.5 mr-2" /> Produto → Projeto
+          </TabsTrigger>
+          <TabsTrigger value="outbound" className="justify-start text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <Webhook className="h-3.5 w-3.5 mr-2" /> Webhooks Saída
+          </TabsTrigger>
         </TabsList>
 
 
@@ -73,6 +87,8 @@ export default function Configuracoes() {
           <TabsContent value="integracoes"><IntegrationStatusTab /></TabsContent>
           <TabsContent value="webhook-log"><WebhookLogTab /></TabsContent>
           <TabsContent value="tag-routing"><TagRoutingRulesTab /></TabsContent>
+          <TabsContent value="product-routing"><ProductRoutingRulesTab /></TabsContent>
+          <TabsContent value="outbound"><OutboundWebhooksTab /></TabsContent>
         </div>
 
       </Tabs>
@@ -106,7 +122,7 @@ function UsuariosTab() {
   const [resetPassword, setResetPassword] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const callAdminApi = async (action: string, body?: any) => {
+  const callAdminApi = useCallback(async (action: string, body?: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error("Not authenticated");
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tkbivipqiewkfnhktmqq";
@@ -119,15 +135,15 @@ function UsuariosTab() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Erro na API");
     return data;
-  };
+  }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try { setLoading(true); const data = await callAdminApi("list"); setUsers(data.users || []); }
-    catch (err: any) { toast.error("Erro ao carregar usuários: " + err.message); }
+    catch (err: unknown) { toast.error("Erro ao carregar usuários: " + errorMessage(err)); }
     finally { setLoading(false); }
-  };
+  }, [callAdminApi]);
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleCreate = async () => {
     if (!newEmail || !newPassword) { toast.error("Preencha email e senha"); return; }
@@ -135,29 +151,29 @@ function UsuariosTab() {
     try {
       await callAdminApi("create", { email: newEmail, password: newPassword, role: newRole });
       toast.success("Usuário criado!"); setCreateOpen(false); setNewEmail(""); setNewPassword(""); setNewRole("editor"); loadUsers();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleSetPassword = async () => {
     if (!selectedUser || !resetPassword) return;
     if (resetPassword.length < 6) { toast.error("Senha mínima: 6 caracteres"); return; }
     try { await callAdminApi("set_password", { user_id: selectedUser.id, password: resetPassword }); toast.success("Senha atualizada!"); setPasswordOpen(false); setResetPassword(""); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleSetRole = async (userId: string, role: string) => {
     try { await callAdminApi("set_role", { user_id: userId, role }); toast.success("Role atualizada!"); loadUsers(); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleSetStatus = async (userId: string, status: string) => {
     try { await callAdminApi("set_status", { user_id: userId, status }); toast.success(status === "approved" ? "Usuário aprovado!" : "Usuário rejeitado"); loadUsers(); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const handleToggleBan = async (u: UserRow) => {
     try { await callAdminApi("toggle_ban", { user_id: u.id, ban: !u.banned }); toast.success(u.banned ? "Usuário reativado" : "Usuário desativado"); loadUsers(); }
-    catch (err: any) { toast.error(err.message); }
+    catch (err: unknown) { toast.error(errorMessage(err)); }
   };
 
   const getRoleBadge = (role: string | null) => {
@@ -431,6 +447,9 @@ function NotificacoesTab() {
 
       {/* WhatsApp / Campaign Notification Preferences (DB-backed) */}
       <NotificationPreferencesTab />
+
+      {/* Daily Briefing por WhatsApp */}
+      <WaBriefingCard />
     </div>
   );
 }
@@ -526,7 +545,7 @@ function CronJobsTab() {
 }
 
 // ── Segurança Tab ────────────────────────────────────────────────
-function SegurancaTab({ user }: { user: any }) {
+function SegurancaTab({ user }: { user: User | null }) {
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
 
   const changePassword = async () => {
@@ -588,7 +607,7 @@ function SegurancaTab({ user }: { user: any }) {
 // ── API & Webhooks Tab ───────────────────────────────────────────
 function WebhooksTab() {
   const { user } = useAuth();
-  const [keys, setKeys] = useState<any[]>([]);
+  const [keys, setKeys] = useState<Tables<"imphq_api_keys">[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const projectId = "tkbivipqiewkfnhktmqq";

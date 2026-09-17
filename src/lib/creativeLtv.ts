@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 
 export interface AdSpendDetailedRow {
   project_id: string | null;
@@ -99,16 +100,16 @@ export async function fetchCreativeDataset(projectId?: string) {
   const filterByProject = <T extends { project_id?: string | null }>(rows: T[]) =>
     projectId ? rows.filter((r) => r.project_id === projectId) : rows;
 
-  const ads = filterByProject((adsRes.data || []) as any[]).map((a) => ({
+  const ads: AdSpendDetailedRow[] = filterByProject(adsRes.data || []).map((a) => ({
     ...a,
     valor: Number(a.valor || 0),
-  })) as AdSpendDetailedRow[];
+  }));
 
-  const vendasRaw = filterByProject((vendasRes.data || []) as any[]).map((v) => ({
+  const vendasRaw: VendaDetailedRow[] = filterByProject(vendasRes.data || []).map((v) => ({
     ...v,
     valor: Number(v.valor || 0),
     valor_liquido: v.valor_liquido != null ? Number(v.valor_liquido) : null,
-  })) as VendaDetailedRow[];
+  }));
 
   // Fallback: para vendas sem UTM, herdar do lead (first-touch).
   // Plataformas como Ticto entregam vendas sem utm_*, mas o lead foi capturado com UTM.
@@ -120,7 +121,7 @@ export async function fetchCreativeDataset(projectId?: string) {
     ),
   );
 
-  let leadUtmMap = new Map<string, { utm_campaign: string | null; utm_content: string | null; utm_source: string | null }>();
+  const leadUtmMap = new Map<string, { utm_campaign: string | null; utm_content: string | null; utm_source: string | null }>();
   if (leadIdsNeeding.length > 0) {
     // Supabase aceita .in() com até ~1000 ids por chamada; faz em chunks.
     const chunkSize = 500;
@@ -128,13 +129,14 @@ export async function fetchCreativeDataset(projectId?: string) {
       const chunk = leadIdsNeeding.slice(i, i + chunkSize);
       const { data: leadRows } = await supabase
         .from("imphq_leads")
-        .select("id, utm_campaign, utm_content, utm_source")
+        .select("id, data")
         .in("id", chunk);
-      for (const lr of (leadRows || []) as any[]) {
+      for (const lr of leadRows || []) {
+        const utms = jsonFields(jsonFields(lr.data).utms);
         leadUtmMap.set(lr.id, {
-          utm_campaign: lr.utm_campaign ?? null,
-          utm_content: lr.utm_content ?? null,
-          utm_source: lr.utm_source ?? null,
+          utm_campaign: jsonText(utms.utm_campaign) ?? null,
+          utm_content: jsonText(utms.utm_content) ?? null,
+          utm_source: jsonText(utms.utm_source) ?? null,
         });
       }
     }

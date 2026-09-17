@@ -1,3 +1,5 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const memorySchema = z.object({ objecoes_recorrentes: z.array(z.unknown()).nullish(), gatilhos_positivos: z.array(z.unknown()).nullish(), produtos_mencionados: z.array(z.unknown()).nullish(), informacoes_pessoais: z.record(z.unknown()).nullish(), qualificacao: z.record(z.unknown()).nullish() }).passthrough();
 // wa-memory-extract — extrai memória estruturada de uma conversa e atualiza lead_memory + conversation_summary
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 
@@ -31,6 +33,13 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(30);
 
+    // Conta total de mensagens para gating de re-extração
+    const { count: totalMsgs } = await supabase
+      .from("imphq_wa_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversation_id);
+
+
     if (!msgs || msgs.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: "no_messages" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -44,11 +53,11 @@ Deno.serve(async (req) => {
       .eq("id", lead_id)
       .maybeSingle();
 
-    const existingMemory = (lead as any)?.lead_memory || {};
+    const existingMemory = memorySchema.parse(lead?.lead_memory || {});
 
     const transcript = msgs
       .reverse()
-      .map((m: any) => {
+      .map((m) => {
         const role = m.direction === "outgoing" ? "Assistente" : "Lead";
         return `${role}: ${m.content}`;
       })
@@ -62,13 +71,28 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
   "summary": "resumo da sessão em 1-2 frases",
   "nome_preferido": "como o lead prefere ser chamado ou null",
   "interesse_principal": "produto/serviço de maior interesse ou null",
+  "nivel_qualificacao": "frio | morno | quente — baseado em intenção real de compra (frio=apenas curioso, morno=engajado/perguntando detalhes, quente=pediu preço/link/pix ou disse que quer comprar)",
   "objecoes_novas": ["lista de objeções novas mencionadas"],
+  "objecao_atual": "a objeção MAIS recente que está travando o lead, ou null",
   "gatilhos_positivos": ["coisas que o lead reagiu positivamente"],
   "produtos_mencionados": ["produtos/serviços citados pelo lead"],
   "informacoes_pessoais": {"profissao": null, "objetivo": null, "dor_principal": null},
+  "qualificacao": {
+    "nivel": "iniciante | intermediario | avancado | null — experiência do lead na área",
+    "objetivo": "hobby | renda_extra | profissionalizar | escalar | null — o que quer alcançar",
+    "formato_pref": "online | presencial | hibrido | null — formato preferido",
+    "orcamento_sinal": "baixo | medio | alto | null — sinais de poder de compra ou objeção de preço",
+    "urgencia": "agora | 30d | explorando | null — quando pretende decidir"
+  },
   "proximo_passo_sugerido": "ação recomendada para a próxima interação ou null",
   "notas_ia": "observações relevantes para próxima abordagem ou null"
-}`;
+}
+
+REGRAS DE QUALIFICACAO:
+- Preencha SÓ o que o lead disse EXPLICITAMENTE ou deu sinal claro. Nunca invente.
+- Se não houver evidência, deixe null. Prefira null a chute.
+- Mantenha o que já foi capturado antes, só sobrescreva com evidência nova.`;
+
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -91,7 +115,7 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
     const extracted = JSON.parse(aiData?.choices?.[0]?.message?.content || "{}");
 
     // Merge inteligente com memória existente
-    const newMemory: Record<string, any> = { ...existingMemory };
+    const newMemory: z.infer<typeof memorySchema> = { ...existingMemory };
 
     if (extracted.nome_preferido) newMemory.nome_preferido = extracted.nome_preferido;
     if (extracted.interesse_principal) newMemory.interesse_principal = extracted.interesse_principal;
@@ -118,15 +142,52 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
       newMemory.informacoes_pessoais = { ...(newMemory.informacoes_pessoais || {}), ...extracted.informacoes_pessoais };
     }
 
-    // Salva lead_memory atualizado + conversation_summary
+    // Qualificação consultiva — merge preservando dimensões já preenchidas
+    if (extracted.qualificacao && typeof extracted.qualificacao === "object") {
+      const prev = newMemory.qualificacao || {};
+      const next: Record<string, unknown> = { ...prev };
+      const validEnums: Record<string, string[]> = {
+        nivel: ["iniciante", "intermediario", "avancado"],
+        objetivo: ["hobby", "renda_extra", "profissionalizar", "escalar"],
+        formato_pref: ["online", "presencial", "hibrido"],
+        orcamento_sinal: ["baixo", "medio", "alto"],
+        urgencia: ["agora", "30d", "explorando"],
+      };
+      for (const [k, allowed] of Object.entries(validEnums)) {
+        const v = String(extracted.qualificacao?.[k] || "").toLowerCase().trim();
+        if (allowed.includes(v)) next[k] = v;
+      }
+      newMemory.qualificacao = next;
+      newMemory.qualificacao_updated_at = new Date().toISOString();
+    }
+
+
+    // Atualiza tanto lead_memory (JSONB) quanto as colunas FLAT consumidas pelo CRM
+    const leadUpdate: Record<string, unknown> = {
+      lead_memory: newMemory,
+      updated_at: new Date().toISOString(),
+    };
+    const nivel = String(extracted.nivel_qualificacao || "").toLowerCase().trim();
+    if (["frio", "morno", "quente"].includes(nivel)) {
+      leadUpdate.nivel_qualificacao = nivel;
+      leadUpdate.qualificacao_updated_at = new Date().toISOString();
+    }
+    if (extracted.interesse_principal) leadUpdate.ultimo_interesse = String(extracted.interesse_principal).slice(0, 200);
+    const dor = extracted?.informacoes_pessoais?.dor_principal;
+    if (dor) leadUpdate.dor_principal = String(dor).slice(0, 300);
+    if (extracted.objecao_atual) leadUpdate.objecao_atual = String(extracted.objecao_atual).slice(0, 300);
+
     await Promise.all([
-      supabase.from("imphq_leads")
-        .update({ lead_memory: newMemory, updated_at: new Date().toISOString() })
-        .eq("id", lead_id),
+      supabase.from("imphq_leads").update(leadUpdate).eq("id", lead_id),
       supabase.from("imphq_wa_conversations")
-        .update({ conversation_summary: extracted.summary || null })
+        .update({
+          conversation_summary: extracted.summary || null,
+          last_memory_extract_at: new Date().toISOString(),
+          last_memory_extract_msg_count: totalMsgs ?? msgs.length,
+        })
         .eq("id", conversation_id),
     ]);
+
 
     // Persist key memory snippets as vector entries for semantic retrieval in wa-ai-reply
     if (project_id && LOVABLE_API_KEY) {
@@ -150,7 +211,7 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
         .select("phone")
         .eq("id", conversation_id)
         .maybeSingle();
-      const phone = (conv as any)?.phone || "";
+      const phone = conv?.phone || "";
 
       for (const snippet of memorySnippets.slice(0, 5)) {
         try {
@@ -183,9 +244,10 @@ Responda APENAS com JSON válido no formato abaixo (sem markdown, sem explicaç�
       JSON.stringify({ ok: true, extracted, lead_memory_keys: Object.keys(newMemory) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("wa-memory-extract:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 export interface Competitor {
   id: string;
   project_id: string;
@@ -29,7 +30,7 @@ export interface Competitor {
   insights: string;
   screenshot_url: string;
   color: string;
-  data: Record<string, any>;
+  data: Json;
   created_at: string;
   updated_at: string;
 }

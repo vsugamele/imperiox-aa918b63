@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { record, toJson } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +14,12 @@ import { Loader2, Plus, Trash2, Play, Save, CheckCircle2, XCircle, Image as Imag
 import { toast } from "sonner";
 import { WORKFLOW_TEMPLATES, type WorkflowStep } from "@/data/studio/workflowTemplates";
 
+const stepSchema = z.object({kind:z.enum(["image","video","audio"]),provider:z.enum(["openrouter","kie","luma","elevenlabs"]),model:z.string(),prompt:z.string(),params:z.record(z.unknown()).optional(),voice_id:z.string().optional(),image_url:z.string().optional(),audio_url:z.string().optional()}).passthrough();
+function parseSteps(value:unknown): WorkflowStep[] {
+ return z.array(stepSchema).parse(value).map(s=>({...s,kind:s.kind,provider:s.provider,model:s.model,prompt:s.prompt,params:s.params ? Object.fromEntries(Object.entries(s.params).map(([k,v])=>[k,toJson(v)])) : undefined}));
+}
+const runSchema = z.object({id:z.string(),status:z.string(),current_step:z.number(),step_outputs:z.record(z.string()).nullable(),generation_ids:z.record(z.string()).nullable(),error:z.string().nullable()});
+function parseRun(value:unknown):Run { const r=runSchema.parse(value); return {id:r.id,status:r.status,current_step:r.current_step,step_outputs:r.step_outputs||{},generation_ids:r.generation_ids||{},error:r.error}; }
 const KIND_ICON = { image: ImageIcon, video: Video, audio: Mic } as const;
 
 const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
@@ -88,7 +97,7 @@ export function StudioWorkflow() {
       .from("imphq_studio_workflows")
       .select("id,name,template_key,steps")
       .order("created_at", { ascending: false });
-    setSaved((data as any) || []);
+    try { setSaved((data || []).map(row=>({...row,steps:parseSteps(row.steps)}))); } catch (error) { toast.error(errorMessage(error)); }
   }
 
   useEffect(() => { loadSaved(); }, []);
@@ -98,7 +107,7 @@ export function StudioWorkflow() {
     if (!run || run.status === "completed" || run.status === "failed") return;
     const t = setInterval(async () => {
       const { data } = await supabase.from("imphq_studio_workflow_runs").select("*").eq("id", run.id).single();
-      if (data) setRun(data as any);
+      if (data) { try { setRun(parseRun(data)); } catch (error) { toast.error(errorMessage(error)); } }
     }, 4000);
     return () => clearInterval(t);
   }, [run]);
@@ -106,7 +115,7 @@ export function StudioWorkflow() {
   function applyTemplate(key: string) {
     const tpl = WORKFLOW_TEMPLATES.find((t) => t.key === key);
     if (!tpl) return;
-    setSteps(JSON.parse(JSON.stringify(tpl.steps)));
+    setSteps(structuredClone(tpl.steps));
     setName(tpl.name);
     setTemplateKey(key);
     setCurrentWorkflowId(null);
@@ -114,7 +123,7 @@ export function StudioWorkflow() {
   }
 
   function loadWorkflow(wf: SavedWorkflow) {
-    setSteps(JSON.parse(JSON.stringify(wf.steps)));
+    setSteps(structuredClone(wf.steps));
     setName(wf.name);
     setTemplateKey(wf.template_key || "");
     setCurrentWorkflowId(wf.id);
@@ -146,7 +155,7 @@ export function StudioWorkflow() {
   async function saveWorkflow() {
     const { data: u } = await supabase.auth.getUser();
     if (!u?.user) return toast.error("Faça login");
-    const payload = { user_id: u.user.id, name, template_key: templateKey || null, steps: steps as any };
+    const payload = { user_id: u.user.id, name, template_key: templateKey || null, steps: toJson(steps) };
     if (currentWorkflowId) {
       const { error } = await supabase.from("imphq_studio_workflows").update(payload).eq("id", currentWorkflowId);
       if (error) return toast.error(error.message);
@@ -171,10 +180,11 @@ export function StudioWorkflow() {
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Falha");
       const { data: r } = await supabase.from("imphq_studio_workflow_runs").select("*").eq("id", data.run_id).single();
-      setRun(r as any);
+      if (!r) throw new Error("Execução não encontrada");
+      setRun(parseRun(r));
       toast.success("Workflow iniciado — acompanhe o progresso");
-    } catch (e: any) {
-      toast.error(e.message || "Erro");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro");
     } finally {
       setBusy(false);
     }
@@ -270,10 +280,11 @@ export function StudioWorkflow() {
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <Label className="text-xs">Tipo</Label>
-                      <Select value={step.kind} onValueChange={(v: any) => {
+                      <Select value={step.kind} onValueChange={(v) => {
+                        if (v !== "audio" && v !== "image" && v !== "video") return;
                         const newProvider = v === "audio" ? "elevenlabs" : v === "image" ? "kie" : "kie";
                         const opts = PROVIDER_MODELS[`${v}:${newProvider}`];
-                        updateStep(idx, { kind: v, provider: newProvider as any, model: opts?.[0]?.value || "" });
+                        updateStep(idx, { kind: v, provider: newProvider, model: opts?.[0]?.value || "" });
                       }}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -285,7 +296,8 @@ export function StudioWorkflow() {
                     </div>
                     <div>
                       <Label className="text-xs">Provider</Label>
-                      <Select value={step.provider} onValueChange={(v: any) => {
+                      <Select value={step.provider} onValueChange={(v) => {
+                        if (v !== "openrouter" && v !== "kie" && v !== "elevenlabs" && v !== "luma") return;
                         const opts = PROVIDER_MODELS[`${step.kind}:${v}`];
                         updateStep(idx, { provider: v, model: opts?.[0]?.value || "" });
                       }}>
@@ -367,7 +379,7 @@ export function StudioWorkflow() {
                       <div>
                         <Label className="text-xs">Proporção</Label>
                         <Select
-                          value={step.params?.aspect_ratio || "9:16"}
+                          value={typeof step.params?.aspect_ratio === "string" ? step.params.aspect_ratio : "9:16"}
                           onValueChange={(v) => updateStep(idx, { params: { ...(step.params || {}), aspect_ratio: v, size: v === "1:1" ? "1024x1024" : v === "16:9" ? "1536x864" : "864x1536" } })}
                         >
                           <SelectTrigger><SelectValue /></SelectTrigger>

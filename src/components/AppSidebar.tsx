@@ -1,59 +1,65 @@
-import {
+﻿import {
   LayoutDashboard, FolderKanban, ListTodo, Users, DollarSign,
   Search, Brain, FileText, MessageSquare, Link2,
   Zap, UsersRound, Building2, Settings, LogOut, Crown,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow,
+  Inbox, Pencil, Workflow, Globe, Coins, Stethoscope, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarFooter, useSidebar,
-} from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/auth-context";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar-context";
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 
-// ── Nav items ────────────────────────────────────────────────────────────────
+// ── Nav items ──────────────────────────────────────────────────────────
+// Reorganizado em 5 hubs para reduzir ruído e criar caminhos claros.
 const hojeitems = [
-  { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
+  { title: "Cockpit",          url: "/tarefas",    icon: LayoutDashboard },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
-  { title: "Tarefas",          url: "/tarefas",    icon: ListTodo },
+  { title: "Dashboard",        url: "/dashboard",  icon: Activity,        badge: "rag" as const },
   { title: "Recuperação",      url: "/recuperacao",icon: LifeBuoy },
 ];
 
 const venderItems = [
-  { title: "Projetos",             url: "/projetos",   icon: FolderKanban },
-  { title: "Campanhas",            url: "/campanhas",  icon: Target },
-  { title: "Gerenciador Ads",      url: "/gerenciador",icon: Activity },
-  { title: "Funis",                url: "/funis",      icon: Target },
-  { title: "OpenFlow",             url: "/openflow",   icon: Workflow },
-  { title: "Webinar",              url: "/webinar",    icon: Radio },
-  { title: "Finanças",             url: "/financas",   icon: DollarSign },
-  { title: "Tracker UTM",          url: "/tracker",    icon: Link2 },
+  { title: "Projetos",   url: "/projetos",  icon: FolderKanban },
+  { title: "Campanhas",  url: "/campanhas", icon: Target },
+  { title: "Funis",      url: "/funis",     icon: Target },
+  { title: "LinfaFlow X1", url: "/funis/linfaflow-x1-ready", icon: Stethoscope },
+  { title: "LinfaFlow Care", url: "/funis/linfaflow-care", icon: MessageSquare },
+  { title: "Care Conversão", url: "/funis/linfaflow-care-dashboard", icon: BarChart3 },
+  { title: "Sites",      url: "/sites",     icon: Globe },
+  { title: "OpenFlow",   url: "/openflow",  icon: Workflow },
 ];
 
 const inteligenciaItems = [
-  { title: "Saúde da IA",          url: "/ai-saude",       icon: Brain },
-  { title: "Funil de Conversão",   url: "/funil-conversao",icon: Search },
-  { title: "Assistente",           url: "/assistente",     icon: Compass },
-  { title: "Mentes IA",            url: "/mentes",         icon: Brain },
-  { title: "Skills",               url: "/skills",         icon: Zap },
-  { title: "Studio",               url: "/studio",         icon: Clapperboard },
-  { title: "Swipe File",           url: "/swipe",          icon: Library },
-  { title: "Market Intel",         url: "/market-intel",   icon: Search },
-  { title: "Copilot de Produtos",  url: "/product-copilot",icon: Sparkles },
-  { title: "Orquestrador Infoproduto", url: "/infoproduto-copilot", icon: Sparkles },
+  { title: "Inteligência IA",  url: "/inteligencia-ia",icon: Brain },
+  { title: "Assistente",       url: "/assistente",     icon: Compass },
+  { title: "Estúdio",          url: "/studio",         icon: Clapperboard },
+  { title: "Copy Lab",         url: "/copy-lab",       icon: Zap },
+  { title: "Hook Labs",        url: "/hooks",          icon: Sparkles },
+  { title: "Swipe File",       url: "/swipe",          icon: Library },
+  { title: "Market Intel",     url: "/market-intel",   icon: Search },
+  { title: "Skills",           url: "/skills",         icon: Zap },
 ];
 
-const planejarItems = [
-  { title: "Docs / KB",    url: "/docs",      icon: FileText },
-  { title: "Rascunhos IA", url: "/rascunhos", icon: Pencil },
-  { title: "Nutrição",     url: "/nutricao",  icon: Mail },
+const capitalItems = [
+  { title: "Gerenciador Ads",  url: "/gerenciador",       icon: Activity },
+  { title: "Tracker",          url: "/tracker",           icon: Link2 },
+  { title: "Atribuição",       url: "/atribuicao",        icon: Radio },
+  { title: "Finanças",         url: "/financas",          icon: DollarSign },
+  { title: "Custos IA",        url: "/custos-ia",         icon: Coins },
+  { title: "Custos IA · Chat", url: "/openrouter-custos", icon: Coins },
+];
+
+const acervoItems = [
+  { title: "Referências",  url: "/referencias", icon: Library },
+  { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
+  { title: "Docs / KB",    url: "/docs",        icon: FileText },
+  { title: "Guia Claude",  url: "/claude-skills", icon: BookOpen },
 ];
 
 const configurarItems = [
@@ -64,6 +70,7 @@ const configurarItems = [
   { title: "Guia",    url: "/guia",          icon: BookOpen },
 ];
 
+
 type NavItem = {
   title: string;
   url: string;
@@ -71,7 +78,7 @@ type NavItem = {
   badge?: "imperius" | "inbox" | "leads" | "rag";
 };
 
-// ── Badge pill ────────────────────────────────────────────────────────────────
+// â”€â”€ Badge pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BadgePill({ count }: { count: number }) {
   if (!count) return null;
   return (
@@ -81,7 +88,7 @@ function BadgePill({ count }: { count: number }) {
   );
 }
 
-// ── Single nav item ────────────────────────────────────────────────────────────
+// â”€â”€ Single nav item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function NavItemRow({
   item,
   collapsed,
@@ -110,7 +117,7 @@ function NavItemRow({
             <>
               <span className="flex-1 truncate">{item.title}</span>
               <BadgePill count={badgeCount} />
-              {/* Pin button — shown on hover when expanded */}
+              {/* Pin button â€” shown on hover when expanded */}
               <button
                 title={isFavorite ? "Remover favorito" : "Fixar no topo"}
                 onClick={(e) => {
@@ -134,7 +141,7 @@ function NavItemRow({
   );
 }
 
-// ── Nav group ─────────────────────────────────────────────────────────────────
+// ── Nav group ──────────────────────────────────────────────────────────
 function NavGroup({
   label,
   items,
@@ -154,10 +161,11 @@ function NavGroup({
   const collapsed = state === "collapsed";
 
   return (
-    <SidebarGroup className={!isLast ? "pb-2 mb-2 border-b border-sidebar-border/40" : ""}>
+    <SidebarGroup className={!isLast ? "pb-3 mb-2 border-b border-sidebar-border/30" : "pb-3"}>
       {!collapsed && (
         <SidebarGroupLabel className="nav-kicker px-3">· {label}</SidebarGroupLabel>
       )}
+
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
@@ -176,7 +184,7 @@ function NavGroup({
   );
 }
 
-// ── Main sidebar ──────────────────────────────────────────────────────────────
+// â”€â”€ Main sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -194,8 +202,9 @@ export function AppSidebar() {
   // All items pool for favourites lookup
   const allItems: NavItem[] = [
     ...hojeitems, ...venderItems, ...inteligenciaItems,
-    ...planejarItems, ...configurarItems,
+    ...capitalItems, ...acervoItems, ...configurarItems,
   ];
+
 
   const favItems = favorites
     .map((url) => allItems.find((i) => i.url === url))
@@ -219,11 +228,11 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="mt-3">
-        {/* ⭐ Favourites section — only shown when there are pinned items */}
+        {/* â­ Favourites section â€” only shown when there are pinned items */}
         {!collapsed && favItems.length > 0 && (
           <SidebarGroup className="pb-2 mb-2 border-b border-sidebar-border/40">
             <SidebarGroupLabel className="nav-kicker px-3">
-              · Favoritos
+              Â· Favoritos
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -242,11 +251,13 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <NavGroup label="Hoje"          items={hojeitems}         {...sharedProps} />
-        <NavGroup label="Vender"        items={venderItems}       {...sharedProps} />
-        <NavGroup label="Inteligência"  items={inteligenciaItems} {...sharedProps} />
-        <NavGroup label="Planejar"      items={planejarItems}     {...sharedProps} />
-        <NavGroup label="Configurar"    items={configurarItems}   {...sharedProps} isLast />
+        <NavGroup label="Hoje"         items={hojeitems}         {...sharedProps} />
+        <NavGroup label="Vender"       items={venderItems}       {...sharedProps} />
+        <NavGroup label="Inteligência" items={inteligenciaItems} {...sharedProps} />
+        <NavGroup label="Capital"      items={capitalItems}      {...sharedProps} />
+        <NavGroup label="Acervo"       items={acervoItems}       {...sharedProps} />
+        <NavGroup label="Setup"        items={configurarItems}   {...sharedProps} isLast />
+
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/60 p-2">

@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { Trash2 } from "lucide-react";
-import { Competitor } from "./types";
+import { Competitor } from "@/components/projeto/concorrentes/types";
 
 interface Props {
   competitors: Competitor[];
-  updateField: (id: string, field: string, value: any) => void;
+  updateField: (id: string, field: keyof Competitor, value: string | number | string[]) => void;
   removeCompetitor: (id: string) => void;
 }
 

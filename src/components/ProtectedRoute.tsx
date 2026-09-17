@@ -1,9 +1,13 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Shield, Clock } from "lucide-react";
+
+// Redirect mobile → /mobile-cockpit removido. App agora é responsivo no celular.
+// Cockpit continua acessível manualmente via /mobile-cockpit.
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isPending, userStatus } = useAuth();
+  
 
   if (loading) {
     return (

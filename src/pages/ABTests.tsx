@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,16 +59,15 @@ export default function ABTests() {
     variantB_traffic: 50,
   });
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     const { data } = await supabase.from("imphq_projects").select("id, name");
     setProjects(data || []);
-    if (data && data.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(data[0].id);
-      localStorage.setItem("ab.selectedProject", data[0].id);
+    if (data && data.length > 0) {
+      setSelectedProjectId(current => current || data[0].id);
     }
-  };
+  }, []);
 
-  const loadTests = async () => {
+  const loadTests = useCallback(async () => {
     if (!selectedProjectId) return;
     setLoading(true);
     try {
@@ -98,23 +98,24 @@ export default function ABTests() {
       } else {
         setVariants({});
       }
-    } catch (err: any) {
-      console.error("Erro ao carregar testes A/B:", err.message);
+    } catch (err: unknown) {
+      console.error("Erro ao carregar testes A/B:", errorMessage(err));
       toast.error("Erro ao carregar dados.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedProjectId]);
 
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [loadProjects]);
 
   useEffect(() => {
     if (selectedProjectId) {
+      localStorage.setItem("ab.selectedProject", selectedProjectId);
       loadTests();
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, loadTests]);
 
   const handleProjectChange = (id: string) => {
     setSelectedProjectId(id);
@@ -182,8 +183,8 @@ export default function ABTests() {
         variantB_traffic: 50,
       });
       loadTests();
-    } catch (err: any) {
-      toast.error("Erro ao criar teste: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao criar teste: " + errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -199,8 +200,8 @@ export default function ABTests() {
       if (error) throw error;
       toast.success(test.active ? "Teste pausado." : "Teste ativado.");
       loadTests();
-    } catch (err: any) {
-      toast.error("Erro: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro: " + errorMessage(err));
     }
   };
 
@@ -215,8 +216,8 @@ export default function ABTests() {
       if (error) throw error;
       toast.success("Teste A/B excluído.");
       loadTests();
-    } catch (err: any) {
-      toast.error("Erro ao excluir: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao excluir: " + errorMessage(err));
     }
   };
 
@@ -231,8 +232,8 @@ export default function ABTests() {
       } else {
         toast.success("Avaliação concluída. Nenhum teste com amostra estatística suficiente para promoção.");
       }
-    } catch (err: any) {
-      toast.error("Erro na avaliação: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro na avaliação: " + errorMessage(err));
     }
   };
 

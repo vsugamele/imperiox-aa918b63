@@ -1,3 +1,5 @@
+import { record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -250,15 +252,15 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
         dayMap[key] = { dia: key, receita: 0, vendas: 0, leads: 0 };
       }
 
-      (vendasRes.data || []).forEach((v: any) => {
+      (vendasRes.data || []).forEach((v) => {
         const key = v.created_at?.slice(0, 10);
         if (key && dayMap[key]) {
           dayMap[key].vendas++;
-          if (v.status === "aprovado") dayMap[key].receita += parseFloat(v.valor) || 0;
+          if (v.status === "aprovado") dayMap[key].receita += Number(v.valor) || 0;
         }
       });
 
-      (leadsRes.data || []).forEach((l: any) => {
+      (leadsRes.data || []).forEach((l) => {
         const key = l.criado_em?.slice(0, 10);
         if (key && dayMap[key]) dayMap[key].leads++;
       });
@@ -287,22 +289,22 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
 
       // Funnel health
       const totalLeads = (leadsRes.data || []).length;
-      const checkouts = (leadsRes.data || []).filter((l: any) => {
-        const evt = (l.data as any)?.ultimo_evento;
+      const checkouts = (leadsRes.data || []).filter((l) => {
+        const evt = record(l.data).ultimo_evento;
         return evt && ["checkout", "inicio_checkout", "initiate_checkout", "purchase_out_of_shopping_cart",
           "pix_gerado", "pix_created", "boleto_gerado", "purchase_billet_printed",
-          "cartao_recusado", "refused", "pagamento_recusado", "aguardando_pagamento", "pendente"].includes(evt);
+          "cartao_recusado", "refused", "pagamento_recusado", "aguardando_pagamento", "pendente"].includes(typeof evt === "string" ? evt : "");
       }).length;
-      const totalVendas = (vendasRes.data || []).filter((v: any) => v.status === "aprovado").length;
-      const totalAdsSpend = (adsRes.data || []).reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
-      const totalAdsLeads = (adsRes.data || []).reduce((s: number, a: any) => s + (a.leads || 0), 0);
+      const totalVendas = (vendasRes.data || []).filter((v) => v.status === "aprovado").length;
+      const totalAdsSpend = (adsRes.data || []).reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
+      const totalAdsLeads = (adsRes.data || []).reduce((s: number, a) => s + (a.leads || 0), 0);
 
       const health = calculateFunnelHealth({ leads: totalLeads, checkouts, vendas: totalVendas, adsSpend: totalAdsSpend });
       setFunnelHealth(health);
 
       // Recommendations
       const avgCPL = totalAdsLeads > 0 ? totalAdsSpend / totalAdsLeads : 0;
-      const roas = totalAdsSpend > 0 ? (vendasRes.data || []).filter((v: any) => v.status === "aprovado").reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0) / totalAdsSpend : 0;
+      const roas = totalAdsSpend > 0 ? (vendasRes.data || []).filter((v) => v.status === "aprovado").reduce((s: number, v) => s + (Number(v.valor) || 0), 0) / totalAdsSpend : 0;
       const recs = generateRecommendations(fc, anom, health, { avgCPL, roas, totalLeads, totalVendas });
       setRecommendations(recs);
 
@@ -335,7 +337,7 @@ export default function PredictiveDashboard({ period, projectFilter, productFilt
       });
       if (error) throw error;
       setAiInsight(data?.result || data?.text || "Não foi possível gerar insight.");
-    } catch (e: any) {
+    } catch (e) {
       toast.error("Erro ao gerar insight IA");
       console.error(e);
     } finally {

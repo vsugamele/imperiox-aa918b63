@@ -133,7 +133,7 @@ export default function Guia() {
               { label: "Pixel ID preenchido no projeto", desc: "Projeto → Analytics → Facebook Pixel & CAPI → Pixel ID" },
               { label: "Access Token CAPI preenchido", desc: "Gerado no Events Manager → Configurações → Gerar Token de Acesso" },
               { label: "Webhook configurado na plataforma de pagamento", desc: "Copie a URL do webhook em Projeto → Analytics → Webhooks de Pagamento" },
-              { label: "Meta tag imp-pixel-id na LP", desc: '<meta name=\"imp-pixel-id\" content=\"SEU_PIXEL_ID\"> no <head> da página' },
+              { label: "Meta tag imp-pixel-id na LP", desc: '<meta name="imp-pixel-id" content="SEU_PIXEL_ID"> no <head> da página' },
               { label: "Script imptrack.js instalado na LP", desc: "Copie em Tracker → Script e cole no <head> da landing page" },
             ].map((item, i) => (
               <div key={i} className="p-2 rounded bg-secondary/50 border border-border">

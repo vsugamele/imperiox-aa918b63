@@ -1,3 +1,4 @@
+import { objectFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,7 @@ interface AdsSpend {
 
 interface Props {
   vendas: Venda[];
-  briefingProdutos?: any[];
+  briefingProdutos?: unknown[];
   revenues?: Revenue[];
   costs?: Cost[];
   ads?: AdsSpend[];
@@ -58,9 +59,11 @@ export function FinancasProdutos({ vendas, briefingProdutos = [], revenues = [],
   const productMap = new Map<string, { qtd: number; receitaBruta: number; receitaLiquida: number; receita: number; receitaManual: number; custos: number; custosAds: number; preco?: string; tipo?: string; imposto_pct?: number }>();
 
   // Seed from briefing products
-  briefingProdutos.forEach(p => {
-    if (p.nome) {
-      productMap.set(p.nome, { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: p.preco, tipo: p.tipo, imposto_pct: parseFloat(p.imposto_pct) || 0 });
+  briefingProdutos.forEach(value => {
+    const p = objectFields(value);
+    const nome = jsonText(p.nome);
+    if (nome) {
+      productMap.set(nome, { qtd: 0, receitaBruta: 0, receitaLiquida: 0, receita: 0, receitaManual: 0, custos: 0, custosAds: 0, preco: typeof p.preco === "number" ? String(p.preco) : jsonText(p.preco), tipo: jsonText(p.tipo), imposto_pct: typeof p.imposto_pct === "string" ? (Number.parseFloat(p.imposto_pct) || 0) : jsonNumber(p.imposto_pct) });
     }
   });
 

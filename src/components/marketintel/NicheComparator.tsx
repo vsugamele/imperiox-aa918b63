@@ -60,7 +60,7 @@ export function NicheComparator({ open, onOpenChange, offers }: Props) {
                   <tr key={String(r.key)} className="border-t border-border/20 align-top">
                     <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.label}</td>
                     {offers.map((o, i) => {
-                      const v = (o as any)[r.key];
+                      const v = o[r.key];
                       const isWinner = r.cmp === "max" && v === winnerScore;
                       if (r.key === "score") {
                         return (

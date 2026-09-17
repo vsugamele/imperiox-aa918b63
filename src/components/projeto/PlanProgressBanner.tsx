@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useEffect, useState } from "react";
 import { Crown } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -16,7 +18,7 @@ interface Props {
 }
 
 export function PlanProgressBanner({ projectId }: Props) {
-  const [plan, setPlan] = useState<any>(null);
+  const [plan, setPlan] = useState<Pick<Tables<"imphq_sales_paths">, "id" | "created_at" | "progress" | "acoes_72h" | "acoes_30d" | "health_score"> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -36,10 +38,10 @@ export function PlanProgressBanner({ projectId }: Props) {
 
   if (!plan) return null;
 
-  const all = [...(plan.acoes_72h || []), ...(plan.acoes_30d || [])];
+  const all = [...(Array.isArray(plan.acoes_72h) ? plan.acoes_72h : []), ...(Array.isArray(plan.acoes_30d) ? plan.acoes_30d : [])];
   if (all.length === 0) return null;
-  const prog = plan.progress || {};
-  const keys = all.map((a: any) => hashAction(String(a?.acao || "")));
+  const prog = jsonFields(plan.progress);
+  const keys = all.map((a) => hashAction(jsonText(jsonFields(a).acao) || ""));
   const done = keys.filter((k) => prog[k] === "done").length;
   const pct = Math.round((done / keys.length) * 100);
   const age = formatDistanceToNow(new Date(plan.created_at), { addSuffix: true, locale: ptBR });

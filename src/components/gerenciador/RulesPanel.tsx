@@ -1,4 +1,9 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonNumber, jsonText } from "@/lib/json-fields";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -12,7 +17,7 @@ import { toast } from "sonner";
 interface Rule {
   id: string;
   rule_type: string;
-  params: Record<string, any>;
+  params: Record<string, Json>;
   enabled: boolean;
   last_run_at: string | null;
   runs_24h: number;
@@ -21,14 +26,15 @@ interface Rule {
 interface Suggestion {
   name: string;
   rule_type: string;
-  conditions: Record<string, any>;
+  conditions: Record<string, number>;
   expected_delta: string;
   confidence: number;
   samples: number;
   rationale: string;
 }
 
-const META: Record<string, { label: string; desc: string; icon: any; fields: { key: string; label: string; suffix?: string }[] }> = {
+const suggestionSchema = z.object({ name: z.string(), rule_type: z.string(), conditions: z.record(z.number()), expected_delta: z.string(), confidence: z.number(), samples: z.number(), rationale: z.string() }).passthrough();
+const META: Record<string, { label: string; desc: string; icon: LucideIcon; fields: { key: string; label: string; suffix?: string }[] }> = {
   auto_pause_cpa: {
     label: "Pausar se CPA estourar",
     desc: "Pausa adsets com CPA > N× a meta após X cliques.",
@@ -70,19 +76,21 @@ export function RulesPanel() {
   const load = async () => {
     setLoading(true);
     const { data } = await supabase.from("imphq_ads_rules").select("*").order("rule_type");
-    setRules((data as Rule[]) || []);
+    setRules((data || []).map((row) => ({ ...row, params: jsonFields(row.params) })));
     setLoading(false);
   };
 
   const loadSuggestions = async () => {
     setLoadingSugg(true);
     try {
-      const { data, error } = await supabase.functions.invoke("ads-rules-suggester", { body: {} });
+      const { data, error } = await supabase.functions.invoke<Json>("ads-rules-suggester", { body: {} });
       if (error) throw error;
-      setSuggestions(data?.rules || []);
-      setTotalSamples(data?.total_samples || 0);
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao buscar sugestões");
+      const result = jsonFields(data);
+      const parsed = z.array(suggestionSchema).parse(result.rules ?? []);
+      setSuggestions(parsed as Suggestion[]);
+      setTotalSamples(jsonNumber(result.total_samples) || 0);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao buscar sugestões");
     } finally {
       setLoadingSugg(false);
     }
@@ -106,11 +114,12 @@ export function RulesPanel() {
   const runNow = async () => {
     setRunning(true);
     try {
-      await supabase.functions.invoke("ads-rules-engine", { body: {} });
+      const { error } = await supabase.functions.invoke("ads-rules-engine", { body: {} });
+      if (error) throw error;
       toast.success("Engine executada. Veja ações na Inbox do Imperius.");
       await load();
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao rodar engine");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao rodar engine");
     } finally {
       setRunning(false);
     }
@@ -124,7 +133,7 @@ export function RulesPanel() {
       rule_type: s.rule_type,
       params: s.conditions,
       enabled: false,
-    } as any);
+    });
     if (error) { toast.error(error.message); return; }
     toast.success("Regra criada (desativada). Revise e ative.");
     load();
@@ -187,7 +196,7 @@ export function RulesPanel() {
                         <Input
                           type="number"
                           step="0.1"
-                          value={r.params[f.key] ?? 0}
+                          value={jsonNumber(r.params[f.key]) ?? jsonText(r.params[f.key]) ?? 0}
                           onChange={(e) => updateParam(r.id, f.key, Number(e.target.value))}
                           className="h-7 text-xs bg-background/40"
                         />

@@ -1,3 +1,5 @@
+import { errorMessage } from "@/lib/error-message";
+import { record, toJson } from "@/lib/funis-data";
 import { useState, useCallback } from "react";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
@@ -218,19 +220,19 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
     if (!file) return;
     setResult(null);
 
-    const processResults = (results: any) => {
+    const processResults = (results: Papa.ParseResult<Record<string,string>>) => {
       const headers = results.meta.fields || [];
       setRawHeaders(headers);
       const detected = detectPlatform(headers);
       setDetectedPlatform(detected);
       const usePlatform = platform === "auto" ? detected : platform;
-      const mapped = (results.data as Record<string, string>[])
+      const mapped = results.data
         .map(r => mapRow(r, usePlatform))
         .filter(r => r.email);
       setRows(mapped);
     };
 
-    Papa.parse(file, {
+    Papa.parse<Record<string,string>>(file, {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
@@ -238,7 +240,7 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
         const headers = results.meta.fields || [];
         const hasGarbled = headers.some(h => /[\ufffd]/.test(h) || /Ã[¡-¼]/.test(h));
         if (hasGarbled) {
-          Papa.parse(file, {
+          Papa.parse<Record<string,string>>(file, {
             header: true,
             skipEmptyLines: true,
             encoding: "latin1",
@@ -259,6 +261,7 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
     const pid = projectId || null;
     const platformLabel = detectedPlatform === "auto" ? "Importação" : detectedPlatform.charAt(0).toUpperCase() + detectedPlatform.slice(1);
 
+    try {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       const emailLc = r.email.toLowerCase();
@@ -277,20 +280,20 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
 
       if (existing) {
         leadId = existing.id;
-        const existingData = (existing.data as any) || {};
+        const existingData = record(existing.data);
         const mergedData = {
           ...existingData,
           ultimo_evento: r.status_evento,
-          utms: { ...(existingData.utms || {}), ...utmsClean },
-          geo: { ...(existingData.geo || {}), ...geoClean },
+          utms: { ...record(existingData.utms), ...utmsClean },
+          geo: { ...record(existingData.geo), ...geoClean },
           documento: r.documento || existingData.documento,
           importado_em: new Date().toISOString(),
         };
         await supabase.from("imphq_leads").update({
-          data: mergedData as any,
+          data: toJson(mergedData),
           status: r.status_evento === "compra_aprovada" ? "cliente" : undefined,
           project_id: pid || undefined,
-        } as any).eq("id", leadId);
+        }).eq("id", leadId).throwOnError();
         updated++;
       } else {
         leadId = crypto.randomUUID();
@@ -308,14 +311,14 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
             geo: geoClean,
             documento: r.documento || undefined,
             importado_em: new Date().toISOString(),
-          } as any,
-        });
+          },
+        }).throwOnError();
         created++;
       }
 
       // Create sale record (with deduplication)
       if (r.valor > 0 || r.status_evento === "compra_aprovada") {
-        const vendaData: Record<string, any> = {
+        const vendaData: Record<string, unknown> = {
           metodo_pagamento: r.metodo_pagamento || undefined,
           bandeira_cartao: r.bandeira_cartao || undefined,
           parcelas: r.parcelas,
@@ -359,8 +362,8 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
             utm_campaign: r.utms.utm_campaign || null,
             utm_content: r.utms.utm_content || null,
             utm_term: r.utms.utm_term || null,
-            data: vendaData as any,
-          });
+            data: toJson(vendaData),
+          }).throwOnError();
           sales++;
         }
       }
@@ -384,8 +387,8 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
           data_pedido: r.data_pedido || null,
           bump: r.bump,
           parcelas: r.parcelas,
-        } as any,
-      });
+        },
+      }).throwOnError();
 
       setProgress(Math.round(((i + 1) / rows.length) * 100));
     }
@@ -394,6 +397,11 @@ export function LeadImportDialog({ open, onOpenChange, projects, defaultProjectI
     setResult({ created, updated, sales });
     toast.success(`Importação concluída: ${created} criados, ${updated} atualizados, ${sales} vendas`);
     onComplete();
+    } catch (error) {
+      setResult({created,updated,sales});
+      toast.error(`Importação interrompida: ${errorMessage(error)}. Confirmados: ${created} criados, ${updated} atualizados e ${sales} vendas.`);
+      onComplete();
+    } finally { setImporting(false); }
   };
 
   const reset = () => {

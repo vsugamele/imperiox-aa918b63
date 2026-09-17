@@ -1,11 +1,47 @@
 // Instagram webhook receiver — Meta envia POST com mensagens, comentários, menções
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+
+const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+interface Trigger { id: string; trigger_keyword: string | null; match_count: number | null; dm_sent_count: number | null; send_dm_template: string | null; reply_comment_template: string | null }
+interface Triage { intent: string | null; sentiment: string | null; fit_score: number | null; desejo_schwartz: string | null; ai_response: string | null }
+interface KnowledgeMatch { pergunta: string; resposta: string }
+interface ChatMessage { role: string; content: string }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "*",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
+
+// Espelha thumbnails/anexos do Instagram (URLs assinadas, expiram) no bucket ig-media.
+async function persistIgMedia(supa: ReturnType<typeof makeClient>, remoteUrl: string | null | undefined, projectId: string, key: string): Promise<string | null> {
+  if (!remoteUrl || !projectId || !key) return null;
+  try {
+    const r = await fetch(remoteUrl);
+    if (!r.ok) return null;
+    const ct = (r.headers.get("content-type") || "image/jpeg").split(";")[0].trim().toLowerCase();
+    const extMap: Record<string, string> = {
+      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+      "video/mp4": "mp4", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/ogg": "ogg",
+    };
+    const ext = extMap[ct] || ct.split("/")[1] || "bin";
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    const path = `${projectId}/${key}.${ext}`;
+    let { error } = await supa.storage.from("ig-media").upload(path, bytes, { contentType: ct, upsert: true });
+    if (error?.message?.includes("Bucket not found")) {
+      await supa.storage.createBucket("ig-media", { public: true }).catch(() => {});
+      ({ error } = await supa.storage.from("ig-media").upload(path, bytes, { contentType: ct, upsert: true }));
+    }
+    if (error) { console.warn("[ig-media] upload:", error.message); return null; }
+    const { data } = supa.storage.from("ig-media").getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (e: unknown) {
+    console.warn("[ig-media] fetch err:", errorMessage(e) || e);
+    return null;
+  }
+}
 
 // Consistent embedding getter
 async function getEmbedding(text: string): Promise<number[]> {
@@ -29,7 +65,7 @@ async function getEmbedding(text: string): Promise<number[]> {
         const emb = data?.data?.[0]?.embedding;
         if (emb) return emb;
       }
-    } catch {}
+    } catch { /* Try the next embedding provider. */ }
   }
 
   const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
@@ -124,14 +160,64 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
+    const fallbackProjectId = url.searchParams.get("project");
+
     for (const entry of payload.entry || []) {
       const igUserId = entry.id;
-      const { data: account } = await supa
-        .from("imphq_ig_accounts")
-        .select("id, project_id")
-        .eq("ig_user_id", igUserId)
-        .maybeSingle();
-      if (!account) continue;
+      // Também tenta capturar o ID vindo do value.id (payload de comentários da Meta traz o IG Business Account aqui)
+      const nestedIds: string[] = [];
+      for (const ch of entry.changes || []) {
+        const vid = ch?.value?.id;
+        if (vid && typeof vid === "string") nestedIds.push(vid);
+      }
+      const candidateIds = Array.from(new Set([igUserId, ...nestedIds].filter(Boolean))) as string[];
+
+      let account: { id: string; project_id: string } | null = null;
+      // 1) ig_user_id direto
+      for (const cid of candidateIds) {
+        const { data } = await supa
+          .from("imphq_ig_accounts")
+          .select("id, project_id")
+          .eq("ig_user_id", cid)
+          .maybeSingle();
+        if (data) { account = data; break; }
+      }
+      // 2) page_id (contas Zernio armazenam profileId aqui)
+      if (!account) {
+        for (const cid of candidateIds) {
+          const { data } = await supa
+            .from("imphq_ig_accounts")
+            .select("id, project_id")
+            .eq("page_id", cid)
+            .maybeSingle();
+          if (data) { account = data; break; }
+        }
+      }
+      // 3) metadata->>'meta_ig_id' (backfill do IG Business Account real p/ contas conectadas via Zernio)
+      if (!account) {
+        for (const cid of candidateIds) {
+          const { data } = await supa
+            .from("imphq_ig_accounts")
+            .select("id, project_id")
+            .eq("metadata->>meta_ig_id", cid)
+            .maybeSingle();
+          if (data) { account = data; break; }
+        }
+      }
+      // 4) Fallback: ?project= na query string (forward Zernio)
+      if (!account && fallbackProjectId) {
+        const { data } = await supa
+          .from("imphq_ig_accounts")
+          .select("id, project_id")
+          .eq("project_id", fallbackProjectId)
+          .limit(1)
+          .maybeSingle();
+        account = data || null;
+      }
+      if (!account) {
+        console.warn(`[ig-webhook] no account for entry.id=${igUserId} nested=${nestedIds.join(",")} project_fallback=${fallbackProjectId || "-"}`);
+        continue;
+      }
 
       // --- MENSAGENS (DMs) ---
       for (const messaging of entry.messaging || []) {
@@ -145,7 +231,7 @@ Deno.serve(async (req) => {
         const senderName = messaging.sender?.name || null;
         const senderAvatar = messaging.sender?.avatar || null;
 
-        const upsertData: any = {
+        const upsertData: { account_id: string; participant_id: string; last_message: string; last_message_at: string; participant_username?: string; participant_name?: string; participant_avatar?: string } = {
           account_id: account.id,
           participant_id: participantId,
           last_message: messaging.message?.text || "[mídia]",
@@ -160,7 +246,7 @@ Deno.serve(async (req) => {
         const { data: conv } = await supa
           .from("imphq_ig_conversations")
           .upsert(upsertData, { onConflict: "account_id,participant_id" })
-          .select("id, participant_username, participant_name, ai_paused")
+          .select("id, participant_username, participant_name, ai_paused, ai_paused_until")
           .single();
 
         // Fetch/Update user profile info if missing
@@ -178,7 +264,7 @@ Deno.serve(async (req) => {
                 const profileRes = await fetch(`https://graph.facebook.com/v21.0/${participantId}?fields=name,username,profile_pic&access_token=${pageAccessToken}`);
                 if (profileRes.ok) {
                   const profile = await profileRes.json();
-                  const updateProfileData: any = {};
+                  const updateProfileData: { participant_username?: string; participant_name?: string; participant_avatar?: string } = {};
                   if (profile.username) updateProfileData.participant_username = profile.username;
                   if (profile.name) updateProfileData.participant_name = profile.name;
                   if (profile.profile_pic) updateProfileData.participant_avatar = profile.profile_pic;
@@ -192,23 +278,60 @@ Deno.serve(async (req) => {
                   console.warn(`[ig-webhook] Failed to fetch profile for ${participantId}:`, errText);
                 }
               }
-            } catch (profileErr: any) {
-              console.warn(`[ig-webhook] Profile fetch error:`, profileErr.message);
+            } catch (profileErr: unknown) {
+              console.warn(`[ig-webhook] Profile fetch error:`, errorMessage(profileErr));
             }
           })();
         }
 
         if (conv && messaging.message) {
           const content = messaging.message.text || null;
-          await supa.from("imphq_ig_messages").insert({
-            conversation_id: conv.id,
-            direction: isInbound ? "in" : "out",
-            type: messaging.message.attachments?.[0]?.type || "text",
-            content,
-            media_url: messaging.message.attachments?.[0]?.payload?.url || null,
-            mid: messaging.message.mid,
-            status: "received",
-          });
+          const remoteMedia = messaging.message.attachments?.[0]?.payload?.url || null;
+          const persistedMedia = remoteMedia
+            ? await persistIgMedia(supa, remoteMedia, account.project_id, `dm/${conv.id}/${messaging.message.mid || Date.now()}`)
+            : null;
+          // Dedupe: eco de mensagem enviada por nós — atualiza o registro existente
+          // em vez de criar uma cópia. Também evita reinserir o mesmo mid.
+          let alreadyStored = false;
+          if (messaging.message.mid) {
+            const { data: sameMid } = await supa
+              .from("imphq_ig_messages")
+              .select("id")
+              .eq("mid", messaging.message.mid)
+              .maybeSingle();
+            if (sameMid) alreadyStored = true;
+          }
+          if (!alreadyStored && !isInbound && content) {
+            const since = new Date(Date.now() - 120_000).toISOString();
+            const { data: pending } = await supa
+              .from("imphq_ig_messages")
+              .select("id, mid")
+              .eq("conversation_id", conv.id)
+              .eq("direction", "out")
+              .eq("content", content)
+              .gte("created_at", since)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (pending) {
+              alreadyStored = true;
+              await supa
+                .from("imphq_ig_messages")
+                .update({ mid: messaging.message.mid || pending.mid, status: "sent" })
+                .eq("id", pending.id);
+            }
+          }
+          if (!alreadyStored) {
+            await supa.from("imphq_ig_messages").insert({
+              conversation_id: conv.id,
+              direction: isInbound ? "in" : "out",
+              type: messaging.message.attachments?.[0]?.type || "text",
+              content,
+              media_url: persistedMedia || remoteMedia,
+              mid: messaging.message.mid,
+              status: isInbound ? "received" : "sent",
+            });
+          }
 
           // Auto-detect Brazilian phone number and auto-bridge to WhatsApp CRM & OpenFlow!
           if (isInbound && content) {
@@ -261,8 +384,8 @@ Deno.serve(async (req) => {
               } else {
                 console.log(`[ig-webhook] Paused sequences for conv ${conv.id} — lead replied`);
               }
-            } catch (err: any) {
-              console.error(`[ig-webhook] Catch error pausing sequences:`, err.message);
+            } catch (err: unknown) {
+              console.error(`[ig-webhook] Catch error pausing sequences:`, errorMessage(err));
             }
 
             try {
@@ -286,10 +409,10 @@ Deno.serve(async (req) => {
                     .eq("is_active", true)
                     .eq("post_id", matchedTriggerType);
 
-                  let matchedTrigger: any = null;
+                  let matchedTrigger: Trigger | undefined;
                   if (activeTriggers && activeTriggers.length > 0) {
                     const contentLc = (content || "").toLowerCase().trim();
-                    matchedTrigger = activeTriggers.find((t: any) => {
+                    matchedTrigger = activeTriggers.find((t) => {
                       const kw = (t.trigger_keyword || "").toLowerCase().trim();
                       if (kw === "all" || kw === "*" || !kw) return true;
                       return contentLc.includes(kw);
@@ -299,11 +422,14 @@ Deno.serve(async (req) => {
                   if (matchedTrigger) {
                     console.log(`[ig-webhook] Matched DM/Story trigger: "${matchedTrigger.trigger_keyword}" on event "${matchedTriggerType}"`);
                     
-                    await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id }).catch(() => {
-                      supa.from("imphq_ig_comment_triggers")
+                    try {
+                      const { error: rpcErr } = await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id });
+                      if (rpcErr) throw rpcErr;
+                    } catch {
+                      await supa.from("imphq_ig_comment_triggers")
                         .update({ match_count: (matchedTrigger.match_count || 0) + 1 })
                         .eq("id", matchedTrigger.id);
-                    });
+                    }
 
                     if (matchedTrigger.send_dm_template) {
                       const dmText = matchedTrigger.send_dm_template.replace("{{nome}}", senderUsername || "você");
@@ -318,11 +444,14 @@ Deno.serve(async (req) => {
                       
                       const dmSuccess = dmRes.data?.success || false;
                       if (dmSuccess) {
-                        await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id }).catch(() => {
-                          supa.from("imphq_ig_comment_triggers")
+                        try {
+                          const { error: rpcErr } = await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id });
+                          if (rpcErr) throw rpcErr;
+                        } catch {
+                          await supa.from("imphq_ig_comment_triggers")
                             .update({ dm_sent_count: (matchedTrigger.dm_sent_count || 0) + 1 })
                             .eq("id", matchedTrigger.id);
-                        });
+                        }
                       }
                     }
                     return; // Bypass standard AI reply!
@@ -336,7 +465,7 @@ Deno.serve(async (req) => {
                   if (configErr) {
                     console.error("[ig-webhook] Config query error:", configErr.message);
                   } else if (configs && configs.length > 0) {
-                    aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+                    aiConfig = configs.find((c) => !c.provider_id) || configs[0];
                   }
 
                   if (!aiConfig || !aiConfig.instagram_enabled) {
@@ -344,10 +473,16 @@ Deno.serve(async (req) => {
                     return;
                   }
 
-                  // Check per-conversation human takeover
-                  if (conv?.ai_paused) {
-                    console.log(`[ig-webhook] Human takeover active for conversation ${conv.id} — skipping AI reply`);
+                  // Check per-conversation human takeover (permanente ou temporário)
+                  const pausedUntil = conv?.ai_paused_until ? new Date(conv.ai_paused_until) : null;
+                  const stillPaused = pausedUntil && pausedUntil > new Date();
+                  if (conv?.ai_paused || stillPaused) {
+                    console.log(`[ig-webhook] Human takeover ativo conv=${conv.id} (until=${conv?.ai_paused_until || 'permanente'})`);
                     return;
+                  }
+                  // Auto-expira pausa temporária vencida
+                  if (pausedUntil && pausedUntil <= new Date()) {
+                    await supa.from("imphq_ig_conversations").update({ ai_paused_until: null }).eq("id", conv.id);
                   }
 
                   // 1. Business hours check
@@ -415,7 +550,7 @@ Deno.serve(async (req) => {
                   }
 
                   // Fire triage (fire-and-forget) + read last triage for this IG conversation
-                  let lastIgTriage: any = null;
+                  let lastIgTriage: Triage | null = null;
                   try {
                     const { data: tr } = await supa
                       .from("imphq_wa_triage")
@@ -425,7 +560,7 @@ Deno.serve(async (req) => {
                       .limit(1)
                       .maybeSingle();
                     lastIgTriage = tr;
-                  } catch (_) {}
+                  } catch (_) { /* Triage enrichment is optional. */ }
                   supa.functions.invoke("wa-ai-triage", {
                     body: { message: content, conversation_id: conv.id, projeto_id: account.project_id },
                   }).catch(() => {});
@@ -456,7 +591,7 @@ Deno.serve(async (req) => {
                     if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
                       const faqStr = aiConfig.faq
                         .slice(0, 20)
-                        .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+                        .map((f: KnowledgeMatch) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
                         .join("\n");
                       projectContext += `FAQ OFICIAL:\n${faqStr.slice(0, 1200)}\n`;
                     }
@@ -473,11 +608,11 @@ Deno.serve(async (req) => {
                         });
                         if (matches && matches.length) {
                           ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
-                            matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
+                            matches.map((m: KnowledgeMatch, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
                         }
                       }
                     }
-                  } catch (e: any) { console.warn("[ig-webhook] RAG skip:", e?.message); }
+                  } catch (e: unknown) { console.warn("[ig-webhook] RAG skip:", errorMessage(e)); }
 
                   const personalityPrompts: Record<string, string> = {
                     assistente: "Você é um assistente virtual cordial e prestativo.",
@@ -542,8 +677,8 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     historyMsgs.shift();
                   }
 
-                  const messages: any[] = [{ role: "system", content: systemPrompt + ragBlock }];
-                  [...historyMsgs].reverse().forEach((m: any) => {
+                  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt + ragBlock }];
+                  [...historyMsgs].reverse().forEach((m) => {
                     messages.push({
                       role: m.direction === "in" ? "user" : "assistant",
                       content: m.content || "",
@@ -552,7 +687,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   messages.push({ role: "user", content });
 
                   // Strictly alternate messages
-                  const formattedMessages: any[] = [];
+                  const formattedMessages: ChatMessage[] = [];
                   let lastRole: string | null = null;
                   messages.forEach((msg) => {
                     if (msg.role === lastRole) {
@@ -566,10 +701,12 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   });
 
                   // LLM API Calls (Pure OpenRouter)
-                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const model = aiConfig.ai_model || "google/gemini-2.5-flash";
                   const temperature = Number(aiConfig.ai_temperature ?? 0.7);
                   const top_p = Number(aiConfig.ai_top_p ?? 1);
 
+                  const maxTokens = Number(aiConfig.max_tokens) || 300;
+                  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
                   async function callLLM(mdl: string) {
                     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
                     return await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -580,7 +717,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                         "HTTP-Referer": "https://imperiox.lovable.app",
                         "X-Title": "Imperio HQ",
                       },
-                      body: JSON.stringify({ model: mdl, messages: formattedMessages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
+                      body: JSON.stringify({ model: mdl, messages: formattedMessages, max_tokens: maxTokens, temperature, top_p }),
                     });
                   }
 
@@ -589,10 +726,10 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     aiRes = await callLLM(model);
                     if (!aiRes.ok) {
                       console.warn(`[ig-webhook] OpenRouter primary model failed, fallback to openai/gpt-4o-mini`);
-                      aiRes = await callLLM("openai/gpt-4o-mini");
+                      aiRes = await callLLM("google/gemini-2.5-flash");
                     }
-                  } catch (e: any) {
-                    console.warn("[ig-webhook] AI provider call failed:", e?.message);
+                  } catch (e: unknown) {
+                    console.warn("[ig-webhook] AI provider call failed:", errorMessage(e));
                   }
 
                   if (aiRes && aiRes.ok) {
@@ -623,7 +760,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                               message: `Sugestão para @${leadName}: "${aiReply.slice(0, 60)}..."`,
                               url: `/whatsapp`,
                             },
-                          }).catch((e: any) => console.warn("[ig-webhook] push notify error:", e?.message));
+                          }).catch((e: unknown) => console.warn("[ig-webhook] push notify error:", errorMessage(e)));
                         }
                       } else {
                         // Autoresponder active: wait for delay and reply
@@ -636,20 +773,13 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                             project_id: account.project_id,
                             recipient_id: participantId,
                             text: aiReply,
+                            ai_generated: true,
                           },
                         });
                         const replyData = await replyRes.data;
                         if (replyData?.success) {
+                          // instagram-api já grava a mensagem (com ai_generated=true) — não inserir de novo.
                           console.log(`[ig-webhook] AI direct reply sent successfully`);
-                          // Save AI reply to DB with ai_generated=true for feedback UI
-                          await supa.from("imphq_ig_messages").insert({
-                            conversation_id: conv.id,
-                            direction: "out",
-                            type: "text",
-                            content: aiReply,
-                            ai_generated: true,
-                            status: "sent",
-                          }).catch(() => {});
                         } else {
                           console.error(`[ig-webhook] Failed to send AI direct reply:`, replyData?.error);
                         }
@@ -659,12 +789,12 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     const errText = await aiRes.text();
                     console.warn(`[ig-webhook] LLM error ${aiRes.status}:`, errText.slice(0, 200));
                   }
-                } catch (innerErr: any) {
-                  console.error("[ig-webhook] Async DM AI error:", innerErr.message);
+                } catch (innerErr: unknown) {
+                  console.error("[ig-webhook] Async DM AI error:", errorMessage(innerErr));
                 }
               })();
-            } catch (triggerErr: any) {
-              console.warn("[ig-webhook] Async DM AI trigger error:", triggerErr.message);
+            } catch (triggerErr: unknown) {
+              console.warn("[ig-webhook] Async DM AI trigger error:", errorMessage(triggerErr));
             }
           }
         }
@@ -705,10 +835,10 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     .eq("is_active", true);
 
                   const commentLc = commentText.toLowerCase().trim();
-                  let matchedTrigger: any = null;
+                  let matchedTrigger: Trigger | undefined;
 
                   if (matchedTriggers && matchedTriggers.length > 0) {
-                    matchedTrigger = matchedTriggers.find((t: any) => {
+                    matchedTrigger = matchedTriggers.find((t) => {
                       const kw = (t.trigger_keyword || "").toLowerCase().trim();
                       if (!kw) return false;
                       // Match comment text containing keyword
@@ -720,16 +850,21 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     console.log(`[ig-webhook] Matched comment trigger: "${matchedTrigger.trigger_keyword}" for comment "${commentText}"`);
                     
                     // Increment match count
-                    await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id }).catch(() => {
-                      supa.from("imphq_ig_comment_triggers")
+                    try {
+                      const { error: rpcErr } = await supa.rpc("increment_trigger_matches", { trigger_id: matchedTrigger.id });
+                      if (rpcErr) throw rpcErr;
+                    } catch {
+                      await supa.from("imphq_ig_comment_triggers")
                         .update({ match_count: (matchedTrigger.match_count || 0) + 1 })
                         .eq("id", matchedTrigger.id);
-                    });
+                    }
+
+                    console.log(`[ig-webhook] Executando gatilho: reply=${!!matchedTrigger.reply_comment_template} dm=${!!matchedTrigger.send_dm_template}`);
 
                     // 1. Public Reply
                     if (matchedTrigger.reply_comment_template) {
                       const replyText = matchedTrigger.reply_comment_template.replace("{{nome}}", fromUsername || "você");
-                      await supa.functions.invoke("instagram-api", {
+                      const rp = await supa.functions.invoke("instagram-api", {
                         body: {
                           action: "reply_comment",
                           project_id: account.project_id,
@@ -738,6 +873,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                           message: replyText
                         }
                       });
+                      console.log(`[ig-webhook] reply_comment result: success=${rp?.data?.success} err=${rp?.error?.message || rp?.data?.error || "-"}`);
                     }
 
                     // 2. Private Direct Message (DM) Reply
@@ -754,12 +890,16 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                       });
                       
                       const dmSuccess = dmRes.data?.success || false;
+                      console.log(`[ig-webhook] private_reply result: success=${dmSuccess} err=${dmRes?.error?.message || dmRes?.data?.error || "-"}`);
                       if (dmSuccess) {
-                        await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id }).catch(() => {
-                          supa.from("imphq_ig_comment_triggers")
+                        try {
+                          const { error: rpcErr } = await supa.rpc("increment_trigger_dms", { trigger_id: matchedTrigger.id });
+                          if (rpcErr) throw rpcErr;
+                        } catch {
+                          await supa.from("imphq_ig_comment_triggers")
                             .update({ dm_sent_count: (matchedTrigger.dm_sent_count || 0) + 1 })
                             .eq("id", matchedTrigger.id);
-                        });
+                        }
                       }
                     }
 
@@ -775,7 +915,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   if (configErr) {
                     console.error("[ig-webhook] Config query error (comments):", configErr.message);
                   } else if (configs && configs.length > 0) {
-                    aiConfig = configs.find((c: any) => !c.provider_id) || configs[0];
+                    aiConfig = configs.find((c) => !c.provider_id) || configs[0];
                   }
 
                   if (!aiConfig || !aiConfig.instagram_comments_enabled) {
@@ -845,7 +985,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     if (sources.includes("faq") && Array.isArray(aiConfig.faq) && aiConfig.faq.length) {
                       const faqStr = aiConfig.faq
                         .slice(0, 20)
-                        .map((f: any) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
+                        .map((f: KnowledgeMatch) => `Q: ${f.pergunta}\nA: ${f.resposta}`)
                         .join("\n");
                       projectContext += `FAQ OFICIAL:\n${faqStr.slice(0, 1200)}\n`;
                     }
@@ -862,11 +1002,11 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                         });
                         if (matches && matches.length) {
                           ragBlock = "\n\nRESPOSTAS DE REFERÊNCIA DO TIME:\n" +
-                            matches.map((m: any, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
+                            matches.map((m: KnowledgeMatch, i: number) => `Ref ${i + 1}:\nPergunta: ${m.pergunta}\nResposta: ${m.resposta}`).join("\n\n");
                         }
                       }
                     }
-                  } catch (e: any) { console.warn("[ig-webhook] comment RAG skip:", e?.message); }
+                  } catch (e: unknown) { console.warn("[ig-webhook] comment RAG skip:", errorMessage(e)); }
 
                   const personalityPrompts: Record<string, string> = {
                     assistente: "Você é um assistente virtual cordial e prestativo.",
@@ -904,10 +1044,12 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                   ];
 
                   // LLM API Calls (Pure OpenRouter)
-                  const model = aiConfig.ai_model || "openai/gpt-4o-mini";
+                  const model = aiConfig.ai_model || "google/gemini-2.5-flash";
                   const temperature = Number(aiConfig.ai_temperature ?? 0.7);
                   const top_p = Number(aiConfig.ai_top_p ?? 1);
 
+                  const maxTokens = Number(aiConfig.max_tokens) || 300;
+                  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
                   async function callLLM(mdl: string) {
                     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
                     return await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -918,7 +1060,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                         "HTTP-Referer": "https://imperiox.lovable.app",
                         "X-Title": "Imperio HQ",
                       },
-                      body: JSON.stringify({ model: mdl, messages, max_tokens: aiConfig.max_tokens || 300, temperature, top_p }),
+                      body: JSON.stringify({ model: mdl, messages, max_tokens: maxTokens, temperature, top_p }),
                     });
                   }
 
@@ -927,10 +1069,10 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                     aiRes = await callLLM(model);
                     if (!aiRes.ok) {
                       console.warn(`[ig-webhook] Comment OpenRouter failed, fallback to openai/gpt-4o-mini`);
-                      aiRes = await callLLM("openai/gpt-4o-mini");
+                      aiRes = await callLLM("google/gemini-2.5-flash");
                     }
-                  } catch (e: any) {
-                    console.warn("[ig-webhook] Comment AI provider call failed:", e?.message);
+                  } catch (e: unknown) {
+                    console.warn("[ig-webhook] Comment AI provider call failed:", errorMessage(e));
                   }
 
                   if (aiRes && aiRes.ok) {
@@ -961,7 +1103,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                               message: `@${fromUsername} comentou: "${commentText.slice(0, 40)}..."`,
                               url: `/whatsapp`,
                             },
-                          }).catch((e: any) => console.warn("[ig-webhook] push notify error:", e?.message));
+                          }).catch((e: unknown) => console.warn("[ig-webhook] push notify error:", errorMessage(e)));
                         }
                       } else {
                         // Autoresponder active: reply public comment / DM based on behavior
@@ -1031,12 +1173,12 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                     const errText = await aiRes.text();
                     console.warn(`[ig-webhook] Comment LLM error ${aiRes.status}:`, errText.slice(0, 200));
                   }
-                } catch (innerErr: any) {
-                  console.error("[ig-webhook] Async Comment AI error:", innerErr.message);
+                } catch (innerErr: unknown) {
+                  console.error("[ig-webhook] Async Comment AI error:", errorMessage(innerErr));
                 }
               })();
-            } catch (triggerErr: any) {
-              console.warn("[ig-webhook] Async Comment AI trigger error:", triggerErr.message);
+            } catch (triggerErr: unknown) {
+              console.warn("[ig-webhook] Async Comment AI trigger error:", errorMessage(triggerErr));
             }
           }
         }
@@ -1047,8 +1189,8 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
       await supa.from("imphq_ig_webhook_logs").update({ processed: true }).eq("id", logEntry.id);
     }
     return new Response("OK", { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("instagram-webhook error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 200 });
+    return new Response(JSON.stringify({ error: errorMessage(err) }), { status: 200 });
   }
 });

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Trash2, Plus, FileText, CheckCircle2, Clock, AlertTriangle, Save } from "lucide-react";
 import { toast } from "sonner";
+import type { Tables } from "@/integrations/supabase/types";
 
 const ROLES = ["Admin", "Editor", "Viewer"];
 const DEPARTMENTS = ["Dev", "Marketing", "Copy", "Tráfego", "Design", "Operação", "Financeiro"];
@@ -30,7 +31,7 @@ function getAvatarColor(name: string) {
 }
 
 interface MemberDetailPanelProps {
-  member: any | null;
+  member: Tables<"imphq_team_members"> | null;
   open: boolean;
   onClose: () => void;
   onUpdated: () => void;
@@ -131,7 +132,7 @@ export default function MemberDetailPanel({ member, open, onClose, onUpdated }: 
     if (!member || !newDocTitle.trim()) return;
     await supabase.from("imphq_team_docs").insert({
       member_id: member.id, title: newDocTitle, content: newDocContent,
-    } as any);
+    });
     setNewDocTitle(""); setNewDocContent(""); setShowNewDoc(false);
     loadDocs(member.id);
     toast.success("Documento criado!");

@@ -4,6 +4,27 @@
 // Extraído de whatsapp-api/index.ts para reduzir o índice de 2544 → ~2150 linhas
 // e isolar a parte que toca APIs externas (fácil de testar/mockar/trocar).
 
+import { record } from "../../_shared/value.ts";
+
+export interface SendProvider {
+  instance_name?: string | null;
+  api_url?: string | null;
+  api_key?: string | null;
+  twilio_from?: string | null;
+  phone_number_id?: string | null;
+  access_token?: string | null;
+}
+export interface SendButton { id?: string; text: string }
+export interface SendList {
+  title?: string;
+  buttonText?: string;
+  sectionTitle?: string;
+  rows: { id?: string; title: string; description?: string }[];
+}
+function evolutionCredentials(provider: SendProvider) {
+  if (!provider.instance_name || !provider.api_url || !provider.api_key) throw new Error("Provider Evolution incompleto");
+  return { instance: encodeURIComponent(provider.instance_name), apiKey: provider.api_key };
+}
 const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -15,11 +36,11 @@ export function isTransientConnError(payload: string): boolean {
     || s.includes("timeout") || s.includes("socket") || s.includes("econnreset");
 }
 
-export async function tryReconnectInstance(provider: any): Promise<boolean> {
+export async function tryReconnectInstance(provider: SendProvider): Promise<boolean> {
   try {
-    const inst = encodeURIComponent(provider.instance_name);
+    const { instance: inst, apiKey } = evolutionCredentials(provider);
     const url = `${provider.api_url}/instance/connect/${inst}`;
-    const res = await fetch(url, { method: "GET", headers: { apikey: provider.api_key } });
+    const res = await fetch(url, { method: "GET", headers: { apikey: apiKey } });
     console.log("[tryReconnectInstance] status:", res.status);
     return res.ok;
   } catch (e) {
@@ -28,35 +49,37 @@ export async function tryReconnectInstance(provider: any): Promise<boolean> {
   }
 }
 
-export async function sendEvolutionButtons(provider: any, phone: string, text: string, buttons: any[]) {
-  const inst = encodeURIComponent(provider.instance_name);
+export async function sendEvolutionButtons(provider: SendProvider, phone: string, text: string, buttons: SendButton[]) {
+  const { instance: inst, apiKey } = evolutionCredentials(provider);
   const apiUrl = `${provider.api_url}/message/sendButtons/${inst}`;
   console.log("[sendEvolutionButtons] URL:", apiUrl, "phone:", phone, "buttons:", buttons.length);
   const res = await fetch(apiUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: provider.api_key },
+    headers: { "Content-Type": "application/json", apikey: apiKey },
     body: JSON.stringify({
       number: phone,
       title: text,
       description: "Imperio HQ",
       footer: "Imperio HQ",
-      buttons: buttons.map((b: any, index: number) => ({
+      buttons: buttons.map((b, index) => ({
         buttonId: b.id || `btn_${index}`,
         buttonText: { displayText: b.text },
         type: 1,
       })),
     }),
   });
-  return await res.json().catch(() => ({}));
+  const data = record(await res.json().catch(() => ({})));
+  if (!res.ok) throw new Error(`Evolution buttons error [${res.status}]: ${JSON.stringify(data)}`);
+  return data;
 }
 
-export async function sendEvolutionList(provider: any, phone: string, text: string, listData: any) {
-  const inst = encodeURIComponent(provider.instance_name);
+export async function sendEvolutionList(provider: SendProvider, phone: string, text: string, listData: SendList) {
+  const { instance: inst, apiKey } = evolutionCredentials(provider);
   const apiUrl = `${provider.api_url}/message/sendList/${inst}`;
   console.log("[sendEvolutionList] URL:", apiUrl, "phone:", phone, "title:", listData.title);
   const res = await fetch(apiUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: provider.api_key },
+    headers: { "Content-Type": "application/json", apikey: apiKey },
     body: JSON.stringify({
       number: phone,
       title: listData.title || "Menu de Opções",
@@ -66,7 +89,7 @@ export async function sendEvolutionList(provider: any, phone: string, text: stri
       sections: [
         {
           title: listData.sectionTitle || "Opções",
-          rows: listData.rows.map((r: any, index: number) => ({
+          rows: listData.rows.map((r, index) => ({
             rowId: r.id || `row_${index}`,
             title: r.title,
             description: r.description || "",
@@ -75,11 +98,13 @@ export async function sendEvolutionList(provider: any, phone: string, text: stri
       ],
     }),
   });
-  return await res.json().catch(() => ({}));
+  const data = record(await res.json().catch(() => ({})));
+  if (!res.ok) throw new Error(`Evolution list error [${res.status}]: ${JSON.stringify(data)}`);
+  return data;
 }
 
-export async function sendEvolution(provider: any, phone: string, text: string) {
-  const inst = encodeURIComponent(provider.instance_name);
+export async function sendEvolution(provider: SendProvider, phone: string, text: string) {
+  const { instance: inst, apiKey } = evolutionCredentials(provider);
   const apiUrl = `${provider.api_url}/message/sendText/${inst}`;
   console.log("[sendEvolution] URL:", apiUrl, "phone:", phone, "textLen:", text.length);
 
@@ -89,16 +114,16 @@ export async function sendEvolution(provider: any, phone: string, text: string) 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const res = await fetch(apiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", apikey: provider.api_key },
+      headers: { "Content-Type": "application/json", apikey: apiKey },
       body: JSON.stringify({ number: phone, text }),
     });
-    const data = await res.json().catch(() => ({}));
+    const data = record(await res.json().catch(() => ({})));
     console.log(`[sendEvolution] attempt=${attempt} status=${res.status}`, JSON.stringify(data).slice(0, 300));
 
     if (res.ok) return data;
 
-    const msgs = data?.response?.message;
-    if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
+    const msgs = record(data.response).message;
+    if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: unknown) => record(m).exists === false)) {
       return { ok: false, error: "invalid_number", details: msgs };
     }
 
@@ -117,26 +142,26 @@ export async function sendEvolution(provider: any, phone: string, text: string) 
   throw new Error(lastErr || "Evolution: falha após múltiplas tentativas");
 }
 
-export async function sendEvolutionMedia(provider: any, phone: string, mediaUrl: string, mediaType: string, caption?: string) {
-  const inst = encodeURIComponent(provider.instance_name);
+export async function sendEvolutionMedia(provider: SendProvider, phone: string, mediaUrl: string, mediaType: string, caption?: string) {
+  const { instance: inst, apiKey } = evolutionCredentials(provider);
   const endpoint = mediaType === "audio" ? "sendWhatsAppAudio" : "sendMedia";
   const apiUrl = `${provider.api_url}/message/${endpoint}/${inst}`;
   console.log("[sendEvolutionMedia] URL:", apiUrl, "phone:", phone, "mediaType:", mediaType);
 
-  const body: any = { number: phone, mediatype: mediaType, media: mediaUrl };
+  const body: Record<string, string> = { number: phone, mediatype: mediaType, media: mediaUrl };
   if (caption) body.caption = caption;
   if (mediaType === "document") body.fileName = caption || "document";
 
   const res = await fetch(apiUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: provider.api_key },
+    headers: { "Content-Type": "application/json", apikey: apiKey },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
+  const data = record(await res.json());
   console.log("[sendEvolutionMedia] status:", res.status, "response:", JSON.stringify(data).slice(0, 500));
   if (!res.ok) {
-    const msgs = data?.response?.message;
-    if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: any) => m.exists === false)) {
+    const msgs = record(data.response).message;
+    if (res.status === 400 && Array.isArray(msgs) && msgs.some((m: unknown) => record(m).exists === false)) {
       return { ok: false, error: "invalid_number", details: msgs };
     }
     throw new Error(`Evolution media error [${res.status}]: ${JSON.stringify(data)}`);
@@ -144,7 +169,7 @@ export async function sendEvolutionMedia(provider: any, phone: string, mediaUrl:
   return data;
 }
 
-export async function sendTwilio(provider: any, phone: string, text: string) {
+export async function sendTwilio(provider: SendProvider, phone: string, text: string) {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -169,7 +194,7 @@ export async function sendTwilio(provider: any, phone: string, text: string) {
   return data;
 }
 
-export async function sendMetaCloud(provider: any, phone: string, text: string) {
+export async function sendMetaCloud(provider: SendProvider, phone: string, text: string) {
   const phoneNumberId = provider.phone_number_id;
   const accessToken = provider.access_token;
   if (!phoneNumberId) throw new Error("phone_number_id não configurado no provider Meta Cloud");
@@ -190,8 +215,8 @@ export async function sendMetaCloud(provider: any, phone: string, text: string) 
       text: { body: text, preview_url: true },
     }),
   });
-  const data = await res.json();
+  const data = record(await res.json());
   if (!res.ok) throw new Error(`Meta Cloud error [${res.status}]: ${JSON.stringify(data)}`);
-  const msgId = data?.messages?.[0]?.id;
+  const msgId = Array.isArray(data.messages) ? record(data.messages[0]).id : undefined;
   return { ...data, key: { id: msgId } };
 }

@@ -1,0 +1,859 @@
+import { record, parseProjectData, toJson, type ProjectData } from "@/lib/funis-data";
+import { parsePosition } from "@/components/funis/company-map-data";
+import type { Tables, TablesUpdate, Json } from "@/integrations/supabase/types";
+import type { ComponentProps } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
+  useNodesState, useEdgesState, addEdge, Connection, Edge, type Node as FlowNode,
+  useReactFlow, NodeChange,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { supabase } from "@/integrations/supabase/client";
+import { useProjectList } from "@/hooks/useProjectList";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Play, Clapperboard, LayoutGrid, Copy, Layers, Wand2, Sparkles, Square, RotateCcw } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ModelagemTab } from "@/components/studio/ModelagemTab";
+import { toast } from "sonner";
+import { StudioBlockLibrary } from "@/components/studio/canvas/StudioBlockLibrary";
+import { StudioNodeDrawer } from "@/components/studio/canvas/StudioNodeDrawer";
+import { CanvasBlockNode } from "@/components/studio/canvas/CanvasBlockNode";
+import { CANVAS_BLOCKS, TEMPLATES, CanvasBlockType } from "@/components/studio/canvas/blockTypes";
+import { autoLayout, isValidStudioConnection, KIND_COLORS } from "@/lib/studioAutoLayout";
+import { StudioRunLogPanel } from "@/components/studio/canvas/StudioRunLogPanel";
+import { StudioPublicationsPanel } from "@/components/studio/canvas/StudioPublicationsPanel";
+import { StudioCostDialog } from "@/components/studio/canvas/StudioCostDialog";
+
+type Node = FlowNode<Record<string, unknown> & { tipo?: string; titulo?: string; config?: Json; output?: Json; status?: string }>;
+const nodeTypes = { block: CanvasBlockNode };
+
+function InnerCanvas() {
+  const { data: projects = [] } = useProjectList();
+  const [projectId, setProjectId] = useState<string>("");
+  const [productIdx, setProductIdx] = useState(0);
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [drawerNode, setDrawerNode] = useState<Node | null>(null);
+  const [dragBlock, setDragBlock] = useState<CanvasBlockType | null>(null);
+  const [briefing, setBriefing] = useState<ProjectData>({});
+  const [costOpen, setCostOpen] = useState(false);
+  const [modelagemOpen, setModelagemOpen] = useState(false);
+  const [estimate, setEstimate] = useState<ComponentProps<typeof StudioCostDialog>["estimate"]>(null);
+  const [pendingRun, setPendingRun] = useState<{ startNodeId?: string } | null>(null);
+  const [runStatus, setRunStatus] = useState<string>("idle");
+  const rf = useReactFlow<Node>();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const produtos = briefing?.produtos || [];
+  const produto = produtos[productIdx];
+
+  // Load projects → set default
+  useEffect(() => {
+    if (!projectId && projects.length) setProjectId(projects[0].id);
+  }, [projects, projectId]);
+
+  // Load briefing
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      const { data } = await supabase.from("imphq_projects").select("data").eq("id", projectId).maybeSingle();
+      const raw = record(data?.data);
+      const b = raw?.briefing ?? raw;
+      setBriefing(parseProjectData(b));
+    })();
+  }, [projectId]);
+
+  // Load or create workflow for this project/product
+  useEffect(() => {
+    if (!projectId) return;
+    setLoading(true);
+    (async () => {
+      const { data: user } = await supabase.auth.getUser();
+      const uid = user.user?.id;
+      const { data: existing } = await supabase
+        .from("imphq_studio_workflows")
+        .select("id")
+        .eq("user_id", uid)
+        .eq("projeto_id", projectId)
+        .eq("produto_idx", productIdx)
+        .maybeSingle();
+
+      let wid = existing?.id;
+      if (!wid) {
+        const { data: created, error } = await supabase
+          .from("imphq_studio_workflows")
+          .insert({
+            user_id: uid,
+            name: `Studio · ${produto?.nome || produto?.name || "Fluxo"}`,
+            projeto_id: projectId,
+            produto_idx: productIdx,
+          })
+          .select("id")
+          .single();
+        if (error) { toast.error("Erro ao criar fluxo: " + error.message); setLoading(false); return; }
+        wid = created!.id;
+      }
+      setWorkflowId(wid);
+
+      const [{ data: nodeRows }, { data: edgeRows }] = await Promise.all([
+        supabase.from("imphq_studio_canvas_nodes").select("*").eq("workflow_id", wid),
+        supabase.from("imphq_studio_canvas_edges").select("*").eq("workflow_id", wid),
+      ]);
+
+      const productNode: Node = {
+        id: "product-hub",
+        type: "block",
+        position: { x: 40, y: 40 },
+        draggable: false,
+        selectable: false,
+        data: { tipo: "product", titulo: produto?.nome || produto?.name || "Produto" },
+      };
+
+      const flowNodes: Node[] = [
+        productNode,
+        ...(nodeRows || []).map(n => ({
+          id: n.id,
+          type: "block",
+          position: parsePosition(n.position),
+          data: {
+            id: n.id, tipo: n.tipo, titulo: n.titulo, config: n.config, output: n.output, status: n.status,
+            batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner,
+          },
+        })),
+      ];
+      const nodeTipoMap = new Map<string, string>();
+      (nodeRows || []).forEach(n => nodeTipoMap.set(n.id, n.tipo));
+      const flowEdges: Edge[] = (edgeRows || []).map(e => {
+        const color = KIND_COLORS[nodeTipoMap.get(e.source_id) || ""] || "hsl(var(--primary))";
+        return { id: e.id, source: e.source_id, target: e.target_id, animated: true, style: { stroke: color, strokeWidth: 2 } };
+      });
+
+      setNodes(flowNodes);
+      setEdges(flowEdges);
+      setLoading(false);
+    })();
+  }, [projectId, productIdx, produto?.nome, produto?.name, setNodes, setEdges]);
+
+  // Realtime
+  useEffect(() => {
+    if (!workflowId) return;
+    // fetch initial run_status
+    supabase.from("imphq_studio_workflows").select("run_status").eq("id", workflowId).maybeSingle().then(({ data }) => {
+      if (data?.run_status) setRunStatus(data.run_status);
+    });
+    const ch = supabase
+      .channel(`studio-canvas-${workflowId}`)
+      .on<Tables<"imphq_studio_canvas_nodes">>("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_canvas_nodes", filter: `workflow_id=eq.${workflowId}` }, (payload) => {
+        const n = payload.new;
+        setNodes(prev => prev.map(x => x.id === n.id ? {
+          ...x,
+          data: { ...x.data, config: n.config, output: n.output, status: n.status, titulo: n.titulo, duration_ms: n.duration_ms, cost_actual: n.cost_actual, batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner },
+        } : x));
+      })
+      .on<Tables<"imphq_studio_canvas_nodes">>("postgres_changes", { event: "INSERT", schema: "public", table: "imphq_studio_canvas_nodes", filter: `workflow_id=eq.${workflowId}` }, (payload) => {
+        const n = payload.new;
+        setNodes(prev => prev.some(x => x.id === n.id) ? prev : [...prev, {
+          id: n.id, type: "block", position: parsePosition(n.position),
+          data: { id: n.id, tipo: n.tipo, titulo: n.titulo, config: n.config, output: n.output || {}, status: n.status, batch_group_id: n.batch_group_id, variant_label: n.variant_label, variant_score: n.variant_score, is_variant_winner: n.is_variant_winner },
+        }]);
+      })
+      .on<Tables<"imphq_studio_workflows">>("postgres_changes", { event: "UPDATE", schema: "public", table: "imphq_studio_workflows", filter: `id=eq.${workflowId}` }, (payload) => {
+        const w = payload.new;
+        if (w?.run_status) setRunStatus(w.run_status);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [workflowId, setNodes]);
+
+  // Persist position on drag end
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    onNodesChange(changes);
+    for (const ch of changes) {
+      if (ch.type === "position" && ch.dragging === false && ch.id !== "product-hub") {
+        const n = rf.getNode(ch.id);
+        if (n) supabase.from("imphq_studio_canvas_nodes").update({ position: n.position }).eq("id", ch.id).then(() => {});
+      }
+    }
+  }, [onNodesChange, rf]);
+
+  const persistEdge = useCallback(async (source: string, target: string) => {
+    if (!workflowId) return null;
+    if (source === "product-hub") return null; // hub não persiste
+    const { data, error } = await supabase.from("imphq_studio_canvas_edges").insert({
+      workflow_id: workflowId, source_id: source, target_id: target,
+    }).select("id").single();
+    if (error) { toast.error(error.message); return null; }
+    return data.id;
+  }, [workflowId]);
+
+  const edgeStyleFor = useCallback((sourceId: string) => {
+    const src = rf.getNode(sourceId);
+    const tipo = src?.data.tipo || "prompt";
+    const color = KIND_COLORS[tipo] || "hsl(var(--primary))";
+    return { stroke: color, strokeWidth: 2 };
+  }, [rf]);
+
+  const onConnect = useCallback(async (c: Connection) => {
+    if (!c.source || !c.target) return;
+    const src = rf.getNode(c.source);
+    const tgt = rf.getNode(c.target);
+    const srcTipo = src?.data.tipo;
+    const tgtTipo = tgt?.data.tipo;
+    if (srcTipo && tgtTipo && !isValidStudioConnection(srcTipo, tgtTipo)) {
+      toast.error(`Conexão inválida: ${srcTipo} → ${tgtTipo}`);
+      return;
+    }
+    const newId = c.source === "product-hub" ? `hub-${c.target}` : await persistEdge(c.source, c.target);
+    if (!newId && c.source !== "product-hub") return;
+    setEdges(eds => addEdge({ ...c, id: newId as string, animated: true, style: edgeStyleFor(c.source!) }, eds));
+  }, [persistEdge, setEdges, rf, edgeStyleFor]);
+
+  const onEdgesDelete = useCallback(async (removed: Edge[]) => {
+    for (const e of removed) {
+      if (!e.id.startsWith("hub-")) await supabase.from("imphq_studio_canvas_edges").delete().eq("id", e.id);
+    }
+  }, []);
+
+  const createMediaNode = useCallback(async (opts: { url: string; kind: "image" | "video"; position: { x: number; y: number }; titulo?: string }) => {
+    if (!workflowId) return null;
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: "media",
+      titulo: opts.titulo || (opts.kind === "video" ? "Vídeo" : "Imagem"),
+      config: { url: opts.url, kind: opts.kind },
+      position: opts.position,
+      status: "gerado",
+      output: { url: opts.url, kind: opts.kind },
+    }).select("*").single();
+    if (error) { toast.error(error.message); return null; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position: opts.position,
+      data: { id: data.id, tipo: "media", titulo: data.titulo, config: data.config, output: data.output, status: "gerado" },
+    }]);
+    return data;
+  }, [workflowId, setNodes]);
+
+  const uploadFileToStudio = useCallback(async (file: File): Promise<{ url: string; kind: "image" | "video" } | null> => {
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) { toast.error("Faça login"); return null; }
+    const ext = file.name.split(".").pop() || "bin";
+    const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from("studio-references").upload(path, file, {
+      contentType: file.type, upsert: false,
+    });
+    if (error) { toast.error(error.message); return null; }
+    const { data: signed } = await supabase.storage.from("studio-references").createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (!signed?.signedUrl) return null;
+    return { url: signed.signedUrl, kind: file.type.startsWith("video") ? "video" : "image" };
+  }, []);
+
+  const onDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!workflowId || !wrapperRef.current) return;
+    const bounds = wrapperRef.current.getBoundingClientRect();
+    const position = rf.screenToFlowPosition({ x: e.clientX - bounds.left, y: e.clientY - bounds.top });
+
+    // 1) arquivos soltos → cria nós de mídia
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    if (files.length) {
+      toast.info(`Enviando ${files.length} mídia(s)…`);
+      let i = 0;
+      for (const file of files) {
+        const up = await uploadFileToStudio(file);
+        if (up) await createMediaNode({ ...up, position: { x: position.x + i * 40, y: position.y + i * 40 }, titulo: file.name });
+        i++;
+      }
+      return;
+    }
+
+    // 2) bloco arrastado da barra lateral
+    if (!dragBlock) return;
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: dragBlock.id,
+      titulo: dragBlock.label,
+      config: dragBlock.defaultConfig || {},
+      position,
+      status: "pendente",
+    }).select("*").single();
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position,
+      data: { id: data.id, tipo: data.tipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
+    }]);
+    setDragBlock(null);
+  }, [dragBlock, workflowId, rf, setNodes, uploadFileToStudio, createMediaNode]);
+
+  const generate = useCallback(async (nodeId: string) => {
+    if (!workflowId) return;
+    await supabase.from("imphq_studio_canvas_nodes").update({ status: "gerando" }).eq("id", nodeId);
+    setNodes(prev => prev.map(x => x.id === nodeId ? { ...x, data: { ...x.data, status: "gerando" } } : x));
+    try {
+      const { error } = await supabase.functions.invoke("studio-canvas-run", {
+        body: { workflow_id: workflowId, node_id: nodeId, projeto_id: projectId, produto_idx: productIdx },
+      });
+      if (error) throw error;
+      toast.success("Bloco enviado para geração");
+    } catch (e: unknown) {
+      toast.error("Erro: " + (errorMessage(e) || "desconhecido"));
+      await supabase.from("imphq_studio_canvas_nodes").update({ status: "erro" }).eq("id", nodeId);
+    }
+  }, [workflowId, projectId, productIdx, setNodes]);
+
+  const openCostDialog = useCallback(async (startNodeId?: string) => {
+    if (!workflowId) return;
+    setPendingRun({ startNodeId });
+    setEstimate(null);
+    setCostOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("studio-canvas-estimate", {
+        body: { workflow_id: workflowId, start_node_id: startNodeId },
+      });
+      if (error) throw error;
+      setEstimate(data);
+    } catch (e: unknown) {
+      toast.error("Erro na estimativa: " + (errorMessage(e) || "desconhecido"));
+      setCostOpen(false);
+    }
+  }, [workflowId]);
+
+  const confirmRun = async ({ forceRerun }: { forceRerun: boolean }) => {
+    if (!workflowId) return;
+    setRunning(true);
+    try {
+      const body: Record<string, Json> = { workflow_id: workflowId, projeto_id: projectId, produto_idx: productIdx, force_rerun: forceRerun };
+      if (pendingRun?.startNodeId) body.start_node_id = pendingRun.startNodeId;
+      else body.run_all = true;
+      const { error } = await supabase.functions.invoke("studio-canvas-run", { body });
+      if (error) throw error;
+      toast.success("Pipeline em execução");
+    } catch (e: unknown) {
+      toast.error("Erro: " + (errorMessage(e) || "desconhecido"));
+    } finally { setRunning(false); setPendingRun(null); }
+  };
+
+  const runAll = () => openCostDialog(undefined);
+  const runFromNode = useCallback((nodeId: string) => openCostDialog(nodeId), [openCostDialog]);
+
+  const cancelRun = async () => {
+    if (!workflowId) return;
+    const { error } = await supabase.from("imphq_studio_workflows").update({ run_status: "canceling" }).eq("id", workflowId);
+    if (error) { toast.error(error.message); return; }
+    toast.info("Cancelando… as ondas em execução vão terminar");
+  };
+
+  const retryFailed = async () => {
+    if (!workflowId) return;
+    const failed = nodes.filter(n => n.data.status === "erro");
+    if (!failed.length) { toast.info("Nenhum bloco com erro"); return; }
+    setRunning(true);
+    try {
+      // roda cada bloco falho com force_rerun; downstream é considerado se o usuário quiser individualmente
+      for (const n of failed) {
+        await supabase.functions.invoke("studio-canvas-run", {
+          body: { workflow_id: workflowId, projeto_id: projectId, produto_idx: productIdx, start_node_id: n.id, force_rerun: true },
+        });
+      }
+      toast.success(`Reprocessando ${failed.length} bloco(s) que falharam`);
+    } catch (e: unknown) {
+      toast.error("Erro: " + (errorMessage(e) || "desconhecido"));
+    } finally { setRunning(false); }
+  };
+
+  const plantGraph = useCallback(async (payload: {
+    nodes: { tipo: string; position?: { x: number; y: number }; config?: Record<string, unknown>; titulo?: string; prompt?: string }[];
+    edges: { from: number; to: number }[];
+  }) => {
+    if (!workflowId) return;
+    const created: Tables<"imphq_studio_canvas_nodes">[] = [];
+    payload.nodes.forEach((n, i) => {
+      if (!n.position) n.position = { x: 340 + i * 300, y: 200 };
+    });
+    for (const n of payload.nodes) {
+      const meta = CANVAS_BLOCKS.find(b => b.id === n.tipo);
+      const config: Record<string, unknown> = { ...(meta?.defaultConfig || {}), ...(n.config || {}) };
+      if (n.prompt) config.prompt = n.prompt;
+      const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+        workflow_id: workflowId,
+        tipo: n.tipo,
+        titulo: n.titulo || meta?.label,
+        config: toJson(config),
+        position: n.position,
+        status: "pendente",
+      }).select("*").single();
+      if (error || !data) throw new Error(error?.message || "Não foi possível criar bloco");
+      created.push(data);
+    }
+    const newNodes: Node[] = created.map(d => ({
+      id: d.id, type: "block", position: parsePosition(d.position),
+      data: { id: d.id, tipo: d.tipo, titulo: d.titulo, config: d.config, output: {}, status: "pendente" },
+    }));
+    const newEdges: Edge[] = [];
+    for (const e of payload.edges) {
+      const src = created[e.from]?.id, tgt = created[e.to]?.id;
+      if (!src || !tgt) continue;
+      const { data } = await supabase.from("imphq_studio_canvas_edges").insert({
+        workflow_id: workflowId, source_id: src, target_id: tgt,
+      }).select("id").single();
+      if (data) {
+        const srcTipo = created.find(c => c.id === src)?.tipo || "prompt";
+        const color = KIND_COLORS[srcTipo] || "hsl(var(--primary))";
+        newEdges.push({ id: data.id, source: src, target: tgt, animated: true, style: { stroke: color, strokeWidth: 2 } });
+      }
+    }
+    setNodes(prev => [...prev, ...newNodes]);
+    setEdges(prev => [...prev, ...newEdges]);
+    setTimeout(() => rf.fitView({ padding: 0.2, duration: 400 }), 100);
+    return created;
+  }, [workflowId, setNodes, setEdges, rf]);
+
+  const plantTemplate = async (key: string) => {
+    const t = TEMPLATES.find(x => x.key === key);
+    if (!t) return;
+    await plantGraph({ nodes: t.nodes, edges: t.edges });
+    toast.success(`Template "${t.name}" plantado`);
+  };
+
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestFromAI = async () => {
+    if (!workflowId || !projectId) return;
+    setSuggesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("studio-suggest-graph", {
+        body: { projeto_id: projectId, produto_idx: productIdx },
+      });
+      if (error) throw error;
+      const graph = record(data);
+      if (!Array.isArray(graph.nodes) || !graph.nodes.length) { toast.error("IA não devolveu grafo"); return; }
+      const graphNodes = graph.nodes.map(value => { const node = record(value); if (typeof node.tipo !== "string") throw new Error("Bloco sugerido sem tipo"); return { tipo: node.tipo, titulo: typeof node.titulo === "string" ? node.titulo : undefined, prompt: typeof node.prompt === "string" ? node.prompt : undefined, config: record(node.config), position: node.position ? parsePosition(node.position) : undefined }; });
+      const graphEdges = Array.isArray(graph.edges) ? graph.edges.map(value => { const edge = record(value); if (typeof edge.from !== "number" || typeof edge.to !== "number") throw new Error("Conexão sugerida inválida"); return { from: edge.from, to: edge.to }; }) : [];
+      await plantGraph({ nodes: graphNodes, edges: graphEdges });
+      toast.success(`Grafo sugerido: ${graph.titulo || graph.output_type || "criativo"}`);
+    } catch (e: unknown) {
+      toast.error("Erro na sugestão: " + (errorMessage(e) || "desconhecido"));
+    } finally { setSuggesting(false); }
+  };
+
+  // Auto-scaffold: canvas vazio ganha um esqueleto inicial
+  const scaffoldedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workflowId || loading) return;
+    if (scaffoldedRef.current === workflowId) return;
+    const userNodes = nodes.filter(n => n.id !== "product-hub");
+    if (userNodes.length === 0) {
+      scaffoldedRef.current = workflowId;
+      const t = TEMPLATES.find(x => x.key === "reels_narracao");
+      if (t) {
+        const shifted = t.nodes.map((n, i) => ({ ...n, position: { x: 340 + i * 300, y: 220 } }));
+        plantGraph({ nodes: shifted, edges: t.edges }).then(() => {
+          toast.success("Canvas iniciado com fluxo sugerido — edite ou clique em Sugerir IA");
+        });
+      }
+    } else {
+      scaffoldedRef.current = workflowId;
+    }
+  }, [workflowId, loading, nodes, plantGraph]);
+
+
+  const deleteNode = useCallback(async (id: string) => {
+    const { error } = await supabase.from("imphq_studio_canvas_nodes").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => prev.filter(x => x.id !== id));
+    setEdges(prev => prev.filter(x => x.source !== id && x.target !== id));
+  }, [setNodes, setEdges]);
+
+  const updateNode = async (id: string, patch: TablesUpdate<"imphq_studio_canvas_nodes">) => {
+    const { error } = await supabase.from("imphq_studio_canvas_nodes").update(patch).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => prev.map(x => x.id === id ? { ...x, data: { ...x.data, ...patch } } : x));
+  };
+
+  const duplicateNode = useCallback(async (id: string) => {
+    if (!workflowId) return;
+    const src = rf.getNode(id);
+    if (!src || id === "product-hub") return;
+    const d = src.data;
+    const position = { x: (src.position?.x || 0) + 40, y: (src.position?.y || 0) + 40 };
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: d.tipo,
+      titulo: (d.titulo || "") + " (cópia)",
+      config: d.config || {},
+      position,
+      status: "pendente",
+    }).select("*").single();
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position,
+      data: { id: data.id, tipo: data.tipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
+    }]);
+    toast.success("Bloco duplicado");
+  }, [workflowId, rf, setNodes]);
+
+  const organize = useCallback(async () => {
+    const laid = autoLayout(nodes, edges, "LR");
+    setNodes(laid);
+    // persist
+    for (const n of laid) {
+      if (n.id === "product-hub") continue;
+      await supabase.from("imphq_studio_canvas_nodes").update({ position: n.position }).eq("id", n.id);
+    }
+    setTimeout(() => rf.fitView({ padding: 0.2, duration: 400 }), 50);
+    toast.success("Canvas organizado");
+  }, [nodes, edges, setNodes, rf]);
+
+  const spawnDownstream = useCallback(async (sourceId: string, targetTipo: "video" | "avatar" | "audio" | "publish") => {
+    if (!workflowId) return;
+    const src = rf.getNode(sourceId);
+    if (!src) return;
+    const srcData = src.data;
+    const srcUrl = record(srcData.output).url || record(srcData.config).url || "";
+    const srcKind = record(srcData.output).kind || record(srcData.config).kind || "image";
+    const meta = CANVAS_BLOCKS.find(b => b.id === targetTipo);
+    const position = { x: (src.position?.x || 0) + 300, y: (src.position?.y || 0) };
+    const cfg: Record<string, unknown> = { ...(meta?.defaultConfig || {}) };
+    if (srcUrl && (targetTipo === "video" || targetTipo === "avatar")) {
+      cfg.reference_urls = [srcUrl];
+      cfg.reference_kinds = [srcKind];
+    }
+    const { data, error } = await supabase.from("imphq_studio_canvas_nodes").insert({
+      workflow_id: workflowId,
+      tipo: targetTipo,
+      titulo: meta?.label,
+      config: toJson(cfg),
+      position,
+      status: "pendente",
+    }).select("*").single();
+    if (error) { toast.error(error.message); return; }
+    setNodes(prev => [...prev, {
+      id: data.id, type: "block", position,
+      data: { id: data.id, tipo: targetTipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" },
+    }]);
+    const { data: edgeRow } = await supabase.from("imphq_studio_canvas_edges").insert({
+      workflow_id: workflowId, source_id: sourceId, target_id: data.id,
+    }).select("id").single();
+    if (edgeRow) {
+      const color = KIND_COLORS[srcData?.tipo] || "hsl(var(--primary))";
+      setEdges(prev => [...prev, { id: edgeRow.id, source: sourceId, target: data.id, animated: true, style: { stroke: color, strokeWidth: 2 } }]);
+    }
+    toast.success(`${meta?.label} conectado`);
+    setDrawerNode({ id: data.id, type: "block", position, data: { id: data.id, tipo: targetTipo, titulo: data.titulo, config: data.config, output: {}, status: "pendente" } });
+  }, [workflowId, rf, setNodes, setEdges]);
+
+  const openDrawerFor = useCallback((id: string) => {
+    const n = rf.getNode(id);
+    if (n) setDrawerNode(n);
+  }, [rf]);
+
+  const focusNode = useCallback((id: string) => {
+    const n = rf.getNode(id);
+    if (!n) return;
+    rf.setCenter((n.position?.x || 0) + 100, (n.position?.y || 0) + 60, { zoom: 1.1, duration: 500 });
+    setNodes(ns => ns.map(x => ({ ...x, selected: x.id === id })));
+  }, [rf, setNodes]);
+
+  const promoteVariant = useCallback(async (winnerId: string, baseId: string) => {
+    if (!workflowId) return;
+    // Reroute downstream edges: base → X viram winner → X
+    const { data: outEdges } = await supabase.from("imphq_studio_canvas_edges")
+      .select("*").eq("workflow_id", workflowId).eq("source_id", baseId);
+    for (const e of (outEdges || [])) {
+      // Se já existe edge winner→target, apenas apaga base→target
+      const { data: existing } = await supabase.from("imphq_studio_canvas_edges")
+        .select("id").eq("workflow_id", workflowId).eq("source_id", winnerId).eq("target_id", e.target_id).maybeSingle();
+      if (existing) {
+        await supabase.from("imphq_studio_canvas_edges").delete().eq("id", e.id);
+      } else {
+        await supabase.from("imphq_studio_canvas_edges").update({ source_id: winnerId }).eq("id", e.id);
+      }
+    }
+    // Recarrega edges
+    const { data: edgeRows } = await supabase.from("imphq_studio_canvas_edges").select("*").eq("workflow_id", workflowId);
+    const nodeTipoMap = new Map<string, string>();
+    nodes.forEach(n => nodeTipoMap.set(n.id, n.data.tipo || ""));
+    const newEdges: Edge[] = (edgeRows || []).map(e => {
+      const color = KIND_COLORS[nodeTipoMap.get(e.source_id) || ""] || "hsl(var(--primary))";
+      return { id: e.id, source: e.source_id, target: e.target_id, animated: true, style: { stroke: color, strokeWidth: 2 } };
+    });
+    setEdges(newEdges);
+    focusNode(winnerId);
+  }, [workflowId, nodes, setEdges, focusNode]);
+
+  // Rastreia posição do cursor sobre o canvas para colar no ponto exato
+  const cursorRef = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const onMove = (e: MouseEvent) => { cursorRef.current = { x: e.clientX, y: e.clientY }; };
+    const onLeave = () => { cursorRef.current = null; };
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
+  // Ctrl+V: cola arquivo do clipboard OU URL de mídia, no ponto do cursor
+  useEffect(() => {
+    const MEDIA_URL_RE = /^https?:\/\/[^\s]+\.(png|jpg|jpeg|webp|gif|mp4|webm|mov)(\?[^\s]*)?$/i;
+    const VIDEO_RE = /\.(mp4|webm|mov)(\?|$)/i;
+
+    const onPaste = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (!workflowId) return;
+
+      const items = Array.from(e.clipboardData?.items || []);
+      const files = items.map(it => it.getAsFile()).filter((f): f is File => !!f && (f.type.startsWith("image/") || f.type.startsWith("video/")));
+      const text = e.clipboardData?.getData("text")?.trim() || "";
+      const urlMatch = !files.length && MEDIA_URL_RE.test(text);
+
+      if (!files.length && !urlMatch) return;
+      e.preventDefault();
+
+      // Posição base = cursor sobre canvas, senão centro do viewport
+      const basePoint = cursorRef.current
+        ? rf.screenToFlowPosition(cursorRef.current)
+        : rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+
+      const createdIds: string[] = [];
+
+      if (urlMatch) {
+        const kind: "image" | "video" = VIDEO_RE.test(text) ? "video" : "image";
+        const node = await createMediaNode({ url: text, kind, position: basePoint, titulo: "Mídia colada (URL)" });
+        if (node?.id) createdIds.push(node.id);
+        toast.success("Mídia colada da URL");
+      } else {
+        const t = toast.loading(`Colando ${files.length} mídia(s)…`);
+        let i = 0;
+        for (const file of files) {
+          const up = await uploadFileToStudio(file);
+          if (up) {
+            const node = await createMediaNode({ ...up, position: { x: basePoint.x + i * 40, y: basePoint.y + i * 40 }, titulo: file.name });
+            if (node?.id) createdIds.push(node.id);
+          }
+          i++;
+        }
+        toast.success(`${createdIds.length} mídia(s) coladas`, { id: t });
+      }
+
+      // Destaca os nós recém-criados
+      if (createdIds.length) {
+        setNodes(ns => ns.map(n => ({ ...n, selected: createdIds.includes(n.id) })));
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [workflowId, rf, uploadFileToStudio, createMediaNode, setNodes]);
+
+  // Atalhos: Ctrl/Cmd+D duplica nó selecionado
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        const sel = nodes.find(n => n.selected);
+        if (sel && sel.id !== "product-hub") {
+          e.preventDefault();
+          duplicateNode(sel.id);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nodes, duplicateNode]);
+
+  const isValidConnection = useCallback((c: Connection | Edge) => {
+    if (!c.source || !c.target) return false;
+    const src = rf.getNode(c.source);
+    const tgt = rf.getNode(c.target);
+    const srcTipo = src?.data.tipo;
+    const tgtTipo = tgt?.data.tipo;
+    if (!srcTipo || !tgtTipo) return true;
+    return isValidStudioConnection(srcTipo, tgtTipo);
+  }, [rf]);
+
+  // wire generate + duplicate + delete onto nodes' data
+  const nodesWithHandlers = useMemo(() => nodes.map(n => ({
+    ...n,
+    data: { ...n.data, onGenerate: generate, onDuplicate: duplicateNode, onRunFrom: runFromNode, onDelete: deleteNode, onSpawnDownstream: spawnDownstream, onOpenDrawer: openDrawerFor },
+  })), [nodes, duplicateNode, spawnDownstream, openDrawerFor, generate, deleteNode, runFromNode]);
+
+  const nodeTitles = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const n of nodes) m[n.id] = n.data.titulo || n.data.tipo || n.id;
+    return m;
+  }, [nodes]);
+
+  return (
+    <div className="flex gap-3 h-[calc(100vh-140px)] p-4">
+      <StudioBlockLibrary
+        onDragStart={setDragBlock}
+        onDragEnd={() => setDragBlock(null)}
+        onPickTemplate={plantTemplate}
+        templates={TEMPLATES}
+      />
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <Clapperboard className="h-6 w-6 text-primary" />
+          <h1 className="font-display text-xl font-bold text-primary mr-2">Studio</h1>
+          <Select value={projectId} onValueChange={(v) => { setProjectId(v); setProductIdx(0); }}>
+            <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue placeholder="Projeto" /></SelectTrigger>
+            <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+          </Select>
+          {produtos.length > 0 && (
+            <Select value={String(productIdx)} onValueChange={(v) => setProductIdx(Number(v))}>
+              <SelectTrigger className="w-[220px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {produtos.map((p, i: number) => (
+                  <SelectItem key={i} value={String(i)}>{p.nome || p.name || `Produto ${i+1}`}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="flex-1" />
+          <Button size="sm" variant="outline" onClick={organize} disabled={!workflowId || nodes.length < 2} className="h-8 text-xs gap-1.5" title="Reorganizar layout (dagre)">
+            <LayoutGrid className="h-3.5 w-3.5" /> Organizar
+          </Button>
+          <Button size="sm" variant="outline" onClick={suggestFromAI} disabled={!workflowId || suggesting} className="h-8 text-xs gap-1.5" title="IA propõe grafo baseado no produto + modelagem">
+            {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Sugerir IA
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setModelagemOpen(true)} className="h-8 text-xs gap-1.5" title="Modelar a partir de referências">
+            <Layers className="h-3.5 w-3.5" /> Modelagem
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => window.location.assign("/studio/legado")} className="h-8 text-xs">
+            Studio legado
+          </Button>
+          {nodes.some(n => n.data.status === "erro") && runStatus !== "running" && (
+            <Button size="sm" variant="outline" onClick={retryFailed} disabled={!workflowId || running} className="h-8 gap-1.5 text-xs" title="Reprocessar apenas os blocos que falharam">
+              <RotateCcw className="h-3.5 w-3.5" /> Retomar falhas
+            </Button>
+          )}
+          {runStatus === "running" || runStatus === "canceling" ? (
+            <Button size="sm" variant="destructive" onClick={cancelRun} disabled={runStatus === "canceling"} className="h-8 gap-1.5">
+              {runStatus === "canceling" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Square className="h-3.5 w-3.5" />}
+              {runStatus === "canceling" ? "Cancelando…" : "Cancelar"}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={runAll} disabled={!workflowId || running} className="h-8 gap-1.5">
+              {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+              Executar tudo
+            </Button>
+          )}
+        </div>
+
+        <div ref={wrapperRef} className="flex-1 rounded-lg border border-border/60 bg-[#050304] overflow-hidden relative"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={onDrop}
+        >
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 bg-background/50">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
+          <ReactFlow
+            nodes={nodesWithHandlers}
+            edges={edges}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onEdgesDelete={onEdgesDelete}
+            onNodeClick={(_, n) => n.id !== "product-hub" && setDrawerNode(n)}
+            isValidConnection={isValidConnection}
+            nodeTypes={nodeTypes}
+            deleteKeyCode={["Backspace", "Delete"]}
+            fitView
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background gap={20} color="#c9922a22" />
+            <Controls className="!bg-secondary !border-border" />
+            <MiniMap className="!bg-secondary !border-border" nodeColor="#c9922a" maskColor="rgba(0,0,0,0.6)" />
+          </ReactFlow>
+          <StudioRunLogPanel workflowId={workflowId} nodeTitles={nodeTitles} />
+        </div>
+        <StudioPublicationsPanel workflowId={workflowId} />
+      </div>
+
+
+      <StudioNodeDrawer
+        node={drawerNode}
+        onClose={() => setDrawerNode(null)}
+        onGenerate={(id) => { generate(id); }}
+        onDelete={deleteNode}
+        onUpdate={updateNode}
+        onDuplicate={duplicateNode}
+        onRunFrom={runFromNode}
+        onPromoteVariant={promoteVariant}
+        onFocusNode={focusNode}
+        onExplodeStoryboard={async ({ sourceNodeId, scenes, ficha, targetKind }) => {
+          const src = rf.getNode(sourceNodeId);
+          const baseX = (src?.position?.x || 400) + 340;
+          const baseY = (src?.position?.y || 200) - ((scenes.length - 1) * 110);
+          const sceneNodes = scenes.map((value: unknown, i: number) => { const s = record(value); return ({
+            tipo: targetKind,
+            titulo: String(s.titulo || s.title || `Cena ${i + 1}`),
+            position: { x: baseX, y: baseY + i * 220 },
+            config: {
+              prompt: [
+                s.prompt || s.descricao || s.title || `Cena ${i + 1}`,
+                record(ficha).estilo_visual && `Estilo: ${record(ficha).estilo_visual}`,
+                record(ficha).iluminação && `Luz: ${record(ficha).iluminação}`,
+                record(ficha).ritmo && `Ritmo: ${record(ficha).ritmo}`,
+              ].filter(Boolean).join("\n\n"),
+              scene_index: i,
+            },
+          }); });
+          const created = await plantGraph({ nodes: sceneNodes, edges: [] });
+          if (!created || !workflowId) return;
+          // conecta storyboard → cada cena
+          for (const c of created) {
+            const { data } = await supabase.from("imphq_studio_canvas_edges").insert({
+              workflow_id: workflowId, source_id: sourceNodeId, target_id: c.id,
+            }).select("id").single();
+            if (data) {
+              setEdges(prev => [...prev, {
+                id: data.id, source: sourceNodeId, target: c.id, animated: true,
+                style: { stroke: KIND_COLORS.storyboard, strokeWidth: 2 },
+              }]);
+            }
+          }
+        }}
+      />
+
+      <StudioCostDialog
+        open={costOpen}
+        onOpenChange={setCostOpen}
+        estimate={estimate}
+        onConfirm={confirmRun}
+      />
+
+      <Sheet open={modelagemOpen} onOpenChange={setModelagemOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" /> Modelagem visual
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <ModelagemTab />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+export default function StudioCanvasPage() {
+  return (
+    <ReactFlowProvider>
+      <InnerCanvas />
+    </ReactFlowProvider>
+  );
+}

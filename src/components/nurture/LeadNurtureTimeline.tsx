@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,20 +11,20 @@ import { format } from "date-fns";
 interface Props { leadId: string; }
 
 export function LeadNurtureTimeline({ leadId }: Props) {
-  const [enrollments, setEnrollments] = useState<any[]>([]);
-  const [emails, setEmails] = useState<any[]>([]);
+  const [enrollments, setEnrollments] = useState<Array<Tables<"imphq_lead_sequence_enrollments"> & { imphq_nurture_sequences: Pick<Tables<"imphq_nurture_sequences">, "nome" | "produto_nome"> | null }>>([]);
+  const [emails, setEmails] = useState<Tables<"imphq_nurture_emails">[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     const { data: enr } = await supabase
       .from("imphq_lead_sequence_enrollments")
-      .select("*, imphq_nurture_sequences(nome, produto)")
+      .select("*, imphq_nurture_sequences(nome, produto_nome)")
       .eq("lead_id", leadId)
       .order("created_at", { ascending: false });
     setEnrollments(enr || []);
 
-    const enrollmentIds = (enr || []).map((e: any) => e.id);
+    const enrollmentIds = (enr || []).map((e) => e.id);
     if (enrollmentIds.length > 0) {
       const { data: em } = await supabase
         .from("imphq_nurture_emails")
@@ -39,13 +40,13 @@ export function LeadNurtureTimeline({ leadId }: Props) {
   useEffect(() => { load(); }, [load]);
 
   const pauseEnrollment = async (id: string) => {
-    await supabase.from("imphq_lead_sequence_enrollments").update({ status: "pausado" } as any).eq("id", id);
+    await supabase.from("imphq_lead_sequence_enrollments").update({ status: "pausado" }).eq("id", id);
     toast.success("Sequência pausada");
     load();
   };
 
   const resumeEnrollment = async (id: string) => {
-    await supabase.from("imphq_lead_sequence_enrollments").update({ status: "ativo" } as any).eq("id", id);
+    await supabase.from("imphq_lead_sequence_enrollments").update({ status: "ativo" }).eq("id", id);
     toast.success("Sequência reativada");
     load();
   };
@@ -54,7 +55,7 @@ export function LeadNurtureTimeline({ leadId }: Props) {
     await supabase.from("imphq_lead_sequence_enrollments").update({
       dia_atual: dia + 1,
       proximo_envio_em: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-    } as any).eq("id", id);
+    }).eq("id", id);
     toast.success("Próximo e-mail pulado");
     load();
   };
@@ -67,7 +68,7 @@ export function LeadNurtureTimeline({ leadId }: Props) {
 
   return (
     <div className="space-y-3">
-      {enrollments.map((enr: any) => {
+      {enrollments.map((enr) => {
         const enrEmails = emails.filter(e => e.enrollment_id === enr.id);
         return (
           <Card key={enr.id} className="border-primary/20">

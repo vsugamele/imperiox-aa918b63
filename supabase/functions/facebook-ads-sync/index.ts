@@ -1,3 +1,14 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+const metricSchema = z.union([z.string(), z.number()]).transform(String);
+const actionSchema = z.object({ action_type: z.string().nullish(), value: metricSchema });
+const creativeSchema = z.object({ id: z.string().nullish(), name: z.string().nullish(), thumbnail_url: z.string().nullish(), image_url: z.string().nullish(), body: z.string().nullish(), title: z.string().nullish() }).passthrough();
+const graphItemSchema = z.object({
+  id: z.string().nullish(), name: z.string().nullish(), creative: creativeSchema.nullish(), effective_status: z.string().nullish(),
+  campaign_name: z.string().nullish(), adset_name: z.string().nullish(), ad_name: z.string().nullish(), campaign_id: z.string().nullish(), adset_id: z.string().nullish(), ad_id: z.string().nullish(), date_start: z.string().nullish(),
+  spend: metricSchema.nullish(), impressions: metricSchema.nullish(), clicks: metricSchema.nullish(), reach: metricSchema.nullish(), ctr: metricSchema.nullish(), frequency: metricSchema.nullish(), inline_link_clicks: metricSchema.nullish(),
+  actions: z.array(actionSchema).nullish(), video_play_actions: z.array(actionSchema).nullish(), video_thruplay_watched_actions: z.array(actionSchema).nullish(),
+}).passthrough();
+const graphResponseSchema = z.object({ data: z.array(graphItemSchema).nullish(), error: z.unknown().optional() }).passthrough();
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2/cors";
 
@@ -10,23 +21,25 @@ const parseResponseBody = async (response: Response) => {
   const text = await response.text();
 
   try {
-    return JSON.parse(text);
+    return graphResponseSchema.parse(JSON.parse(text));
   } catch {
-    return { error: { message: text || `HTTP ${response.status}` } };
+    return { data: undefined, error: { message: text || `HTTP ${response.status}` } };
   }
 };
 
 const buildJsonResponse = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 
-const buildFacebookErrorResponse = (payload: any) => {
-  const fbError = payload?.error ?? payload ?? {};
-  const message = typeof fbError?.message === "string"
+const buildFacebookErrorResponse = (payload: unknown) => {
+  const rawError = payload && typeof payload === "object" && "error" in payload ? payload.error ?? payload : payload;
+  const fbError = rawError && typeof rawError === "object" ? rawError : {};
+  const message = "message" in fbError && typeof fbError.message === "string"
     ? fbError.message
     : typeof payload === "string"
       ? payload
       : "Erro desconhecido da Facebook API";
-  const code = typeof fbError?.code === "number" ? fbError.code : Number(fbError?.code || 0);
+  const rawCode = "code" in fbError ? fbError.code : undefined;
+  const code = typeof rawCode === "number" ? rawCode : Number(rawCode || 0);
   const normalizedMessage = message.toLowerCase();
 
   if (
@@ -162,10 +175,10 @@ Deno.serve(async (req) => {
     for (const row of rows) {
       const actions = row.actions || [];
       const getAction = (type: string) => {
-        const a = actions.find((x: any) => x.action_type === type);
+        const a = actions.find((x) => x.action_type === type);
         return a ? parseInt(a.value) : 0;
       };
-      const getActionList = (list: any[]) => Array.isArray(list) && list[0] ? parseInt(list[0].value) : 0;
+      const getActionList = (list: z.infer<typeof actionSchema>[] | null | undefined) => Array.isArray(list) && list[0] ? parseInt(list[0].value) : 0;
 
       const leads = getAction("lead") + getAction("offsite_conversion.fb_pixel_lead");
       const compras = getAction("offsite_conversion.fb_pixel_purchase") + getAction("purchase");
@@ -251,8 +264,8 @@ Deno.serve(async (req) => {
         const adItems = adsData.data || [];
         
         const creatives = adItems
-          .filter((ad: any) => ad.creative)
-          .map((ad: any) => ({
+          .filter((ad): ad is typeof ad & { creative: z.infer<typeof creativeSchema> } => !!ad.creative)
+          .map((ad) => ({
             name: ad.creative.name || ad.name,
             thumbnail_url: ad.creative.thumbnail_url,
             image_url: ad.creative.image_url,
@@ -264,7 +277,7 @@ Deno.serve(async (req) => {
         
         // Deduplicate by creative id/name
         const uniqueCreatives = Array.from(
-          new Map(creatives.map((c: any) => [c.name + (c.image_url || c.thumbnail_url || ""), c])).values()
+          new Map(creatives.map((c) => [c.name + (c.image_url || c.thumbnail_url || ""), c])).values()
         );
         
         creativesCount = uniqueCreatives.length;

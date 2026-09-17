@@ -1,24 +1,29 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ProjetoBriefing } from "./ProjetoBriefing";
-import { ProjetoBranding } from "./ProjetoBranding";
+import { ProjetoBriefing } from "@/components/projeto/ProjetoBriefing";
+import { ProjetoBranding } from "@/components/projeto/ProjetoBranding";
 import { FileText, Palette, Eye } from "lucide-react";
 
 interface Props {
-  project: any;
-  onUpdateData: (data: any) => void;
-  onUpdatePipeline: (pipeline: any) => void;
-  onUpdateBrandKit: (brandKit: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
+  onUpdatePipeline: (pipeline: Json) => void;
+  onUpdateBrandKit: (brandKit: Json) => void;
 }
 
 const normHex = (c = "") => (c.startsWith("#") ? c : `#${c.replace(/^#+/, "")}`);
 
 export function ProjetoIdentidade({ project, onUpdateData, onUpdatePipeline, onUpdateBrandKit }: Props) {
-  const data = project.data || {};
-  const bk = project.brand_kit || {};
-  const produtos: any[] = data.produtos || [];
-  const cores: string[] = bk.cores || [];
+  const data = jsonFields(project.data);
+  const bk = jsonFields(project.brand_kit);
+  const produtos = Array.isArray(data.produtos) ? data.produtos.map(jsonFields) : [];
+  const strings = (value: Json | undefined) => Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+  const cores = strings(bk.cores);
+  const palavrasUsa = strings(bk.palavras_usa);
+  const palavrasEvita = strings(bk.palavras_evita);
 
   return (
     <Tabs defaultValue="briefing" className="space-y-4">
@@ -56,8 +61,8 @@ export function ProjetoIdentidade({ project, onUpdateData, onUpdatePipeline, onU
                 {project.description && <p className="text-sm text-muted-foreground">{project.description}</p>}
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {project.category && <Badge variant="secondary" className="text-[10px]">{project.category}</Badge>}
-                  {data.status && <Badge variant="outline" className="text-[10px] capitalize">{data.status}</Badge>}
-                  {bk.arquetipo && <Badge variant="outline" className="text-[10px] capitalize">🧬 {bk.arquetipo}</Badge>}
+                  {jsonText(data.status) && <Badge variant="outline" className="text-[10px] capitalize">{jsonText(data.status)}</Badge>}
+                  {jsonText(bk.arquetipo) && <Badge variant="outline" className="text-[10px] capitalize">🧬 {jsonText(bk.arquetipo)}</Badge>}
                 </div>
               </div>
               <div className="space-y-2">
@@ -71,38 +76,38 @@ export function ProjetoIdentidade({ project, onUpdateData, onUpdatePipeline, onU
                 ) : (
                   <p className="text-[10px] text-muted-foreground italic">Nenhuma cor cadastrada</p>
                 )}
-                {(bk.fonte_titulo || bk.fonte_corpo) && (
+                {(jsonText(bk.fonte_titulo) || jsonText(bk.fonte_corpo)) && (
                   <div className="text-[10px] text-muted-foreground space-y-0.5 pt-1">
-                    {bk.fonte_titulo && <p>Título: <span className="text-foreground font-medium">{bk.fonte_titulo}</span></p>}
-                    {bk.fonte_corpo && <p>Corpo: <span className="text-foreground font-medium">{bk.fonte_corpo}</span></p>}
+                    {jsonText(bk.fonte_titulo) && <p>Título: <span className="text-foreground font-medium">{jsonText(bk.fonte_titulo)}</span></p>}
+                    {jsonText(bk.fonte_corpo) && <p>Corpo: <span className="text-foreground font-medium">{jsonText(bk.fonte_corpo)}</span></p>}
                   </div>
                 )}
               </div>
             </div>
 
             {/* Posicionamento curto */}
-            {(bk.inimigo_comum || bk.mecanismo_chave) && (
+            {(jsonText(bk.inimigo_comum) || jsonText(bk.mecanismo_chave)) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-border">
-                {bk.inimigo_comum && (
+                {jsonText(bk.inimigo_comum) && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Inimigo Comum</p>
-                    <p className="text-xs leading-relaxed">{bk.inimigo_comum}</p>
+                    <p className="text-xs leading-relaxed">{jsonText(bk.inimigo_comum)}</p>
                   </div>
                 )}
-                {bk.mecanismo_chave && (
+                {jsonText(bk.mecanismo_chave) && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Mecanismo-Chave</p>
-                    <p className="text-xs leading-relaxed">{bk.mecanismo_chave}</p>
+                    <p className="text-xs leading-relaxed">{jsonText(bk.mecanismo_chave)}</p>
                   </div>
                 )}
               </div>
             )}
 
             {/* Manifesto */}
-            {bk.manifesto && (
+            {jsonText(bk.manifesto) && (
               <div className="pt-2 border-t border-border">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Manifesto</p>
-                <p className="text-sm leading-relaxed italic text-foreground/90 border-l-2 border-primary/40 pl-3">{bk.manifesto}</p>
+                <p className="text-sm leading-relaxed italic text-foreground/90 border-l-2 border-primary/40 pl-3">{jsonText(bk.manifesto)}</p>
               </div>
             )}
 
@@ -115,12 +120,12 @@ export function ProjetoIdentidade({ project, onUpdateData, onUpdatePipeline, onU
                 <p className="text-xs text-muted-foreground italic">Nenhum produto cadastrado em Briefing.</p>
               ) : (
                 <div className="space-y-1.5">
-                  {produtos.map((p: any, i: number) => (
+                  {produtos.map((p, i: number) => (
                     <div key={i} className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md bg-secondary/40 border border-border">
-                      <span className="font-semibold flex-1 truncate">{p.nome || p.name || "—"}</span>
-                      {p.tipo && <Badge variant="outline" className="text-[9px]">{p.tipo}</Badge>}
-                      {p.preco && <span className="font-mono text-primary text-[10px]">R$ {p.preco}</span>}
-                      {p.status && <Badge variant="secondary" className="text-[9px] capitalize">{p.status}</Badge>}
+                      <span className="font-semibold flex-1 truncate">{jsonText(p.nome) || jsonText(p.name) || "—"}</span>
+                      {jsonText(p.tipo) && <Badge variant="outline" className="text-[9px]">{jsonText(p.tipo)}</Badge>}
+                      {(jsonNumber(p.preco) ?? jsonText(p.preco)) && <span className="font-mono text-primary text-[10px]">R$ {(jsonNumber(p.preco) ?? jsonText(p.preco))}</span>}
+                      {jsonText(p.status) && <Badge variant="secondary" className="text-[9px] capitalize">{jsonText(p.status)}</Badge>}
                     </div>
                   ))}
                 </div>
@@ -128,23 +133,23 @@ export function ProjetoIdentidade({ project, onUpdateData, onUpdatePipeline, onU
             </div>
 
             {/* Linguagem */}
-            {((bk.palavras_usa?.length || 0) > 0 || (bk.palavras_evita?.length || 0) > 0) && (
+            {((palavrasUsa?.length || 0) > 0 || (palavrasEvita?.length || 0) > 0) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-border">
-                {bk.palavras_usa?.length > 0 && (
+                {palavrasUsa?.length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1">✅ Usa</p>
                     <div className="flex flex-wrap gap-1">
-                      {bk.palavras_usa.map((w: string, i: number) => (
+                      {palavrasUsa.map((w: string, i: number) => (
                         <Badge key={i} variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-300/90">{w}</Badge>
                       ))}
                     </div>
                   </div>
                 )}
-                {bk.palavras_evita?.length > 0 && (
+                {palavrasEvita?.length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-red-400 mb-1">🚫 Evita</p>
                     <div className="flex flex-wrap gap-1">
-                      {bk.palavras_evita.map((w: string, i: number) => (
+                      {palavrasEvita.map((w: string, i: number) => (
                         <Badge key={i} variant="outline" className="text-[10px] border-red-500/30 text-red-300/90">{w}</Badge>
                       ))}
                     </div>

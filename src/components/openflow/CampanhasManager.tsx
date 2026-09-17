@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import type { Database, Tables } from "@/integrations/supabase/types";
+type UtmSuggestion = Database["public"]["Functions"]["get_unmatched_utm_campaigns"]["Returns"][number];
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,14 +35,14 @@ interface Props {
 
 export function CampanhasManager({ projects, onChange }: Props) {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
-  const [forms, setForms] = useState<any[]>([]);
+  const [forms, setForms] = useState<Pick<Tables<"imphq_capture_forms">, "id" | "nome" | "project_id" | "is_active">[]>([]);
   const [counts, setCounts] = useState<Record<string, { leads: number; automacoes: number; forms: number }>>({});
   const [editing, setEditing] = useState<Campanha | null>(null);
   const [showNew, setShowNew] = useState(false);
-  const [editForms, setEditForms] = useState<any[]>([]);
+  const [editForms, setEditForms] = useState<Tables<"imphq_campanha_forms">[]>([]);
   const [newForm, setNewForm] = useState<Partial<Campanha>>({ nome: "", project_id: "", status: "ativa" });
   const [filterProject, setFilterProject] = useState<string>("__all__");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<UtmSuggestion[]>([]);
   const [loadingSug, setLoadingSug] = useState(false);
   const [linkingLeads, setLinkingLeads] = useState(false);
 
@@ -53,21 +55,22 @@ export function CampanhasManager({ projects, onChange }: Props) {
   useEffect(() => {
     supabase.from("imphq_projects").select("data").then(({ data }) => {
       const prodsSet = new Set<string>();
-      (data || []).forEach((p: any) => {
-        const prods = (p.data?.produtos || []) as any[];
-        prods.forEach(prod => {
-          if (prod.nome) prodsSet.add(prod.nome);
+      (data || []).forEach((p) => {
+        const prods = jsonFields(p.data).produtos;
+        if (Array.isArray(prods)) prods.forEach(prod => {
+          const nome = jsonText(jsonFields(prod).nome);
+          if (nome) prodsSet.add(nome);
         });
       });
       setAllProducts(Array.from(prodsSet).sort());
     });
   }, []);
 
-  const loadSuggestions = async () => {
+  const loadSuggestions = useCallback(async () => {
     setLoadingSug(true);
-    const { data, error } = await supabase.rpc("get_unmatched_utm_campaigns" as any, { p_days: 30, p_project_id: null });
+    const { data, error } = await supabase.rpc("get_unmatched_utm_campaigns", { p_days: 30, p_project_id: null });
     if (error) console.error(error);
-    const list = ((data || []) as any[]).filter(s => !s.already_linked);
+    const list = (data || []).filter(s => !s.already_linked);
     setSuggestions(list);
     setLoadingSug(false);
 
@@ -75,9 +78,9 @@ export function CampanhasManager({ projects, onChange }: Props) {
       const isUtmInList = list.some(s => s.utm_campaign === editing.utm_campaign);
       setCustomUtmModeEdit(!isUtmInList);
     }
-  };
+  }, [editing]);
 
-  const applySuggestion = (s: any) => {
+  const applySuggestion = (s: UtmSuggestion) => {
     const cleanName = s.utm_campaign.length > 40
       ? s.utm_campaign.replace(/\|.*$/, "").replace(/\[.*?\]\s*/g, "").trim().slice(0, 60) || s.utm_campaign.slice(0, 40)
       : s.utm_campaign;
@@ -96,19 +99,19 @@ export function CampanhasManager({ projects, onChange }: Props) {
     if (!editing) return;
     if (!editing.utm_campaign) { toast.error("Defina o UTM campaign primeiro"); return; }
     setLinkingLeads(true);
-    const { data, error } = await supabase.rpc("link_leads_by_utm" as any, { p_campanha_id: editing.id });
+    const { data, error } = await supabase.rpc("link_leads_by_utm", { p_campanha_id: editing.id });
     setLinkingLeads(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`${data || 0} lead(s) vinculado(s) à campanha`);
     load();
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [cRes, fRes] = await Promise.all([
-      supabase.from("imphq_campanhas" as any).select("*").order("created_at", { ascending: false }),
+      supabase.from("imphq_campanhas").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_capture_forms").select("id, nome, project_id, is_active"),
     ]);
-    const list = ((cRes.data || []) as any) as Campanha[];
+    const list = cRes.data || [];
     setCampanhas(list);
     setForms(fRes.data || []);
 
@@ -118,22 +121,22 @@ export function CampanhasManager({ projects, onChange }: Props) {
       const [lRes, aRes, fvRes] = await Promise.all([
         supabase.from("imphq_leads").select("campanha_id", { count: "exact", head: false }).in("campanha_id", ids),
         supabase.from("imphq_automacoes").select("campanha_id").in("campanha_id", ids),
-        supabase.from("imphq_campanha_forms" as any).select("campanha_id").in("campanha_id", ids),
+        supabase.from("imphq_campanha_forms").select("campanha_id").in("campanha_id", ids),
       ]);
       const m: Record<string, { leads: number; automacoes: number; forms: number }> = {};
       ids.forEach(id => (m[id] = { leads: 0, automacoes: 0, forms: 0 }));
-      (lRes.data || []).forEach((r: any) => r.campanha_id && m[r.campanha_id] && m[r.campanha_id].leads++);
-      (aRes.data || []).forEach((r: any) => r.campanha_id && m[r.campanha_id] && m[r.campanha_id].automacoes++);
-      ((fvRes.data || []) as any[]).forEach((r: any) => r.campanha_id && m[r.campanha_id] && m[r.campanha_id].forms++);
+      (lRes.data || []).forEach((r) => r.campanha_id && m[r.campanha_id] && m[r.campanha_id].leads++);
+      (aRes.data || []).forEach((r) => r.campanha_id && m[r.campanha_id] && m[r.campanha_id].automacoes++);
+      (fvRes.data || []).forEach((r) => r.campanha_id && m[r.campanha_id] && m[r.campanha_id].forms++);
       setCounts(m);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const loadEditForms = async (campId: string) => {
-    const { data } = await supabase.from("imphq_campanha_forms" as any).select("*").eq("campanha_id", campId).order("vigente_de", { ascending: false });
-    setEditForms((data || []) as any[]);
+    const { data } = await supabase.from("imphq_campanha_forms").select("*").eq("campanha_id", campId).order("vigente_de", { ascending: false });
+    setEditForms(data || []);
   };
 
   useEffect(() => {
@@ -148,16 +151,18 @@ export function CampanhasManager({ projects, onChange }: Props) {
       setCustomProductModeEdit(false);
       setCustomUtmModeEdit(false);
     }
-  }, [editing?.id]);
+  }, [editing, allProducts, loadSuggestions]);
 
   const create = async () => {
     if (!newForm.nome?.trim() || !newForm.project_id) { toast.error("Nome e projeto obrigatórios"); return; }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error("Faça login"); return; }
-    const { error } = await supabase.from("imphq_campanhas" as any).insert({
+    const { error } = await supabase.from("imphq_campanhas").insert({
       ...newForm,
+      nome: newForm.nome,
+      project_id: newForm.project_id,
       user_id: user.id,
-    } as any);
+    });
     if (error) { toast.error(error.message); return; }
     toast.success("Campanha criada");
     setShowNew(false);
@@ -167,11 +172,11 @@ export function CampanhasManager({ projects, onChange }: Props) {
 
   const save = async () => {
     if (!editing) return;
-    const { error } = await supabase.from("imphq_campanhas" as any).update({
+    const { error } = await supabase.from("imphq_campanhas").update({
       nome: editing.nome, status: editing.status, produto: editing.produto || null,
       descricao: editing.descricao || null, data_inicio: editing.data_inicio || null,
       data_fim: editing.data_fim || null, utm_campaign: editing.utm_campaign || null,
-    } as any).eq("id", editing.id);
+    }).eq("id", editing.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Salvo"); setEditing(null); load(); onChange?.();
   };
@@ -179,7 +184,7 @@ export function CampanhasManager({ projects, onChange }: Props) {
   const remove = async () => {
     if (!editing) return;
     if (!confirm(`Excluir "${editing.nome}"? Automações e leads vinculados perdem a marcação (não são excluídos).`)) return;
-    const { error } = await supabase.from("imphq_campanhas" as any).delete().eq("id", editing.id);
+    const { error } = await supabase.from("imphq_campanhas").delete().eq("id", editing.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Removida"); setEditing(null); load(); onChange?.();
   };
@@ -189,14 +194,15 @@ export function CampanhasManager({ projects, onChange }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     // Encerra forms vigentes atuais
-    await supabase.from("imphq_campanha_forms" as any)
-      .update({ vigente_ate: new Date().toISOString() } as any)
+    const { error: closeError } = await supabase.from("imphq_campanha_forms")
+      .update({ vigente_ate: new Date().toISOString() })
       .eq("campanha_id", editing.id)
       .is("vigente_ate", null);
+    if (closeError) { toast.error(closeError.message); return; }
     const versao = editForms.length + 1;
-    const { error } = await supabase.from("imphq_campanha_forms" as any).insert({
+    const { error } = await supabase.from("imphq_campanha_forms").insert({
       campanha_id: editing.id, form_id: formId, user_id: user.id, versao,
-    } as any);
+    });
     if (error) { toast.error(error.message); return; }
     toast.success(`Formulário vinculado (v${versao})`);
     loadEditForms(editing.id); load();
@@ -468,3 +474,4 @@ export function CampanhasManager({ projects, onChange }: Props) {
     </div>
   );
 }
+import { jsonFields, jsonText } from "@/lib/json-fields";

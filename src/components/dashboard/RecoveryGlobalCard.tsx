@@ -13,9 +13,9 @@ interface Props {
 
 export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange }: Props) {
   const [loading, setLoading] = useState(true);
-  const [sales, setSales] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [sales, setSales] = useState<Parameters<typeof buildRecoveryBuckets>[0]["vendas"]>([]);
+  const [leads, setLeads] = useState<Parameters<typeof buildRecoveryBuckets>[0]["leads"]>([]);
+  const [logs, setLogs] = useState<Parameters<typeof buildRecoveryBuckets>[0]["logs"]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,7 +26,7 @@ export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange
 
       let salesQ = supabase.from("imphq_vendas").select("id, project_id, lead_id, produto_nome, status, valor, created_at, data_venda, data").gte("created_at", salesFrom).limit(2000);
       let leadsQ = supabase.from("imphq_leads").select("id, project_id, nome, email, phone, status, criado_em, updated_at, data").limit(2000);
-      let logsQ = supabase.from("imphq_recovery_logs").select("*").gte("created_at", logsFrom).limit(2000);
+      let logsQ = supabase.from("imphq_recovery_logs").select("id, project_id, lead_id, venda_id, bucket, status, valor, created_at").gte("created_at", logsFrom).limit(2000);
 
       if (projectFilter && projectFilter !== "all") {
         salesQ = salesQ.eq("project_id", projectFilter);
@@ -38,7 +38,7 @@ export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange
       if (cancelled) return;
       setSales(salesRes.data || []);
       setLeads(leadsRes.data || []);
-      setLogs((logsRes.data || []).filter((log: any) => !!log.created_at));
+      setLogs((logsRes.data || []).filter((log) => !!log.created_at));
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -51,8 +51,8 @@ export default function RecoveryGlobalCard({ projectFilter = "all", onRiskChange
       .reduce((sum, bucket) => sum + bucket.totalValue, 0);
 
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    const recoveredLogs = logs.filter((log: any) => new Date(log.created_at).getTime() >= monthStart && String(log.status || "").toLowerCase().includes("recuperado"));
-    const recoveredValue = recoveredLogs.reduce((sum: number, log: any) => sum + (Number(log.valor) || 0), 0);
+    const recoveredLogs = logs.filter((log) => new Date(log.created_at).getTime() >= monthStart && String(log.status || "").toLowerCase().includes("recuperado"));
+    const recoveredValue = recoveredLogs.reduce((sum: number, log) => sum + (Number(log.valor) || 0), 0);
 
     return { currentRisk, recoveredValue, recoveredCount: recoveredLogs.length };
   }, [sales, leads, logs]);

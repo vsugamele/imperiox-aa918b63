@@ -1,3 +1,5 @@
+import { record, parseProjectData } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback, DragEvent } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -19,13 +21,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Plus, Trash2, Flame, AlertTriangle, Search, CheckCircle2, Inbox, Eye, Users,
   Paperclip, CheckSquare, FolderOpen, MoreHorizontal, Pencil, LayoutGrid, List,
-  Filter, X, ChevronDown, ChevronRight, Check, FileText, Loader2, Copy, EyeOff
+  Filter, X, ChevronDown, ChevronRight, Check, FileText, Loader2, Copy, EyeOff,
+  Palette, Table as TableIcon, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import CardDetailPanel from "@/components/kanban/CardDetailPanel";
 import { createCalendarEventForCard } from "@/lib/calendarSync";
+import { CardMetricsChips } from "@/components/kanban/CardMetricsChips";
+import { ColumnColorMenu } from "@/components/kanban/ColumnColorMenu";
+import { hexToTint } from "@/components/kanban/column-color";
+import { KanbanSheetView } from "@/components/kanban/KanbanSheetView";
+import { TEMPLATES, type BoardTemplate } from "@/components/kanban/kanbanTemplates";
+import { BoardTabsBar, type KanbanBoard } from "@/components/kanban/BoardTabsBar";
 
-const BOARDS = ["geral", "agentes", "humanas", "criativos", "campanhas", "experts"];
+const FALLBACK_BOARDS: KanbanBoard[] = [
+  { id: "geral",     label: "Geral",     emoji: "📋", color: "#71717a", position: 0, is_pinned: true },
+  { id: "agentes",   label: "Agentes",   emoji: "🤖", color: "#8b5cf6", position: 1 },
+  { id: "humanas",   label: "Humanas",   emoji: "👥", color: "#3b82f6", position: 2 },
+  { id: "criativos", label: "Criativos", emoji: "🎨", color: "#ec4899", position: 3 },
+  { id: "campanhas", label: "Campanhas", emoji: "🚀", color: "#f0b100", position: 4 },
+  { id: "experts",   label: "Experts",   emoji: "⭐", color: "#22c55e", position: 5, is_pinned: true },
+];
 const DEFAULT_COLUMNS = ["backlog", "fazendo", "travado", "revisão", "feito"];
 
 // Synonym map for smart merging in "geral" view
@@ -66,6 +82,8 @@ interface KanbanCard {
   id: string; column_id: string; title: string; description?: string;
   priority: string; due_date?: string; tags: string[]; position: number; board: string;
   member_id?: string; project_id?: string;
+  metrics?: Record<string, unknown> | null;
+  status_color?: string | null;
 }
 
 interface Filters {
@@ -79,10 +97,11 @@ export default function KanbanPage() {
   const [allColumns, setAllColumns] = useState<KanbanColumn[]>([]);
   const [allCards, setAllCards] = useState<KanbanCard[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string; data?: any }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; data?: unknown }[]>([]);
   const [cardAttachmentCounts, setCardAttachmentCounts] = useState<Record<string, number>>({});
   const [cardChecklistCounts, setCardChecklistCounts] = useState<Record<string, { done: number; total: number }>>({});
   const [activeBoard, setActiveBoard] = useState("geral");
+  const [boards, setBoards] = useState<KanbanBoard[]>(FALLBACK_BOARDS);
   const [showNewCard, setShowNewCard] = useState<string | null>(null);
   const [editCard, setEditCard] = useState<KanbanCard | null>(null);
   const [newTitle, setNewTitle] = useState("");
@@ -97,7 +116,7 @@ export default function KanbanPage() {
   const [filterMember, setFilterMember] = useState("all");
   const [filters, setFilters] = useState<Filters>({ priority: "all", project: "all", product: "all", deadline: "all" });
   const [dragCardId, setDragCardId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"board" | "list">("board");
+  const [viewMode, setViewMode] = useState<"board" | "list" | "sheet">("board");
 
   // Column management
   const [renameCol, setRenameCol] = useState<KanbanColumn | null>(null);
@@ -124,14 +143,18 @@ export default function KanbanPage() {
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [colRes, cardRes, memberRes, projRes, attRes, checkRes] = await Promise.all([
+    const [colRes, cardRes, memberRes, projRes, attRes, checkRes, boardRes] = await Promise.all([
       supabase.from("imphq_kanban_columns").select("*").order("position"),
       supabase.from("imphq_kanban_cards").select("*").order("position"),
       supabase.from("imphq_team_members").select("id, name, avatar_url, role"),
       supabase.from("imphq_projects").select("id, name, data, icon"),
       supabase.from("imphq_card_attachments").select("card_id"),
       supabase.from("imphq_card_checklists").select("card_id, is_done"),
+      supabase.from("imphq_kanban_boards").select("*").order("position"),
     ]);
+
+    const loadedBoards = boardRes.data || [];
+    if (loadedBoards.length > 0) setBoards(loadedBoards);
 
     let cols = (colRes.data || []) as KanbanColumn[];
     const existingBoards = new Set(cols.map(c => c.board));
@@ -145,19 +168,19 @@ export default function KanbanPage() {
     }
 
     const attCounts: Record<string, number> = {};
-    ((attRes.data as any[]) || []).forEach(a => { attCounts[a.card_id] = (attCounts[a.card_id] || 0) + 1; });
+    (attRes.data || []).forEach(a => { attCounts[a.card_id] = (attCounts[a.card_id] || 0) + 1; });
 
     const checkCounts: Record<string, { done: number; total: number }> = {};
-    ((checkRes.data as any[]) || []).forEach(c => {
+    (checkRes.data || []).forEach(c => {
       if (!checkCounts[c.card_id]) checkCounts[c.card_id] = { done: 0, total: 0 };
       checkCounts[c.card_id].total++;
       if (c.is_done) checkCounts[c.card_id].done++;
     });
 
     setAllColumns(cols);
-    setAllCards((cardRes.data || []) as KanbanCard[]);
+    setAllCards((cardRes.data || []).map(c=>({...c,metrics:record(c.metrics)})));
     setMembers((memberRes.data || []) as TeamMember[]);
-    setProjects((projRes.data || []) as { id: string; name: string; data?: any }[]);
+    setProjects((projRes.data || []) as { id: string; name: string; data?: unknown }[]);
     setCardAttachmentCounts(attCounts);
     setCardChecklistCounts(checkCounts);
     setLoading(false);
@@ -168,21 +191,21 @@ export default function KanbanPage() {
   const getProjectExpert = (projectId?: string) => {
     if (!projectId) return undefined;
     const proj = projects.find(p => p.id === projectId);
-    return proj?.data?.expert?.nome || undefined;
+    return String(record(record(proj?.data).expert).nome || "") || undefined;
   };
   const getProjectProduct = (projectId?: string) => {
     if (!projectId) return undefined;
     const proj = projects.find(p => p.id === projectId);
-    return proj?.data?.briefing?.produto || undefined;
+    return String(record(record(proj?.data).briefing).produto || "") || undefined;
   };
 
   // All unique products from projects
   const allProducts = (() => {
     const prods = new Set<string>();
     projects.forEach(p => {
-      const d = p.data || {};
+      const d = parseProjectData(p.data);
       if (Array.isArray(d.produtos)) {
-        d.produtos.forEach((prod: any) => {
+        d.produtos.forEach((prod) => {
           const name = prod.nome || prod.name;
           if (name) prods.add(name);
         });
@@ -195,9 +218,9 @@ export default function KanbanPage() {
   const projectIdsWithProduct = (productName: string): Set<string> => {
     const ids = new Set<string>();
     projects.forEach(p => {
-      const d = p.data || {};
+      const d = parseProjectData(p.data);
       if (Array.isArray(d.produtos)) {
-        if (d.produtos.some((prod: any) => (prod.nome || prod.name) === productName)) {
+        if (d.produtos.some((prod) => (prod.nome || prod.name) === productName)) {
           ids.add(p.id);
         }
       }
@@ -307,8 +330,8 @@ export default function KanbanPage() {
   const doneCount = allCards.filter(c => getCardNormalizedCol(c) === "feito").length;
   const noOwnerCount = allCards.filter(c => !c.member_id).length;
   const boardCardCounts: Record<string, number> = {};
-  for (const b of BOARDS) {
-    boardCardCounts[b] = b === "geral" ? allCards.length : allCards.filter(c => c.board === b).length;
+  for (const b of boards) {
+    boardCardCounts[b.id] = b.id === "geral" ? allCards.length : allCards.filter(c => c.board === b.id).length;
   }
 
   const toggleHideDone = (v: boolean) => {
@@ -335,8 +358,8 @@ export default function KanbanPage() {
       if (error) throw error;
       setAiDocResult(data?.result || data?.text || "Sem resultado");
       setShowAiDoc(true);
-    } catch (e: any) {
-      toast.error("Erro ao gerar doc: " + (e.message || ""));
+    } catch (e: unknown) {
+      toast.error("Erro ao gerar doc: " + (errorMessage(e) || ""));
     } finally {
       setAiDocLoading(false);
     }
@@ -380,7 +403,7 @@ export default function KanbanPage() {
               message: newDesc || null,
               type: "tarefa",
               entity_type: "card",
-              entity_id: (newCard as any).id,
+              entity_id: newCard.id,
             });
           }
         }
@@ -389,7 +412,7 @@ export default function KanbanPage() {
     // Sync with calendar if due_date exists
     if (newDueDate && newCard) {
       const { data: { user: calUser } } = await supabase.auth.getUser();
-      if (calUser) createCalendarEventForCard({ title: newTitle.trim(), due_date: newDueDate, project_id: (newCard as any).project_id, user_id: calUser.id, card_id: (newCard as any).id });
+      if (calUser) createCalendarEventForCard({ title: newTitle.trim(), due_date: newDueDate, project_id: newCard.project_id, user_id: calUser.id, card_id: newCard.id });
     }
     toast.success("Card criado!");
     setShowNewCard(null); setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc(""); setNewBoard("agentes"); setNewMemberId("none"); setNewProjectId("none");
@@ -485,7 +508,7 @@ export default function KanbanPage() {
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
       return next;
     });
   };
@@ -579,6 +602,7 @@ export default function KanbanPage() {
               )}
             </div>
           </div>
+          <CardMetricsChips metrics={Object.fromEntries(Object.entries(card.metrics || {}).filter((entry): entry is [string, string | number] => typeof entry[1] === "string" || typeof entry[1] === "number"))} statusColor={card.status_color} compact />
         </CardContent>
       </Card>
     );
@@ -747,28 +771,39 @@ export default function KanbanPage() {
             variant={viewMode === "board" ? "secondary" : "ghost"}
             size="sm" className="h-8 px-2 rounded-r-none"
             onClick={() => setViewMode("board")}
+            title="Board"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm" className="h-8 px-2 rounded-l-none"
+            size="sm" className="h-8 px-2 rounded-none"
             onClick={() => setViewMode("list")}
+            title="Lista"
           >
             <List className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={viewMode === "sheet" ? "secondary" : "ghost"}
+            size="sm" className="h-8 px-2 rounded-l-none"
+            onClick={() => setViewMode("sheet")}
+            title="Planilha"
+          >
+            <TableIcon className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
+      <BoardTabsBar
+        boards={boards}
+        activeBoard={activeBoard}
+        onActive={setActiveBoard}
+        cardCounts={boardCardCounts}
+        onReload={loadAllData}
+      />
       <Tabs value={activeBoard} onValueChange={setActiveBoard}>
-        <TabsList className="bg-secondary">
-          {BOARDS.map(b => (
-            <TabsTrigger key={b} value={b} className="capitalize gap-1.5">
-              {b}
-              <Badge variant="outline" className="text-[9px] h-4 min-w-[18px] justify-center px-1">{boardCardCounts[b] || 0}</Badge>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <TabsList className="hidden" />
+
 
         <div className="mt-4">
           {loading ? (
@@ -784,12 +819,18 @@ export default function KanbanPage() {
                   <div
                     key={col.id}
                     className={`rounded-lg border-l-[3px] ${config.border} ${config.bg} p-3 transition-colors min-w-[260px] flex-1 snap-start`}
+                    style={col.color && !["#8b5cf6"].includes(col.color) ? { borderLeftColor: col.color, backgroundColor: hexToTint(col.color, 0.05) } : undefined}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, col.id)}
                   >
-                    <div className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}>
+                    <div
+                      className={`rounded-md ${config.headerBg} px-3 py-2 mb-3 flex items-center justify-between`}
+                      style={col.color && !["#8b5cf6"].includes(col.color) ? { backgroundColor: hexToTint(col.color, 0.15) } : undefined}
+                    >
                       <div className="flex items-center gap-2">
-                        {config.icon}
+                        {col.color && !["#8b5cf6"].includes(col.color)
+                          ? <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                          : config.icon}
                         <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80">{col.title}</h3>
                       </div>
                       <div className="flex items-center gap-1">
@@ -804,11 +845,23 @@ export default function KanbanPage() {
                                 <MoreHorizontal className="h-3 w-3" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-40 p-1" align="end">
+                            <PopoverContent className="w-48 p-1" align="end">
                               <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2"
                                 onClick={() => { setRenameCol(col); setRenameValue(col.title); }}>
                                 <Pencil className="h-3 w-3" /> Renomear
                               </button>
+                              <div className="px-2 py-1.5">
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                                  <Palette className="h-3 w-3" /> Cor
+                                </div>
+                                <ColumnColorMenu
+                                  currentColor={col.color}
+                                  onPick={async (hex) => {
+                                    await supabase.from("imphq_kanban_columns").update({ color: hex }).eq("id", col.id);
+                                    loadAllData();
+                                  }}
+                                />
+                              </div>
                               <button className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive flex items-center gap-2"
                                 onClick={() => { setDeleteCol(col); setMoveToColId(""); }}>
                                 <Trash2 className="h-3 w-3" /> Excluir
@@ -827,9 +880,9 @@ export default function KanbanPage() {
                   </div>
                 );
               })}
-              {/* Add column button */}
+              {/* Add column button + templates */}
               {activeBoard !== "geral" && (
-                <div className="min-w-[200px] flex items-start pt-2">
+                <div className="min-w-[220px] flex items-start pt-2">
                   {showNewCol ? (
                     <div className="space-y-2 w-full">
                       <Input value={newColTitle} onChange={e => setNewColTitle(e.target.value)} placeholder="Nome da coluna" className="h-8 text-sm" autoFocus />
@@ -839,13 +892,65 @@ export default function KanbanPage() {
                       </div>
                     </div>
                   ) : (
-                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5" onClick={() => setShowNewCol(true)}>
-                      <Plus className="h-3 w-3" /> Coluna
-                    </Button>
+                    <div className="w-full space-y-1">
+                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5" onClick={() => setShowNewCol(true)}>
+                        <Plus className="h-3 w-3" /> Coluna
+                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground w-full justify-start gap-1.5">
+                            <Sparkles className="h-3 w-3" /> Aplicar template
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-1" align="start">
+                          <div className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Modelos operacionais
+                          </div>
+                          {TEMPLATES.map((t: BoardTemplate) => (
+                            <button
+                              key={t.id}
+                              className="w-full text-left px-2 py-2 rounded hover:bg-muted flex items-start gap-2"
+                              onClick={async () => {
+                                if (!confirm(`Adicionar ${t.columns.length} colunas do template "${t.name}"?`)) return;
+                                const startPos = allColumns.filter(c => c.board === activeBoard).reduce((m, c) => Math.max(m, c.position), -1) + 1;
+                                const rows = t.columns.map((c, i) => ({ title: c.title, color: c.color, position: startPos + i, board: activeBoard }));
+                                const { error } = await supabase.from("imphq_kanban_columns").insert(rows);
+                                if (error) { toast.error("Erro ao aplicar template"); return; }
+                                toast.success(`Template "${t.name}" aplicado`);
+                                loadAllData();
+                              }}
+                            >
+                              <span className="text-base leading-none">{t.emoji}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-semibold">{t.name}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">{t.description}</div>
+                                <div className="flex gap-1 mt-1">
+                                  {t.columns.map((c, i) => (
+                                    <span key={i} className="h-1.5 w-3 rounded-sm" style={{ backgroundColor: c.color }} />
+                                  ))}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   )}
                 </div>
               )}
             </div>
+          ) : viewMode === "sheet" ? (
+            /* ====== SHEET (PLANILHA) VIEW ====== */
+            <KanbanSheetView
+              cards={displayColumns.flatMap(col => cardsForCol(col))}
+              columns={displayColumns}
+              members={members}
+              projects={projects}
+              boards={boards}
+              activeBoard={activeBoard}
+              onReload={loadAllData}
+              onOpenCard={(c) => { const fullCard = allCards.find(card => card.id === c.id); if (fullCard) setEditCard(fullCard); }}
+            />
           ) : (
             /* ====== LIST VIEW ====== */
             <div className="space-y-2">
@@ -1111,7 +1216,7 @@ export default function KanbanPage() {
                 <Select value={newBoard} onValueChange={setNewBoard}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {BOARDS.filter(b => b !== "geral").map(b => <SelectItem key={b} value={b} className="capitalize">{b}</SelectItem>)}
+                    {boards.filter(b => b.id !== "geral" && b.id !== "experts").map(b => <SelectItem key={b.id} value={b.id}>{b.emoji} {b.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

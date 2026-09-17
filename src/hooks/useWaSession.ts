@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export type UiStatus = "idle" | "pending" | "awaiting_qr" | "qr_ready" | "connected" | "stale" | "error" | "resetting";
 
@@ -40,17 +41,17 @@ export function useWaSession(params: {
   const lastResetAtRef = useRef<Date>(new Date());
   const lockRef = useRef(false);
 
-  const clearTimer = () => {
+  const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  };
+  }, []);
 
-  const unlockAndStop = () => {
+  const unlockAndStop = useCallback(() => {
     clearTimer();
     lockRef.current = false;
-  };
+  }, [clearTimer]);
 
   // Check initial session status on mount
   useEffect(() => {
@@ -85,7 +86,7 @@ export function useWaSession(params: {
       await supabase.from("wa_hub_iso_commands").insert({
         tenant_id: tenantId, session_key: sessionKey,
         action: "reset_session",
-        payload: { project, source: "ui" } as any,
+        payload: { project, source: "ui" },
         status: "pending",
       });
       await supabase.from("wa_hub_iso_events").delete()
@@ -94,7 +95,7 @@ export function useWaSession(params: {
         .eq("tenant_id", tenantId).eq("session_key", sessionKey)
         .in("status", ["done", "success", "completed", "error"]);
       await supabase.from("wa_hub_iso_sessions")
-        .update({ status: "reset" } as any)
+        .update({ status: "reset" })
         .eq("tenant_id", tenantId).eq("session_key", sessionKey);
     }
 
@@ -113,7 +114,7 @@ export function useWaSession(params: {
         tenant_id: tenantId,
         session_key: sessionKey,
         action: "get_qr",
-        payload: { project } as any,
+        payload: { project },
         status: "pending",
       })
       .select("id")
@@ -163,19 +164,21 @@ export function useWaSession(params: {
 
         const events = eventsRes.data || [];
         const latestQrEvent = events.find(
-          (e: any) => e.event_type === "qr_status"
+          (e) => e.event_type === "qr_status"
         );
-        const payload = latestQrEvent?.payload as any;
+        const payload = qrObject(latestQrEvent?.payload);
 
         // Extract QR from events
-        const evtImg = payload?.qrImageUrl || payload?.qr || payload?.image || null;
-        const evtTxt = payload?.qrText || null;
+        const evtImg = qrString(payload.qrImageUrl) || qrString(payload.qr) || qrString(payload.image) || null;
+        const evtTxt = qrString(payload.qrText) || null;
 
-        const cmd = commandRes.data as any;
+        const cmd = commandRes.data;
+        const result = qrObject(cmd?.result);
+        const nestedQr = qrObject(result.qr);
 
         // Extract QR from command result (fallback)
-        const cmdQrImg = cmd?.result?.qr?.qrImageUrl || cmd?.result?.qr?.image || cmd?.result?.qrImageUrl || null;
-        const cmdQrTxt = cmd?.result?.qr?.qrText || cmd?.result?.qrText || null;
+        const cmdQrImg = qrString(nestedQr.qrImageUrl) || qrString(nestedQr.image) || qrString(result.qrImageUrl) || null;
+        const cmdQrTxt = qrString(nestedQr.qrText) || qrString(result.qrText) || null;
 
         // Use whichever source has the QR
         const finalImg = evtImg || cmdQrImg || null;
@@ -187,21 +190,21 @@ export function useWaSession(params: {
         const hasRealQr = Boolean(finalImg || finalTxt);
 
         // Canonical signals from payload/result
-        const qrAvailable = payload?.qrAvailable ?? cmd?.result?.qrAvailable ?? undefined;
-        const hasSession = payload?.hasSession ?? cmd?.result?.hasSession ?? undefined;
-        const needsQr = payload?.needsQr ?? cmd?.result?.needsQr ?? undefined;
+        const qrAvailable = qrBoolean(payload.qrAvailable) ?? qrBoolean(result.qrAvailable);
+        const hasSession = qrBoolean(payload.hasSession) ?? qrBoolean(result.hasSession);
+        const needsQr = qrBoolean(payload.needsQr) ?? qrBoolean(result.needsQr);
 
         // Build diagnostics
         const diag: WorkerDiagnostics = {
-          instructions: payload?.instructions || cmd?.result?.instructions || undefined,
+          instructions: qrString(payload.instructions) || qrString(result.instructions) || undefined,
           hasSession,
           needsQr,
           qrAvailable,
-          qrAt: payload?.qrAt || cmd?.result?.qrAt || undefined,
+          qrAt: qrString(payload.qrAt) || qrString(result.qrAt) || undefined,
           commandId: cmdId,
           commandStatus: cmd?.status,
           sessionStatus,
-          reason: cmd?.error || payload?.reason || undefined,
+          reason: cmd?.error || qrString(payload.reason) || undefined,
           pollCount: pollCountRef.current,
         };
         setDiagnostics(diag);
@@ -263,19 +266,19 @@ export function useWaSession(params: {
           if (elapsed > timeoutMs && nextUi !== "connected" && nextUi !== "error" && nextUi !== "qr_ready") {
             setUiStatus("stale");
             setErrorMessage("Timeout ao obter QR (45s). Sessão pode estar travada.");
-            setDiagnostics(prev => ({ ...prev, reason: "qr_timeout" } as any));
+            setDiagnostics(prev => ({ ...prev, reason: "qr_timeout" }));
           }
           unlockAndStop();
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setUiStatus("error");
-        setErrorMessage(err?.message || "Erro de polling");
+        setErrorMessage(err instanceof Error ? err.message : "Erro de polling");
         unlockAndStop();
       }
     }, pollMs);
-  }, [tenantId, sessionKey, project, pollMs, timeoutMs, uiStatus, sessionRawStatus]);
+  }, [tenantId, sessionKey, project, pollMs, timeoutMs, uiStatus, sessionRawStatus, clearTimer, unlockAndStop]);
 
-  useEffect(() => () => { clearTimer(); lockRef.current = false; }, []);
+  useEffect(() => () => { clearTimer(); lockRef.current = false; }, [clearTimer]);
 
   const canGenerateQr = useMemo(
     () => !["pending", "awaiting_qr", "resetting"].includes(uiStatus),
@@ -297,7 +300,7 @@ export function useWaSession(params: {
         tenant_id: tenantId,
         session_key: sessionKey,
         action: "reset_session",
-        payload: { project, source: "ui", hard: true } as any,
+        payload: { project, source: "ui", hard: true },
         status: "pending",
       });
 
@@ -319,7 +322,7 @@ export function useWaSession(params: {
     // 4. Update session status to reset
     await supabase
       .from("wa_hub_iso_sessions")
-      .update({ status: "reset" } as any)
+      .update({ status: "reset" })
       .eq("tenant_id", tenantId)
       .eq("session_key", sessionKey);
 
@@ -334,7 +337,7 @@ export function useWaSession(params: {
     pollCountRef.current = 0;
     noQrCountRef.current = 0;
     startedAtRef.current = null;
-  }, [tenantId, sessionKey, project]);
+  }, [tenantId, sessionKey, project, clearTimer]);
 
   return {
     uiStatus,
@@ -348,4 +351,16 @@ export function useWaSession(params: {
     resetSession,
     diagnostics,
   };
+}
+
+function qrObject(value: Json | undefined): { [key: string]: Json | undefined } {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function qrString(value: Json | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function qrBoolean(value: Json | undefined): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,10 +9,13 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const auth = await requireUser(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { messages, model: requestedModel } = body;
-    const model = requestedModel || "openai/gpt-4o-mini";
+    const model = requestedModel || "google/gemini-2.5-flash";
 
     // Detect if model is a Lovable model
     const isLovableModel = model.startsWith("google/") || model.startsWith("openai/");
@@ -70,9 +74,10 @@ serve(async (req) => {
     return new Response(JSON.stringify(responsePayload), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[chat-with-ai] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message || "Internal Server Error" }), {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : "Internal Server Error";
+    console.error("[chat-with-ai] Error:", message);
+    return new Response(JSON.stringify({ error: message || "Internal Server Error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

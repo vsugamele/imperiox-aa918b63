@@ -1,5 +1,6 @@
 // wa-ai-refine — chat de refinamento: usuário ensina a IA, IA salva lições
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,6 +73,9 @@ async function embed(text: string): Promise<number[] | null> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { messages, projeto_id } = await req.json();
@@ -112,12 +116,12 @@ Responda sempre em pt-BR, direto, sem rodeios. NÃO invente dados — só salve 
     const data = await res.json();
     const choice = data?.choices?.[0]?.message || {};
     const toolCalls = choice.tool_calls || [];
-    const saved: any[] = [];
+    const saved: Record<string, unknown>[] = [];
 
     for (const tc of toolCalls) {
       const name = tc.function?.name;
-      let args: any = {};
-      try { args = JSON.parse(tc.function?.arguments || "{}"); } catch {}
+      let args: Record<string, unknown> = {};
+      try { const parsed: unknown = JSON.parse(tc.function?.arguments || "{}"); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) args = { ...parsed }; } catch { /* malformed tool call keeps empty arguments */ }
 
       if (name === "save_objection") {
         const { data: ins } = await supabase.from("imphq_wa_objections").insert({
@@ -142,8 +146,8 @@ Responda sempre em pt-BR, direto, sem rodeios. NÃO invente dados — só salve 
           .select("id, custom_instructions, provider_id")
           .eq("project_id", projeto_id)
           .eq("enabled", true);
-        const cfg = configs?.find((c: any) => !c.provider_id) || configs?.[0];
-        const prev = (cfg as any)?.custom_instructions || "";
+        const cfg = configs?.find((c) => !c.provider_id) || configs?.[0];
+        const prev = cfg?.custom_instructions || "";
         const novo = prev ? `${prev}\n• ${args.instrucao}` : `• ${args.instrucao}`;
         if (cfg?.id) {
           await supabase.from("imphq_wa_ai_config").update({ custom_instructions: novo, updated_at: new Date().toISOString() }).eq("id", cfg.id);
@@ -158,9 +162,10 @@ Responda sempre em pt-BR, direto, sem rodeios. NÃO invente dados — só salve 
       reply: choice.content || (saved.length ? "Anotado ✓" : ""),
       saved,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("wa-ai-refine:", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

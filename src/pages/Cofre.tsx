@@ -1,3 +1,5 @@
+import { readRecord, record } from "@/lib/funis-data";
+import type { Json } from "@/integrations/supabase/types";
 import { useEffect, useState, useCallback } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -57,7 +59,7 @@ const emptyForm = { name: "", url: "", username: "", password_encrypted: "", cat
 
 export default function Cofre() {
   const [items, setItems] = useState<VaultItem[]>([]);
-  const [projects, setProjects] = useState<{ id: string; name: string; data: any }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; data: Json }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
@@ -73,8 +75,8 @@ export default function Cofre() {
       supabase.from("imphq_tools_vault").select("*").order("category").order("name"),
       supabase.from("imphq_projects").select("id, name, data"),
     ]);
-    setItems((vaultRes.data as any[]) || []);
-    setProjects((projRes.data as any[]) || []);
+    setItems(vaultRes.data || []);
+    setProjects(projRes.data || []);
     setLoading(false);
   }, []);
 
@@ -119,11 +121,11 @@ export default function Cofre() {
       updated_at: new Date().toISOString(),
     };
     if (editingId) {
-      const { error } = await supabase.from("imphq_tools_vault").update(payload as any).eq("id", editingId);
+      const { error } = await supabase.from("imphq_tools_vault").update(payload).eq("id", editingId);
       if (error) { toast.error("Erro ao salvar"); return; }
       toast.success("Ferramenta atualizada");
     } else {
-      const { error } = await supabase.from("imphq_tools_vault").insert(payload as any);
+      const { error } = await supabase.from("imphq_tools_vault").insert(payload);
       if (error) { toast.error("Erro ao criar"); return; }
       toast.success("Ferramenta adicionada");
     }
@@ -150,18 +152,19 @@ export default function Cofre() {
     setImportingLinks(true);
     let count = 0;
     for (const proj of projects) {
-      const links = (proj.data as any)?.links;
+      const links = readRecord(proj.data).links;
       if (!links || !Array.isArray(links)) continue;
-      for (const link of links) {
-        if (!link.url) continue;
+      for (const item of links) {
+        const link = record(item);
+        if (typeof link.url !== "string" || !link.url) continue;
         const exists = items.some(i => i.url === link.url && i.project_id === proj.id);
         if (exists) continue;
         const { error } = await supabase.from("imphq_tools_vault").insert({
-          name: link.label || link.url,
+          name: typeof link.label === "string" ? link.label : link.url,
           url: link.url,
           category: "geral",
           project_id: proj.id,
-        } as any);
+        });
         if (!error) count++;
       }
     }

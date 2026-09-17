@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { requireUser } from "../_shared/require-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,9 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const _auth = await requireUser(req);
+  if (!_auth.ok) return _auth.response;
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -70,7 +74,7 @@ serve(async (req) => {
     }
 
     // 2. Extrair conversation_ids únicos e carregar conversas inteiras
-    const convIds = [...new Set(humanMessages.map((m: any) => m.conversation_id))];
+    const convIds = [...new Set(humanMessages.map((m) => m.conversation_id))];
     console.log(`[sdr-coach] Encontradas ${convIds.length} conversas com intervenção humana.`);
 
     const [allMessagesRes, conversationsRes, providersRes] = await Promise.all([
@@ -98,15 +102,15 @@ serve(async (req) => {
     const providers = providersRes.data || [];
 
     // Mapeamentos rápidos
-    const convMap = new Map(conversations.map((c: any) => [c.id, c]));
-    const provMap = new Map(providers.map((p: any) => [p.id, p.instance_name]));
+    const convMap = new Map(conversations.map((c) => [c.id, c]));
+    const provMap = new Map(providers.map((p) => [p.id, p.instance_name]));
 
     // 3. Agrupar diálogos inteiros por vendedor
     // Vendedor é identificado por:
     // a) metadata.operator_name em mensagens humanas
     // b) instance_name do provedor da conversa
     // c) "SDR Geral"
-    const sellerConversations = new Map<string, Map<string, any[]>>();
+    const sellerConversations = new Map<string, Map<string, typeof allMessages>>();
 
     for (const msg of allMessages) {
       const conv = convMap.get(msg.conversation_id);
@@ -124,7 +128,7 @@ serve(async (req) => {
       }
 
       if (!sellerConversations.has(vendedorName)) {
-        sellerConversations.set(vendedorName, new Map<string, any[]>());
+        sellerConversations.set(vendedorName, new Map<string, typeof allMessages>());
       }
 
       const sellerMap = sellerConversations.get(vendedorName)!;
@@ -261,10 +265,11 @@ Estrutura do JSON esperado:
       }
     );
 
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[sdr-coach] Erro fatal:", e);
     return new Response(
-      JSON.stringify({ error: e.message || "Erro interno no SDR Coach" }),
+      JSON.stringify({ error: eMessage || "Erro interno no SDR Coach" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

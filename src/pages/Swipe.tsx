@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { SwipeMotorDialog } from "@/components/swipe/SwipeMotorDialog";
 import { SwipeIndexSidebar } from "@/components/swipe/SwipeIndexSidebar";
 import { SwipeRoteiroCard } from "@/components/swipe/SwipeRoteiroCard";
 
-function getLabel(s: any, idx: number): string {
+function getLabel(s: Pick<Tables<"imphq_swipes">,"title">, idx: number): string {
   const m = String(s.title || "").match(/ROTEIRO\s+([A-Z0-9]+)/i);
   if (m) return m[1].toUpperCase();
   if (idx < 26) return String.fromCharCode(65 + idx);
@@ -19,24 +20,32 @@ function getLabel(s: any, idx: number): string {
 }
 
 export default function Swipe() {
-  const [swipes, setSwipes] = useState<any[]>([]);
+  const [swipes, setSwipes] = useState<Tables<"imphq_swipes">[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
-  const [selected, setSelected] = useState<any | null>(null);
+  const [search, setSearch] = useState("");
+  const [vslOnly, setVslOnly] = useState(false);
+  const [favOnly, setFavOnly] = useState(false);
+  const [selected, setSelected] = useState<(Partial<Tables<"imphq_swipes">> & { __new?: boolean }) | null>(null);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [motorOpen, setMotorOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
+  const patchSwipe = (id: string, patch: Partial<Tables<"imphq_swipes">>) =>
+    setSwipes((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+
+
+
   const fetchSwipes = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("imphq_swipes" as any)
+      .from("imphq_swipes")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
-    setSwipes((data as any) || []);
+    setSwipes(data || []);
     setLoading(false);
   };
 
@@ -56,32 +65,43 @@ export default function Swipe() {
   }, [swipes]);
 
   const filtered = useMemo(() => {
-    if (activeChips.size === 0) return swipes;
-    return swipes.filter((s) => {
-      const hay = new Set<string>();
-      if (s.mecanismo) hay.add(s.mecanismo);
-      if (s.nicho) hay.add(s.nicho);
-      (s.tags || []).forEach((t: string) => hay.add(t));
-      for (const c of activeChips) if (hay.has(c)) return true;
-      return false;
-    });
-  }, [swipes, activeChips]);
+    let arr = swipes;
+    if (vslOnly) arr = arr.filter((s) => s.formato === "vsl");
+    if (favOnly) arr = arr.filter((s) => s.favorito);
+    if (search.trim()) {
+      const k = search.toLowerCase();
+      arr = arr.filter((s) =>
+        `${s.title || ""} ${s.raw_text || ""} ${s.criador || ""} ${(s.tags || []).join(" ")}`.toLowerCase().includes(k),
+      );
+    }
+    if (activeChips.size > 0) {
+      arr = arr.filter((s) => {
+        const hay = new Set<string>();
+        if (s.mecanismo) hay.add(s.mecanismo);
+        if (s.nicho) hay.add(s.nicho);
+        (s.tags || []).forEach((t: string) => hay.add(t));
+        for (const c of activeChips) if (hay.has(c)) return true;
+        return false;
+      });
+    }
+    return arr;
+  }, [swipes, activeChips, search, vslOnly, favOnly]);
 
   const toggleChip = (c: string) => {
     const ns = new Set(activeChips);
-    ns.has(c) ? ns.delete(c) : ns.add(c);
+    if (ns.has(c)) { ns.delete(c); } else { ns.add(c); }
     setActiveChips(ns);
   };
 
   const toggleBulk = (id: string) => {
     const ns = new Set(bulkSelected);
-    ns.has(id) ? ns.delete(id) : ns.add(id);
+    if (ns.has(id)) { ns.delete(id); } else { ns.add(id); }
     setBulkSelected(ns);
   };
 
   const deleteSwipe = async (id: string) => {
     if (!confirm("Apagar esta swipe?")) return;
-    const { error } = await supabase.from("imphq_swipes" as any).delete().eq("id", id);
+    const { error } = await supabase.from("imphq_swipes").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Apagada");
     setSwipes(swipes.filter((s) => s.id !== id));
@@ -155,6 +175,38 @@ export default function Swipe() {
       </div>
 
       {/* CHIPS */}
+      {/* BUSCA + FILTRO VSL */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar título, criador, transcrição, tag..."
+          className="flex-1 min-w-[220px] h-9 px-3 text-xs rounded-md bg-secondary/30 border border-border/40 focus:border-[hsl(var(--gold))]/50 outline-none"
+        />
+        <button
+          onClick={() => setVslOnly((v) => !v)}
+          className={cn(
+            "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-md border transition",
+            vslOnly
+              ? "bg-amber-500/15 border-amber-500/50 text-amber-400"
+              : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          🎬 Só VSL ({swipes.filter((s) => s.formato === "vsl").length})
+        </button>
+        <button
+          onClick={() => setFavOnly((v) => !v)}
+          className={cn(
+            "text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-md border transition",
+            favOnly
+              ? "bg-[hsl(var(--gold))]/15 border-[hsl(var(--gold))]/50 text-[hsl(var(--gold))]"
+              : "bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          ⭐ Favoritos ({swipes.filter((s) => s.favorito).length})
+        </button>
+      </div>
+
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5 items-center">
           <button
@@ -228,6 +280,7 @@ export default function Swipe() {
                   onToggleSelect={() => toggleBulk(s.id)}
                   onEdit={() => setSelected(s)}
                   onDelete={() => deleteSwipe(s.id)}
+                  onChanged={(patch) => patchSwipe(s.id, patch)}
                 />
               ))
             )}

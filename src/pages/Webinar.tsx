@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,19 +13,18 @@ import { Badge } from "@/components/ui/badge";
 import { Radio, Plus, Calendar, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ConteudoTabs } from "@/components/planejar/ConteudoTabs";
 
 export default function Webinar() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Tables<"imphq_webinar_sessions">[]>([]);
+  const [projects, setProjects] = useState<Array<Pick<Tables<"imphq_projects">, "id" | "name">>>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ project_id: "", nome: "", scheduled_at: "", checkout_url: "" });
 
-  useEffect(() => { load(); }, [user?.id]);
-
-  async function load() {
+  const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     const { data: pjs } = await supabase
@@ -34,7 +34,9 @@ export default function Webinar() {
       .from("imphq_webinar_sessions").select("*").order("created_at", { ascending: false });
     setSessions(ss || []);
     setLoading(false);
-  }
+  }, [user]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function createSession() {
     if (!form.project_id || !form.nome) { toast.error("Preencha projeto e nome"); return; }
@@ -52,6 +54,7 @@ export default function Webinar() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConteudoTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-serif flex items-center gap-3">

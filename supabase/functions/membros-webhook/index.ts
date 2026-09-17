@@ -30,11 +30,11 @@ interface MembrosPayload {
   origem?: string;           // Ex: "area-membros", "webinar-X"
   tags?: string[];
   // Metadados específicos
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   // Para pesquisas/provas/forms
   form_id?: string;
   form_name?: string;
-  respostas?: Record<string, any>; // { pergunta: resposta }
+  respostas?: Record<string, unknown>; // { pergunta: resposta }
   // UTMs
   utm_source?: string;
   utm_medium?: string;
@@ -103,15 +103,16 @@ Deno.serve(async (req) => {
 
     if (existing) {
       leadId = existing.id;
-      const currentData = (existing.data as Record<string, any>) || {};
-      const interacoes: any[] = currentData.interacoes || [];
+      const rawData: unknown = existing.data;
+      const currentData: Record<string, unknown> = rawData && typeof rawData === "object" && !Array.isArray(rawData) ? { ...rawData } : {};
+      const interacoes: unknown[] = Array.isArray(currentData.interacoes) ? currentData.interacoes : [];
       interacoes.push(newInteraction);
 
       const mergedTags = Array.from(
         new Set([...(existing.tags || []), ...(body.tags || []), `area-membros`])
       );
 
-      const updates: any = {
+      const updates: { data: Record<string, unknown>; tags: string[]; nome?: string; phone?: string; status?: string; project_id?: string } = {
         data: {
           ...currentData,
           visitor_id: currentData.visitor_id || leadId,
@@ -123,7 +124,13 @@ Deno.serve(async (req) => {
       };
       if (body.nome) updates.nome = body.nome;
       if (body.phone) updates.phone = body.phone;
-      if (config.status) updates.status = config.status;
+      // Precedence: lead < membro < cliente < vip. Nunca rebaixa quem já comprou.
+      if (config.status) {
+        const rank: Record<string, number> = { lead: 1, membro: 2, cliente: 3, vip: 4 };
+        const currentRank = rank[existing.status as string] || 0;
+        const newRank = rank[config.status] || 0;
+        if (newRank > currentRank) updates.status = config.status;
+      }
 
       // Override project_id via regra Tag→Projeto (mesmo em lead existente)
       if (mergedTags.length) {
@@ -131,7 +138,7 @@ Deno.serve(async (req) => {
           .from("imphq_tag_project_rules")
           .select("project_id, priority, tag, tags_all, origem, plataforma")
           .order("priority", { ascending: true });
-        const match = (allRules || []).find((r: any) => {
+        const match = (allRules || []).find((r) => {
           const needed: string[] = (r.tags_all && r.tags_all.length > 0) ? r.tags_all : (r.tag ? [r.tag] : []);
           if (needed.length === 0) return false;
           if (!needed.every((t: string) => mergedTags.includes(t))) return false;
@@ -153,7 +160,7 @@ Deno.serve(async (req) => {
           .from("imphq_tag_project_rules")
           .select("project_id, priority, tag, tags_all, origem, plataforma")
           .order("priority", { ascending: true });
-        const match = (allRules || []).find((r: any) => {
+        const match = (allRules || []).find((r) => {
           const needed: string[] = (r.tags_all && r.tags_all.length > 0) ? r.tags_all : (r.tag ? [r.tag] : []);
           if (needed.length === 0) return false;
           if (!needed.every((t: string) => allTags.includes(t))) return false;

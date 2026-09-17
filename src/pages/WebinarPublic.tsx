@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,7 @@ import { Radio, CheckCircle2 } from "lucide-react";
 
 export default function WebinarPublic() {
   const { sessionId } = useParams();
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Pick<Tables<"imphq_webinar_sessions">, "id" | "nome" | "scheduled_at"> | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", phone: "" });
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);

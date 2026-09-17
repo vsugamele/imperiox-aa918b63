@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,38 +22,38 @@ import { PlanProgressBanner } from "@/components/projeto/PlanProgressBanner";
 
 interface Props {
   projectId: string;
-  project: any;
+  project: Tables<"imphq_projects">;
 }
 
 export function ProjetoComando({ projectId, project }: Props) {
-  const [cards, setCards] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [pendingVendas, setPendingVendas] = useState<any[]>([]);
+  const [cards, setCards] = useState<Array<Tables<"imphq_kanban_cards"> & { imphq_kanban_columns: { title: string } | null }>>([]);
+  const [leads, setLeads] = useState<Array<Tables<"imphq_leads">>>([]);
+  const [pendingVendas, setPendingVendas] = useState<Array<Pick<Tables<"imphq_vendas">, "lead_id" | "produto_nome" | "status" | "valor">>>([]);
   const [loading, setLoading] = useState(true);
 
-  const [vendasHoje, setVendasHoje] = useState<any[]>([]);
-  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [vendasHoje, setVendasHoje] = useState<Array<Pick<Tables<"imphq_vendas">, "id" | "status" | "created_at" | "produto_nome" | "valor" | "plataforma" | "lead_id">>>([]);
+  const [calendarEvents, setCalendarEvents] = useState<Array<Tables<"imphq_calendar_events"> & { start_date: string }>>([]);
 
   // Pulso / comparativos
-  const [vendasOntem, setVendasOntem] = useState<any[]>([]);
-  const [leads7d, setLeads7d] = useState<any[]>([]);
-  const [adsHoje, setAdsHoje] = useState<any[]>([]);
-  const [adsOntem, setAdsOntem] = useState<any[]>([]);
+  const [vendasOntem, setVendasOntem] = useState<Array<Pick<Tables<"imphq_vendas">, "valor" | "status">>>([]);
+  const [leads7d, setLeads7d] = useState<Array<Pick<Tables<"imphq_leads">, "criado_em">>>([]);
+  const [adsHoje, setAdsHoje] = useState<Array<Pick<Tables<"imphq_ads_spend">, "valor">>>([]);
+  const [adsOntem, setAdsOntem] = useState<Array<Pick<Tables<"imphq_ads_spend">, "valor">>>([]);
 
   // Top produtos do mês
-  const [vendasMes, setVendasMes] = useState<any[]>([]);
+  const [vendasMes, setVendasMes] = useState<Array<Pick<Tables<"imphq_vendas">, "produto_nome" | "valor" | "status">>>([]);
   const [drawerProduto, setDrawerProduto] = useState<string | null>(null);
 
   // Próximas ações: eventos próximas 48h
-  const [events48h, setEvents48h] = useState<any[]>([]);
+  const [events48h, setEvents48h] = useState<Array<Tables<"imphq_calendar_events"> & { start_date: string }>>([]);
 
   // Health Score inputs
-  const [adsMes, setAdsMes] = useState<any[]>([]);
-  const [leadsMes, setLeadsMes] = useState<any[]>([]);
-  const [vendas7dArr, setVendas7dArr] = useState<any[]>([]);
+  const [adsMes, setAdsMes] = useState<Array<Pick<Tables<"imphq_ads_spend">, "valor">>>([]);
+  const [leadsMes, setLeadsMes] = useState<Array<Pick<Tables<"imphq_leads">, "id" | "criado_em">>>([]);
+  const [vendas7dArr, setVendas7dArr] = useState<Array<Pick<Tables<"imphq_vendas">, "id" | "status">>>([]);
   const [conteudos14d, setConteudos14d] = useState<number>(0);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const now = new Date();
     const brOffset = -3 * 60;
@@ -64,45 +66,45 @@ export function ProjetoComando({ projectId, project }: Props) {
     const monthStart = `${todayStr.slice(0, 7)}-01T03:00:00.000Z`;
     const in48h = new Date(brNow.getTime() + 2 * 86400000).toISOString().split("T")[0];
 
-    const sb: any = supabase;
-    const promises: PromiseLike<any>[] = [
-      sb.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId),
-      sb.from("imphq_leads").select("*").eq("project_id", projectId).order("criado_em", { ascending: false }).limit(10),
-      sb.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado"),
-      sb.from("imphq_vendas").select("id, status, created_at, produto_nome, valor, plataforma, lead_id").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd),
-      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", todayStr).lte("event_date", todayStr).order("event_date", { ascending: true }),
-      sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("created_at", yStart).lt("created_at", dayStart),
-      sb.from("imphq_leads").select("criado_em").eq("project_id", projectId).gte("criado_em", sevenDaysAgo),
-      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr),
-      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")),
-      sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
-      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", todayStr).lte("event_date", in48h).order("event_date", { ascending: true }),
-      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).gte("data_ref", monthStart.slice(0, 10)),
-      sb.from("imphq_leads").select("id, criado_em").eq("project_id", projectId).gte("criado_em", monthStart),
-      sb.from("imphq_vendas").select("id, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString()),
-      sb.from("imphq_content").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", new Date(new Date(dayStart).getTime() - 14 * 86400000).toISOString()),
-    ];
+    const sb = supabase;
+    const promises = [
+      sb.from("imphq_kanban_cards").select("*, imphq_kanban_columns(title)").eq("project_id", projectId).then(({ data, count }): { data: Array<Tables<"imphq_kanban_cards"> & { imphq_kanban_columns: {title:string} | null }> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_leads").select("*").eq("project_id", projectId).order("criado_em", { ascending: false }).limit(10).then(({ data, count }): { data: Array<Tables<"imphq_leads">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_vendas").select("lead_id, produto_nome, status, valor").eq("project_id", projectId).neq("status", "aprovado").then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"lead_id"|"produto_nome"|"status"|"valor">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_vendas").select("id, status, created_at, produto_nome, valor, plataforma, lead_id").eq("project_id", projectId).gte("created_at", dayStart).lt("created_at", dayEnd).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"id"|"status"|"created_at"|"produto_nome"|"valor"|"plataforma"|"lead_id">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", todayStr).lte("event_date", todayStr).order("event_date", { ascending: true }).then(({ data, count }): { data: Array<Tables<"imphq_calendar_events">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_vendas").select("valor, status").eq("project_id", projectId).gte("created_at", yStart).lt("created_at", dayStart).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"valor"|"status">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_leads").select("criado_em").eq("project_id", projectId).gte("criado_em", sevenDaysAgo).then(({ data, count }): { data: Array<Pick<Tables<"imphq_leads">,"criado_em">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr).then(({ data, count }): { data: Array<Pick<Tables<"imphq_ads_spend">,"valor">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")).then(({ data, count }): { data: Array<Pick<Tables<"imphq_ads_spend">,"valor">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"produto_nome"|"valor"|"status">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", todayStr).lte("event_date", in48h).order("event_date", { ascending: true }).then(({ data, count }): { data: Array<Tables<"imphq_calendar_events">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).gte("data_ref", monthStart.slice(0, 10)).then(({ data, count }): { data: Array<Pick<Tables<"imphq_ads_spend">,"valor">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_leads").select("id, criado_em").eq("project_id", projectId).gte("criado_em", monthStart).then(({ data, count }): { data: Array<Pick<Tables<"imphq_leads">,"id"|"criado_em">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_vendas").select("id, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString()).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"id"|"status">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_content_library").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", new Date(new Date(dayStart).getTime() - 14 * 86400000).toISOString()).then(({ data, count }): { data: Array<Pick<Tables<"imphq_content_library">,"id">> | null; count: number | null } => ({ data, count })),
+    ] as const;
     const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes, adsMesRes, leadsMesRes, vendas7dRes, conteudos14dRes] = await Promise.all(promises);
 
     setCards(cardsRes.data || []);
     setLeads(leadsRes.data || []);
     setPendingVendas(vendasPendRes.data || []);
     setVendasHoje(vendasHojeRes.data || []);
-    setCalendarEvents((calEventsRes.data || []).map((e: any) => ({ ...e, start_date: e.event_date })));
+    setCalendarEvents((calEventsRes.data || []).map((e) => ({ ...e, start_date: e.event_date })));
     setVendasOntem(vendasOntemRes.data || []);
     setLeads7d(leads7dRes.data || []);
     setAdsHoje(adsHojeRes.data || []);
     setAdsOntem(adsOntemRes.data || []);
     setVendasMes(vendasMesRes.data || []);
-    setEvents48h((events48hRes.data || []).map((e: any) => ({ ...e, start_date: e.event_date })));
+    setEvents48h((events48hRes.data || []).map((e) => ({ ...e, start_date: e.event_date })));
     setAdsMes(adsMesRes.data || []);
     setLeadsMes(leadsMesRes.data || []);
     setVendas7dArr(vendas7dRes.data || []);
-    setConteudos14d((conteudos14dRes as any).count || 0);
+    setConteudos14d(conteudos14dRes.count || 0);
     setLoading(false);
-  };
+  }, [projectId]);
 
-  useEffect(() => { load(); }, [projectId]);
+  useEffect(() => { load(); }, [load]);
 
   const totalCards = cards.length;
   const doneCards = cards.filter(c => {
@@ -135,12 +137,13 @@ export function ProjetoComando({ projectId, project }: Props) {
     pixProductBreakdown[nome] = (pixProductBreakdown[nome] || 0) + 1;
   });
 
-  const getLeadProduct = (lead: any): string | null => {
+  const getLeadProduct = (lead: Tables<"imphq_leads">): string | null => {
     if (productByLead.has(lead.id)) return productByLead.get(lead.id)!;
-    const interacoes = lead.data?.interacoes;
+    const interacoes = jsonFields(lead.data).interacoes;
     if (Array.isArray(interacoes)) {
       for (let i = interacoes.length - 1; i >= 0; i--) {
-        if (interacoes[i]?.produto) return interacoes[i].produto;
+        const produto = jsonText(jsonFields(interacoes[i]).produto);
+        if (produto) return produto;
       }
     }
     return null;
@@ -160,8 +163,8 @@ export function ProjetoComando({ projectId, project }: Props) {
   const salesToday = vendasHoje.filter(v => (v.status || "").toLowerCase() === "aprovado").length;
   const pendingTotal = pendingVendas.length;
 
-  const briefing = typeof project.data === "object" ? project.data : {};
-  const fase = briefing?.status || "Em configuração";
+  const briefing = jsonFields(project.data);
+  const fase = jsonText(briefing.status) || "Em configuração";
   const lastUpdate = project.updated_at ? format(new Date(project.updated_at), "dd/MM HH:mm") : "—";
 
   // Valor total vendas do dia
@@ -171,21 +174,21 @@ export function ProjetoComando({ projectId, project }: Props) {
 
   // ===== Pulso de Hoje =====
   const receitaOntem = useMemo(() => vendasOntem
-    .filter((v: any) => (v.status || "").toLowerCase() === "aprovado")
-    .reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0), [vendasOntem]);
+    .filter((v) => (v.status || "").toLowerCase() === "aprovado")
+    .reduce((s: number, v) => s + (Number(v.valor) || 0), 0), [vendasOntem]);
 
   const leads7dAvg = useMemo(() => {
     const arr = leads7d || [];
     return arr.length / 7;
   }, [leads7d]);
 
-  const adsHojeTotal = useMemo(() => (adsHoje || []).reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0), [adsHoje]);
-  const adsOntemTotal = useMemo(() => (adsOntem || []).reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0), [adsOntem]);
+  const adsHojeTotal = useMemo(() => (adsHoje || []).reduce((s: number, a) => s + (Number(a.valor) || 0), 0), [adsHoje]);
+  const adsOntemTotal = useMemo(() => (adsOntem || []).reduce((s: number, a) => s + (Number(a.valor) || 0), 0), [adsOntem]);
 
   // ===== Top 3 Produtos do mês =====
   const topProdutos = useMemo(() => {
     const map = new Map<string, { receita: number; vendas: number }>();
-    vendasMes.forEach((v: any) => {
+    vendasMes.forEach((v) => {
       const nome = v.produto_nome || "Sem produto";
       const cur = map.get(nome) || { receita: 0, vendas: 0 };
       cur.receita += Number(v.valor) || 0;
@@ -200,7 +203,7 @@ export function ProjetoComando({ projectId, project }: Props) {
 
   // ===== Próximas ações =====
   const tarefasUrgentes = useMemo(() => {
-    const arr = cards.filter((c: any) => {
+    const arr = cards.filter((c) => {
       const col = (c.imphq_kanban_columns?.title || "").toLowerCase();
       const isDone = col.includes("conclu") || col.includes("done") || col.includes("finaliz");
       if (isDone) return false;
@@ -208,7 +211,7 @@ export function ProjetoComando({ projectId, project }: Props) {
       const due = new Date(c.due_date);
       return due.getTime() <= Date.now() + 3 * 86400000;
     });
-    return arr.sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 6);
+    return arr.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 6);
   }, [cards]);
 
   if (loading) return <div className="text-muted-foreground text-sm p-4">Carregando comando...</div>;
@@ -234,8 +237,8 @@ export function ProjetoComando({ projectId, project }: Props) {
 
       {/* ===== Foco do Dia (Imperius-ready) ===== */}
       {(() => {
-        const receitaMes = vendasMes.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0);
-        const gastoMes = adsMes.reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0);
+        const receitaMes = vendasMes.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
+        const gastoMes = adsMes.reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
         const roasMes = gastoMes > 0 ? receitaMes / gastoMes : 0;
         const h = calcHealthScore({
           roas: roasMes,
@@ -309,8 +312,8 @@ export function ProjetoComando({ projectId, project }: Props) {
 
       {/* ===== Estratégia: Health + Meta + Notas ===== */}
       {(() => {
-        const receitaMes = vendasMes.reduce((s: number, v: any) => s + (Number(v.valor) || 0), 0);
-        const gastoMes = adsMes.reduce((s: number, a: any) => s + (Number(a.valor) || 0), 0);
+        const receitaMes = vendasMes.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
+        const gastoMes = adsMes.reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
         const roas = gastoMes > 0 ? receitaMes / gastoMes : 0;
         const health = calcHealthScore({
           roas,
@@ -382,7 +385,7 @@ export function ProjetoComando({ projectId, project }: Props) {
             {tarefasUrgentes.length === 0 && events48h.length === 0 && (
               <p className="text-[11px] text-muted-foreground italic">Nenhuma tarefa ou evento próximo.</p>
             )}
-            {tarefasUrgentes.map((t: any) => (
+            {tarefasUrgentes.map((t) => (
               <div key={`task-${t.id}`} className="flex items-center justify-between gap-2 text-xs p-2 rounded bg-secondary/30 border border-border">
                 <div className="flex items-center gap-2 min-w-0">
                   <CheckCircle2 className="h-3 w-3 text-amber-400 shrink-0" />
@@ -391,7 +394,7 @@ export function ProjetoComando({ projectId, project }: Props) {
                 <Badge variant="outline" className="text-[9px] shrink-0">{format(new Date(t.due_date), "dd/MM")}</Badge>
               </div>
             ))}
-            {events48h.slice(0, 6).map((ev: any) => (
+            {events48h.slice(0, 6).map((ev) => (
               <div key={`ev-${ev.id}`} className="flex items-center justify-between gap-2 text-xs p-2 rounded bg-secondary/30 border border-border">
                 <div className="flex items-center gap-2 min-w-0">
                   <CalendarClock className="h-3 w-3 text-blue-400 shrink-0" />
@@ -581,7 +584,7 @@ export function ProjetoComando({ projectId, project }: Props) {
                     <Badge variant="outline" className="text-[8px] h-4 px-1">{col.cards.length}</Badge>
                   </p>
                   {col.cards.length === 0 && <p className="text-[9px] text-muted-foreground italic">Vazio</p>}
-                  {col.cards.map((c: any) => (
+                  {col.cards.map((c) => (
                     <div key={c.id} className="bg-card rounded p-1.5 border border-border text-[10px]">
                       <p className="font-medium truncate">{c.title}</p>
                       {c.due_date && (
@@ -608,7 +611,7 @@ export function ProjetoComando({ projectId, project }: Props) {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-1.5">
-              {calendarEvents.slice(0, 20).map((ev: any) => (
+              {calendarEvents.slice(0, 20).map((ev) => (
                 <Badge key={ev.id} variant="outline" className="text-[9px]">
                   {ev.title} {ev.start_date ? format(new Date(ev.start_date), "HH:mm") : ""}
                 </Badge>

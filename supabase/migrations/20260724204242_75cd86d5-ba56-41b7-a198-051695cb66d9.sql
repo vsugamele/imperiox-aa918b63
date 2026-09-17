@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_empresa ADD COLUMN IF NOT EXISTS color TEXT;

@@ -1,15 +1,21 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock, MoreHorizontal, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import ContactTagsPanel from "./ContactTagsPanel";
+import ContactTagsPanel from "@/components/whatsapp/ContactTagsPanel";
+import AssignAndNotesBar from "@/components/whatsapp/AssignAndNotesBar";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MENTES_DATA } from "@/data/mentesData";
-import { LeadIntelPanel } from "./LeadIntelPanel";
+import { LeadIntelPanel } from "@/components/whatsapp/LeadIntelPanel";
+import ConversationIntelCard from "@/components/whatsapp/ConversationIntelCard";
+import { extractFilename } from "@/components/whatsapp/chat-media";
+import { useViewportWidth } from "@/hooks/useViewportWidth";
 
 const PAGE_SIZE = 50;
 const EDIT_WINDOW_MIN = 15;
@@ -23,7 +29,8 @@ interface Message {
   status: string;
   message_type?: string;
   media_url?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
+  sent_by?: string | null;
   provider_message_id?: string | null;
   _optimistic?: boolean;
   transcript?: string | null;
@@ -35,6 +42,7 @@ interface WaTemplate {
 
 interface WaCommand {
   id: string; trigger_word: string; response_text: string | null;
+  _isTemplate?: boolean;
   sequence?: Array<{ content: string; delay_seconds?: number; media_url?: string; media_type?: string }>;
 }
 
@@ -43,6 +51,47 @@ interface Props {
   phone: string;
   projectId: string;
   providerId: string | null;
+  intelPanelOpen?: boolean;
+  onToggleIntelPanel?: () => void;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function completionText(value: unknown): string {
+  const choices = asRecord(value).choices;
+  const message = asRecord(Array.isArray(choices) ? choices[0] : undefined).message;
+  const content = asRecord(message).content;
+  return typeof content === "string" ? content : "";
+}
+
+function errorMessage(error: unknown): string {
+  const message = asRecord(error).message;
+  return typeof message === "string" ? message : "Erro desconhecido";
+}
+
+function metadataText(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+}
+
+function toMessage(row: Tables<"imphq_wa_messages">): Message {
+  return { ...row, direction: row.direction ?? "", phone: row.phone ?? "", status: row.status ?? "", message_type: row.message_type ?? undefined, media_url: row.media_url ?? undefined, metadata: asRecord(row.metadata) };
+}
+
+function isQuickOption(value: unknown): value is { type: string; text: string } {
+  const option = asRecord(value);
+  return typeof option.type === "string" && typeof option.text === "string";
+}
+
+function parseSequence(value: unknown): NonNullable<WaCommand["sequence"]> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    const step = asRecord(item);
+    if (typeof step.content !== "string") return [];
+    return [{ content: step.content, delay_seconds: typeof step.delay_seconds === "number" ? step.delay_seconds : undefined, media_url: typeof step.media_url === "string" ? step.media_url : undefined, media_type: typeof step.media_type === "string" ? step.media_type : undefined }];
+  });
 }
 
 const EMOJI_LIST = ["😀", "😂", "❤️", "👍", "🙏", "🔥", "✅", "⭐", "💪", "🎉", "😍", "🤝", "💰", "📦", "🚀", "💡"];
@@ -67,24 +116,6 @@ function StatusIcon({ status }: { status: string }) {
   }
 }
 
-// Extract filename from message content (e.g. "📎 file.pdf") or URL
-function extractFilename(content: string | undefined, url: string | undefined): string {
-  if (content) {
-    const cleaned = content.replace(/^[📎🎵🎬🖼️]\s*/u, "").trim();
-    if (cleaned && !/^(mídia|midia|imagem|áudio|audio|vídeo|video|arquivo|document)$/i.test(cleaned)) {
-      return cleaned;
-    }
-  }
-  if (url) {
-    try {
-      const u = new URL(url);
-      const last = u.pathname.split("/").pop();
-      if (last) return decodeURIComponent(last);
-    } catch {}
-  }
-  return "arquivo";
-}
-
 // Force-download a remote file as a blob (bypasses inline PDF rendering / cross-origin issues)
 async function forceDownload(url: string, filename: string) {
   try {
@@ -99,8 +130,8 @@ async function forceDownload(url: string, filename: string) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-  } catch (err: any) {
-    toast.error("Falha ao baixar: " + err.message);
+  } catch (err: unknown) {
+    toast.error("Falha ao baixar: " + errorMessage(err));
     window.open(url, "_blank");
   }
 }
@@ -197,10 +228,11 @@ function MediaContent({ message }: { message: Message }) {
 }
 
 const ChatView = React.forwardRef<HTMLDivElement, Props>(
-  ({ conversationId, phone, projectId, providerId }, ref) => {
+  ({ conversationId, phone, projectId, providerId, intelPanelOpen, onToggleIntelPanel }, ref) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState("");
     const [sending, setSending] = useState(false);
+    const [scheduleAt, setScheduleAt] = useState("");
     const [templates, setTemplates] = useState<WaTemplate[]>([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -220,11 +252,40 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [iaAtiva, setIaAtiva] = useState<boolean>(true);
     const [togglingIa, setTogglingIa] = useState(false);
     const [loadingCopilot, setLoadingCopilot] = useState(false);
-    const [objections, setObjections] = useState<any[]>([]);
-    const [aiConfigState, setAiConfigState] = useState<any | null>(null);
+    const [objections, setObjections] = useState<Pick<Tables<"imphq_wa_objections">, "id" | "objecao" | "resposta_padrao">[]>([]);
+    const [aiConfigState, setAiConfigState] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
-    const [showIntelPanel, setShowIntelPanel] = useState(true);
+    const [showIntelPanel, setShowIntelPanel] = useState(() => {
+      if (intelPanelOpen !== undefined) return intelPanelOpen;
+      const saved = typeof window !== "undefined" ? localStorage.getItem("wa.intelPanelOpen") : null;
+      if (saved !== null) return saved === "true";
+      return typeof window !== "undefined" ? window.innerWidth >= 1400 : true;
+    });
+    const [lastIntent, setLastIntent] = useState<string | null>(null);
+    const viewportWidth = useViewportWidth();
+    const isCompact = viewportWidth < 1280;
+    const maxWidthClass = showIntelPanel ? "max-w-3xl" : "max-w-5xl";
+
+    useEffect(() => {
+      if (intelPanelOpen !== undefined) {
+        setShowIntelPanel(intelPanelOpen);
+        return;
+      }
+      const saved = localStorage.getItem("wa.intelPanelOpen");
+      if (saved !== null) return;
+      setShowIntelPanel(viewportWidth >= 1400);
+    }, [viewportWidth, intelPanelOpen]);
+
+    const toggleIntelPanel = () => {
+      if (onToggleIntelPanel) {
+        onToggleIntelPanel();
+      } else {
+        const next = !showIntelPanel;
+        setShowIntelPanel(next);
+        localStorage.setItem("wa.intelPanelOpen", String(next));
+      }
+    };
     
     // Interactive actions states
     const [interactiveText, setInteractiveText] = useState("");
@@ -249,7 +310,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const audioChunksRef = useRef<Blob[]>([]);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
-    const timerIntervalRef = useRef<any>(null);
+    const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
     const startRecording = async () => {
@@ -284,8 +345,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           setRecordTime(prev => prev + 1);
         }, 1000);
 
-      } catch (err: any) {
-        toast.error("Erro ao acessar microfone: " + (err.message || err));
+      } catch (err: unknown) {
+        toast.error("Erro ao acessar microfone: " + errorMessage(err));
       }
     };
 
@@ -354,13 +415,21 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       };
     }, []);
 
-    // 🔥 Live temperature score based on last 5 messages
+    // 🔥 Live temperature — combina intent real (triage) + heurística de keywords
     const BUY_KEYWORDS = [
       "quanto custa", "qual o valor", "como pago", "aceita pix", "tem parcela",
       "quero comprar", "me manda o link", "tem garantia", "quero fechar", "vou entrar",
       "link", "preco", "valor", "pagar", "compro", "assinar", "inscricao",
     ];
     const temperature = (() => {
+      // 1) Intent real do classificador (mais confiável)
+      const intent = (lastIntent || "").toLowerCase();
+      if (intent) {
+        if (/(comprar|fechar|pagar|checkout|pix|boleto|cartao|cartão|finalizar)/.test(intent)) return "hot";
+        if (/(duvida|dúvida|preco|preço|interesse|garantia|prazo|funciona|como)/.test(intent)) return "warm";
+        if (/(spam|cancel|recusa|nao|não)/.test(intent)) return "cold";
+      }
+      // 2) Fallback: keywords nas últimas 5 mensagens
       const last5 = messages.filter(m => m.direction === "incoming").slice(-5);
       if (last5.length === 0) return "cold";
       const combined = last5.map(m => (m.content || "").toLowerCase()).join(" ");
@@ -432,8 +501,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           toast.success("Áudio sintetizado e enviado!");
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao sintetizar áudio: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao sintetizar áudio: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
         setText(textToSynthesize);
       } finally {
@@ -486,8 +555,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           setBtn3("");
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao enviar botões: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar botões: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
       } finally {
         setSending(false);
@@ -549,8 +618,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
           ]);
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao enviar lista: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar lista: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
       } finally {
         setSending(false);
@@ -568,8 +637,8 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       setShowQuickSuggest(true);
       try {
         const savedKeys = localStorage.getItem("imphq_api_keys");
-        const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
-        const orKey = apiKeys.openrouter;
+        const apiKeys = asRecord(savedKeys ? JSON.parse(savedKeys) : {});
+        const orKey = typeof apiKeys.openrouter === "string" ? apiKeys.openrouter : undefined;
         if (!orKey) { setQuickOptions([]); setLoadingQuick(false); return; }
 
         const last = messages.filter(m => m.direction === "incoming").slice(-3);
@@ -590,15 +659,16 @@ Gere exatamente neste formato JSON (sem markdown):
           body: JSON.stringify({ model: "openai/gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 300, temperature: 0.7 }),
         });
         const data = await res.json();
-        const raw = data.choices?.[0]?.message?.content || "";
+        const raw = completionText(data);
         const clean = raw.replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(clean);
+        const parsed: unknown = JSON.parse(clean);
+        if (!Array.isArray(parsed)) throw new Error("Sugestões inválidas");
         const labels: Record<string, {label: string; emoji: string}> = {
           empatica: { label: "Empática", emoji: "🤗" },
           tecnica: { label: "Técnica", emoji: "🎯" },
           fechamento: { label: "Fechamento", emoji: "🔥" },
         };
-        setQuickOptions(parsed.map((o: any) => ({
+        setQuickOptions(parsed.filter(isQuickOption).map(o => ({
           ...o, ...labels[o.type] || { label: o.type, emoji: "💬" },
         })));
       } catch (e) {
@@ -616,8 +686,8 @@ Gere exatamente neste formato JSON (sem markdown):
       setLoadingCopilot(true);
       try {
         const savedKeys = localStorage.getItem("imphq_api_keys");
-        const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
-        const orKey = apiKeys.openrouter;
+        const apiKeys = asRecord(savedKeys ? JSON.parse(savedKeys) : {});
+        const orKey = typeof apiKeys.openrouter === "string" ? apiKeys.openrouter : undefined;
 
         const [configRes, projectRes] = await Promise.all([
           supabase
@@ -633,7 +703,7 @@ Gere exatamente neste formato JSON (sem markdown):
         ]);
 
         const configs = configRes.data || [];
-        const aiConfig = configs.find((c: any) => !c.provider_id) || configs[0] || null;
+        const aiConfig = configs.find((c) => !c.provider_id) || configs[0] || null;
         const project = projectRes.data;
 
         let projectContext = "";
@@ -652,7 +722,7 @@ Gere exatamente neste formato JSON (sem markdown):
         }
 
         if (project) {
-          const d: any = project.data || {};
+          const d = asRecord(project.data);
           projectContext = `PROJETO: ${project.name}\n`;
           if (d.avatar) projectContext += `AVATAR (resumo): ${JSON.stringify(d.avatar).slice(0, 1000)}\n`;
           if (d.produtos) projectContext += `PRODUTOS: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
@@ -711,7 +781,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 - Se o lead pedir explicitamente para falar com um humano, diga que está chamando um atendente e pare imediatamente.`;
 
         const recentHistory = messages.slice(-10);
-        const chatMessages: any[] = [{ role: "system", content: systemPrompt }];
+        const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [{ role: "system", content: systemPrompt }];
 
         recentHistory.forEach((m) => {
           chatMessages.push({
@@ -744,7 +814,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           }
 
           const data = await response.json();
-          aiReply = data.choices?.[0]?.message?.content || "";
+          aiReply = completionText(data);
         } else {
           toast.info("Chave OpenRouter não configurada. Usando gateway padrão...");
           const incomingMsgs = messages.filter(m => m.direction === "incoming");
@@ -773,9 +843,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           toast.error("Não foi possível obter uma sugestão válida.");
         }
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Copilot Error:", err);
-        toast.error(`Falha no Copilot: ${err.message || "Erro desconhecido"}`);
+        toast.error(`Falha no Copilot: ${errorMessage(err) || "Erro desconhecido"}`);
       } finally {
         setLoadingCopilot(false);
       }
@@ -788,7 +858,28 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .select("ia_ativa")
         .eq("id", conversationId)
         .maybeSingle()
-        .then(({ data }) => { if (data != null) setIaAtiva((data as any).ia_ativa ?? true); });
+        .then(({ data }) => { if (data != null) setIaAtiva(data.ia_ativa ?? true); });
+    }, [conversationId]);
+
+    // Carrega o último intent real desta conversa (classificador de triagem)
+    useEffect(() => {
+      if (!conversationId) { setLastIntent(null); return; }
+      let stop = false;
+      const load = async () => {
+        const { data } = await supabase
+          .from("imphq_wa_triage")
+          .select("intent, created_at")
+          .eq("conversation_id", conversationId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!stop) setLastIntent(data?.intent ?? null);
+      };
+      load();
+      const t = setInterval(() => {
+        if (document.visibilityState === "visible") load();
+      }, 45000);
+      return () => { stop = true; clearInterval(t); };
     }, [conversationId]);
 
     const toggleIa = async () => {
@@ -822,7 +913,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           .limit(1).maybeSingle();
         if (!stop) {
           if (data) {
-            setDraft(data as any);
+            setDraft({ ...data, model: data.model ?? undefined });
           } else {
             // Only clear if the current draft is NOT a locally generated Copilot suggestion
             setDraft(prev => {
@@ -835,13 +926,15 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         }
       };
       fetchDraft();
-      const t = setInterval(fetchDraft, 8000);
+      const t = setInterval(() => {
+        if (document.visibilityState === "visible") fetchDraft();
+      }, 30000);
       return () => { stop = true; clearInterval(t); };
     }, [conversationId]);
 
     const resolveDraft = async (status: "used" | "edited" | "discarded", finalText?: string) => {
       if (!draft) return;
-      const updates: any = { status, resolved_at: new Date().toISOString() };
+      const updates: TablesUpdate<"imphq_wa_ai_drafts"> = { status, resolved_at: new Date().toISOString() };
       if (finalText) {
         updates.final_text = finalText;
         const a = draft.suggested_text || ""; const b = finalText || "";
@@ -853,7 +946,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     };
 
     useEffect(() => {
-      supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates((data as any[]) || []));
+      supabase.from("imphq_wa_templates").select("*").order("name").then(({ data }) => setTemplates(data || []));
     }, []);
 
     // Load commands for slash autocomplete
@@ -862,7 +955,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .or(`project_id.eq.${projectId},project_id.is.null`)
         .eq("is_active", true)
         .order("trigger_word")
-        .then(({ data }) => setCommands((data as any[]) || []));
+        .then(({ data }) => setCommands((data || []).map(command => ({ ...command, sequence: parseSequence(command.sequence) }))));
     }, [projectId]);
 
     // Load objections matching current project ID
@@ -907,7 +1000,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
-      const sorted = ((data as any[]) || []).reverse();
+      const sorted = (data || []).map(toMessage).reverse();
       setMessages(sorted);
       setHasMore((data?.length || 0) >= PAGE_SIZE);
       initialLoadDone.current = true;
@@ -924,7 +1017,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .lt("created_at", oldest)
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
-      const older = ((data as any[]) || []).reverse();
+      const older = (data || []).map(toMessage).reverse();
       setMessages(prev => [...older, ...prev]);
       setHasMore((data?.length || 0) >= PAGE_SIZE);
       setLoadingMore(false);
@@ -941,7 +1034,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       if (data && data.length > 0) {
         setMessages(prev => {
           const withoutOptimistic = prev.filter(m => !m._optimistic);
-          return [...withoutOptimistic, ...(data as any[])];
+          return [...withoutOptimistic, ...data.map(toMessage)];
         });
       }
     }, [conversationId]);
@@ -960,18 +1053,39 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const [feedbackSent, setFeedbackSent] = useState<Record<string, "good" | "bad">>({});
     const [feedbackCorrecting, setFeedbackCorrecting] = useState<string | null>(null);
     const [correctionText, setCorrectionText] = useState("");
+    const [correctionType, setCorrectionType] = useState<"auto" | "answer" | "rule" | "unavailable" | "complement">("auto");
 
-    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string) => {
+    const sendFeedback = async (msgId: string, feedback: "good" | "bad", correction?: string, ctype?: "auto" | "answer" | "rule" | "unavailable" | "complement") => {
       try {
-        await supabase.functions.invoke("wa-feedback-learn", {
-          body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId },
+        const { data } = await supabase.functions.invoke("wa-feedback-learn", {
+          body: { message_id: msgId, feedback, correction: correction || undefined, project_id: projectId, correction_type: ctype || "auto" },
         });
         setFeedbackSent(prev => ({ ...prev, [msgId]: feedback }));
         setFeedbackCorrecting(null);
         setCorrectionText("");
-        toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : "✏️ Correção incorporada à base");
-      } catch (err: any) {
-        toast.error("Erro ao salvar feedback: " + err.message);
+        setCorrectionType("auto");
+        const finalType = asRecord(data).correction_type;
+        const typeLabel = finalType === "rule" ? "📜 regra do projeto"
+          : finalType === "unavailable" ? "🚫 produto indisponível"
+          : finalType === "complement" ? "➕ complemento (P/R + regra)"
+          : "✏️ resposta corrigida";
+        toast.success(feedback === "good" ? "✅ Resposta adicionada à base de conhecimento" : `${typeLabel} incorporada`);
+      } catch (err: unknown) {
+        toast.error("Erro ao salvar feedback: " + errorMessage(err));
+      }
+    };
+
+    const markAsGold = async (m: Message) => {
+      try {
+        const { data, error } = await supabase.functions.invoke("wa-learn-from-human", {
+          body: { conversation_id: conversationId, message_id: m.id, project_id: projectId, gold: true },
+        });
+        if (error) throw error;
+        if (asRecord(data).skipped) { toast.info("Pulado: " + asRecord(data).skipped); return; }
+        setFeedbackSent(prev => ({ ...prev, [m.id]: "good" }));
+        toast.success("⭐ Marcada como exemplo de ouro — a IA vai replicar esse padrão");
+      } catch (e: unknown) {
+        toast.error("Erro: " + errorMessage(e));
       }
     };
 
@@ -995,18 +1109,40 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           : m));
         setEditingId(null);
         setEditText("");
-      } catch (err: any) {
-        toast.error("Erro ao editar: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao editar: " + errorMessage(err));
       } finally {
         setEditSaving(false);
       }
     };
 
 
+    // Realtime: subscribe to new messages for this conversation.
+    // Mantém polling como fallback (60s) caso o canal caia.
     useEffect(() => {
-      const interval = setInterval(pollNew, 8000);
-      return () => clearInterval(interval);
-    }, [pollNew]);
+      const channel = supabase
+        .channel(`wa-msg-${conversationId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "imphq_wa_messages", filter: `conversation_id=eq.${conversationId}` },
+          () => { pollNew(); },
+        )
+        .subscribe();
+
+      const fallback = setInterval(() => {
+        if (document.visibilityState === "visible") pollNew();
+      }, 60000);
+
+      return () => {
+        supabase.removeChannel(channel);
+        clearInterval(fallback);
+      };
+    }, [conversationId, pollNew]);
 
     useEffect(() => {
       if (isComposingRef.current) return;
@@ -1035,7 +1171,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             response_text: t.content,
             sequence: [],
             _isTemplate: true,
-          } as any));
+          }));
         const all = [...matchedCmds, ...matchedTpls].slice(0, 8);
         setCommandSuggestions(all);
         setShowCommands(all.length > 0);
@@ -1076,8 +1212,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             ...(mediaUrl ? { media_url: mediaUrl, media_type: mediaType || "image" } : {}),
           },
         });
-      } catch (e: any) {
-        toast.error("Falha em passo da sequência: " + e.message);
+      } catch (e: unknown) {
+        toast.error("Falha em passo da sequência: " + errorMessage(e));
       }
     };
 
@@ -1132,8 +1268,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           if (captionOverride === undefined) setText("");
           setTimeout(() => pollNew(), 500);
         }
-      } catch (err: any) {
-        toast.error("Erro ao enviar mídia: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar mídia: " + errorMessage(err));
       } finally {
         setUploading(false);
       }
@@ -1207,9 +1343,14 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         if (data?.failover) {
           toast.warning(`Chip "${data.original_provider}" caiu — enviado via "${data.sent_via}".`);
         }
+        // Auto-pausa IA por 1h quando humano responde (handoff implícito)
+        supabase.from("imphq_wa_conversations")
+          .update({ ai_paused_until: new Date(Date.now() + 1 * 3600_000).toISOString() })
+          .eq("id", conversationId)
+          .then(() => {});
         setTimeout(() => pollNew(), 500);
-      } catch (err: any) {
-        toast.error("Erro ao enviar: " + err.message);
+      } catch (err: unknown) {
+        toast.error("Erro ao enviar: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
         setText(msgText);
       } finally {
@@ -1235,11 +1376,33 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
       <div ref={ref} className="flex h-full w-full overflow-hidden bg-background">
         <div className="flex-1 flex flex-col h-full min-w-0 border-r border-border">
           <ContactTagsPanel projectId={projectId} phone={phone} />
+          <AssignAndNotesBar conversationId={conversationId} />
+          {conversationId && (
+            <div className="px-3 pt-2">
+              <ConversationIntelCard conversationId={conversationId} />
+            </div>
+          )}
+          {(() => {
+            const last = messages[messages.length - 1];
+            if (!last || last.direction !== "incoming") return null;
+            const min = Math.max(0, Math.floor((Date.now() - new Date(last.created_at).getTime()) / 60000));
+            const label = min < 1 ? "agora" : min < 60 ? `${min}min` : min < 1440 ? `${Math.floor(min/60)}h${min % 60 ? ` ${min%60}min` : ""}` : `${Math.floor(min/1440)}d`;
+            const cls = min < 5 ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+              : min < 30 ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+              : min < 120 ? "bg-orange-500/10 text-orange-300 border-orange-500/30"
+              : "bg-red-500/15 text-red-300 border-red-500/40 animate-pulse";
+            return (
+              <div className={`px-3 py-1.5 text-[11px] border-b ${cls} flex items-center gap-2 font-medium`}>
+                <span>⏱</span>
+                <span>Aguardando sua resposta há <strong>{label}</strong></span>
+              </div>
+            );
+          })()}
           {/* Chat area with WhatsApp-like pattern background */}
           <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}>
-            <div className="p-4 space-y-1 max-w-3xl mx-auto">
+            <div className={`p-4 space-y-1 ${maxWidthClass} mx-auto`}>
               {hasMore && (
                 <div className="flex justify-center mb-2">
                   <Button size="sm" variant="ghost" className="text-xs gap-1 bg-background/80 backdrop-blur-sm rounded-full shadow-sm" onClick={loadMore} disabled={loadingMore}>
@@ -1257,7 +1420,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 const canEdit = isOutgoing && !m._optimistic && (!m.message_type || m.message_type === "text")
                   && !!m.provider_message_id && ageMin < EDIT_WINDOW_MIN;
                 const isEditing = editingId === m.id;
-                const editedAt = (m.metadata as any)?.edited_at;
+                const editedAt = metadataText(m.metadata, "edited_at");
 
                 return (
                   <React.Fragment key={m.id}>
@@ -1276,7 +1439,14 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                         }
                         ${m._optimistic ? "opacity-60" : ""}
                       `}>
+                        {isOutgoing && m.sent_by === "ai" && (
+                          <div className="absolute -top-2 -right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-600 text-[9px] font-bold uppercase tracking-wider text-white shadow-md border border-amber-300/40" title="Mensagem enviada pela IA">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            IA
+                          </div>
+                        )}
                         <MediaContent message={m} />
+
                         {isEditing ? (
                           <div className="space-y-1.5 min-w-[220px]">
                             <Textarea
@@ -1300,20 +1470,20 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                           )
                         )}
                         {/* Badge de reengajamento automático */}
-                        {isOutgoing && (m.metadata as any)?.source === "wa-reengagement" && (
+                        {isOutgoing && m.metadata?.source === "wa-reengagement" && (
                           <div className="flex items-center gap-1 mt-1 mb-0.5">
                             <Activity className="h-2.5 w-2.5 text-amber-300/80" />
                             <span className="text-[9px] text-amber-300/80 font-medium">
-                              Reengajamento automático · {(m.metadata as any).days_silent}d silêncio
+                              Reengajamento automático · {metadataText(m.metadata, "days_silent")}d silêncio
                             </span>
                           </div>
                         )}
                         {/* Badge de closer automático (hot lead) */}
-                        {isOutgoing && (m.metadata as any)?.source === "wa-closer-trigger" && (
+                        {isOutgoing && m.metadata?.source === "wa-closer-trigger" && (
                           <div className="flex items-center gap-1 mt-1 mb-0.5">
                             <Zap className="h-2.5 w-2.5 text-orange-300/80" />
                             <span className="text-[9px] text-orange-300/80 font-medium">
-                              Closer automático · score {(m.metadata as any).lead_score}/200
+                              Closer automático · score {metadataText(m.metadata, "lead_score")}/200
                             </span>
                           </div>
                         )}
@@ -1363,25 +1533,56 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                                 >
                                   <ThumbsDown className="h-2.5 w-2.5 text-amber-400" />
                                 </button>
+                                <button
+                                  onClick={() => markAsGold(m)}
+                                  className="bg-background/90 border border-border/60 rounded-full p-1 hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                                  title="Ouro — ensinar a IA a replicar esta resposta"
+                                >
+                                  <Star className="h-2.5 w-2.5 text-primary" />
+                                </button>
                               </>
                             )}
                           </div>
                         )}
                         {/* Correction input */}
                         {feedbackCorrecting === m.id && (
-                          <div className="mt-2 space-y-1.5 min-w-[240px]">
+                          <div className="mt-2 space-y-1.5 min-w-[280px]">
                             <Textarea
                               value={correctionText}
                               onChange={e => setCorrectionText(e.target.value)}
-                              placeholder="Como deveria ter sido respondido?"
+                              placeholder={correctionType === "complement"
+                                ? "O que faltou dizer? Ex: 'poderia acrescentar que só tem dentro da JP Hair Education'"
+                                : "Como deveria ter sido respondido? Ou que regra a IA deve seguir?"}
                               className="min-h-[56px] text-xs bg-background text-foreground"
                               autoFocus
                             />
+                            <div className="flex flex-wrap gap-1">
+                              {([
+                                ["auto", "🤖 Auto"],
+                                ["answer", "✏️ Resposta melhor"],
+                                ["rule", "📜 Regra do projeto"],
+                                ["unavailable", "🚫 Produto indisponível"],
+                                ["complement", "➕ Complementar"],
+                              ] as const).map(([val, label]) => (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() => setCorrectionType(val)}
+                                  className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
+                                    correctionType === val
+                                      ? "bg-amber-600 border-amber-500 text-white"
+                                      : "bg-background border-border text-muted-foreground hover:border-amber-500/50"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
                             <div className="flex gap-1 justify-end">
-                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setFeedbackCorrecting(null); setCorrectionText(""); }}>
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] hover:bg-white/10" onClick={() => { setFeedbackCorrecting(null); setCorrectionText(""); setCorrectionType("auto"); }}>
                                 <X className="h-3 w-3 mr-0.5" /> Cancelar
                               </Button>
-                              <Button size="sm" className="h-6 px-2 text-[11px] bg-amber-600 hover:bg-amber-700" onClick={() => sendFeedback(m.id, "bad", correctionText)} disabled={!correctionText.trim()}>
+                              <Button size="sm" className="h-6 px-2 text-[11px] bg-amber-600 hover:bg-amber-700" onClick={() => sendFeedback(m.id, "bad", correctionText, correctionType)} disabled={!correctionText.trim()}>
                                 Salvar Correção
                               </Button>
                             </div>
@@ -1409,7 +1610,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           <div className="border-t border-border bg-card p-3 shrink-0">
             {/* Slash command suggestions */}
             {showCommands && commandSuggestions.length > 0 && (
-              <div className="mb-2 max-w-3xl mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto">
+              <div className={`mb-2 ${maxWidthClass} mx-auto bg-popover border border-border rounded-lg shadow-lg overflow-hidden max-h-[220px] overflow-y-auto`}>
                 <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-b border-border font-semibold">⚡ Comandos & Templates — Tab ou clique para inserir</p>
                 {commandSuggestions.map(cmd => (
                   <button
@@ -1417,12 +1618,12 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                     className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 border-b border-border/30 last:border-0"
                     onClick={() => selectCommand(cmd)}
                   >
-                    {(cmd as any)._isTemplate ? (
+                    {cmd._isTemplate ? (
                       <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded shrink-0">template</span>
                     ) : (
                       <span className="font-mono text-primary shrink-0">/{cmd.trigger_word}</span>
                     )}
-                    {(cmd as any)._isTemplate && (
+                    {cmd._isTemplate && (
                       <span className="font-medium text-foreground/80 shrink-0">{cmd.trigger_word}</span>
                     )}
                     {Array.isArray(cmd.sequence) && cmd.sequence.length > 0 && (
@@ -1435,7 +1636,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             )}
 
             {draft && (
-              <div className="max-w-3xl mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs">
+              <div className={`${maxWidthClass} mx-auto mb-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5 text-xs`}>
                 <div className="flex items-start gap-2">
                   <span className="text-primary font-semibold shrink-0">💡 Sugestão IA{draft.model ? ` · ${draft.model}` : ""}</span>
                   <p className="flex-1 text-foreground/80 whitespace-pre-wrap leading-relaxed">{draft.suggested_text}</p>
@@ -1450,7 +1651,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Quick 3-option suggestions panel */}
             {showQuickSuggest && (
-              <div className="max-w-3xl mx-auto mb-2">
+              <div className={`${maxWidthClass} mx-auto mb-2`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] text-muted-foreground font-semibold">✨ Escolha a abordagem:</span>
                   <button onClick={() => { setShowQuickSuggest(false); setQuickOptions([]); }} className="text-[9px] text-muted-foreground hover:text-foreground">fechar</button>
@@ -1478,7 +1679,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Dynamic Objection Detection Banner */}
             {detectedObjection && (
-              <div className="max-w-3xl mx-auto mb-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md text-xs relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className={`${maxWidthClass} mx-auto mb-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-md text-xs relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-2">
@@ -1530,7 +1731,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
             {/* Calibrated Objections Pill Bar */}
             {objections.length > 0 && (
-              <div className="max-w-3xl mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none">
+              <div className={`${maxWidthClass} mx-auto mb-2 flex items-center gap-1.5 overflow-x-auto py-1.5 pb-2 select-none scrollbar-none`}>
                 <span className="text-[10px] text-muted-foreground font-semibold shrink-0 bg-secondary/50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                   🛡️ Objeções:
                 </span>
@@ -1553,7 +1754,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             )}
 
             {recordingState === "recording" ? (
-              <div className="flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse max-w-3xl mx-auto">
+              <div className={`flex items-center justify-between w-full bg-destructive/5 border border-destructive/25 rounded-2xl px-4 py-2 animate-pulse ${maxWidthClass} mx-auto`}>
                 <div className="flex items-center gap-3">
                   <span className="relative flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -1574,7 +1775,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 </div>
               </div>
             ) : recordingState === "preview" ? (
-              <div className="flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 max-w-3xl mx-auto">
+              <div className={`flex items-center justify-between w-full bg-primary/5 border border-primary/20 rounded-2xl px-4 py-2 ${maxWidthClass} mx-auto`}>
                 <div className="flex items-center gap-3 flex-1">
                   <Button size="icon" variant="outline" onClick={togglePlayPreview} className="h-8 w-8 rounded-full border-primary/30 text-primary hover:bg-primary/5 shadow-sm">
                     {isPlayingPreview ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
@@ -1594,7 +1795,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 </div>
               </div>
             ) : (
-              <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
+              <div className={`flex items-end gap-2 ${maxWidthClass} mx-auto w-full`}>
                 {/* Temperature badge */}
                 <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
                   temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
@@ -1615,18 +1816,19 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   {togglingIa ? <Loader2 className="h-4 w-4 animate-spin" /> : iaAtiva ? <Bot className="h-4 w-4" /> : <BotOff className="h-4 w-4" />}
                 </Button>
 
-                {/* Toggle Intel Panel */}
+                {/* Toggle Intel Panel (desktop only — header controls it on compact) */}
                 <Button
                   size="icon"
                   variant={showIntelPanel ? "secondary" : "ghost"}
-                  className={`shrink-0 h-9 w-9 rounded-full transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                  className={`hidden lg:flex shrink-0 h-9 w-9 rounded-full transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
                   title={showIntelPanel ? "Ocultar Intel do Lead" : "Mostrar Intel do Lead"}
-                  onClick={() => setShowIntelPanel(prev => !prev)}
+                  onClick={() => onToggleIntelPanel ? onToggleIntelPanel() : setShowIntelPanel(prev => !prev)}
                 >
                   <Activity className="h-4 w-4" />
                 </Button>
 
-                {/* Emoji picker */}
+                <div className="hidden lg:flex items-end gap-2">
+                  {/* Emoji picker */}
                 <Popover open={showEmoji} onOpenChange={setShowEmoji}>
                   <PopoverTrigger asChild>
                     <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Emojis">
@@ -1786,6 +1988,90 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                   <Sparkles className="h-4 w-4" />
                 </Button>
 
+                {/* Agendar mensagem */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 h-9 w-9 rounded-full text-muted-foreground hover:text-sky-400 hover:bg-sky-500/10"
+                      title="Agendar mensagem"
+                      disabled={!text.trim()}
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-3 bg-popover" align="end" side="top">
+                    <p className="text-xs font-semibold mb-2">Agendar envio</p>
+                    <Input
+                      type="datetime-local"
+                      value={scheduleAt}
+                      onChange={e => setScheduleAt(e.target.value)}
+                      min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                      className="h-9 text-xs mb-2"
+                    />
+                    <div className="flex gap-1 mb-2">
+                      {[
+                        { label: "+15min", min: 15 },
+                        { label: "+1h", min: 60 },
+                        { label: "Amanhã 9h", min: -1 },
+                      ].map(p => (
+                        <Button key={p.label} size="sm" variant="outline" className="h-7 text-[10px] flex-1"
+                          onClick={() => {
+                            const d = new Date();
+                            if (p.min === -1) { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
+                            else d.setMinutes(d.getMinutes() + p.min);
+                            setScheduleAt(d.toISOString().slice(0, 16));
+                          }}>{p.label}</Button>
+                      ))}
+                    </div>
+                    <Button size="sm" className="w-full bg-sky-600 hover:bg-sky-700 text-white"
+                      onClick={async () => {
+                        if (!scheduleAt || !text.trim()) { toast.error("Defina data e texto"); return; }
+                        const when = new Date(scheduleAt);
+                        if (when.getTime() < Date.now() + 30000) { toast.error("Escolha um horário futuro"); return; }
+                        const { error } = await supabase.from("imphq_wa_scheduled").insert({
+                          conversation_id: conversationId, project_id: projectId, provider_id: providerId,
+                          phone, content: text, scheduled_at: when.toISOString(),
+                        });
+                        if (error) { toast.error("Falha ao agendar: " + error.message); return; }
+                        toast.success(`Agendado para ${when.toLocaleString("pt-BR")}`);
+                        setText(""); setScheduleAt("");
+                      }}>Agendar</Button>
+                  </PopoverContent>
+                </Popover>
+                </div>
+
+                {/* Compact more actions menu */}
+                <div className="flex lg:hidden items-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full shrink-0" title="Mais ações">
+                        <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top" className="w-48">
+                      <DropdownMenuItem onClick={() => setShowEmoji(true)} className="gap-2">
+                        <Smile className="h-4 w-4" /> Emojis
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="gap-2">
+                        <Paperclip className="h-4 w-4" /> Enviar mídia
+                      </DropdownMenuItem>
+                      {templates.length > 0 && (
+                        <DropdownMenuItem onClick={() => { setText(templates[0]?.content || ""); textareaRef.current?.focus(); }} className="gap-2">
+                          <FileText className="h-4 w-4" /> Template {templates[0]?.name}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => { generateCopilotSuggestion(); }} className="gap-2" disabled={loadingCopilot || messages.length === 0}>
+                        <Brain className="h-4 w-4 text-primary" /> Sugestão IA
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()} className="gap-2" disabled={loadingQuick || messages.length === 0}>
+                        <Sparkles className="h-4 w-4" /> 3 opções rápidas
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {/* Message input */}
                 <Textarea
                   ref={textareaRef}

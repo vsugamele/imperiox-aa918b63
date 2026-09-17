@@ -1,3 +1,7 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,12 +21,12 @@ import {
   Palette, LayoutGrid, Mail, Lightbulb, RefreshCw, Wand2, Expand, Search, Filter, Film
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { RoteirosViraisLibrary } from "./RoteirosViraisLibrary";
+import { RoteirosViraisLibrary } from "@/components/projeto/RoteirosViraisLibrary";
 
 interface Props {
   projectId: string;
-  project: any;
-  onUpdateData: (data: any) => void;
+  project: Tables<"imphq_projects">;
+  onUpdateData: (data: Json) => void;
 }
 
 type ContentType = "semanal" | "ads_imagem" | "ads_video" | "vsl" | "webinar" | "lp" | "ai_image" | "carrossel" | "stories_sequence" | "email_copy" | "headline_variations" | "ideias";
@@ -36,7 +40,7 @@ const SKILL_MAP: Record<string, { slug: string; label: string }> = {
   headline_variations: { slug: "devastador-copy", label: "Devastador V4" },
 };
 
-const CONTENT_TYPES: { value: ContentType; label: string; icon: any; desc: string; isNew?: boolean }[] = [
+const CONTENT_TYPES: { value: ContentType; label: string; icon: LucideIcon; desc: string; isNew?: boolean }[] = [
   { value: "ai_image", label: "Criativo IA", icon: Palette, desc: "Imagem gerada por IA", isNew: true },
   { value: "ideias", label: "Brainstorm", icon: Lightbulb, desc: "10 ideias de conteúdo", isNew: true },
   { value: "semanal", label: "Conteúdo Semanal", icon: Calendar, desc: "Posts e stories para a semana" },
@@ -86,7 +90,7 @@ interface SavedContent {
 }
 
 export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Props) {
-  const data = project.data || {};
+  const data = jsonFields(project.data);
   const [activeType, setActiveType] = useState<ContentType>("semanal");
   const [generating, setGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState("");
@@ -107,7 +111,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   const [orModels, setOrModels] = useState<OpenRouterModel[]>([]);
   const [modelSearch, setModelSearch] = useState("");
 
-  const produtos: any[] = data.produtos || [];
+  const produtos = Array.isArray(data.produtos) ? data.produtos.map(jsonFields) : [];
   const selectedModelId = normalizeModel(selectedModel);
   const selectedIsOpenRouter = selectedModel.startsWith("openrouter:");
   const shouldUseAsync = selectedIsOpenRouter || isSlowModel(selectedModelId) || ["ai_image", "lp", "vsl", "webinar", "ads_video"].includes(activeType);
@@ -154,23 +158,23 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
   };
 
   const getContextSummary = () => {
-    const avatar = project.avatar || {};
-    const expert = data.expert || {};
-    const arsenal = data.copy_arsenal || {};
-    const branding = project.brand_kit || {};
+    const avatar = jsonFields(project.avatar);
+    const expert = jsonFields(data.expert);
+    const arsenal = jsonFields(data.copy_arsenal);
+    const branding = jsonFields(project.brand_kit);
     return { projeto: project.name, expert, avatar, produtos, arsenal, branding };
   };
 
   const handleOpenDialog = () => {
     if (produtos.length > 0 && !selectedProduct) {
-      setSelectedProduct(produtos[0]?.nome || produtos[0]?.name || "");
+      setSelectedProduct(jsonText(produtos[0]?.nome) || jsonText(produtos[0]?.name) || "");
     }
     setDialogOpen(true);
   };
 
   const getProductForPrompt = () => {
     if (selectedProduct) return selectedProduct;
-    if (produtos.length > 0) return produtos[0]?.nome || produtos[0]?.name || "";
+    if (produtos.length > 0) return jsonText(produtos[0]?.nome) || jsonText(produtos[0]?.name) || "";
     return project.name;
   };
 
@@ -190,7 +194,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
     loadSavedContents();
   };
 
-  const pollAiJob = async (jobId: string): Promise<any> => {
+  const pollAiJob = async (jobId: string): Promise<Json> => {
     const start = Date.now();
     const MAX_MS = 8 * 60 * 1000;
     while (Date.now() - start < MAX_MS) {
@@ -201,22 +205,23 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         .eq("id", jobId)
         .maybeSingle();
       if (!job) continue;
-      if (job.status === "ready") return job.result as any;
+      if (job.status === "ready") return job.result;
       if (job.status === "failed") throw new Error(job.error || "Job de IA falhou");
     }
     throw new Error("Timeout: geração demorou mais de 8 minutos");
   };
 
-  const invokeOpenflow = async (bodyPayload: Record<string, any>, useAsync = shouldUseAsync) => {
-    const finalPayload: Record<string, any> = { ...bodyPayload, model: normalizeModel(bodyPayload.model || selectedModel) };
+  const invokeOpenflow = async (bodyPayload: Record<string, Json>, useAsync = shouldUseAsync) => {
+    const finalPayload: Record<string, Json> = { ...bodyPayload, model: normalizeModel(jsonText(bodyPayload.model) || selectedModel) };
     const payloadIsOR = selectedIsOpenRouter || String(bodyPayload.model || "").startsWith("openrouter:");
     if (payloadIsOR && !finalPayload.openrouter_key) finalPayload.openrouter_key = getOpenRouterKey();
 
     if (!useAsync) {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", { body: finalPayload });
+      const { data, error } = await supabase.functions.invoke<Json>("openflow-ai", { body: finalPayload });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
+      const result = jsonFields(data);
+      if (result.error) throw new Error(jsonText(result.error) || "Erro na geração");
+      return result;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -226,9 +231,9 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
       .insert({
         user_id: user.id,
         project_id: projectId,
-        action: finalPayload.action || "generate_content",
-        model: finalPayload.model,
-        payload: finalPayload as any,
+        action: jsonText(finalPayload.action) || "generate_content",
+        model: jsonText(finalPayload.model),
+        payload: finalPayload,
         status: "queued",
       })
       .select("id")
@@ -237,7 +242,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
 
     toast.info("Gerando em background — evitando timeout de 150s.", { duration: 5000 });
     await supabase.functions.invoke("ai-job-runner", { body: { job_id: job.id } });
-    return await pollAiJob(job.id);
+    return jsonFields(await pollAiJob(job.id));
   };
 
   const handleGenerate = async () => {
@@ -266,12 +271,12 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
           quality: imageQuality,
           model: selectedModelId,
         });
-        if (aiData?.image_url) {
+        if (typeof aiData.image_url === "string") {
           setGeneratedImageUrl(aiData.image_url);
-          setGeneratedContent(aiData.text || "Imagem gerada com sucesso.");
+          setGeneratedContent(jsonText(aiData.text) || "Imagem gerada com sucesso.");
           await saveToDb("ai_image", aiData.image_url, productName);
           toast.success("Imagem gerada!");
-        } else throw new Error(aiData?.error || "Erro ao gerar imagem");
+        } else throw new Error(jsonText(aiData.error) || "Erro ao gerar imagem");
         return;
       }
 
@@ -285,8 +290,9 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
           ...(isOpenRouter ? { openrouter_key: getOpenRouterKey() } : {}),
           ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
         });
-        const ideas = aiData?.brainstorm?.ideas || [];
-        const content = ideas.map((idea: any, i: number) =>
+        const ideaValues = jsonFields(aiData.brainstorm).ideas;
+        const ideas = Array.isArray(ideaValues) ? ideaValues.map(jsonFields) : [];
+        const content = ideas.map((idea, i: number) =>
           `### ${i + 1}. ${idea.titulo}\n**Formato:** ${idea.formato} | **Dificuldade:** ${idea.nivel_dificuldade || "—"} | **Viral:** ${idea.potencial_viral || "—"}/10\n\n> ${idea.gancho}\n`
         ).join("\n---\n\n");
         setGeneratedContent(content || JSON.stringify(aiData));
@@ -296,7 +302,7 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
       }
 
       // ── Text content ──
-      const bodyPayload: Record<string, any> = { project_id: projectId, model: selectedModel };
+      const bodyPayload: Record<string, Json> = { project_id: projectId, model: selectedModel };
       if (isOpenRouter) bodyPayload.openrouter_key = getOpenRouterKey();
       if (selectedMente !== "none") bodyPayload.mente_id = selectedMente;
 
@@ -317,23 +323,23 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         bodyPayload.action = "generate_content";
         bodyPayload.content_type = activeType;
         const prompts: Record<string, string> = {
-          semanal: `Crie um planejamento de conteúdo para 7 dias para "${ctx.projeto}". Inclua: tema, copy, CTA e formato. Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 5))}.`,
-          carrossel: `Crie um carrossel de 8 slides para "${productName}". Cada slide: título bold (max 8 palavras), body (max 30 palavras), e CTA no último. Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 3))}.`,
+          semanal: `Crie um planejamento de conteúdo para 7 dias para "${ctx.projeto}". Inclua: tema, copy, CTA e formato. Dores: ${JSON.stringify((Array.isArray(ctx.avatar.dores) ? ctx.avatar.dores : []).slice(0, 5))}.`,
+          carrossel: `Crie um carrossel de 8 slides para "${productName}". Cada slide: título bold (max 8 palavras), body (max 30 palavras), e CTA no último. Dores: ${JSON.stringify((Array.isArray(ctx.avatar.dores) ? ctx.avatar.dores : []).slice(0, 3))}.`,
           stories_sequence: `Crie uma sequência de 7 stories para "${productName}". Cada story: tipo (texto/enquete/quiz/CTA), copy, instrução visual. Use storytelling progressivo.`,
-          email_copy: `Escreva um email persuasivo para "${productName}". Assunto magnético, preview text, body com storytelling, CTA claro. Tom: ${ctx.expert.tom_voz || "profissional"}. Dores: ${JSON.stringify((ctx.avatar.dores || []).slice(0, 3))}.`,
+          email_copy: `Escreva um email persuasivo para "${productName}". Assunto magnético, preview text, body com storytelling, CTA claro. Tom: ${ctx.expert.tom_voz || "profissional"}. Dores: ${JSON.stringify((Array.isArray(ctx.avatar.dores) ? ctx.avatar.dores : []).slice(0, 3))}.`,
         };
         bodyPayload.prompt = customPrompt ? `${prompts[activeType] || ""}\n\nInstruções extras: ${customPrompt}` : prompts[activeType];
       }
 
       const aiData = await invokeOpenflow(bodyPayload);
-      const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
+      const content = jsonText(aiData.result) || jsonText(aiData.text) || jsonText(aiData.content) || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, productName);
       toast.success("Conteúdo gerado e salvo!");
-    } catch (err: any) {
-      if (err?.message?.includes("429")) toast.error("Rate limit. Tente em alguns segundos.");
-      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes.");
-      else toast.error(err.message || "Erro ao gerar");
+    } catch (err: unknown) {
+      if (errorMessage(err)?.includes("429")) toast.error("Rate limit. Tente em alguns segundos.");
+      else if (errorMessage(err)?.includes("402")) toast.error("Créditos insuficientes.");
+      else toast.error(errorMessage(err) || "Erro ao gerar");
     } finally {
       setGenerating(false);
     }
@@ -351,11 +357,11 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         prompt: `Crie uma VARIAÇÃO DIFERENTE do conteúdo abaixo. Mantenha o mesmo formato e objetivo, mas mude abordagem, ângulo e tom.\n\nConteúdo original:\n${generatedContent.slice(0, 2000)}\n\n${customPrompt ? `Instruções: ${customPrompt}` : ""}`,
         ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
+      const content = jsonText(aiData.result) || jsonText(aiData.text) || jsonText(aiData.content) || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, getProductForPrompt());
       toast.success("Variação gerada!");
-    } catch (err: any) { toast.error(err.message || "Erro"); }
+    } catch (err: unknown) { toast.error(errorMessage(err) || "Erro"); }
     finally { setGenerating(false); }
   };
 
@@ -373,12 +379,12 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         prompt: `REFINE o conteúdo abaixo com base no feedback do usuário.\n\nConteúdo atual:\n${generatedContent.slice(0, 2000)}\n\nFeedback:\n${refineFeedback}`,
         ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
+      const content = jsonText(aiData.result) || jsonText(aiData.text) || jsonText(aiData.content) || JSON.stringify(aiData);
       setGeneratedContent(content);
       setRefineFeedback("");
       await saveToDb(activeType, content, getProductForPrompt());
       toast.success("Conteúdo refinado!");
-    } catch (err: any) { toast.error(err.message || "Erro"); }
+    } catch (err: unknown) { toast.error(errorMessage(err) || "Erro"); }
     finally { setGenerating(false); }
   };
 
@@ -394,11 +400,11 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
         prompt: `EXPANDA o conteúdo abaixo em uma versão mais completa e detalhada. Adicione mais profundidade, exemplos e detalhes.\n\nConteúdo resumido:\n${generatedContent.slice(0, 2000)}`,
         ...(selectedMente !== "none" ? { mente_id: selectedMente } : {}),
       });
-      const content = aiData?.result || aiData?.text || aiData?.content || JSON.stringify(aiData);
+      const content = jsonText(aiData.result) || jsonText(aiData.text) || jsonText(aiData.content) || JSON.stringify(aiData);
       setGeneratedContent(content);
       await saveToDb(activeType, content, getProductForPrompt());
       toast.success("Conteúdo expandido!");
-    } catch (err: any) { toast.error(err.message || "Erro"); }
+    } catch (err: unknown) { toast.error(errorMessage(err) || "Erro"); }
     finally { setGenerating(false); }
   };
 
@@ -494,9 +500,9 @@ export function ProjetoCentralConteudo({ projectId, project, onUpdateData }: Pro
                 <Select value={selectedProduct} onValueChange={setSelectedProduct}>
                   <SelectTrigger className="bg-secondary text-xs"><SelectValue placeholder="Selecione o produto..." /></SelectTrigger>
                   <SelectContent>
-                    {produtos.map((p: any, idx: number) => (
-                      <SelectItem key={idx} value={p.nome || p.name || `produto-${idx}`}>
-                        {p.nome || p.name} {p.tipo ? `(${p.tipo})` : ""}
+                    {produtos.map((p, idx: number) => (
+                      <SelectItem key={idx} value={jsonText(p.nome) || jsonText(p.name) || `produto-${idx}`}>
+                        {jsonText(p.nome) || jsonText(p.name)} {p.tipo ? `(${p.tipo})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

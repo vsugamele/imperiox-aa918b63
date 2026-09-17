@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
-import DashboardDrillSheet, { DrillMetric, FunnelStage } from "./DashboardDrillSheet";
+import DashboardDrillSheet, { DrillMetric, FunnelStage } from "@/components/dashboard/DashboardDrillSheet";
 
 interface Props {
   period: string;
@@ -47,8 +47,8 @@ export default function AcquisitionFunnel({ period, projectFilter, productFilter
 
       const [adsRes, vendasRes] = await Promise.all([adsQ, vendasQ]);
 
-      const ads = (adsRes.data || []) as any[];
-      const sum = (k: string) => ads.reduce((acc, r) => acc + (Number(r[k]) || 0), 0);
+      const ads = (adsRes.data || []);
+      const sum = (k: keyof (typeof ads)[number]) => ads.reduce((acc, r) => acc + (Number(r[k]) || 0), 0);
 
       const impressoes = sum("impressoes");
       const cliques = sum("link_clicks") || sum("cliques");
@@ -57,7 +57,7 @@ export default function AcquisitionFunnel({ period, projectFilter, productFilter
       const initCheckout = sum("init_checkout");
 
       // Compras = vendas aprovadas reais (mais confiável que pixel)
-      const vendas = (vendasRes.data || []) as any[];
+      const vendas = (vendasRes.data || []);
       const compras = vendas.filter((v) => {
         if (productFilter && productFilter !== "all") {
           if (!v.produto_nome || v.produto_nome.toLowerCase() !== productFilter.toLowerCase()) return false;

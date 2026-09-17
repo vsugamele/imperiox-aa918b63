@@ -68,7 +68,7 @@ function parseIntBR(val: string | undefined | null): number {
 }
 
 /** Get value from row with multiple possible keys */
-function get(row: any, ...keys: string[]): string {
+function get(row: Record<string, string>, ...keys: string[]): string {
   for (const k of keys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== "") return String(row[k]);
   }
@@ -84,11 +84,11 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    Papa.parse(file, {
+    Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (result) => {
-        const parsed: AdsRow[] = result.data.map((r: any) => {
+        const parsed: AdsRow[] = result.data.map((r) => {
           const impressoes = parseIntBR(get(r, "Impressões", "Impressoes", "impressoes", "impressions", "Impressions"));
           const alcance = parseIntBR(get(r, "Alcance", "alcance", "Reach"));
           const valor = parseBRL(get(r, "Valor usado (BRL)", "valor", "spend", "Amount spent (BRL)", "Spend"));
@@ -159,7 +159,7 @@ export function AdsImportDialog({ open, onOpenChange, projects, onImported }: Pr
       stop_rate: r.stop_rate,
       cpck: r.cpck,
     }));
-    const { error } = await supabase.from("imphq_ads_spend").insert(payload as any);
+    const { error } = await supabase.from("imphq_ads_spend").insert(payload);
     setImporting(false);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success(`${rows.length} registros importados!`);

@@ -1,4 +1,133 @@
+import { createCinnaRuntime, readCinnaRuntime, writeCinnaRuntime, isNativeCinna } from "../_shared/cinna-openflow.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendToChannel, type ChannelSession } from "../_shared/channel-out.ts";
+
+
+import { z } from "https://esm.sh/zod@3.25.76";
+const stepSchema = z.object({
+id: z.string().nullish(),
+tipo: z.string(),
+template: z.string().nullish(),
+delay_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+delay_sec: z.union([z.number(), z.string()]).transform(Number).nullish(),
+personality: z.string().nullish(),
+condicao_tipo: z.string().nullish(),
+condicao_tempo_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+provider_id: z.string().nullish(),
+voice_provider: z.string().nullish(),
+voice_id: z.string().nullish(),
+voice_stability: z.union([z.number(), z.string()]).transform(Number).nullish(),
+voice_clarity: z.union([z.number(), z.string()]).transform(Number).nullish(),
+tag: z.string().nullish(),
+next_id: z.string().nullish(),
+true_next_id: z.string().nullish(),
+false_next_id: z.string().nullish(),
+else_action: z.string().nullish(),
+else_skip: z.union([z.number(), z.string()]).transform(Number).nullish(),
+wait_until: z.string().nullish(),
+awareness_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+awareness_max: z.union([z.number(), z.string()]).transform(Number).nullish(),
+intents: z.string().nullish(),
+memory_key: z.string().nullish(),
+memory_value: z.string().nullish(),
+lead_score: z.union([z.number(), z.string()]).transform(Number).nullish(),
+lead_tags: z.string().nullish(),
+lead_stage: z.string().nullish(),
+event_name: z.string().nullish(),
+event_names: z.string().nullish(),
+timeout_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+score_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+score_max: z.union([z.number(), z.string()]).transform(Number).nullish(),
+text: z.string().nullish(),
+lead_field: z.string().nullish(),
+lead_op: z.string().nullish(),
+lead_value: z.string().nullish(),
+target_stage: z.string().nullish(),
+rota_a_porcentagem: z.union([z.number(), z.string()]).transform(Number).nullish(),
+jump_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+ab_test_enabled: z.boolean().nullish(),
+template_b: z.string().nullish(),
+mensagem_b: z.string().nullish(),
+operator_name: z.string().nullish(),
+gpt_model: z.string().nullish(),
+gpt_temperature: z.union([z.number(), z.string()]).transform(Number).nullish(),
+gpt_max_tokens: z.union([z.number(), z.string()]).transform(Number).nullish(),
+gpt_save_variable: z.string().nullish(),
+gpt_send_message: z.boolean().nullish(),
+gpt_keep_context: z.boolean().nullish(),
+ia_model: z.string().nullish(),
+ia_search_web: z.boolean().nullish(),
+ia_search_files: z.boolean().nullish(),
+ia_vision: z.boolean().nullish(),
+ia_voice_response: z.boolean().nullish(),
+ia_routes: z.array(z.object({ name: z.string(), jump_steps: z.union([z.number(), z.string()]).transform(Number) }).passthrough()).nullish(),
+personality_prompt: z.string().nullish(),
+questioning_strategy: z.string().nullish(),
+condition_field: z.string().nullish(),
+condition_operator: z.string().nullish(),
+condition_value: z.string().nullish(),
+condition_jump_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+condition_else_jump_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+webhook_url: z.string().nullish(),
+webhook_method: z.string().nullish(),
+webhook_headers: z.string().nullish(),
+webhook_body: z.string().nullish(),
+webhook_save_variable: z.string().nullish(),
+loop_count: z.union([z.number(), z.string()]).transform(Number).nullish(),
+loop_jump_back_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+loop_interval_hours: z.union([z.number(), z.string()]).transform(Number).nullish(),
+loop_until_condition_field: z.string().nullish(),
+loop_until_condition_operator: z.string().nullish(),
+loop_until_condition_value: z.string().nullish(),
+stop_event_type: z.string().nullish(),
+stop_event_value: z.string().nullish(),
+calendar_provider: z.string().nullish(),
+calendar_url: z.string().nullish(),
+scheduling_duration_min: z.union([z.number(), z.string()]).transform(Number).nullish(),
+router_definition_a: z.string().nullish(),
+router_definition_b: z.string().nullish(),
+work_hours_start: z.string().nullish(),
+work_hours_end: z.string().nullish(),
+work_days: z.string().nullish(),
+mensagem: z.string().nullish(),
+corpo: z.string().nullish(),
+assunto: z.string().nullish(),
+conteudo: z.string().nullish(),
+position_x: z.union([z.number(), z.string()]).transform(Number).nullish(),
+position_y: z.union([z.number(), z.string()]).transform(Number).nullish(),
+media: z.union([z.object({ id: z.string(), url: z.string(), label: z.string(), kind: z.union([z.literal("image"), z.literal("audio"), z.literal("video"), z.literal("doc")]) }).passthrough(), z.null()]).nullish(),
+capture_variable: z.string().nullish(),
+ai_extract_prompt: z.string().nullish(),
+question: z.string().nullish(),
+options: z.array(z.union([z.object({ label: z.string(), value: z.string().optional(), skip_n: z.union([z.number(), z.string()]).transform(Number).optional() }).passthrough(), z.string()])).nullish(),
+image_prompt: z.string().nullish(),
+image_style: z.string().nullish(),
+image_ratio: z.union([z.literal("1:1"), z.literal("9:16"), z.literal("16:9")]).nullish(),
+send_after: z.boolean().nullish(),
+ai_agent_id: z.string().nullish(),
+ai_agent_pass_context: z.boolean().nullish(),
+ai_agent_save_variable: z.string().nullish(),
+distrib_strategy: z.union([z.literal("round_robin"), z.literal("random"), z.literal("least_busy")]).nullish(),
+distrib_operators: z.string().nullish(),
+distrib_save_variable: z.string().nullish(),
+campo: z.string().nullish(),
+field: z.string().nullish(),
+operador: z.string().nullish(),
+operator: z.string().nullish(),
+template_id: z.string().nullish(),
+texto: z.string().nullish(),
+delay: z.union([z.number(), z.string()]).transform(Number).nullish(),
+minutos: z.union([z.number(), z.string()]).transform(Number).nullish(),
+else_skip_steps: z.union([z.number(), z.string()]).transform(Number).nullish(),
+valor: z.unknown(), value: z.unknown()
+}).passthrough();
+function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function describeError(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+
+
+interface LeadRow { id: string; nome?: string | null; name?: string | null; email?: string | null; phone?: string | null; telefone?: string | null; produto?: string | null; plataforma?: string | null; tags?: string[] | null; lead_memory?: Record<string, unknown> | null; [field: string]: unknown }
+interface StepResult { step: number; tipo?: string; started_at?: string; status?: string; _failed_step_index?: number; _failed_step_kind?: string; [detail: string]: unknown }
+const stepResultSchema = z.object({ step: z.number(), tipo: z.string().optional(), started_at: z.string().optional(), status: z.string().optional(), _failed_step_index: z.number().optional(), _failed_step_kind: z.string().optional() }).passthrough();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +196,8 @@ function getLeadTimezoneOffset(phone: string): number {
 }
 
 // Normalize step fields from editor format to executor format
-function normalizeStep(step: any): any {
+function normalizeStep(input: unknown) {
+  const step = stepSchema.parse(input);
   const tipo = step.tipo === "aguardar" ? "delay" : step.tipo;
   return {
     ...step,
@@ -75,21 +205,27 @@ function normalizeStep(step: any): any {
     // Message: editor uses 'template', executor expects 'mensagem'
     mensagem: step.mensagem || step.texto || step.template || "",
     // Delay: editor uses 'delay_min', executor expects 'delay_min'
-    delay_min: step.delay_min || step.minutos || step.delay || 1,
+    // Quando o passo define ritmo em segundos (delay_sec), NÃO forçamos 1 minuto.
+    delay_min: Number(step.delay_sec || 0) > 0
+      ? Number(step.delay_min || 0)
+      : Number(record(input).delay_min || record(input).minutos || record(input).delay || 1),
+    delay_sec: Number(step.delay_sec || 0),
   };
 }
 
-function replaceVariables(text: string, lead_data: any, leadDb: any): string {
+
+function replaceVariables(text: string, leadInput: unknown, leadDb: LeadRow | null): string {
+  const lead_data = record(leadInput);
   let result = text || "";
   
   if (leadDb?.lead_memory && typeof leadDb.lead_memory === "object") {
     const regex = /\{\{([^}]+)\}\}/g;
     result = result.replace(regex, (match, path) => {
       const parts = path.trim().split(".");
-      let current = leadDb.lead_memory;
+      let current: unknown = leadDb.lead_memory;
       for (const part of parts) {
         if (current && typeof current === "object" && part in current) {
-          current = current[part];
+          current = record(current)[part];
         } else {
           return match; // return original match if not found in memory
         }
@@ -98,22 +234,23 @@ function replaceVariables(text: string, lead_data: any, leadDb: any): string {
     });
   }
   
-  const phone = lead_data?.phone || lead_data?.telefone || leadDb?.telefone || leadDb?.phone || "";
-  const linkUrl = lead_data?.link || "";
-  const nome = lead_data?.nome || leadDb?.name || "Lead";
+  const phone = String(lead_data.phone || lead_data.telefone || leadDb?.telefone || leadDb?.phone || "");
+  const linkUrl = String(lead_data.link || lead_data.link_checkout || "");
+  const nome = String(lead_data.nome || leadDb?.name || "Lead");
   
   result = result
     .replace(/\{\{nome\}\}/g, nome)
     .replace(/\{\{name\}\}/g, nome)
     .replace(/\{\{primeiro_nome\}\}/g, nome.split(" ")[0])
     .replace(/\{\{primeiro-nome\}\}/g, nome.split(" ")[0])
-    .replace(/\{\{email\}\}/g, lead_data?.email || leadDb?.email || "")
-    .replace(/\{\{produto\}\}/g, lead_data?.produto || leadDb?.produto || "")
+    .replace(/\{\{email\}\}/g, String(lead_data?.email || leadDb?.email || ""))
+    .replace(/\{\{produto\}\}/g, String(lead_data?.produto || leadDb?.produto || ""))
     .replace(/\{\{telefone\}\}/g, phone)
     .replace(/\{\{link\}\}/g, linkUrl)
+    .replace(/\{\{link_checkout\}\}/g, linkUrl)
     .replace(/\{\{valor\}\}/g, lead_data?.valor ? `R$ ${Number(lead_data.valor).toFixed(2).replace(".", ",")}` : "")
-    .replace(/\{\{plataforma\}\}/g, lead_data?.plataforma || leadDb?.plataforma || "")
-    .replace(/\{\{fluxo\}\}/g, lead_data?.fluxo || "");
+    .replace(/\{\{plataforma\}\}/g, String(lead_data?.plataforma || leadDb?.plataforma || ""))
+    .replace(/\{\{fluxo\}\}/g, String(lead_data?.fluxo || ""));
     
   return result;
 }
@@ -122,7 +259,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { trigger_tipo, project_id, lead_data, automacao_id, resume_from_step } = await req.json();
+    const { trigger_tipo, project_id, lead_data, automacao_id, resume_from_step, execution_id, cinna_resume_token } = await req.json();
     if (!trigger_tipo || !project_id) {
       return new Response(JSON.stringify({ error: "trigger_tipo e project_id obrigatórios" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -147,7 +284,12 @@ Deno.serve(async (req) => {
       assinatura_cancelada: ["assinatura_cancelada"],
       assinatura_renovada: ["assinatura_renovada"],
       upsell_aprovado: ["upsell_aprovado"],
+      upsell_recusado: ["upsell_recusado"],
       orderbump_aprovado: ["orderbump_aprovado"],
+      orderbump_recusado: ["orderbump_recusado"],
+      downsell_aprovado: ["downsell_aprovado"],
+      downsell_recusado: ["downsell_recusado"],
+      venda_principal_aprovada: ["venda_principal_aprovada"],
       primeiro_acesso: ["primeiro_acesso"],
       trial_iniciado: ["trial_iniciado"],
       tag_adicionada: ["tag_adicionada"],
@@ -172,6 +314,51 @@ Deno.serve(async (req) => {
       });
     }
 
+    if ((execution_id || (automacoes || []).some(auto => isNativeCinna(auto.acoes || auto.etapas))) &&
+        req.headers.get("Authorization") !== `Bearer ${supabaseKey}`) return Response.json({ error: "Unauthorized Cinna caller" }, { status: 401, headers: corsHeaders });
+
+    // ── Exit Conditions: cancel running/waiting executions when the incoming
+    // trigger matches an automation's exit_trigger_tipo. If exit_cascade=true,
+    // cancel ALL active flows for this lead in the project.
+    if (lead_data?.lead_id) {
+      const { data: exitMatches } = await supabase
+        .from("imphq_automacoes")
+        .select("id, nome, exit_trigger_tipo, exit_cascade")
+        .eq("project_id", project_id)
+        .in("exit_trigger_tipo", triggerVariants);
+
+      if (exitMatches && exitMatches.length > 0) {
+        const cascade = exitMatches.some((a) => a.exit_cascade);
+        let killQuery = supabase
+          .from("imphq_flow_executions")
+          .update({
+            status: "exited",
+            error_message: `Exit condition: ${trigger_tipo}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("project_id", project_id)
+          .eq("lead_id", lead_data.lead_id)
+          .in("status", ["running", "waiting"]);
+
+        if (!cascade) {
+          killQuery = killQuery.in("automacao_id", exitMatches.map((a) => a.id));
+        }
+
+        const { data: killed } = await killQuery.select("id, automacao_id, current_step");
+        if (killed && killed.length > 0) {
+          for (const k of killed) {
+            await supabase.from("imphq_automacao_logs").insert({
+              automacao_id: k.automacao_id,
+              project_id,
+              status: "exited",
+              trigger_data: { trigger_tipo, lead_id: lead_data.lead_id, exit_step: k.current_step ?? 0, cascade },
+              error_message: `Flow encerrado por exit condition (${trigger_tipo}) em Passo ${k.current_step ?? 0}`,
+            }).then(() => {}, () => {});
+          }
+        }
+      }
+    }
+
     // Fetch lead details if lead_id is present to get accurate, latest tags
     let leadTags: string[] = [];
     if (lead_data?.lead_id) {
@@ -192,8 +379,12 @@ Deno.serve(async (req) => {
 
     // Filter by project, product, campanha and tag_filtro
     const leadCampanha = lead_data?.campanha_id;
-    const matched = (automacoes || []).filter((a: any) => {
+    const leadCanal = lead_data?.canal || "whatsapp";
+    const matched = (automacoes || []).filter((a) => {
+      // Canal do fluxo precisa bater com o canal de origem (whatsapp | messenger | webchat)
+      if ((a.canal || "whatsapp") !== leadCanal) return false;
       if (a.project_id && a.project_id !== project_id) return false;
+
       if (a.produto && lead_data?.produto) {
         if (a.produto.toLowerCase() !== lead_data.produto.toLowerCase()) return false;
       }
@@ -206,8 +397,30 @@ Deno.serve(async (req) => {
         const hasTag = leadTags.some((t: string) => t.toLowerCase() === a.tag_filtro.toLowerCase());
         if (!hasTag) return false;
       }
+      // WhatsApp trigger: filter by keywords / regex configured in trigger_config
+      if (String(trigger_tipo || "").startsWith("whatsapp_")) {
+        const cfg = a.trigger_config || {};
+        const msg = String(lead_data?.message_content || lead_data?.mensagem_recebida || "").toLowerCase().trim();
+        const keywords: string[] = Array.isArray(cfg.keywords) ? cfg.keywords : [];
+        const matchMode = cfg.match_mode || "any"; // any | all | exact | regex
+        if (keywords.length > 0) {
+          if (!msg) return false;
+          const kws = keywords.map((k) => String(k).toLowerCase().trim()).filter(Boolean);
+          let ok = false;
+          if (matchMode === "regex") {
+            ok = kws.some((k) => { try { return new RegExp(k, "i").test(msg); } catch { return false; } });
+          } else if (matchMode === "exact") {
+            ok = kws.includes(msg);
+          } else if (matchMode === "all") {
+            ok = kws.every((k) => msg.includes(k));
+          } else {
+            ok = kws.some((k) => msg.includes(k));
+          }
+          if (!ok) return false;
+        }
+      }
       return true;
-    });
+    }).sort((a, b) => Number(b.prioridade ?? 5) - Number(a.prioridade ?? 5));
 
     if (matched.length === 0) {
       return new Response(JSON.stringify({ ok: true, executed: 0, message: "Nenhuma automação encontrada" }), {
@@ -215,40 +428,77 @@ Deno.serve(async (req) => {
       });
     }
 
-    const results: any[] = [];
+    const results: Record<string, unknown>[] = [];
 
-    // ── Cross-flow lock: check if lead is already inside a DIFFERENT active flow
+    // ── Cross-flow lock: check if lead (or phone) is already inside a DIFFERENT active flow
     // Prevent a lead in Flow A from being pulled into conflicting Flow B simultaneously.
     // Exception: resume_from_step (re-entry from wa-ai-reply) and explicit automacao_id bypass.
     let activeFlowId: string | null = null;
     let activeFlowName: string | null = null;
-    if (lead_data?.lead_id && !resume_from_step && !automacao_id) {
-      const { data: activeExecs } = await supabase
-        .from("imphq_flow_executions")
-        .select("id, automacao_id")
-        .eq("lead_id", lead_data.lead_id)
-        .in("status", ["running", "waiting"])
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (activeExecs && activeExecs.length > 0) {
-        activeFlowId = activeExecs[0].automacao_id;
-        // Look up automation name for logging
-        const { data: activeAuto } = await supabase
-          .from("imphq_automacoes")
-          .select("nome")
-          .eq("id", activeFlowId)
-          .maybeSingle();
-        activeFlowName = activeAuto?.nome || activeFlowId;
-        console.log(`[openflow-executor] Lead ${lead_data.lead_id} already in flow "${activeFlowName}" (${activeFlowId})`);
+    let activeFlowExclusivo = false;
+    let activeFlowPrioridade = 5;
+    if (!resume_from_step && !automacao_id) {
+      // Resolve a set of lead_ids that share the same phone as the incoming lead (when available)
+      const relatedLeadIds: string[] = lead_data?.lead_id ? [lead_data.lead_id] : [];
+      const phoneRaw = lead_data?.telefone || lead_data?.phone || lead_data?.whatsapp;
+      if (phoneRaw) {
+        const phoneDigits = String(phoneRaw).replace(/\D/g, "");
+        if (phoneDigits.length >= 8) {
+          const { data: sameLeads } = await supabase
+            .from("imphq_leads")
+            .select("id")
+            .ilike("telefone", `%${phoneDigits.slice(-8)}%`)
+            .limit(50);
+          for (const l of sameLeads || []) {
+            if (l.id && !relatedLeadIds.includes(l.id)) relatedLeadIds.push(l.id);
+          }
+        }
+      }
+
+      if (relatedLeadIds.length > 0) {
+        const { data: activeExecs } = await supabase
+          .from("imphq_flow_executions")
+          .select("id, automacao_id, lead_id")
+          .in("lead_id", relatedLeadIds)
+          .in("status", ["running", "waiting"])
+          .order("created_at", { ascending: false })
+          .limit(5);
+        if (activeExecs && activeExecs.length > 0) {
+          activeFlowId = activeExecs[0].automacao_id;
+          const { data: activeAuto } = await supabase
+            .from("imphq_automacoes")
+            .select("nome, prioridade, exclusivo")
+            .eq("id", activeFlowId)
+            .maybeSingle();
+          activeFlowName = activeAuto?.nome || activeFlowId;
+          activeFlowExclusivo = !!activeAuto?.exclusivo;
+          activeFlowPrioridade = Number(activeAuto?.prioridade ?? 5);
+          console.log(`[openflow-executor] Lead/phone já em fluxo "${activeFlowName}" (${activeFlowId}) — exclusivo=${activeFlowExclusivo} prioridade=${activeFlowPrioridade}`);
+        }
       }
     }
 
     for (const auto of matched) {
-      // ── Cross-flow lock: skip if lead is in a different active flow
+      // ── Cross-flow lock: skip / preempt based on prioridade + exclusivo
       if (activeFlowId && activeFlowId !== auto.id) {
-        console.log(`[openflow-executor] Skipping ${auto.id} (${auto.nome}): lead already in flow "${activeFlowName}"`);
-        results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: "cross_flow_lock", active_flow: activeFlowName });
-        continue;
+        const myPrioridade = Number(auto.prioridade ?? 5);
+        const canPreempt = !activeFlowExclusivo && myPrioridade > activeFlowPrioridade;
+        if (canPreempt) {
+          // Cancel the previous active flow execution(s) for this lead
+          await supabase
+            .from("imphq_flow_executions")
+            .update({ status: "cancelled", error_message: `Preempted by higher-priority flow "${auto.nome}"`, updated_at: new Date().toISOString() })
+            .eq("automacao_id", activeFlowId)
+            .in("status", ["running", "waiting"]);
+          console.log(`[openflow-executor] Preempt: "${auto.nome}" (p=${myPrioridade}) > "${activeFlowName}" (p=${activeFlowPrioridade})`);
+          activeFlowId = null;
+          activeFlowName = null;
+          activeFlowExclusivo = false;
+        } else {
+          console.log(`[openflow-executor] Skip ${auto.id} (${auto.nome}): lead em "${activeFlowName}" (exclusivo=${activeFlowExclusivo}, p_other=${activeFlowPrioridade}, p_self=${myPrioridade})`);
+          results.push({ automacao_id: auto.id, automacao_nome: auto.nome, status: "skipped", reason: activeFlowExclusivo ? "cross_flow_lock_exclusive" : "cross_flow_lock_priority", active_flow: activeFlowName });
+          continue;
+        }
       }
 
       // ── Dedupe: skip if same automation ran for same lead within N hours
@@ -271,12 +521,53 @@ Deno.serve(async (req) => {
       }
 
       // CRITICAL FIX: Read from 'acoes' (editor field) with fallback to 'etapas' (legacy)
-      const rawSteps = auto.acoes || auto.etapas || [];
+      if (auto.link_checkout) {
+        lead_data.link = lead_data?.link || auto.link_checkout;
+        lead_data.link_checkout = lead_data?.link_checkout || auto.link_checkout;
+      }
+      let rawSteps: unknown[] = auto.acoes || auto.etapas || [];
+      if ((execution_id || isNativeCinna(rawSteps)) && req.headers.get("Authorization") !== `Bearer ${supabaseKey}`) throw new Error("Unauthorized Cinna caller");
+      let cinnaRuntime = !execution_id && isNativeCinna(rawSteps) ? createCinnaRuntime(rawSteps) : null;
+      let cinnaExecution: { id: string } | null = null;
+      let cinnaStartId: string | undefined;
+      let cinnaPreviousResults: unknown = [];
+      if (execution_id) {
+        const { data: existing, error } = await supabase.from("imphq_flow_executions").select("id, step_results, current_step, status")
+          .eq("id", execution_id).eq("automacao_id", auto.id).eq("project_id", project_id)
+          .eq("channel_session_id", lead_data?.channel_session_id).maybeSingle();
+        if (error || !existing) throw new Error("Cinna execution not found");
+        cinnaRuntime = readCinnaRuntime(existing.step_results);
+        if (!cinnaRuntime || existing.status !== "running" || !cinna_resume_token || cinnaRuntime.resumeToken !== cinna_resume_token ||
+            Number(resume_from_step) !== existing.current_step + 1 || cinnaRuntime.pending || cinnaRuntime.state.status !== "active" ||
+            cinnaRuntime.snapshot.waitSteps[cinnaRuntime.state.stageIndex - 1] !== existing.current_step) throw new Error("Invalid Cinna resume claim");
+        rawSteps = cinnaRuntime.snapshot.actions;
+        delete cinnaRuntime.resumeToken;
+        cinnaPreviousResults = writeCinnaRuntime(existing.step_results, cinnaRuntime);
+        const { data: claimed, error: claimError } = await supabase.from("imphq_flow_executions")
+          .update({ current_step: Number(resume_from_step), step_results: cinnaPreviousResults, next_run_at: null })
+          .eq("id", existing.id).eq("status", "running").eq("current_step", existing.current_step)
+          .eq("step_results", JSON.stringify(existing.step_results)).select("id").maybeSingle();
+        if (claimError || !claimed) throw new Error("Cinna resume already claimed");
+        cinnaExecution = claimed;
+      } else if (cinnaRuntime && resume_from_step !== undefined) throw new Error("Cinna requires a linked reply, never a timer resume");
+      if (cinnaRuntime && (!lead_data?.channel_session_id || !["messenger", "webchat"].includes(lead_data?.canal))) throw new Error("Cinna channel is not supported or connected");
+      if (cinnaRuntime && auto.quiet_start != null && auto.quiet_end != null && auto.quiet_start !== auto.quiet_end) throw new Error("Cinna quiet hours require a supported scheduler; execution paused before sending");
+      if (cinnaRuntime && !execution_id) {
+        const { data: session, error } = await supabase.from("imphq_channel_sessions").select("id, project_id, canal, meta")
+          .eq("id", lead_data.channel_session_id).eq("project_id", project_id).maybeSingle();
+        if (error || !session || session.canal !== lead_data.canal) throw new Error("Invalid Cinna session");
+        if (session.meta?.cinna_execution_id) throw new Error("Cinna session already started or paused; explicit reconciliation required");
+        cinnaStartId = crypto.randomUUID();
+        let claim = supabase.from("imphq_channel_sessions").update({ meta: { ...session.meta, cinna_execution_id: cinnaStartId } }).eq("id", session.id);
+        claim = session.meta === null ? claim.is("meta", null) : claim.eq("meta", JSON.stringify(session.meta));
+        const { data: claimed, error: claimError } = await claim.select("id").maybeSingle();
+        if (claimError || !claimed) throw new Error("Cinna session concurrently claimed");
+      }
       const steps = rawSteps.map(normalizeStep);
 
       const startStep = resume_from_step !== undefined ? Number(resume_from_step) : 0;
-      let prevStepResults: any[] = [];
-      if (resume_from_step !== undefined && lead_data?.lead_id) {
+      let prevStepResults: StepResult[] = cinnaRuntime ? z.array(stepResultSchema).parse(writeCinnaRuntime(cinnaPreviousResults, cinnaRuntime)) : [];
+      if (!cinnaRuntime && resume_from_step !== undefined && lead_data?.lead_id) {
         const { data: lastExec } = await supabase
           .from("imphq_flow_executions")
           .select("step_results")
@@ -286,11 +577,11 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         if (lastExec && Array.isArray(lastExec.step_results)) {
-          prevStepResults = lastExec.step_results;
+          prevStepResults = z.array(stepResultSchema).parse(lastExec.step_results);
         }
       }
 
-      const stepResults: any[] = [...prevStepResults];
+      const stepResults: StepResult[] = [...prevStepResults];
       let status = "completed";
       let errorMessage: string | null = null;
       let messagesSent = 0;
@@ -305,7 +596,7 @@ Deno.serve(async (req) => {
 
       // ── Quiet hours: reschedule if current time falls inside the configured window (local timezone by DDD)
       const qs = auto.quiet_start, qe = auto.quiet_end;
-      if (qs != null && qe != null && qs !== qe) {
+      if (!cinnaRuntime && qs != null && qe != null && qs !== qe) {
         const phone = lead_data?.phone || lead_data?.telefone || "";
         const offset = phone ? getLeadTimezoneOffset(phone) : -3;
         const utcHour = new Date().getUTCHours();
@@ -370,12 +661,14 @@ Deno.serve(async (req) => {
       }
 
       // Create execution record
-      const { data: execution, error: execErr } = await supabase
+      const { data: execution, error: execErr } = cinnaExecution ? { data: cinnaExecution, error: null } : await supabase
         .from("imphq_flow_executions")
         .insert({
+          ...(cinnaStartId ? { id: cinnaStartId } : {}),
           automacao_id: auto.id,
           project_id,
           lead_id: lead_data?.lead_id || null,
+          channel_session_id: lead_data?.channel_session_id || null,
           trigger_tipo,
           status: "running",
           current_step: startStep,
@@ -384,7 +677,7 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
 
-      if (execErr) {
+      if (execErr || !execution) {
         console.error("[openflow-executor] Failed to create execution:", execErr);
         continue;
       }
@@ -422,12 +715,28 @@ Deno.serve(async (req) => {
         lead_data.fluxo = auto.nome || "";
       }
 
+      // ── Sessão de canal (Messenger / Chat do site). Quando presente, os blocos de
+      // mensagem são entregues pelo canal em vez do WhatsApp.
+      let channelSession: ChannelSession | null = null;
+      if (lead_data?.channel_session_id) {
+        const { data: cs } = await supabase
+          .from("imphq_channel_sessions")
+          .select("*")
+          .eq("id", lead_data.channel_session_id)
+          .maybeSingle();
+        channelSession = cs || null;
+        if (cinnaRuntime && (!channelSession || channelSession.project_id !== project_id)) throw new Error("Cinna delivery session unavailable");
+      }
+
       // Load lead details once for the execution of this automation
-      let leadDb: any = null;
+      let leadDb: LeadRow | null = null;
+
+      const LEAD_COLS = "id, nome, email, phone, project_id, funil_id, plataforma, status, score, tags, total_gasto, data, campanha_id, lead_memory, awareness_level, ultimo_interesse, nivel_qualificacao, dor_principal, objecao_atual, created_at, updated_at";
+
       if (lead_data?.lead_id) {
         const { data: l } = await supabase
           .from("imphq_leads")
-          .select("*")
+          .select(LEAD_COLS)
           .eq("id", lead_data.lead_id)
           .maybeSingle();
         leadDb = l;
@@ -443,7 +752,7 @@ Deno.serve(async (req) => {
           }
           const { data: l } = await supabase
             .from("imphq_leads")
-            .select("*")
+            .select(LEAD_COLS)
             .eq("project_id", project_id)
             .in("phone", searchPhones)
             .maybeSingle();
@@ -457,7 +766,7 @@ Deno.serve(async (req) => {
 
       for (let i = startStep; i < steps.length; i++) {
         const step = steps[i];
-        const stepResult: any = { step: i, tipo: step.tipo, started_at: new Date().toISOString() };
+        const stepResult: StepResult = { step: i, tipo: step.tipo, started_at: new Date().toISOString() };
 
         // Check if lead replied or purchased since the beginning of this execution
         let hasRepliedOrPurchased = false;
@@ -466,8 +775,8 @@ Deno.serve(async (req) => {
         const phone = lead_data?.phone || lead_data?.telefone;
         const leadId = lead_data?.lead_id;
         
+        let originalStart = new Date().toISOString();
         if (phone || leadId) {
-          let originalStart = new Date().toISOString();
           if (resume_from_step && Number(resume_from_step) > 0) {
             try {
               const { data: originalExec } = await supabase
@@ -536,7 +845,7 @@ Deno.serve(async (req) => {
 
           // Record flow attribution when the lead converts while inside this flow
           if (abortReason === "Lead realizou a compra") {
-            await supabase.from("imphq_events").insert({
+            await Promise.resolve(supabase.from("imphq_events").insert({
               project_id,
               event_name: "flow_attribution",
               page_url: "",
@@ -551,7 +860,7 @@ Deno.serve(async (req) => {
                 messages_sent_before_conversion: messagesSent,
                 step_at_conversion: i,
               },
-            }).catch((err: any) => console.error("[openflow-executor] flow_attribution insert error:", err.message));
+            })).catch((err: unknown) => console.error("[openflow-executor] flow_attribution insert error:", describeError(err)));
           }
 
           break; // Stop flow
@@ -578,7 +887,7 @@ Deno.serve(async (req) => {
         if (actionTypesToDelay.includes(step.tipo)) {
           const delayMin = Number(step.delay_min || 0);
           if (delayMin > 0) {
-            const alreadyDelayed = prevStepResults.some((r: any) => r.step === i && r.status === "waiting_delay");
+            const alreadyDelayed = prevStepResults.some((r) => r.step === i && r.status === "waiting_delay");
             if (!alreadyDelayed) {
               if (delayMin > 5) {
                 const nextRun = new Date(Date.now() + delayMin * 60000);
@@ -604,7 +913,15 @@ Deno.serve(async (req) => {
               }
             }
           }
+
+          // Ritmo de conversa: espera curta em segundos (máx 20s), sempre inline
+          const delaySec = Math.min(Number(step.delay_sec || 0), 20);
+          if (delaySec > 0) {
+            const alreadyPaced = prevStepResults.some((r) => r.step === i && r.status === "waiting_delay");
+            if (!alreadyPaced) await delay(delaySec * 1000);
+          }
         }
+
 
         try {
           // Update current step
@@ -613,53 +930,74 @@ Deno.serve(async (req) => {
             .eq("id", executionId);
 
           if (step.tipo === "delay" || step.tipo === "espera") {
-            const delayMin = step.delay_min || 1;
-            // For delays > 5 min, schedule for later and stop
-            if (delayMin > 5) {
-              const nextRun = new Date(Date.now() + delayMin * 60000);
-              await supabase.from("imphq_flow_executions")
-                .update({
-                  status: "waiting",
-                  current_step: i + 1,
-                  next_run_at: nextRun.toISOString(),
-                  step_results: [...stepResults, { ...stepResult, status: "delayed", next_run: nextRun.toISOString() }],
-                })
-                .eq("id", executionId);
-              status = "waiting";
-              break;
+            // Modo "data absoluta": wait_until (ISO). Ignora delay_min.
+            if (step.wait_until) {
+              const targetMs = new Date(step.wait_until).getTime();
+              if (!isNaN(targetMs) && targetMs - Date.now() > 0) {
+                const nextRun = new Date(targetMs);
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i + 1,
+                    next_run_at: nextRun.toISOString(),
+                    step_results: [...stepResults, { ...stepResult, status: "delayed", next_run: nextRun.toISOString(), mode: "absolute" }],
+                  })
+                  .eq("id", executionId);
+                status = "waiting";
+                break;
+              }
+              // data já passou: avança imediatamente
+              stepResult.status = "completed";
+            } else {
+              const delayMin = step.delay_min || 1;
+              // For delays > 5 min, schedule for later and stop
+              if (delayMin > 5) {
+                const nextRun = new Date(Date.now() + delayMin * 60000);
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i + 1,
+                    next_run_at: nextRun.toISOString(),
+                    step_results: [...stepResults, { ...stepResult, status: "delayed", next_run: nextRun.toISOString() }],
+                  })
+                  .eq("id", executionId);
+                status = "waiting";
+                break;
+              }
+              // Short delays: wait inline
+              await delay(Math.min(delayMin * 60000, 5 * 60000));
+              stepResult.status = "completed";
             }
-            // Short delays: wait inline
-            await delay(Math.min(delayMin * 60000, 5 * 60000));
-            stepResult.status = "completed";
           }
 
           else if (step.tipo === "wait_event" || step.tipo === "wait_until_event") {
-            const eventName = step.event_name;
+            // Supports single event_name OR multiple events via event_names (comma-separated, OR logic)
+            const eventNames: string[] = (step.event_names
+              ? String(step.event_names).split(",").map((s: string) => s.trim()).filter(Boolean)
+              : (step.event_name ? [String(step.event_name).trim()] : []));
             const timeoutMin = Number(step.timeout_min || 60);
-            
-            let eventOccurred = false;
-            if (lead_data?.lead_id && eventName) {
+
+            let detectedEvent: string | null = null;
+            if (lead_data?.lead_id && eventNames.length > 0) {
               const { data: evts } = await supabase
                 .from("imphq_events")
-                .select("id")
+                .select("event_name")
                 .eq("lead_id", lead_data.lead_id)
-                .eq("event_name", eventName)
+                .in("event_name", eventNames)
                 .gt("created_at", originalStart)
                 .limit(1);
-              if (evts && evts.length > 0) {
-                eventOccurred = true;
-              }
+              if (evts && evts.length > 0) detectedEvent = evts[0].event_name;
             }
-            
-            if (eventOccurred) {
+
+            if (detectedEvent) {
               stepResult.status = "completed";
-              stepResult.reason = `Evento "${eventName}" detectado. Prosseguindo.`;
+              stepResult.matched_event = detectedEvent;
+              stepResult.reason = `Evento "${detectedEvent}" detectado. Prosseguindo.`;
             } else {
-              // Check if we are resuming from this step (which means timeout occurred)
               const isTimeout = resume_from_step !== undefined && Number(resume_from_step) === i;
               if (isTimeout) {
                 stepResult.status = "completed";
-                stepResult.reason = `Timeout de ${timeoutMin} min atingido sem o evento "${eventName}". Prosseguindo.`;
+                stepResult.reason = `Timeout de ${timeoutMin} min atingido sem evento(s) [${eventNames.join(", ")}]. Prosseguindo.`;
               } else {
                 const nextRun = new Date(Date.now() + timeoutMin * 60000);
                 await supabase.from("imphq_flow_executions")
@@ -667,7 +1005,7 @@ Deno.serve(async (req) => {
                     status: "waiting",
                     current_step: i,
                     next_run_at: nextRun.toISOString(),
-                    step_results: [...stepResults, { ...stepResult, status: "waiting", next_run: nextRun.toISOString(), notes: `Aguardando evento "${eventName}" ou timeout em ${nextRun.toISOString()}` }],
+                    step_results: [...stepResults, { ...stepResult, status: "waiting", next_run: nextRun.toISOString(), notes: `Aguardando evento(s) [${eventNames.join(", ")}] ou timeout em ${nextRun.toISOString()}` }],
                   })
                   .eq("id", executionId);
                 status = "waiting";
@@ -692,24 +1030,332 @@ Deno.serve(async (req) => {
             } else {
               // Primeira vez neste nó: coloca em espera aguardando resposta
               const timeoutAt = new Date(Date.now() + timeoutMin * 60000);
-              await supabase.from("imphq_flow_executions")
+              const { error: waitError } = await supabase.from("imphq_flow_executions")
                 .update({
                   status: "waiting",
                   current_step: i,
-                  next_run_at: timeoutAt.toISOString(), // timeout fallback via openflow-resume
+                  next_run_at: cinnaRuntime ? null : timeoutAt.toISOString(), // Cinna advances only through its reply policy
                   step_results: [...stepResults, {
                     ...stepResult,
                     status: "waiting_reply",
                     waiting_for: "reply",
                     conversation_id: convId || null,
-                    timeout_at: timeoutAt.toISOString(),
-                    notes: `Aguardando resposta do lead. Timeout em ${timeoutAt.toISOString()}.`,
+                    timeout_at: cinnaRuntime ? null : timeoutAt.toISOString(),
+                    notes: cinnaRuntime ? "Aguardando resposta validada pela política Cinna, sem avanço por tempo." : `Aguardando resposta do lead. Timeout em ${timeoutAt.toISOString()}.`,
                   }],
                 })
                 .eq("id", executionId);
-              console.log(`[openflow-executor] wait_reply: execução ${executionId} pausada aguardando resposta (conv=${convId}, timeout=${timeoutMin}min)`);
+              if (cinnaRuntime && waitError) throw new Error("Cinna wait checkpoint failed");
+              console.log(`[openflow-executor] wait_reply: execução ${executionId} pausada aguardando resposta (conv=${convId}, timeout=${cinnaRuntime ? "disabled" : `${timeoutMin}min`})`);
               status = "waiting";
               break;
+            }
+          }
+
+          // ── input_capture: aguarda resposta do lead e salva em variável (opcional extração via IA) ──
+          else if (step.tipo === "input_capture") {
+            const timeoutMin = Number(step.timeout_min || 1440);
+            const convId = lead_data?.conversation_id || lead_data?.conversationId;
+            const varName = String(step.capture_variable || "").trim();
+
+            const isResumedByReply = resume_from_step !== undefined && Number(resume_from_step) === i
+              && (lead_data?.resumed_by === "reply" || lead_data?.reply_content);
+
+            if (isResumedByReply) {
+              const rawReply = String(lead_data?.reply_content || "").trim();
+              let finalValue = rawReply;
+
+              // Opcional: passa pela IA para extrair essência
+              if (step.ai_extract_prompt && rawReply) {
+                try {
+                  const extractRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}` },
+                    body: JSON.stringify({
+                      model: "google/gemini-3-flash-preview",
+                      messages: [
+                        { role: "system", content: String(step.ai_extract_prompt) },
+                        { role: "user", content: rawReply },
+                      ],
+                      max_tokens: 200,
+                    }),
+                  });
+                  if (extractRes.ok) {
+                    const j = await extractRes.json();
+                    const ext = j?.choices?.[0]?.message?.content?.trim();
+                    if (ext) finalValue = ext;
+                  }
+                } catch (e) {
+                  console.warn("[input_capture] extração IA falhou, salvando resposta bruta:", describeError(e));
+                }
+              }
+
+              // Salva em lead_memory (aparece em {{VAR}} de forma nativa)
+              if (varName && lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = ld?.lead_memory || {};
+                const updated = { ...current, [varName]: finalValue };
+                await supabase.from("imphq_leads")
+                  .update({ lead_memory: updated, updated_at: new Date().toISOString() })
+                  .eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+              // Espelha em conversation.variables para consulta rápida
+              if (varName && convId) {
+                const { data: conv } = await supabase.from("imphq_wa_conversations").select("variables").eq("id", convId).maybeSingle();
+                const cur = conv?.variables || {};
+                await supabase.from("imphq_wa_conversations")
+                  .update({ variables: { ...cur, [varName]: finalValue } })
+                  .eq("id", convId);
+              }
+
+              stepResult.status = "completed";
+              stepResult.capture_variable = varName;
+              stepResult.captured_value = finalValue.slice(0, 200);
+              stepResult.reason = `Capturado {{${varName}}}: "${finalValue.slice(0, 80)}"`;
+            } else {
+              const timeoutAt = new Date(Date.now() + timeoutMin * 60000);
+              await supabase.from("imphq_flow_executions")
+                .update({
+                  status: "waiting",
+                  current_step: i,
+                  next_run_at: timeoutAt.toISOString(),
+                  step_results: [...stepResults, {
+                    ...stepResult,
+                    status: "waiting_reply",
+                    waiting_for: "reply",
+                    capture_variable: varName,
+                    conversation_id: convId || null,
+                    timeout_at: timeoutAt.toISOString(),
+                    notes: `Aguardando resposta para salvar em {{${varName}}}.`,
+                  }],
+                })
+                .eq("id", executionId);
+              console.log(`[openflow-executor] input_capture aguardando resposta em {{${varName}}} (exec=${executionId})`);
+              status = "waiting";
+              break;
+            }
+          }
+
+          // ── quick_reply: envia pergunta + opções numeradas, aguarda resposta e salva escolha ──
+          else if (step.tipo === "quick_reply") {
+            const timeoutMin = Number(step.timeout_min || 1440);
+            const convId = lead_data?.conversation_id || lead_data?.conversationId;
+            const varName = String(step.capture_variable || "QUICK_CHOICE").trim();
+            const rawOptions: NonNullable<z.infer<typeof stepSchema>["options"]> = Array.isArray(step.options) ? step.options : [];
+            const options = rawOptions
+              .map((o) => (typeof o === "string" ? { label: o } : o))
+              .filter((o) => o && String(o.label || "").trim())
+              .slice(0, 9);
+
+            const isResumedByReply = resume_from_step !== undefined && Number(resume_from_step) === i
+              && (lead_data?.resumed_by === "reply" || lead_data?.reply_content);
+
+            if (isResumedByReply) {
+              const rawReply = String(lead_data?.reply_content || "").trim();
+              const norm = rawReply.toLowerCase();
+              // Match por número (1, 2, 3…) ou por texto (contém label)
+              let chosenIdx = -1;
+              const numMatch = norm.match(/^\s*(\d+)/);
+              if (numMatch) {
+                const n = parseInt(numMatch[1], 10) - 1;
+                if (n >= 0 && n < options.length) chosenIdx = n;
+              }
+              if (chosenIdx < 0) {
+                chosenIdx = options.findIndex((o) =>
+                  norm.includes(String(o.label || "").toLowerCase().trim())
+                );
+              }
+              const chosen = chosenIdx >= 0 ? options[chosenIdx] : null;
+              const finalValue = chosen ? String(chosen.value ?? chosen.label) : rawReply;
+
+              // Salva na memória do lead
+              if (varName && lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = ld?.lead_memory || {};
+                const updated = { ...current, [varName]: finalValue, [`${varName}_INDEX`]: chosenIdx + 1 };
+                await supabase.from("imphq_leads")
+                  .update({ lead_memory: updated, updated_at: new Date().toISOString() })
+                  .eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+              if (varName && convId) {
+                const { data: conv } = await supabase.from("imphq_wa_conversations").select("variables").eq("id", convId).maybeSingle();
+                const cur = conv?.variables || {};
+                await supabase.from("imphq_wa_conversations")
+                  .update({ variables: { ...cur, [varName]: finalValue, [`${varName}_INDEX`]: chosenIdx + 1 } })
+                  .eq("id", convId);
+              }
+
+              // Skip opcional: cada opção pode definir skip_n para pular X ações se escolhida
+              if (chosen && typeof chosen.skip_n === "number" && chosen.skip_n > 0) {
+                i += chosen.skip_n;
+              }
+
+              stepResult.status = "completed";
+              stepResult.capture_variable = varName;
+              stepResult.captured_value = finalValue.slice(0, 200);
+              stepResult.chosen_index = chosenIdx + 1;
+              stepResult.reason = chosen
+                ? `Escolha: ${chosenIdx + 1}) ${chosen.label}`
+                : `Resposta não bateu com nenhuma opção: "${rawReply.slice(0, 60)}"`;
+            } else {
+              // Primeira passagem: envia a pergunta + opções e pausa
+              const phone = lead_data?.phone || lead_data?.telefone;
+              const question = replaceVariables(String(step.question || step.template || "Escolha uma opção:"), lead_data, leadDb);
+              const listTxt = options.map((o, idx: number) => `${idx + 1}) ${o.label}`).join("\n");
+              const fullMsg = `${question}\n\n${listTxt}`.trim();
+
+              if (phone && options.length > 0) {
+                let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+                if (!providerId && project_id) {
+                  const { data: pp } = await supabase.from("imphq_wa_providers")
+                    .select("id").eq("is_active", true).eq("project_id", project_id).limit(1);
+                  if (pp?.length) providerId = pp[0].id;
+                }
+                await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                  body: JSON.stringify({
+                    provider_id: providerId,
+                    phone: normalizeBRPhone(phone),
+                    content: fullMsg,
+                    project_id,
+                  }),
+                }).catch(e => console.warn("[quick_reply] envio falhou:", describeError(e)));
+                messagesSent++;
+              }
+
+              const timeoutAt = new Date(Date.now() + timeoutMin * 60000);
+              await supabase.from("imphq_flow_executions")
+                .update({
+                  status: "waiting",
+                  current_step: i,
+                  next_run_at: timeoutAt.toISOString(),
+                  step_results: [...stepResults, {
+                    ...stepResult,
+                    status: "waiting_reply",
+                    waiting_for: "reply",
+                    capture_variable: varName,
+                    options_sent: options.map((o) => o.label),
+                    conversation_id: convId || null,
+                    timeout_at: timeoutAt.toISOString(),
+                    notes: `Aguardando escolha entre ${options.length} opções em {{${varName}}}.`,
+                  }],
+                })
+                .eq("id", executionId);
+              console.log(`[openflow-executor] quick_reply aguardando escolha em {{${varName}}} (exec=${executionId}, ${options.length} opções)`);
+              status = "waiting";
+              break;
+            }
+          }
+
+          // ── generate_image: gera imagem inline via flow-image-worker, opcionalmente envia no WhatsApp ──
+          else if (step.tipo === "generate_image") {
+            const promptTpl = String(step.image_prompt || step.template || "").trim();
+            if (!promptTpl) {
+              stepResult.status = "skipped";
+              stepResult.reason = "image_prompt vazio";
+            } else {
+              const finalPrompt = replaceVariables(promptTpl, lead_data, leadDb);
+              const styleHint = step.image_style ? ` Estilo: ${step.image_style}.` : "";
+              const size = step.image_ratio === "9:16" ? "1024x1792" : step.image_ratio === "16:9" ? "1792x1024" : "1024x1024";
+              const blockId = String(step.id || `step-${i}`);
+
+              // Reusa job pré-existente concluído (retomada)
+              const { data: existing } = await supabase.from("imphq_flow_image_jobs")
+                .select("id, status, url")
+                .eq("execution_id", executionId)
+                .eq("block_id", blockId)
+                .maybeSingle();
+
+              let imageUrl: string | null = existing?.status === "done" ? existing.url : null;
+
+              if (!imageUrl) {
+                let jobId = existing?.id as string | undefined;
+                if (!jobId) {
+                  const { data: job, error: jobErr } = await supabase.from("imphq_flow_image_jobs").insert({
+                    execution_id: executionId,
+                    automacao_id: String(automacao_id || auto?.id || ""),
+                    block_id: blockId,
+                    prompt: finalPrompt + styleHint,
+                    style: step.image_style || null,
+                    size,
+                    send_after: step.send_after ?? true,
+                    status: "pending",
+                    context: { lead_id: lead_data?.lead_id || null, step: i },
+                  }).select("id").single();
+                  if (jobErr) throw jobErr;
+                  jobId = job.id;
+                }
+
+                // Dispara worker fire-and-forget
+                fetch(`${supabaseUrl}/functions/v1/flow-image-worker`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                  body: JSON.stringify({ job_id: jobId }),
+                }).catch(() => {});
+
+                // Poll curto: até ~55s
+                for (let t = 0; t < 11; t++) {
+                  await new Promise(r => setTimeout(r, 5000));
+                  const { data: j } = await supabase.from("imphq_flow_image_jobs").select("status, url, error").eq("id", jobId).maybeSingle();
+                  if (j?.status === "done" && j.url) { imageUrl = j.url; break; }
+                  if (j?.status === "error") { stepResult.reason = j.error || "erro na geração"; break; }
+                }
+              }
+
+              if (!imageUrl) {
+                // Ainda pending → coloca fluxo em espera para retomar via cron
+                await supabase.from("imphq_flow_executions")
+                  .update({
+                    status: "waiting",
+                    current_step: i,
+                    next_run_at: new Date(Date.now() + 60_000).toISOString(),
+                    step_results: [...stepResults, { ...stepResult, status: "waiting_image", notes: "Aguardando geração de imagem." }],
+                  })
+                  .eq("id", executionId);
+                status = "waiting";
+                break;
+              }
+
+              // Envia no WhatsApp se pedido
+              const phone = lead_data?.phone || lead_data?.telefone;
+              if ((step.send_after ?? true) && phone) {
+                let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
+                if (!providerId && project_id) {
+                  const { data: pp } = await supabase.from("imphq_wa_providers")
+                    .select("id").eq("is_active", true).eq("project_id", project_id).limit(1);
+                  if (pp?.length) providerId = pp[0].id;
+                }
+                const caption = step.template ? replaceVariables(step.template, lead_data, leadDb) : "";
+                await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                  body: JSON.stringify({
+                    provider_id: providerId,
+                    phone: normalizeBRPhone(phone),
+                    content: caption,
+                    media_url: imageUrl,
+                    media_type: "image",
+                    project_id,
+                  }),
+                }).catch(e => console.warn("[generate_image] envio falhou:", describeError(e)));
+                messagesSent++;
+              }
+
+              // Injeta na memória para uso downstream: {{IMG_<blockId>}}
+              if (lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = ld?.lead_memory || {};
+                const updated = { ...current, [`IMG_${blockId}`]: imageUrl };
+                await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+
+              stepResult.status = "completed";
+              stepResult.image_url = imageUrl;
+              stepResult.reason = "Imagem gerada" + ((step.send_after ?? true) && phone ? " e enviada." : ".");
             }
           }
 
@@ -739,14 +1385,58 @@ Deno.serve(async (req) => {
             }
           }
 
+          // ── Canais alternativos (Messenger via Zernio / Chat do site): reaproveita os blocos
+          // de mensagem/IA do fluxo, mas entrega pela sessão de canal em vez do WhatsApp.
+          else if (
+            (step.tipo === "whatsapp" || step.tipo === "audio") &&
+            (channelSession || auto.canal === "messenger" || auto.canal === "webchat")
+          ) {
+            if (!channelSession) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Fluxo de canal sem sessão (channel_session_id ausente)";
+            } else {
+              const msgText = cinnaRuntime ? String(step.template ?? step.mensagem ?? step.texto ?? "") : replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
+              const stepMedia = step.media;
+              if (cinnaRuntime) {
+                const { error } = await supabase.from("imphq_flow_executions").update({ step_results: [...stepResults, { ...stepResult, status: "delivery_pending" }] }).eq("id", executionId);
+                if (error) throw new Error("Cinna delivery checkpoint failed");
+              }
+              const chRes = await sendToChannel(
+                supabase,
+                channelSession,
+                msgText,
+                stepMedia?.url || null,
+              );
+              stepResult.canal = channelSession.canal;
+              stepResult.message_preview = msgText.substring(0, 100);
+              stepResult.status = chRes.success ? "sent" : "error";
+              stepResult.response = chRes;
+              if (chRes.success) {
+                messagesSent++;
+                if (cinnaRuntime) {
+                  const { error } = await supabase.from("imphq_flow_executions").update({ step_results: [...stepResults, stepResult] }).eq("id", executionId);
+                  if (error) throw new Error("Cinna confirmed delivery could not be checkpointed");
+                }
+              }
+              else {
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (${channelSession.canal}): ${chRes.error || "Falha no envio"}`);
+                if (cinnaRuntime) { status = "waiting"; await supabase.from("imphq_flow_executions").update({ status: "running", next_run_at: null,
+                  step_results: [...stepResults, stepResult], error_message: "Cinna delivery unconfirmed; manual reconciliation required" }).eq("id", executionId); }
+
+              }
+            }
+          }
+
           else if (step.tipo === "whatsapp") {
+
             const phone = lead_data?.phone || lead_data?.telefone;
             if (!phone) {
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
               // Resolve link: lead_data.link > auto.link_checkout > ""
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
 
               // ── A/B Testing Copy override
               let selectedVariantId = null;
@@ -824,8 +1514,8 @@ Deno.serve(async (req) => {
                       }
                     }
                   }
-                } catch (abErr: any) {
-                  console.error("[openflow-executor] Error in A/B test resolution:", abErr.message);
+                } catch (abErr) {
+                  console.error("[openflow-executor] Error in A/B test resolution:", describeError(abErr));
                 }
               }
 
@@ -873,6 +1563,11 @@ Deno.serve(async (req) => {
                 stepsFailed++;
                 failureMessages.push(`Step ${i} (whatsapp): Nenhum provider ativo`);
               } else {
+                const mediaKindMap: Record<string, string> = { image: "image", video: "video", audio: "audio", doc: "document" };
+                const stepMedia = step.media;
+                const mediaPayload = stepMedia?.url
+                  ? { media_url: stepMedia.url, media_type: mediaKindMap[stepMedia.kind] || "image" }
+                  : {};
                 const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
                   method: "POST",
                   headers: {
@@ -884,6 +1579,7 @@ Deno.serve(async (req) => {
                     phone: normalizeBRPhone(phone),
                     content: msgText,
                     project_id,
+                    ...mediaPayload,
                   }),
                 });
                 const waData = await waRes.json();
@@ -906,8 +1602,8 @@ Deno.serve(async (req) => {
               stepResult.status = "skipped";
               stepResult.reason = "Sem telefone do lead";
             } else {
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
-              const msgText = replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
+              const msgText = cinnaRuntime ? String(step.template ?? step.mensagem ?? step.texto ?? "") : replaceVariables(step.mensagem || step.template || "", lead_data, leadDb);
 
               let providerId = step.provider_id || auto.provider_id || lead_data?.provider_id;
               if (!providerId && project_id) {
@@ -980,7 +1676,7 @@ Deno.serve(async (req) => {
               stepResult.reason = "Sem email do lead";
               console.log(`[openflow-executor] Step ${i} email: skipped - sem email do lead`);
             } else {
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
               const templateId = step.template_id;
 
               // Inline message from the editor (field "template" or "mensagem")
@@ -1043,10 +1739,10 @@ Deno.serve(async (req) => {
                   .maybeSingle();
 
                 if (creds?.credentials) {
-                  resendApiKey = (creds.credentials as any).api_key || "";
-                  fromEmail = (creds.credentials as any).from_email || "";
-                  fromName = (creds.credentials as any).from_name || "";
-                  replyTo = (creds.credentials as any).reply_to || "";
+                  resendApiKey = String(record(creds.credentials).api_key || "");
+                  fromEmail = String(record(creds.credentials).from_email || "");
+                  fromName = String(record(creds.credentials).from_name || "");
+                  replyTo = String(record(creds.credentials).reply_to || "");
                 }
 
                 // Fallback to legacy JSONB
@@ -1056,12 +1752,12 @@ Deno.serve(async (req) => {
                     .select("data")
                     .eq("id", project_id)
                     .single();
-                  const emailConfig = (proj?.data as any)?.email_config || {};
-                  const briefing = (proj?.data as any)?.checklist?.resend || {};
-                  resendApiKey = emailConfig.resend_api_key || briefing.resend_api_key || "";
-                  fromEmail = fromEmail || emailConfig.from_email || briefing.from_email || "";
-                  fromName = fromName || emailConfig.from_name || briefing.from_name || "";
-                  replyTo = replyTo || emailConfig.reply_to || briefing.reply_to || "";
+                  const emailConfig = record(record(proj?.data).email_config);
+                  const briefing = record(record(record(proj?.data).checklist).resend);
+                  resendApiKey = String(emailConfig.resend_api_key || briefing.resend_api_key || "");
+                  fromEmail = String(fromEmail || emailConfig.from_email || briefing.from_email || "");
+                  fromName = String(fromName || emailConfig.from_name || briefing.from_name || "");
+                  replyTo = String(replyTo || emailConfig.reply_to || briefing.reply_to || "");
                 }
 
                 if (!resendApiKey) {
@@ -1097,7 +1793,7 @@ Deno.serve(async (req) => {
                     project_id,
                     event_name: "email_sent",
                     page_url: "",
-                    data: {
+                    event_data: {
                       to_email: toEmail,
                       template_name: `inline: ${finalSubject.substring(0, 50)}`,
                       status: resendRes.ok ? "sent" : "error",
@@ -1206,7 +1902,7 @@ Deno.serve(async (req) => {
                 .from("imphq_events")
                 .select("id")
                 .eq("event_name", "email_opened")
-                .filter("data->>to_email", "eq", toEmail)
+                .filter("event_data->>to_email", "eq", toEmail)
                 .gt("created_at", flowStartTime)
                 .limit(1);
               if (openEvents && openEvents.length > 0) {
@@ -1232,7 +1928,7 @@ Deno.serve(async (req) => {
                 conditionMet = !hasOpened;
               }
             } else {
-              const field = step.campo || step.field;
+              const field = step.campo || step.field || "";
               const operator = step.operador || step.operator || "equals";
               const value = step.valor || step.value;
               const leadValue = lead_data?.[field];
@@ -1256,7 +1952,7 @@ Deno.serve(async (req) => {
                 stepResults.push(stepResult);
                 break;
               } else {
-                const skipCount = parseInt(step.else_skip || step.else_skip_steps) || 1;
+                const skipCount = parseInt(String(step.else_skip || step.else_skip_steps)) || 1;
                 i += skipCount;
                 stepResult.skipped_steps = skipCount;
               }
@@ -1279,6 +1975,14 @@ Deno.serve(async (req) => {
                   .update({ tags: newTags })
                   .eq("id", lead_data.lead_id);
                 leadTags = newTags;
+                await supabase.from("imphq_lead_tag_history").insert({
+                  lead_id: lead_data.lead_id,
+                  project_id: project_id || null,
+                  tag,
+                  action: "added",
+                  source: "openflow",
+
+                });
                 stepResult.status = "tag_added";
                 stepResult.tag = tag;
               } else {
@@ -1307,6 +2011,14 @@ Deno.serve(async (req) => {
                   .update({ tags: newTags })
                   .eq("id", lead_data.lead_id);
                 leadTags = newTags;
+                await supabase.from("imphq_lead_tag_history").insert({
+                  lead_id: lead_data.lead_id,
+                  project_id: project_id || null,
+                  tag,
+                  action: "removed",
+                  source: "openflow",
+
+                });
                 stepResult.status = "tag_removed";
                 stepResult.tag = tag;
               } else {
@@ -1316,6 +2028,56 @@ Deno.serve(async (req) => {
             } else {
               stepResult.status = "skipped";
               stepResult.reason = "Sem lead_id ou tag não configurada";
+            }
+          }
+
+          else if (step.tipo === "update_lead") {
+            const field = step.lead_field;
+            const op = step.lead_op || "set";
+            const value = step.lead_value;
+            const ALLOWED = new Set(["status", "score", "awareness_level", "nome", "email"]);
+            if (!lead_data?.lead_id || !field || !ALLOWED.has(field)) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou campo inválido";
+            } else {
+              const updatePayload: { score?: number; status?: string | null; awareness_level?: string | null; nome?: string | null; email?: string | null } = {};
+              if (op === "inc" && field === "score") {
+                const { data: cur } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
+                const base = Number(cur?.score || 0);
+                const inc = Number(value || 0);
+                updatePayload.score = base + inc;
+              } else if (field === "score") {
+                updatePayload.score = Number(value || 0);
+              } else {
+                updatePayload[field as "status" | "awareness_level" | "nome" | "email"] = value;
+              }
+              const { error: upErr } = await supabase.from("imphq_leads").update(updatePayload).eq("id", lead_data.lead_id);
+              if (upErr) {
+                stepResult.status = "error";
+                stepResult.reason = upErr.message;
+              } else {
+                stepResult.status = "lead_updated";
+                stepResult.field = field;
+                stepResult.op = op;
+                stepResult.value = updatePayload[field as keyof typeof updatePayload];
+              }
+            }
+          }
+
+          else if (step.tipo === "move_stage") {
+            const target = step.target_stage;
+            if (!lead_data?.lead_id || !target) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem lead_id ou target_stage";
+            } else {
+              const { error: upErr } = await supabase.from("imphq_leads").update({ funil_id: target }).eq("id", lead_data.lead_id);
+              if (upErr) {
+                stepResult.status = "error";
+                stepResult.reason = upErr.message;
+              } else {
+                stepResult.status = "stage_moved";
+                stepResult.target_stage = target;
+              }
             }
           }
 
@@ -1335,7 +2097,7 @@ Deno.serve(async (req) => {
 
               // leadDb is already preloaded in the outer scope
 
-              const linkUrl = lead_data?.link || (auto as any).link_checkout || "";
+              const linkUrl = lead_data?.link || auto.link_checkout || "";
               // ── A/B Testing Copy override for IA Message
               let abVariant = null;
               let selectedMsgTemplate = step.mensagem || step.template || "";
@@ -1351,6 +2113,13 @@ Deno.serve(async (req) => {
                 stepResult.ab_variant = abVariant;
               }
 
+                const { data: aiConfig } = await supabase
+                  .from("imphq_wa_ai_config")
+                  .select("*")
+                  .eq("project_id", project_id)
+                  .eq("enabled", true)
+                  .maybeSingle();
+
               let finalMsg = selectedMsgTemplate.trim();
 
               if (!finalMsg) {
@@ -1363,19 +2132,14 @@ Deno.serve(async (req) => {
 
                 const pData = typeof project?.data === "string" ? JSON.parse(project.data) : (project?.data || {});
                 const expert = pData.expert || pData.especialista || {};
-                const aiProfile = leadDb?.data?.ai_profile || {};
+                const aiProfile = record(record(leadDb?.data).ai_profile);
                 const pains = Array.isArray(aiProfile.pains) ? aiProfile.pains : [];
                 const desires = Array.isArray(aiProfile.desires) ? aiProfile.desires : [];
                 const moments = Array.isArray(aiProfile.moments) ? aiProfile.moments : [];
                 const seekings = Array.isArray(aiProfile.seekings) ? aiProfile.seekings : [];
-                const schwartz = leadDb?.data?.desejo_schwartz || "";
+                const schwartz = record(leadDb?.data).desejo_schwartz || "";
 
-                const { data: aiConfig } = await supabase
-                  .from("imphq_wa_ai_config")
-                  .select("*")
-                  .eq("project_id", project_id)
-                  .eq("enabled", true)
-                  .maybeSingle();
+
 
                 const systemPrompt = `Você é um assessor/vendedor de alta performance especializado em reativação de leads via WhatsApp.
 Você representa o projeto/marca: "${project?.name || ''}".
@@ -1408,7 +2172,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                     "X-Title": "Imperio HQ",
                   },
                   body: JSON.stringify({
-                    model: step.ia_search_web ? "google/gemini-2.5-flash" : (step.ia_model === "gpt-4o" ? "openai/gpt-4o" : (aiConfig?.ai_model || "openai/gpt-4o-mini")),
+                    model: step.ia_search_web ? "google/gemini-2.5-flash" : (step.ia_model === "gpt-4o" ? "openai/gpt-4o" : (aiConfig?.ai_model || "google/gemini-2.5-flash")),
                     messages: [
                       { role: "system", content: systemPrompt },
                       { role: "user", content: "Gere a mensagem curta inicial de reativação." }
@@ -1465,7 +2229,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                   ? `${supabaseUrl}/functions/v1/whatsapp-api?action=send_voice_synthesis`
                   : `${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`;
                 
-                const payload: any = {
+                const payload: { provider_id: string; phone: string; project_id: string; text?: string; content?: string; voice_provider?: string; voice_id?: string; voice_stability?: number; voice_clarity?: number } = {
                   provider_id: providerId,
                   phone: normalizeBRPhone(phone),
                   project_id,
@@ -1541,7 +2305,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               awarenessLevel = Number(lead_data.awareness_level);
             } else if (lead_data?.lead_id) {
               const { data: ld } = await supabase.from("imphq_leads").select("awareness_level").eq("id", lead_data.lead_id).maybeSingle();
-              awarenessLevel = Number((ld as any)?.awareness_level || 0);
+              awarenessLevel = Number(ld?.awareness_level || 0);
             }
             const min = Number(step.awareness_min ?? 1);
             const max = Number(step.awareness_max ?? 5);
@@ -1550,7 +2314,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
             stepResult.awareness_level = awarenessLevel;
             stepResult.condition_met = conditionMet;
             if (!conditionMet) {
-              const skipCount = parseInt(step.else_skip) || 1;
+              const skipCount = parseInt(String(step.else_skip)) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
               console.log(`[openflow-executor] branch_by_awareness: level=${awarenessLevel} fora de [${min},${max}], pulando ${skipCount} step(s)`);
@@ -1564,16 +2328,73 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               const { data: tr } = await supabase.from("imphq_wa_triage")
                 .select("intent").eq("lead_id", lead_data.lead_id)
                 .order("created_at", { ascending: false }).limit(1).maybeSingle();
-              lastIntent = (tr as any)?.intent || null;
+              lastIntent = tr?.intent || null;
             }
             const conditionMet = allowedIntents.length === 0 || (lastIntent != null && allowedIntents.includes(lastIntent));
             stepResult.status = "evaluated";
             stepResult.last_intent = lastIntent;
             stepResult.condition_met = conditionMet;
             if (!conditionMet) {
-              const skipCount = parseInt(step.else_skip) || 1;
+              const skipCount = parseInt(String(step.else_skip)) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
+            }
+          }
+
+          else if (step.tipo === "branch_by_score") {
+            let score = 0;
+            if (lead_data?.score != null) {
+              score = Number(lead_data.score);
+            } else if (lead_data?.lead_id) {
+              const { data: ld } = await supabase.from("imphq_leads").select("score").eq("id", lead_data.lead_id).maybeSingle();
+              score = Number(ld?.score || 0);
+            }
+            const min = Number(step.score_min ?? 0);
+            const max = Number(step.score_max ?? 100);
+            const conditionMet = score >= min && score <= max;
+            stepResult.status = "evaluated";
+            stepResult.score = score;
+            stepResult.condition_met = conditionMet;
+            if (!conditionMet) {
+              const skipCount = parseInt(String(step.else_skip)) || 1;
+              i += skipCount;
+              stepResult.skipped_steps = skipCount;
+              console.log(`[openflow-executor] branch_by_score: score=${score} fora de [${min},${max}], pulando ${skipCount} step(s)`);
+            }
+          }
+
+          else if (step.tipo === "slack_notify") {
+            const webhookUrl = String(step.webhook_url || "").trim();
+            const text = replaceVariables(step.text || "", lead_data, leadDb) || "Notificação OpenFlow";
+            if (!webhookUrl.startsWith("https://hooks.slack.com/")) {
+              stepResult.status = "error";
+              stepResult.response = { success: false, error: "webhook_url inválido (deve começar com https://hooks.slack.com/)" };
+              stepsFailed++;
+              failureMessages.push(`Step ${i} (slack_notify): webhook_url inválido`);
+            } else {
+              try {
+                const resp = await fetch(webhookUrl, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ text }),
+                });
+                if (!resp.ok) {
+                  const errTxt = await resp.text().catch(() => "");
+                  stepResult.status = "error";
+                  stepResult.response = { success: false, error: `Slack ${resp.status}: ${errTxt.slice(0, 200)}` };
+                  stepsFailed++;
+                  failureMessages.push(`Step ${i} (slack_notify): HTTP ${resp.status}`);
+                } else {
+                  stepResult.status = "completed";
+                  stepResult.message_preview = text.slice(0, 120);
+                  stepResult.response = { success: true };
+                }
+              } catch (e) {
+                stepResult.status = "error";
+                stepResult.response = { success: false, error: describeError(e) || "fetch falhou" };
+                stepsFailed++;
+                failureMessages.push(`Step ${i} (slack_notify): ${describeError(e) || "erro"}`);
+              }
             }
           }
 
@@ -1585,7 +2406,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
               stepResult.reason = !key ? "memory_key não definida" : "lead_id ausente";
             } else {
               const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-              const current = (ld as any)?.lead_memory || {};
+              const current = ld?.lead_memory || {};
               const updatedMemory = { ...current, [key]: rawValue };
               const { error: memErr } = await supabase.from("imphq_leads")
                 .update({ lead_memory: updatedMemory, updated_at: new Date().toISOString() })
@@ -1628,7 +2449,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
             stepResult.current_br_time = `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")} (Day ${day})`;
             
             if (!conditionMet) {
-              const skipCount = parseInt(step.else_skip) || 1;
+              const skipCount = parseInt(String(step.else_skip)) || 1;
               i += skipCount;
               stepResult.skipped_steps = skipCount;
               console.log(`[openflow-executor] business_hours_split: Out of business hours. Skipping ${skipCount} step(s).`);
@@ -1640,7 +2461,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
           else if (step.tipo === "semantic_router") {
             const ruleA = step.router_definition_a || "cliente quer comprar ou tirando dúvidas";
             const ruleB = step.router_definition_b || "cliente quer falar com atendente ou irritado";
-            const elseSkip = parseInt(step.else_skip) || 1;
+            const elseSkip = parseInt(String(step.else_skip)) || 1;
 
             let lastUserMessage = "";
             if (lead_data?.lead_id) {
@@ -1649,7 +2470,7 @@ Tom: Curto, amigável, direto, focado em WhatsApp (máximo 3 linhas ou 2-3 frase
                 .select("content")
                 .eq("project_id", project_id)
                 .eq("direction", "incoming")
-                .order("created_at", { descending: true })
+                .order("created_at", { ascending: false })
                 .limit(1)
                 .maybeSingle();
               if (lastMsg) {
@@ -1705,7 +2526,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                   }
                 }
               } catch (llmErr) {
-                console.error("[openflow-executor] semantic_router classification error:", llmErr.message);
+                console.error("[openflow-executor] semantic_router classification error:", describeError(llmErr));
               }
 
               stepResult.status = "evaluated";
@@ -1725,7 +2546,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
           else if (step.tipo === "ia_scheduling") {
             if (lead_data?.lead_id) {
               const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
-              const current = (ld as any)?.lead_memory || {};
+              const current = ld?.lead_memory || {};
               const updatedMemory = { ...current, conversation_phase: "scheduling", calendar_url: step.calendar_url || "" };
               await supabase.from("imphq_leads").update({ lead_memory: updatedMemory }).eq("id", lead_data.lead_id);
               if (leadDb) {
@@ -1738,14 +2559,14 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
           }
 
           else if (step.tipo === "condicao_lead") {
-            const field = step.condition_field;
+            const field = step.condition_field || "";
             const operator = step.condition_operator || "equals";
             const valToCompare = replaceVariables(step.condition_value || "", lead_data, leadDb);
             const jumpSteps = Number(step.condition_jump_steps ?? 1);
             const elseJumpSteps = Number(step.condition_else_jump_steps ?? 0);
 
             // Fetch actual value
-            let leadValue: any = null;
+            let leadValue: unknown = null;
             if (field === "nome") {
               leadValue = lead_data?.nome || leadDb?.name || "";
             } else if (field === "email") {
@@ -1794,11 +2615,14 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
 
             if (conditionMet) {
               stepResult.notes = `Condição atendida. Pulando ${jumpSteps} passos.`;
+              stepResult.branch_taken = "if";
               i += jumpSteps;
             } else {
               stepResult.notes = `Condição não atendida. Pulando ${elseJumpSteps} passos.`;
+              stepResult.branch_taken = "else";
               i += elseJumpSteps;
             }
+
           }
 
           else if (step.tipo === "webhook_call") {
@@ -1819,13 +2643,13 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                   const replacedHeaders = replaceVariables(step.webhook_headers, lead_data, leadDb);
                   const parsedHeaders = JSON.parse(replacedHeaders);
                   headersObj = { ...headersObj, ...parsedHeaders };
-                } catch (err: any) {
+                } catch (err) {
                   console.error("[openflow-executor] Error parsing webhook headers:", err);
-                  stepResult.headers_error = err.message;
+                  stepResult.headers_error = describeError(err);
                 }
               }
 
-              let fetchBody: any = undefined;
+              let fetchBody: BodyInit | undefined = undefined;
               if (method !== "GET" && step.webhook_body) {
                 const replacedBody = replaceVariables(step.webhook_body, lead_data, leadDb);
                 fetchBody = replacedBody;
@@ -1853,7 +2677,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
 
                 if (response.ok) {
                   if (saveKey && lead_data?.lead_id) {
-                    let parsedJson: any = null;
+                    let parsedJson: unknown = null;
                     try {
                       parsedJson = JSON.parse(responseBody);
                     } catch (err) {
@@ -1885,12 +2709,12 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                   stepsFailed++;
                   failureMessages.push(`Webhook ${url} retornou status ${statusCode}`);
                 }
-              } catch (fetchErr: any) {
+              } catch (fetchErr) {
                 console.error("[openflow-executor] Webhook fetch error:", fetchErr);
                 stepResult.status = "error";
-                stepResult.reason = fetchErr.message;
+                stepResult.reason = describeError(fetchErr);
                 stepsFailed++;
-                failureMessages.push(`Erro de conexão ao webhook ${url}: ${fetchErr.message}`);
+                failureMessages.push(`Erro de conexão ao webhook ${url}: ${describeError(fetchErr)}`);
               }
             }
           }
@@ -1900,13 +2724,13 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
               stepResult.status = "skipped";
               stepResult.reason = "lead_id ausente";
             } else {
-              const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+              const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
               if (step.lead_score != null) updates.score = Number(step.lead_score);
               if (step.lead_stage) updates.stage = step.lead_stage;
               if (step.lead_tags) {
                 const newTags = step.lead_tags.split(",").map((t: string) => t.trim()).filter(Boolean);
                 const { data: ld } = await supabase.from("imphq_leads").select("tags").eq("id", lead_data.lead_id).maybeSingle();
-                updates.tags = [...new Set([...((ld as any)?.tags || []), ...newTags])];
+                updates.tags = [...new Set([...(ld?.tags || []), ...newTags])];
               }
               const { error: qErr } = await supabase.from("imphq_leads").update(updates).eq("id", lead_data.lead_id);
               stepResult.status = qErr ? "error" : "completed";
@@ -1919,7 +2743,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
             const notificationMsg = replaceVariables(step.template || step.mensagem || "", lead_data, leadDb);
             const leadName = lead_data?.nome || leadDb?.name || "Lead";
 
-            let targetUserIds: string[] = [];
+            const targetUserIds: string[] = [];
 
             if (opName.toLowerCase() !== "todos") {
               const { data: member } = await supabase
@@ -1948,7 +2772,7 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                 .select("user_id")
                 .eq("is_active", true);
               if (members) {
-                members.forEach((m: any) => {
+                members.forEach((m) => {
                   if (m.user_id && !targetUserIds.includes(m.user_id)) {
                     targetUserIds.push(m.user_id);
                   }
@@ -1989,8 +2813,8 @@ Responda APENAS com a letra "A" ou "B" (sem mais nada na resposta, sem explicaç
                       message: notificationMsg || `O lead ${leadName} solicitou atenção do atendente.`,
                     }),
                   });
-                } catch (pushErr: any) {
-                  console.error(`[openflow-executor] Push send error for user ${uid}:`, pushErr.message);
+                } catch (pushErr) {
+                  console.error(`[openflow-executor] Push send error for user ${uid}:`, describeError(pushErr));
                 }
               }
             }
@@ -2091,9 +2915,9 @@ Instruções Adicionais:
 
               const modelMap: Record<string, string> = {
                 "gpt-4o": "openai/gpt-4o",
-                "gpt-4o-mini": "openai/gpt-4o-mini"
+                "gpt-4o-mini": "google/gemini-2.5-flash"
               };
-              const selectedModel = modelMap[step.gpt_model] || "openai/gpt-4o-mini";
+              const selectedModel = modelMap[step.gpt_model || ""] || "google/gemini-2.5-flash";
 
               const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
@@ -2289,7 +3113,7 @@ Instruções Adicionais:
             const intervalHours = Number(step.loop_interval_hours ?? 24);
             const targetStep = Math.max(0, i - jumpBack);
 
-            const loopCountSoFar = stepResults.filter((r: any) => r.step === i && r.status === "completed").length;
+            const loopCountSoFar = stepResults.filter((r) => r.step === i && r.status === "completed").length;
 
             if (loopCountSoFar >= loopCount) {
               stepResult.status = "completed";
@@ -2303,7 +3127,7 @@ Instruções Adicionais:
                 const operator = step.loop_until_condition_operator || "equals";
                 const valToCompare = replaceVariables(step.loop_until_condition_value || "", lead_data, leadDb);
 
-                let leadValue: any = null;
+                let leadValue: unknown = null;
                 if (field === "nome") {
                   leadValue = lead_data?.nome || leadDb?.name || "";
                 } else if (field === "email") {
@@ -2365,19 +3189,235 @@ Instruções Adicionais:
             }
           }
 
+          else if (step.tipo === "ai_agent") {
+            // Agente IA autônomo: invoca LLM com identidade/instruções do agente e envia via WhatsApp.
+            const agentId = step.ai_agent_id;
+            const phone = lead_data?.phone || lead_data?.telefone;
+            if (!agentId) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Agente IA não selecionado";
+            } else if (!phone) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Sem telefone do lead";
+            } else {
+              const { data: agent } = await supabase
+                .from("imphq_ai_agents")
+                .select("id, nome, identidade, diretrizes, objetivo, instrucoes, restricoes, base_conhecimento, qa_pairs")
+                .eq("id", agentId)
+                .maybeSingle();
+
+              if (!agent) {
+                stepResult.status = "error";
+                stepResult.reason = `Agente ${agentId} não encontrado`;
+                stepsFailed++;
+              } else {
+                const passCtx = step.ai_agent_pass_context !== false;
+                const ctxLines = passCtx ? [
+                  `Nome do lead: ${lead_data?.nome || leadDb?.name || "Lead"}`,
+                  `Telefone: ${phone}`,
+                  `Produto: ${lead_data?.produto || leadDb?.produto || "-"}`,
+                  leadDb?.lead_memory ? `Memória: ${JSON.stringify(leadDb.lead_memory).slice(0, 500)}` : "",
+                ].filter(Boolean).join("\n") : "";
+
+                const qa = Array.isArray(agent.qa_pairs) && agent.qa_pairs.length
+                  ? `\n\nExemplos Q&A:\n${agent.qa_pairs.slice(0, 10).map((q: unknown) => `P: ${record(q).pergunta || record(q).q}\nR: ${record(q).resposta || record(q).a}`).join("\n\n")}`
+                  : "";
+
+                // RAG: busca trechos relevantes na base de conhecimento do agente
+                let ragContext = "";
+                try {
+                  const LK = Deno.env.get("LOVABLE_API_KEY");
+                  const query = (step.mensagem || agent.objetivo || agent.identidade || "").slice(0, 500);
+                  if (LK && query) {
+                    const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${LK}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({ model: "openai/text-embedding-3-small", input: query, dimensions: 768 }),
+                    });
+                    if (embRes.ok) {
+                      const ej = await embRes.json();
+                      const qEmb = ej?.data?.[0]?.embedding;
+                      if (qEmb) {
+                        const { data: matches } = await supabase.rpc("match_agent_knowledge", {
+                          p_agent_id: agentId, query_embedding: qEmb, match_count: 4, min_similarity: 0.45,
+                        });
+                        if (Array.isArray(matches) && matches.length) {
+                          ragContext = `\n\n# Trechos relevantes da base\n${matches.map((m: { source_name: string; content: string }, i: number) => `[${i + 1}] (${m.source_name}) ${String(m.content).slice(0, 500)}`).join("\n\n")}`;
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.warn(`[ai_agent] RAG falhou: ${describeError(e)}`);
+                }
+
+                const systemPrompt = [
+                  agent.identidade ? `# Identidade\n${agent.identidade}` : "",
+                  agent.diretrizes ? `# Diretrizes\n${agent.diretrizes}` : "",
+                  agent.objetivo ? `# Objetivo\n${agent.objetivo}` : "",
+                  agent.instrucoes ? `# Instruções\n${agent.instrucoes}` : "",
+                  agent.restricoes ? `# Restrições\n${agent.restricoes}` : "",
+                  agent.base_conhecimento ? `# Base de Conhecimento\n${String(agent.base_conhecimento).slice(0, 3000)}` : "",
+                  ragContext,
+                  qa,
+                  ctxLines ? `# Contexto do Lead\n${ctxLines}` : "",
+                  "Responda em português, tom natural de WhatsApp, curto (2-4 linhas). Sem aspas."
+                ].filter(Boolean).join("\n\n");
+
+                const OR_KEY = Deno.env.get("OPENROUTER_API_KEY");
+                let agentMsg = "";
+                if (OR_KEY) {
+                  try {
+                    const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${OR_KEY}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        model: "google/gemini-2.5-flash",
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: step.mensagem || "Inicie a conversa cumprindo o objetivo." },
+                        ],
+                        max_tokens: 300,
+                        temperature: 0.7,
+                      }),
+                    });
+                    if (orRes.ok) {
+                      const d = await orRes.json();
+                      agentMsg = (d?.choices?.[0]?.message?.content || "").trim().replace(/^"|"$/g, "");
+                    }
+                  } catch (e) {
+                    console.warn(`[ai_agent] LLM falhou: ${describeError(e)}`);
+                  }
+                }
+                if (!agentMsg) agentMsg = replaceVariables(step.mensagem || "Olá!", lead_data, leadDb);
+
+                // Salva em variável opcional
+                if (step.ai_agent_save_variable && lead_data?.lead_id) {
+                  const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                  const current = ld?.lead_memory || {};
+                  const updated = { ...current, [step.ai_agent_save_variable]: agentMsg };
+                  await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
+                  if (leadDb) leadDb.lead_memory = updated;
+                }
+
+                // Descobre provider
+                let providerId = step.provider_id || auto.provider_id;
+                if (!providerId && project_id) {
+                  const { data: pp } = await supabase.from("imphq_wa_providers").select("id").eq("is_active", true).eq("project_id", project_id).limit(1);
+                  if (pp?.length) providerId = pp[0].id;
+                }
+
+                if (providerId) {
+                  const waRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-api?action=send_message`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                    body: JSON.stringify({ provider_id: providerId, phone: normalizeBRPhone(phone), project_id, content: agentMsg }),
+                  });
+                  const waData = await waRes.json();
+                  stepResult.status = waData.success ? "sent" : "error";
+                  stepResult.agent_id = agentId;
+                  stepResult.agent_nome = agent.nome;
+                  stepResult.message_preview = agentMsg.substring(0, 120);
+                  if (waData.success) messagesSent++;
+                  else stepsFailed++;
+                } else {
+                  stepResult.status = "error";
+                  stepResult.reason = "Nenhum provider WhatsApp ativo";
+                  stepsFailed++;
+                }
+              }
+            }
+          }
+
+          else if (step.tipo === "distribuir_atendentes") {
+            // Distribuição round-robin/random/least_busy entre operadores.
+            const strategy = step.distrib_strategy || "round_robin";
+            const raw = String(step.distrib_operators || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+
+            let operators: Array<{ id: string; nome: string }> = [];
+            if (raw.length) {
+              const { data: tm } = await supabase
+                .from("imphq_team_members")
+                .select("id, nome")
+                .or(raw.map(v => `id.eq.${v},nome.ilike.%${v}%`).join(","));
+              operators = tm || raw.map(v => ({ id: v, nome: v }));
+            } else if (project_id) {
+              const { data: tm } = await supabase.from("imphq_team_members").select("id, nome").eq("project_id", project_id);
+              operators = tm || [];
+            }
+
+            if (!operators.length) {
+              stepResult.status = "skipped";
+              stepResult.reason = "Nenhum operador disponível";
+            } else {
+              let chosen = operators[0];
+              if (strategy === "random") {
+                chosen = operators[Math.floor(Math.random() * operators.length)];
+              } else if (strategy === "least_busy") {
+                const counts = await Promise.all(operators.map(async (op) => {
+                  const { count } = await supabase
+                    .from("imphq_wa_conversations")
+                    .select("id", { count: "exact", head: true })
+                    .eq("assigned_to", op.id)
+                    .in("status", ["aberta", "em_atendimento"]);
+                  return { op, n: count || 0 };
+                }));
+                counts.sort((a, b) => a.n - b.n);
+                chosen = counts[0].op;
+              } else {
+                // round_robin: usa hash simples do lead_id para consistência
+                const key = String(lead_data?.lead_id || lead_data?.phone || "0");
+                let h = 0;
+                for (let k = 0; k < key.length; k++) h = (h * 31 + key.charCodeAt(k)) >>> 0;
+                chosen = operators[h % operators.length];
+              }
+
+              // Atribui na conversa
+              const phone = lead_data?.phone || lead_data?.telefone;
+              if (phone && project_id) {
+                await supabase
+                  .from("imphq_wa_conversations")
+                  .update({ assigned_to: chosen.id, updated_at: new Date().toISOString() })
+                  .eq("project_id", project_id)
+                  .in("phone", getBrazilianPhoneVariants(phone));
+              }
+
+              // Salva variável
+              if (step.distrib_save_variable && lead_data?.lead_id) {
+                const { data: ld } = await supabase.from("imphq_leads").select("lead_memory").eq("id", lead_data.lead_id).maybeSingle();
+                const current = ld?.lead_memory || {};
+                const updated = { ...current, [step.distrib_save_variable]: { id: chosen.id, nome: chosen.nome } };
+                await supabase.from("imphq_leads").update({ lead_memory: updated }).eq("id", lead_data.lead_id);
+                if (leadDb) leadDb.lead_memory = updated;
+              }
+
+              stepResult.status = "completed";
+              stepResult.strategy = strategy;
+              stepResult.assigned_to = { id: chosen.id, nome: chosen.nome };
+            }
+          }
+
           else {
             stepResult.status = "unknown_type";
             stepResult.reason = `Tipo "${step.tipo}" não reconhecido`;
           }
-        } catch (stepErr: any) {
+        } catch (stepErr) {
           stepResult.status = "error";
-          stepResult.error = stepErr.message;
+          stepResult.error = describeError(stepErr);
           stepsFailed++;
-          failureMessages.push(`Step ${i} (${step.tipo}): ${stepErr.message}`);
+          failureMessages.push(`Step ${i} (${step.tipo}): ${describeError(stepErr)}`);
+          // Cinna uncertain delivery must not continue or enter generic automatic retries.
+          if (cinnaRuntime) {
+            status = "waiting";
+            await supabase.from("imphq_flow_executions").update({ status: "running", next_run_at: null,
+              step_results: [...stepResults, stepResult], error_message: "Cinna execution interrupted; manual reconciliation required" }).eq("id", executionId);
+          }
           // Só interrompe o fluxo se o step for crítico
-          if (isCriticalStep(step.tipo)) {
+          else if (isCriticalStep(step.tipo)) {
             status = "failed";
-            errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${stepErr.message}`;
+            errorMessage = `Step crítico ${i} (${step.tipo}) falhou: ${describeError(stepErr)}`;
+            stepResult._failed_step_index = i;
+            stepResult._failed_step_kind = step.tipo;
           }
         }
 
@@ -2397,8 +3437,64 @@ Instruções Adicionais:
         errorMessage = failureMessages.join(" | ");
       }
 
-      // Final update
-      if (status !== "waiting") {
+      // ============ Retry inteligente + Dead-letter ============
+      if (status === "failed") {
+        const { data: execRow } = await supabase
+          .from("imphq_flow_executions")
+          .select("retry_count, max_retries")
+          .eq("id", executionId)
+          .maybeSingle();
+        const retryCount = (execRow?.retry_count ?? 0) + 1;
+        const maxRetries = execRow?.max_retries ?? 4;
+        const failedResult = stepResults.find((s) => s._failed_step_index !== undefined);
+        const failedIdx = failedResult?._failed_step_index ?? 0;
+        const failedKind = failedResult?._failed_step_kind ?? "unknown";
+        // Backoff exponencial (minutos): 1, 5, 15, 60, 360
+        const backoffMin = [1, 5, 15, 60, 360][Math.min(retryCount - 1, 4)];
+        const nextRunAt = new Date(Date.now() + backoffMin * 60_000).toISOString();
+
+        if (retryCount <= maxRetries) {
+          await supabase.from("imphq_flow_executions")
+            .update({
+              status: "retrying",
+              retry_count: retryCount,
+              current_step: failedIdx,
+              next_run_at: nextRunAt,
+              step_results: stepResults,
+              error_message: errorMessage,
+              last_error_at: new Date().toISOString(),
+              last_error_kind: failedKind,
+            })
+            .eq("id", executionId);
+          console.log(`[openflow-executor] Retry ${retryCount}/${maxRetries} agendado para ${nextRunAt} (exec=${executionId}, step=${failedIdx})`);
+        } else {
+          // Move to dead-letter
+          await supabase.from("imphq_flow_dead_letter").insert({
+            execution_id: executionId,
+            automacao_id: auto.id,
+            project_id,
+            lead_id: lead_data?.lead_id || null,
+            current_step: failedIdx,
+            step_snapshot: steps[failedIdx] || {},
+            error_message: errorMessage,
+            error_kind: failedKind,
+            retry_count: retryCount - 1,
+            step_results: stepResults,
+          });
+          await supabase.from("imphq_flow_executions")
+            .update({
+              status: "dead_letter",
+              retry_count: retryCount - 1,
+              step_results: stepResults,
+              error_message: errorMessage,
+              last_error_at: new Date().toISOString(),
+              last_error_kind: failedKind,
+            })
+            .eq("id", executionId);
+          console.log(`[openflow-executor] Execução ${executionId} movida para dead-letter após ${retryCount - 1} tentativas`);
+        }
+      } else if (status !== "waiting") {
+        // Final update (sucesso ou parcial)
         await supabase.from("imphq_flow_executions")
           .update({
             status,
@@ -2408,6 +3504,7 @@ Instruções Adicionais:
           })
           .eq("id", executionId);
       }
+
 
       // Insert execution log with enriched data
       await supabase.from("imphq_automacao_logs").insert({
@@ -2441,9 +3538,9 @@ Instruções Adicionais:
       results,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  } catch (e: any) {
+  } catch (e) {
     console.error("[openflow-executor] Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: describeError(e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

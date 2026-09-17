@@ -1,3 +1,4 @@
+import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
         .eq("type", type)
         .gte("created_at", todayStr + "T00:00:00Z")
         .limit(1);
-      return (data && data.length > 0);
+      return !!(data && data.length > 0);
     }
 
     // Helper: get all user IDs (team owner + members)
@@ -41,12 +42,12 @@ Deno.serve(async (req) => {
         .select("user_id")
         .not("user_id", "is", null);
       const ids = new Set<string>();
-      if (members) members.forEach((m: any) => { if (m.user_id) ids.add(m.user_id); });
+      if (members) members.forEach((m) => { if (m.user_id) ids.add(m.user_id); });
       const { data: projects } = await supabase
         .from("imphq_projects")
         .select("owner_id")
         .limit(100);
-      if (projects) projects.forEach((p: any) => { if (p.owner_id) ids.add(p.owner_id); });
+      if (projects) projects.forEach((p) => { if (p.owner_id) ids.add(p.owner_id); });
       return Array.from(ids);
     }
 
@@ -147,7 +148,7 @@ Deno.serve(async (req) => {
     if (dueTodayCards) {
       const { data: doneCols } = await supabase.from("imphq_kanban_columns").select("id, title");
       const doneColIds = new Set(
-        (doneCols || []).filter((c: any) => /feito|done|conclu/i.test(c.title)).map((c: any) => c.id)
+        (doneCols || []).filter((c) => /feito|done|conclu/i.test(c.title)).map((c) => c.id)
       );
 
       for (const card of dueTodayCards) {
@@ -177,7 +178,7 @@ Deno.serve(async (req) => {
     if (overdueCards) {
       const { data: doneCols } = await supabase.from("imphq_kanban_columns").select("id, title");
       const doneColIds = new Set(
-        (doneCols || []).filter((c: any) => /feito|done|conclu/i.test(c.title)).map((c: any) => c.id)
+        (doneCols || []).filter((c) => /feito|done|conclu/i.test(c.title)).map((c) => c.id)
       );
 
       for (const card of overdueCards) {
@@ -256,7 +257,7 @@ Deno.serve(async (req) => {
     if (salesEvents) {
       for (const ev of salesEvents) {
         if (await alreadyNotified("event", ev.id, "venda")) continue;
-        const d = (ev.event_data as any) || {};
+        const d = z.object({ value: z.union([z.string(), z.number()]).nullish(), valor: z.union([z.string(), z.number()]).nullish(), product: z.string().nullish(), produto: z.string().nullish() }).passthrough().parse(ev.event_data || {});
         const valor = d.value || d.valor || "";
         for (const uid of userIds) {
           await notify(uid, `💰 Nova venda${valor ? `: R$ ${valor}` : "!"}`, d.product || d.produto || "Venda registrada", "venda", "event", ev.id);

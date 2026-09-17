@@ -1,3 +1,4 @@
+import { jsonFields, jsonNumber } from "@/lib/json-fields";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,10 +38,10 @@ export function RevenueSplitSettings({ projectId, produtos = [] }: Props) {
         .select("settings")
         .eq("id", projectId)
         .maybeSingle();
-      const cfg = (data?.settings as any)?.revenue_splits as SplitConfig | undefined;
-      setDefaultShare(Math.round((cfg?.default_share ?? 1) * 100));
+      const cfg = jsonFields(jsonFields(data?.settings).revenue_splits);
+      setDefaultShare(Math.round((jsonNumber(cfg.default_share) ?? 1) * 100));
       const pp: Record<string, number> = {};
-      Object.entries(cfg?.per_product || {}).forEach(([k, v]) => { pp[k] = Math.round((v as number) * 100); });
+      Object.entries(jsonFields(cfg.per_product)).forEach(([k, v]) => { const share = jsonNumber(v); if (share !== undefined) pp[k] = Math.round(share * 100); });
       setPerProduct(pp);
       setLoading(false);
     })();
@@ -53,7 +54,7 @@ export function RevenueSplitSettings({ projectId, produtos = [] }: Props) {
       .select("settings")
       .eq("id", projectId)
       .maybeSingle();
-    const settings = (cur?.settings as any) || {};
+    const settings = jsonFields(cur?.settings);
     const cleanedPerProduct: Record<string, number> = {};
     Object.entries(perProduct).forEach(([k, v]) => {
       if (v >= 0 && v <= 100) cleanedPerProduct[k] = v / 100;
@@ -64,7 +65,7 @@ export function RevenueSplitSettings({ projectId, produtos = [] }: Props) {
     };
     const { error } = await supabase
       .from("imphq_projects")
-      .update({ settings } as any)
+      .update({ settings })
       .eq("id", projectId);
     setSaving(false);
     if (error) { toast.error(error.message); return; }

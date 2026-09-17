@@ -188,10 +188,13 @@ Deno.serve(async (req) => {
       if (!event?.google_event_id) throw new Error("google_event_id required");
       
       const accessToken = await getAccessToken();
-      await fetch(
+      const deletion = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${event.google_event_id}`,
         { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }
       );
+      if (!deletion.ok && deletion.status !== 404 && deletion.status !== 410) {
+        throw new Error(`Google Calendar não confirmou a exclusão (HTTP ${deletion.status}).`);
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

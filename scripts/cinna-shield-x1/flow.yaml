@@ -1,0 +1,192 @@
+{
+  "product": "cinna-shield",
+  "version": "csx1.7-conversation-media",
+  "language": "en-US",
+  "offer": {
+    "approved": false,
+    "checkoutUrl": null,
+    "priceLabel": null
+  },
+  "replies": {
+    "question": "I want to make sure I understand. What's the main thing you'd like help with?",
+    "price": "I can help you check that. I don't have a confirmed total for the current offer yet, so the team will need to verify it before you pay.",
+    "trust": "I understand wanting to be sure. The label and written purchase terms are the best place to start. What would you like to check?",
+    "shipping": "Delivery matters when you're deciding. I don't have confirmed shipping costs or dates here yet; the team needs to check those for this offer.",
+    "ingredients": "The product brief lists Ceylon cinnamon extract and MCT in capsules. We'll need the current label for the full list and amounts. Is there an ingredient you're wondering about?",
+    "medical": "I understand why you'd want to check that first. Your clinician or pharmacist can review the full product label with your medicines and health history. Please keep following your prescribed care.",
+    "stop": "Of course. I'll stop here.",
+    "human": "I'll pause here so someone from the team can take over. This chat hasn't confirmed that a person is available yet.",
+    "budget": "You don't need to stretch your budget for this. The full cost should be clear before you decide, including any shipping.",
+    "timing": "Of course, take your time. Is there anything you'd like clarified before we leave it here?"
+  },
+  "stages": [
+    {
+      "id": "connection",
+      "title": "Acolhimento",
+      "sourceGroups": [
+        "GRUPO 1. CONEXAO",
+        "GRUPO 1. CONEXAO (2)",
+        "GRUPO 1. CONEXAO (3)"
+      ],
+      "messages": [
+        "Hi, I'm Ana, from the support team.",
+        "Tell me what's on your mind. You can share your first name if you'd like, and skip any question. I'll use your answers to keep this conversation relevant."
+      ],
+      "question": "How can I help you today?",
+      "input": "free",
+      "capture": "concern"
+    },
+    {
+      "id": "awareness",
+      "title": "Entendimento e permissão",
+      "sourceGroups": [
+        "GRUPO 2. CONSCIENTIZACAO"
+      ],
+      "messages": [
+        "Let's start with the part that matters to you, instead of giving you a long sales pitch. You don't need to make a decision now."
+      ],
+      "question": "Would you like me to explain what the supplement is?",
+      "input": "confirm",
+      "choices": [
+        {
+          "label": "Tell me about the product",
+          "acknowledgement": "Of course. Here's the short version."
+        }
+      ]
+    },
+    {
+      "id": "curiosity",
+      "title": "Apresentação do suplemento",
+      "sourceGroups": [
+        "GRUPO 3. CURIOSIDADE",
+        "GRUPO 3. CURIOSIDADE (2)",
+        "GRUPO 3. CURIOSIDADE (3)"
+      ],
+      "messages": [
+        "The supplement is called Cinna Shield. The product information describes Ceylon cinnamon extract and MCT in capsules.",
+        "Let's look at the formula, how the capsule format would fit into your routine, and what you would want to check before spending money."
+      ],
+      "question": "What matters most to you when considering a supplement: understanding the ingredients, keeping things simple, or something else?",
+      "input": "free",
+      "capture": "goal"
+    },
+    {
+      "id": "mechanism",
+      "title": "Fórmula e dúvidas",
+      "sourceGroups": [
+        "GRUPO 4. MECANISMO",
+        "GRUPO 4. MECANISMO (2)",
+        "GRUPO 4. MECANISMO (3)"
+      ],
+      "messages": [
+        "There are two details to separate: what's inside the capsule and what the finished product has actually been shown to do.",
+        "The listed cinnamon is Ceylon cinnamon, also called Cinnamomum verum. MCT is also listed. The full label is where we need to check quantities and directions. Ingredient names alone don't establish results."
+      ],
+      "question": "Have you tried a supplement before, and was there anything about the experience you didn't like? No need to share medicines or medical records.",
+      "input": "free",
+      "capture": "previousExperience"
+    },
+    {
+      "id": "benefits",
+      "title": "Expectativas e rotina",
+      "sourceGroups": [
+        "GRUPO 5. BENEFICIOS"
+      ],
+      "messages": [
+        "Think about the practical side for a moment: a format you can manage, clear directions and a cost you're comfortable with.",
+        "Whether this supplement is suitable for you needs to be checked with your clinician or pharmacist. It doesn't replace prescribed care, and I can't promise how you'll feel after taking it."
+      ],
+      "question": "What would make a routine easier for you to stick with?",
+      "input": "free",
+      "capture": "idealRoutine"
+    },
+    {
+      "id": "proof",
+      "title": "Confiança e decisão",
+      "sourceGroups": [
+        "GRUPO 6. PROVA SOCIAL",
+        "GRUPO 6. PROVA SOCIAL (2)",
+        "GRUPO 6. PROVA SOCIAL (3)"
+      ],
+      "messages": [
+        "Before you decide, let's make sure you can check what you're getting. A review or a striking image isn't enough on its own.",
+        "We can check the label, who sells it, the full cost and the written delivery and return terms. If something is missing, I'll say so."
+      ],
+      "question": "What's your biggest hesitation right now: cost, trust, the formula, or something else?",
+      "input": "free",
+      "capture": "objection"
+    },
+    {
+      "id": "opportunity",
+      "title": "Oferta",
+      "sourceGroups": [
+        "GRUPO 7. OPORTUNIDADE"
+      ],
+      "messages": [
+        "If you're interested in going further, the next step is a clear offer: exactly what you receive and the total you'll pay.",
+        "The current package, price and checkout haven't been confirmed here yet. The team needs to verify those details, including shipping and return terms, before you pay."
+      ],
+      "question": "Would you like to continue to the purchase details once they're confirmed?",
+      "input": "confirm"
+    },
+    {
+      "id": "decision",
+      "title": "Dúvida final",
+      "sourceGroups": [
+        "GRUPO 8. RISCOS E PERDAS",
+        "GRUPO 8. RISCOS E PERDAS (2)",
+        "GRUPO 8. RISCOS E PERDAS (3)"
+      ],
+      "messages": [
+        "You don't need to rush or stretch your budget. The decision should make sense for you.",
+        "If there's one detail still holding you back, let's focus on it. You can also leave it here or ask for someone from the team."
+      ],
+      "question": "Is there one last question you'd like answered before deciding?",
+      "input": "free"
+    },
+    {
+      "id": "close",
+      "title": "Próximo passo",
+      "sourceGroups": [
+        "GRUPO 9. FECHAMENTO",
+        "GRUPO 9. FECHAMENTO (2)",
+        "GRUPO 9. FECHAMENTO (3)"
+      ],
+      "messages": [
+        "If you'd like to order, I'll help you reach the verified checkout when the offer is confirmed.",
+        "If you'd prefer someone from the team to check the details with you, just ask. There's no need to repeat the whole conversation."
+      ],
+      "question": "Would you like the purchase link?",
+      "input": "free"
+    }
+  ],
+  "consultative": {
+    "personaName": "Ana",
+    "approvedSnippets": [
+      {
+        "id": "product-description",
+        "text": "Cinna Shield is a dietary supplement. The supplied product brief describes Ceylon cinnamon extract and MCT in capsules. Exact quantities and directions must be checked against the current product label."
+      },
+      {
+        "id": "supplement-evidence",
+        "text": "Research on supplements for diabetes is limited and inconsistent. An ingredient study does not establish that this product will improve someone's condition. Supplements do not replace prescribed diabetes care."
+      },
+      {
+        "id": "medication-check",
+        "text": "Supplements may interact with medicines. A clinician or pharmacist should check the full product label alongside a person's medicines before advising whether it is suitable."
+      },
+      {
+        "id": "general-support",
+        "text": "Diabetes management can involve food choices, physical activity, sleep, stress management and prescribed medicines. Individual targets and treatment decisions belong with the person's healthcare team."
+      },
+      {
+        "id": "prepare-questions",
+        "text": "It can help to write down the concern and bring the current supplement label to an appointment, so a clinician or pharmacist can answer questions about suitability and interactions."
+      },
+      {
+        "id": "purchase-details",
+        "text": "A purchase decision should use the current label and verified package, total price, shipping and return terms. No current price, delivery date, return period or checkout is confirmed in this configuration."
+      }
+    ]
+  }
+}

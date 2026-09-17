@@ -1,4 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields } from "@/lib/json-fields";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -24,11 +26,11 @@ const USD_BRL = 5.2;
 const TIPOS = ["SaaS", "API", "Infra", "Ads", "Freelancer", "Outro"];
 
 interface Custo { id: string; nome: string; tipo?: string; valor: number; moeda?: string; }
-interface ProjectCost { id: string; project_id: string; nome: string; categoria: string; valor: number; moeda: string; }
-interface ProjectRevenue { id: string; project_id: string; descricao: string; valor: number; fonte: string; data_ref: string; }
+type ProjectCost = Tables<"imphq_project_costs">;
+type ProjectRevenue = Tables<"imphq_project_revenue">;
 interface Venda { id: string; project_id: string; produto_nome: string; valor: number; valor_liquido?: number | null; plataforma: string; status: string; data_venda: string; }
 interface AdsSpend { id: string; project_id: string; plataforma: string; campanha: string | null; conjunto_anuncios?: string | null; data_ref: string; valor: number; impressoes: number; alcance?: number; cliques: number; leads: number; compras?: number; custo_por_compra?: number; hook_rate?: number; hold_rate?: number; ctr?: number; frequencia?: number; moeda: string; }
-interface Project { id: string; name: string; icon?: string; briefing?: any; }
+type Project = Pick<Tables<"imphq_projects">, "id" | "name" | "icon" | "data">;
 
 export default function Financas() {
   const [revenueMode] = useRevenueMode();
@@ -52,7 +54,7 @@ export default function Financas() {
   const [prevAds, setPrevAds] = useState<AdsSpend[]>([]);
 
 
-  const load = async () => {
+  const load = useCallback(async () => {
     // Janela de busca: usa o filtro de datas; se vazio, últimos 90 dias
     const fromDate = filterDateFrom || localDaysAgo(90);
     const toDate = filterDateTo || toLocalDateStr();
@@ -74,7 +76,7 @@ export default function Financas() {
       supabase.from("imphq_custos").select("*").order("nome"),
       supabase.from("imphq_project_costs").select("*"),
       supabase.from("imphq_project_revenue").select("*").gte("data_ref", fromDate).lte("data_ref", toDate),
-      fetchAll<any>((from, to) =>
+      fetchAll((from, to) =>
         supabase.from("imphq_vendas")
           .select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda, utm_campaign")
           .eq("status", "aprovado")
@@ -84,7 +86,7 @@ export default function Financas() {
           .range(from, to),
         1000, 20000,
       ),
-      fetchAll<any>((from, to) =>
+      fetchAll((from, to) =>
         supabase.from("imphq_ads_spend")
           .select("*")
           .gte("data_ref", fromDate)
@@ -93,10 +95,10 @@ export default function Financas() {
           .range(from, to),
         1000, 20000,
       ),
-      supabase.from("imphq_projects").select("id, name, icon" as any).or("is_archived.eq.false,is_archived.is.null").order("name"),
+      supabase.from("imphq_projects").select("id, name, icon, data").or("is_archived.eq.false,is_archived.is.null").order("name"),
       supabase.from("imphq_vendas").select("id", { count: "exact", head: true })
         .eq("status", "aprovado").gte("data_venda", fromTs).lte("data_venda", toTs),
-      compareMode ? fetchAll<any>((from, to) =>
+      compareMode ? fetchAll((from, to) =>
         supabase.from("imphq_vendas")
           .select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda")
           .eq("status", "aprovado")
@@ -106,42 +108,42 @@ export default function Financas() {
           .range(from, to),
         1000, 20000,
       ) : Promise.resolve([]),
-      compareMode ? fetchAll<any>((from, to) =>
+      compareMode ? fetchAll((from, to) =>
         supabase.from("imphq_ads_spend")
-          .select("valor, data_ref, project_id, plataforma, campanha, leads, impressoes, cliques, compras")
+          .select("id, moeda, valor, data_ref, project_id, plataforma, campanha, leads, impressoes, cliques, compras")
           .gte("data_ref", prevFromDate)
           .lte("data_ref", prevToDate)
           .order("data_ref", { ascending: false })
           .range(from, to),
         1000, 20000,
       ) : Promise.resolve([]),
-    ]) as any;
+    ]);
 
-    setCustos((r1.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
-    setProjectCosts((r2.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
-    setProjectRevenues((r3.data || []).map((c: any) => ({ ...c, valor: parseFloat(c.valor) || 0 })));
-    setVendas((vendasAll || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
-    setAds((adsAll || []).map((a: any) => ({
+    setCustos((r1.data || []).map((c) => ({ ...c, valor: Number(c.valor) || 0 })));
+    setProjectCosts((r2.data || []).map((c) => ({ ...c, valor: Number(c.valor) || 0 })));
+    setProjectRevenues((r3.data || []).map((c) => ({ ...c, valor: Number(c.valor) || 0 })));
+    setVendas((vendasAll || []).map((v) => ({ ...v, valor: Number(v.valor) || 0, valor_liquido: v.valor_liquido != null ? Number(v.valor_liquido) : null })));
+    setAds((adsAll || []).map((a) => ({
       ...a,
-      valor: parseFloat(a.valor) || 0,
+      valor: Number(a.valor) || 0,
       impressoes: a.impressoes || 0,
       cliques: a.cliques || 0,
       leads: a.leads || 0,
       alcance: a.alcance || 0,
       compras: a.compras || 0,
-      custo_por_compra: parseFloat(a.custo_por_compra) || 0,
-      hook_rate: parseFloat(a.hook_rate) || 0,
-      hold_rate: parseFloat(a.hold_rate) || 0,
-      ctr: parseFloat(a.ctr) || 0,
-      frequencia: parseFloat(a.frequencia) || 0,
+      custo_por_compra: Number(a.custo_por_compra) || 0,
+      hook_rate: Number(a.hook_rate) || 0,
+      hold_rate: Number(a.hold_rate) || 0,
+      ctr: Number(a.ctr) || 0,
+      frequencia: Number(a.frequencia) || 0,
     })));
-    setPrevVendas((prevVendasAll || []).map((v: any) => ({ ...v, valor: parseFloat(v.valor) || 0, valor_liquido: v.valor_liquido != null ? parseFloat(v.valor_liquido) : null })));
-    setPrevAds((prevAdsAll || []).map((a: any) => ({ ...a, valor: parseFloat(a.valor) || 0, leads: a.leads || 0, cliques: a.cliques || 0 })));
-    setProjects((r6.data || []) as unknown as Project[]);
+    setPrevVendas((prevVendasAll || []).map((v) => ({ ...v, valor: Number(v.valor) || 0, valor_liquido: v.valor_liquido != null ? Number(v.valor_liquido) : null })));
+    setPrevAds((prevAdsAll || []).map((a) => ({ ...a, valor: Number(a.valor) || 0, leads: a.leads || 0, cliques: a.cliques || 0 })));
+    setProjects(r6.data || []);
     setVendasTotalCount(vendasCountRes?.count || 0);
-  };
+  }, [filterDateFrom, filterDateTo, compareMode]);
 
-  useEffect(() => { load(); }, [filterDateFrom, filterDateTo, compareMode]);
+  useEffect(() => { load(); }, [load]);
 
 
   // Date filter helper
@@ -185,7 +187,7 @@ export default function Financas() {
 
   // Project costs filtered by date (using data_pagamento or created_at)
   const fProjectCosts = (fp === "all" ? projectCosts : projectCosts.filter(c => c.project_id === fp))
-    .filter(c => inDateRange((c as any).data_pagamento || (c as any).created_at));
+    .filter(c => inDateRange(c.data_pagamento || c.created_at));
   const fProjectRevenues = (fp === "all" ? projectRevenues : projectRevenues.filter(r => r.project_id === fp)).filter(r => inDateRange(r.data_ref));
   const fVendas = (fp === "all" ? vendas : vendas.filter(v => v.project_id === fp))
     .filter(v => inDateRange(v.data_venda))
@@ -253,7 +255,7 @@ export default function Financas() {
   const openEditCusto = (c: Custo) => { setEditingCusto(c); setCustoForm({ nome: c.nome, tipo: c.tipo || "SaaS", valor: String(c.valor), moeda: c.moeda || "BRL" }); setShowCustoDialog(true); };
   const saveCusto = async () => {
     if (!custoForm.nome.trim()) { toast.error("Nome obrigatório"); return; }
-    const payload = { nome: custoForm.nome, tipo: custoForm.tipo, valor: parseFloat(custoForm.valor) || 0, moeda: custoForm.moeda };
+    const payload = { nome: custoForm.nome, tipo: custoForm.tipo, valor: Number(custoForm.valor) || 0, moeda: custoForm.moeda };
     if (editingCusto) {
       const { error } = await supabase.from("imphq_custos").update(payload).eq("id", editingCusto.id);
       if (error) { toast.error(error.message); return; }
@@ -359,8 +361,8 @@ export default function Financas() {
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {kpis.map((k, i) => {
-          const d = (k as any).delta as number | null;
-          const goodUp = (k as any).goodUp as boolean;
+          const d = k.delta;
+          const goodUp = k.goodUp;
           const isGood = d != null && ((d >= 0 && goodUp) || (d < 0 && !goodUp));
           return (
             <Card key={k.label} className={`bg-gradient-to-br ${k.gradient} border-border animate-fade-in`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
@@ -575,11 +577,11 @@ export default function Financas() {
           <FinancasProdutos
             vendas={fVendas}
             revenueMode={revenueMode}
-            revenues={fProjectRevenues.map(r => ({ id: r.id, descricao: r.descricao, valor: r.valor, produto_nome: (r as any).produto_nome || null }))}
-            costs={fProjectCosts.map(c => ({ id: c.id, nome: c.nome, valor: c.valor, produto_nome: (c as any).produto_nome || null }))}
+            revenues={fProjectRevenues.map(r => ({ id: r.id, descricao: r.descricao, valor: r.valor, produto_nome: r.produto_nome || null }))}
+            costs={fProjectCosts.map(c => ({ id: c.id, nome: c.nome, valor: c.valor, produto_nome: c.produto_nome || null }))}
             ads={fAds.map(a => ({ id: a.id, valor: a.valor, campanha: a.campanha }))}
             briefingProdutos={projects.flatMap(p => {
-              const b = p.briefing as any;
+              const b = jsonFields(p.data);
               return Array.isArray(b?.produtos) ? b.produtos : [];
             })}
           />

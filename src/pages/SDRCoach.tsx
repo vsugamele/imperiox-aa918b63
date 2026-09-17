@@ -1,6 +1,7 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ interface AuditRecord {
 
 export default function SDRCoach() {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [vendedores, setVendedores] = useState<string[]>([]);
@@ -83,7 +84,7 @@ export default function SDRCoach() {
 
       if (error) throw error;
 
-      const castedData = (data || []).map((item: any) => ({
+      const castedData = (data || []).map((item) => ({
         ...item,
         detalhes: typeof item.detalhes === "string" ? JSON.parse(item.detalhes) : item.detalhes
       })) as AuditRecord[];
@@ -99,8 +100,8 @@ export default function SDRCoach() {
       } else {
         setSelectedAuditId("");
       }
-    } catch (err: any) {
-      toast.error("Erro ao carregar auditorias: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Erro ao carregar auditorias: " + errorMessage(err));
     } finally {
       setLoadingAudits(false);
     }
@@ -161,8 +162,8 @@ export default function SDRCoach() {
         });
         await loadAudits(selectedProjectId);
       }
-    } catch (err: any) {
-      toast.error("Falha ao rodar auditoria: " + (err.message || "Erro desconhecido"));
+    } catch (err: unknown) {
+      toast.error("Falha ao rodar auditoria: " + (errorMessage(err) || "Erro desconhecido"));
     } finally {
       setRunningAudit(false);
     }

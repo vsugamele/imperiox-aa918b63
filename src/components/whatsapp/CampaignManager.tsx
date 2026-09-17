@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { SectionInfo } from "@/components/SectionInfo";
@@ -15,11 +17,11 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Play, Pause, Trash2, Settings2, Users, ListOrdered, Calendar, History, Search, Cog, Copy, Clock, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
-import CampaignStepEditor from "./CampaignStepEditor";
-import CampaignLogViewer from "./CampaignLogViewer";
-import CampaignKPICards from "./CampaignKPICards";
-import CampaignAutomationPanel from "./CampaignAutomationPanel";
-import CampaignSettingsDialog from "./CampaignSettingsDialog";
+import CampaignStepEditor from "@/components/whatsapp/CampaignStepEditor";
+import CampaignLogViewer from "@/components/whatsapp/CampaignLogViewer";
+import CampaignKPICards from "@/components/whatsapp/CampaignKPICards";
+import CampaignAutomationPanel from "@/components/whatsapp/CampaignAutomationPanel";
+import CampaignSettingsDialog from "@/components/whatsapp/CampaignSettingsDialog";
 
 interface Campaign {
   id: string;
@@ -40,7 +42,7 @@ interface Campaign {
 
 interface Props {
   projects: { id: string; name: string }[];
-  providers: any[];
+  providers: Pick<Tables<"imphq_wa_providers">, "id" | "project_id" | "provider" | "instance_name" | "twilio_from">[];
 }
 
 export default function CampaignManager({ projects, providers }: Props) {
@@ -91,7 +93,7 @@ export default function CampaignManager({ projects, providers }: Props) {
       .from("imphq_wa_campaigns")
       .select("*")
       .order("created_at", { ascending: false });
-    const campaignsData = (data as any[]) || [];
+    const campaignsData = (data || []).map(row => ({ ...row, groups: Array.isArray(row.groups) ? row.groups.filter((v): v is string => typeof v === "string") : [] }));
     setCampaigns(campaignsData);
     setLoading(false);
 
@@ -106,13 +108,13 @@ export default function CampaignManager({ projects, providers }: Props) {
       const map: Record<string, { date: string; time: string; preview: string } | null> = {};
       const counts: Record<string, number> = {};
       for (const c of campaignsData) {
-        const stepsForCamp = (stepsData || []).filter((s: any) => s.campaign_id === c.id);
-        counts[c.id] = stepsForCamp.filter((s: any) => s.is_active).length;
+        const stepsForCamp = (stepsData || []).filter((s) => s.campaign_id === c.id);
+        counts[c.id] = stepsForCamp.filter((s) => s.is_active).length;
         const upcoming = stepsForCamp
-          .filter((s: any) => s.is_active)
-          .map((s: any) => ({ ...s, _date: s.send_date || todayStr }))
-          .filter((s: any) => s._date >= todayStr)
-          .sort((a: any, b: any) => {
+          .filter((s) => s.is_active)
+          .map((s) => ({ ...s, _date: s.send_date || todayStr }))
+          .filter((s) => s._date >= todayStr)
+          .sort((a, b) => {
             if (a._date !== b._date) return a._date < b._date ? -1 : 1;
             return (a.send_time || "").localeCompare(b.send_time || "");
           });
@@ -174,8 +176,8 @@ export default function CampaignManager({ projects, providers }: Props) {
         send_window_start: form.send_window_start || "08:00",
         send_window_end: form.send_window_end || "22:00",
         status: "draft",
-        groups: [] as any,
-      } as any)
+        groups: [],
+      })
       .select()
       .single();
 
@@ -245,12 +247,12 @@ export default function CampaignManager({ projects, providers }: Props) {
         produto: c.produto,
         start_date: null,
         status: "draft",
-        groups: c.groups as any,
+        groups: c.groups,
         welcome_message: c.welcome_message,
         exit_message: c.exit_message,
         anti_hack: c.anti_hack,
         mention_all: c.mention_all,
-      } as any)
+      })
       .select()
       .single();
     if (cErr || !newCamp) {
@@ -264,7 +266,7 @@ export default function CampaignManager({ projects, providers }: Props) {
       .eq("campaign_id", c.id)
       .order("step_order");
     if (srcSteps && srcSteps.length > 0) {
-      const cloned = srcSteps.map((s: any) => ({
+      const cloned = srcSteps.map((s) => ({
         campaign_id: newCamp.id,
         step_order: s.step_order,
         content: s.content,
@@ -275,7 +277,7 @@ export default function CampaignManager({ projects, providers }: Props) {
         send_date: null, // reset specific dates
         is_active: s.is_active,
       }));
-      await supabase.from("imphq_wa_campaign_steps").insert(cloned as any);
+      await supabase.from("imphq_wa_campaign_steps").insert(cloned);
     }
     toast.success(`Campanha duplicada (${srcSteps?.length || 0} steps)`);
     load();
@@ -294,7 +296,7 @@ export default function CampaignManager({ projects, providers }: Props) {
       }
     }
     const newStatus = campaign.status === "active" ? "paused" : "active";
-    await supabase.from("imphq_wa_campaigns").update({ status: newStatus } as any).eq("id", campaign.id);
+    await supabase.from("imphq_wa_campaigns").update({ status: newStatus }).eq("id", campaign.id);
     toast.success(`Campanha ${newStatus === "active" ? "ativada" : "pausada"}`);
     load();
   };
@@ -315,8 +317,8 @@ export default function CampaignManager({ projects, providers }: Props) {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setAvailableGroups(data?.groups || []);
-    } catch (e: any) {
-      toast.error("Erro ao buscar grupos: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro ao buscar grupos: " + errorMessage(e));
     }
     setLoadingGroups(false);
   };
@@ -333,7 +335,7 @@ export default function CampaignManager({ projects, providers }: Props) {
 
   const saveGroups = async () => {
     if (!showGroups) return;
-    await supabase.from("imphq_wa_campaigns").update({ groups: selectedGroups as any } as any).eq("id", showGroups.id);
+    await supabase.from("imphq_wa_campaigns").update({ groups: selectedGroups }).eq("id", showGroups.id);
     toast.success("Grupos salvos!");
     setShowGroups(null);
     load();
@@ -380,7 +382,7 @@ export default function CampaignManager({ projects, providers }: Props) {
           ] as const).map(([key, label, count]) => (
             <button
               key={key}
-              onClick={() => setFilter(key as any)}
+              onClick={() => setFilter(key as typeof filter)}
               className={`px-2.5 py-1 text-[11px] uppercase tracking-wider rounded transition-colors ${
                 filter === key ? "bg-gold/15 text-gold" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -713,7 +715,7 @@ export default function CampaignManager({ projects, providers }: Props) {
                                 const next = isPaused
                                   ? (showGroups.paused_groups || []).filter(j => j !== g.id)
                                   : [...(showGroups.paused_groups || []), g.id];
-                                await supabase.from("imphq_wa_campaigns").update({ paused_groups: next as any } as any).eq("id", showGroups.id);
+                                await supabase.from("imphq_wa_campaigns").update({ paused_groups: next }).eq("id", showGroups.id);
                                 setShowGroups({ ...showGroups, paused_groups: next });
                                 load();
                                 toast.success(isPaused ? "Grupo retomado" : "Grupo pausado");

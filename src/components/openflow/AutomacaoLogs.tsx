@@ -1,3 +1,6 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,13 +16,13 @@ interface AutomacaoLogsProps {
 }
 
 export function AutomacaoLogs({ automacoes, projects }: AutomacaoLogsProps) {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<Tables<"imphq_automacao_logs">[]>([]);
   const [filterAuto, setFilterAuto] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [retrying, setRetrying] = useState<string | null>(null);
 
   const loadLogs = async () => {
-    const { data } = await supabase.from("imphq_automacao_logs" as any).select("*").order("created_at", { ascending: false }).limit(100);
+    const { data } = await supabase.from("imphq_automacao_logs").select("*").order("created_at", { ascending: false }).limit(100);
     setLogs(data || []);
   };
 
@@ -34,10 +37,10 @@ export function AutomacaoLogs({ automacoes, projects }: AutomacaoLogsProps) {
   const autoName = (id: string) => automacoes.find(a => a.id === id)?.nome || id.slice(0, 8);
   const projName = (id: string) => projects.find(p => p.id === id)?.name || id;
 
-  const retryLog = async (log: any) => {
+  const retryLog = async (log: Tables<"imphq_automacao_logs">) => {
     setRetrying(log.id);
     try {
-      const triggerData = (log.trigger_data as any) || {};
+      const triggerData = jsonFields(log.trigger_data);
       const { data, error } = await supabase.functions.invoke("openflow-executor", {
         body: {
           trigger_tipo: triggerData.trigger_tipo || "manual",
@@ -49,21 +52,21 @@ export function AutomacaoLogs({ automacoes, projects }: AutomacaoLogsProps) {
       if (error) throw error;
       toast[data?.ok ? "success" : "error"](data?.ok ? "Reenvio executado!" : (data?.error || "Erro"));
       loadLogs();
-    } catch (e: any) {
-      toast.error("Erro: " + (e?.message || "desconhecido"));
+    } catch (e: unknown) {
+      toast.error("Erro: " + (errorMessage(e) || "desconhecido"));
     } finally {
       setRetrying(null);
     }
   };
 
-  const getLeadInfo = (log: any) => {
-    const td = (log.trigger_data as any) || {};
-    const ld = td.lead_data || td;
+  const getLeadInfo = (log: Tables<"imphq_automacao_logs">) => {
+    const td = jsonFields(log.trigger_data);
+    const ld = td.lead_data ? jsonFields(td.lead_data) : td;
     return {
-      nome: ld.nome || ld.name || "",
-      telefone: ld.telefone || ld.phone || "",
-      produto: ld.produto || ld.product || "",
-      email: ld.email || "",
+      nome: jsonText(ld.nome) || jsonText(ld.name) || "",
+      telefone: jsonText(ld.telefone) || jsonText(ld.phone) || "",
+      produto: jsonText(ld.produto) || jsonText(ld.product) || "",
+      email: jsonText(ld.email) || "",
     };
   };
 
@@ -144,12 +147,12 @@ export function AutomacaoLogs({ automacoes, projects }: AutomacaoLogsProps) {
                   )}
                   {log.acoes_executadas && Array.isArray(log.acoes_executadas) && log.acoes_executadas.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
-                      {log.acoes_executadas.map((a: any, i: number) => (
+                      {log.acoes_executadas.map((value, i) => { const a = jsonFields(value); return (
                         <Badge key={i} variant="secondary" className="text-[9px]">
-                          {a.tipo || `Step ${i + 1}`}
-                          {a.status && <span className={`ml-1 ${a.status === "sent" || a.status === "completed" ? "text-emerald-400" : a.status === "error" ? "text-red-400" : ""}`}>• {a.status}</span>}
+                          {jsonText(a.tipo) || `Step ${i + 1}`}
+                          {jsonText(a.status) && <span className={`ml-1 ${a.status === "sent" || a.status === "completed" ? "text-emerald-400" : a.status === "error" ? "text-red-400" : ""}`}>• {jsonText(a.status)}</span>}
                         </Badge>
-                      ))}
+                      ); })}
                     </div>
                   )}
                 </CardContent>

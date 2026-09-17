@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { conversation_id, message_id, project_id } = await req.json();
+    const { conversation_id, message_id, project_id, gold, source } = await req.json();
     if (!conversation_id || !project_id) {
       return new Response(JSON.stringify({ ok: false, error: "missing_params" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -28,15 +28,15 @@ Deno.serve(async (req) => {
       .select("learning_mode, provider_id")
       .eq("project_id", project_id)
       .eq("enabled", true);
-    const cfg = configs?.find((c: any) => !c.provider_id) || configs?.[0];
-    if (cfg && (cfg as any).learning_mode === false) {
+    const cfg = configs?.find((c) => !c.provider_id) || configs?.[0];
+    if (cfg && cfg.learning_mode === false) {
       return new Response(JSON.stringify({ ok: true, skipped: "learning_disabled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // Carrega a resposta humana
-    let humanMsg: any = null;
+    let humanMsg: { content: string | null; created_at: string } | null = null;
     if (message_id) {
       const { data } = await supabase.from("imphq_wa_messages").select("*").eq("id", message_id).maybeSingle();
       humanMsg = data;
@@ -101,7 +101,8 @@ Deno.serve(async (req) => {
 
     const { data: inserted, error: insErr } = await supabase.from("imphq_wa_knowledge").insert({
       project_id, pergunta, resposta, embedding,
-      source: "human_reply", conversation_id, aprovada: false,
+      source: source || (gold ? "manual:gold" : "human_reply"),
+      conversation_id, aprovada: gold === true,
     }).select("id").maybeSingle();
     if (insErr) {
       console.error("[wa-learn] insert error:", insErr.message);
@@ -113,9 +114,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, id: inserted?.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[wa-learn-from-human] fatal:", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+    return new Response(JSON.stringify({ ok: false, error: String(eMessage || e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

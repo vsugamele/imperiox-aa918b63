@@ -1,3 +1,8 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+type VslProject = Pick<Tables<"imphq_projects">,"id"|"name"|"icon"|"data"|"avatar">;
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -20,7 +25,7 @@ import {
 interface VslTool {
   id: string;
   title: string;
-  icon: any;
+  icon: LucideIcon;
   desc: string;
   promptNum: number;
 }
@@ -35,7 +40,7 @@ const VSL_TOOLS: VslTool[] = [
 ];
 
 export default function VslLab() {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<VslProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [activeTool, setActiveTool] = useState<string>("raio_x");
   const [generating, setGenerating] = useState(false);
@@ -98,7 +103,7 @@ export default function VslLab() {
   };
 
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval>;
     if (isPlaying) {
       interval = setInterval(() => {
         setPlaybackTime((prev) => {
@@ -142,16 +147,18 @@ export default function VslLab() {
     if (proj) fillFromProject(proj);
   };
 
-  const fillFromProject = (project: any) => {
-    const pData = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
-    const briefing = pData.briefing || {};
-    const expert = pData.expert || {};
-    const produtos = pData.produtos || [];
-    const firstProduct = produtos[0] || {};
-    const copyArsenal = firstProduct.copy_arsenal || {};
-    setRaioXForm({ produto: firstProduct.nome || briefing.nicho || project.name, nicho: briefing.nicho || "Marketing Digital", promessa: copyArsenal.promessa?.[0] || briefing.transformacao || "" });
-    setStoryForm(prev => ({ ...prev, fatosBase: `Expert: ${expert.bio || ""}. Método: ${expert.metodo || ""}.` }));
-    setLeadForm({ angulo: "mecanismo", oferta: firstProduct.nome || project.name, publico: briefing.nicho || "Empreendedores", mecanismo: firstProduct.mecanismo_unico || "", tese: copyArsenal.promessa?.[0] || briefing.transformacao || "", historia: expert.bio || "" });
+  const fillFromProject = (project: VslProject) => {
+    const raw: Json = typeof project.data === "string" ? JSON.parse(project.data) : project.data;
+    const pData = jsonFields(raw);
+    const briefing = jsonFields(pData.briefing);
+    const expert = jsonFields(pData.expert);
+    const produtos = Array.isArray(pData.produtos) ? pData.produtos : [];
+    const firstProduct = jsonFields(produtos[0]);
+    const copyArsenal = jsonFields(firstProduct.copy_arsenal);
+    const promessa = Array.isArray(copyArsenal.promessa) ? jsonText(copyArsenal.promessa[0]) : undefined;
+    setRaioXForm({ produto: jsonText(firstProduct.nome) || jsonText(briefing.nicho) || project.name, nicho: jsonText(briefing.nicho) || "Marketing Digital", promessa: promessa || jsonText(briefing.transformacao) || "" });
+    setStoryForm(prev => ({ ...prev, fatosBase: `Expert: ${jsonText(expert.bio) || ""}. Método: ${jsonText(expert.metodo) || ""}.` }));
+    setLeadForm({ angulo: "mecanismo", oferta: jsonText(firstProduct.nome) || project.name, publico: jsonText(briefing.nicho) || "Empreendedores", mecanismo: jsonText(firstProduct.mecanismo_unico) || "", tese: promessa || jsonText(briefing.transformacao) || "", historia: jsonText(expert.bio) || "" });
   };
 
   const handleGenerate = async () => {
@@ -188,7 +195,7 @@ export default function VslLab() {
       if (error) throw error;
       setResult(data?.result || data?.text || "");
       toast.success("Roteiro de VSL gerado!");
-    } catch (err: any) {
+    } catch {
       toast.error("Erro ao gerar roteiro.");
     } finally {
       setGenerating(false);
@@ -199,6 +206,37 @@ export default function VslLab() {
   const handleSaveToDocs = async () => {
     await supabase.from("imphq_docs").insert({ id: crypto.randomUUID(), project_id: selectedProjectId, title: "VSL Lab Export", content: result, body: result, cat: "vsl-roteiro" });
     toast.success("Salvo!");
+  };
+
+  const [savingSwipe, setSavingSwipe] = useState(false);
+  const handleSaveToSwipeBank = async () => {
+    if (!result.trim()) return toast.error("Gere algo primeiro");
+    setSavingSwipe(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const tool = VSL_TOOLS.find((t) => t.id === activeTool);
+      const proj = projects.find((p) => p.id === selectedProjectId);
+      const title = `[VSL Lab] ${tool?.title || activeTool} — ${proj?.name || "manual"} · ${new Date().toLocaleDateString()}`;
+      const { error } = await supabase.from("imphq_swipes").insert({
+        user_id: u.user?.id,
+        project_id: selectedProjectId || null,
+        title,
+        formato: "vsl",
+        plataforma: "VSL Lab",
+        criador: proj?.name || null,
+        rating: 5,
+        raw_text: result,
+        blocks: { narrativa: result },
+        tags: ["vsl-lab", tool?.id || ""].filter(Boolean),
+        reverse_engineering: { origem: "vsl-lab", ferramenta: tool?.id },
+      });
+      if (error) throw error;
+      toast.success("Salvo no Banco de VSLs! Veja em /swipe");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e));
+    } finally {
+      setSavingSwipe(false);
+    }
   };
 
   return (
@@ -221,7 +259,19 @@ export default function VslLab() {
         <div className="lg:col-span-8 space-y-4">
           {result && (
             <Card className="border-slate-800 bg-slate-900/60">
-              <CardContent className="p-4">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <Button size="sm" variant="outline" onClick={handleCopyToClipboard} className="gap-1">
+                    <Copy className="h-3 w-3" /> Copiar
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleSaveToDocs} className="gap-1">
+                    <FileDown className="h-3 w-3" /> Salvar em Docs
+                  </Button>
+                  <Button size="sm" onClick={handleSaveToSwipeBank} disabled={savingSwipe} className="gap-1 bg-amber-500 hover:bg-amber-600 text-black">
+                    {savingSwipe ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+                    Salvar no Banco de VSLs
+                  </Button>
+                </div>
                 <ScrollArea className="h-[60vh]">
                   <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed select-all">
                     {result}

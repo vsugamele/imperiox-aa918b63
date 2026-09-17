@@ -1,3 +1,4 @@
+import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { getPeriodRange } from "@/lib/periodUtils";
 import { localDaysAgo } from "@/lib/periodUtils";
-import DashboardDrillSheet, { DrillMetric } from "./DashboardDrillSheet";
+import DashboardDrillSheet, { DrillMetric } from "@/components/dashboard/DashboardDrillSheet";
 
 interface AdsGlobal {
   gasto: number;
@@ -30,8 +31,8 @@ interface AdsGlobal {
   lpToCko: number;
   ckoToSale: number;
   custoCheckout: number;
-  topCampanhas: any[];
-  adsByProject: any[];
+  topCampanhas: Array<{ name: string; gasto: number; ctr: number; compras: number; checkouts: number; cpa: number }>;
+  adsByProject: Array<{ name: string; value: number }>;
   freqAlerts: string[];
   diagnosticos: CampaignDiag[];
 }
@@ -58,12 +59,12 @@ interface Props {
   period: string;
   projectFilter: string;
   productFilter?: string;
-  allProjects: any[];
+  allProjects: Array<Pick<Tables<"imphq_projects">, "id" | "name" | "icon">>;
 }
 
-function calcCpa(items: any[]): number {
-  const gasto = items.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
-  const compras = items.reduce((s: number, a: any) => s + (a.compras || 0), 0);
+function calcCpa(items: Tables<"imphq_ads_spend">[]): number {
+  const gasto = items.reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
+  const compras = items.reduce((s: number, a) => s + (a.compras || 0), 0);
   return compras > 0 ? gasto / compras : 0;
 }
 
@@ -95,36 +96,36 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
         supabase.from("imphq_vendas").select("valor, produto_nome, project_id").gte("created_at", from).eq("status", "aprovado"),
       ]);
 
-      const projMap = new Map((allProjects || []).map((p: any) => [p.id, p]));
-      let items = (adsRes.data || []) as any[];
-      if (projectFilter !== "all") items = items.filter((a: any) => a.project_id === projectFilter);
+      const projMap = new Map((allProjects || []).map((p) => [p.id, p]));
+      let items = (adsRes.data || []);
+      if (projectFilter !== "all") items = items.filter((a) => a.project_id === projectFilter);
 
-      let vendas = (vendasRes.data || []) as any[];
-      if (projectFilter !== "all") vendas = vendas.filter((v: any) => v.project_id === projectFilter);
-      if (productFilter && productFilter !== "all") vendas = vendas.filter((v: any) => v.produto_nome === productFilter);
+      let vendas = (vendasRes.data || []);
+      if (projectFilter !== "all") vendas = vendas.filter((v) => v.project_id === projectFilter);
+      if (productFilter && productFilter !== "all") vendas = vendas.filter((v) => v.produto_nome === productFilter);
 
-      const gasto = items.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
-      const leads = items.reduce((s: number, a: any) => s + (a.leads || 0), 0);
-      const compras = items.reduce((s: number, a: any) => s + (a.compras || 0), 0);
-      const checkouts = items.reduce((s: number, a: any) => s + (a.checkouts_iniciados || 0), 0);
-      const cliques = items.reduce((s: number, a: any) => s + (a.cliques || 0), 0);
-      const impressoes = items.reduce((s: number, a: any) => s + (a.impressoes || 0), 0);
-      const alcance = items.reduce((s: number, a: any) => s + (a.alcance || 0), 0);
+      const gasto = items.reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
+      const leads = items.reduce((s: number, a) => s + (a.leads || 0), 0);
+      const compras = items.reduce((s: number, a) => s + (a.compras || 0), 0);
+      const checkouts = items.reduce((s: number, a) => s + (a.checkouts_iniciados || 0), 0);
+      const cliques = items.reduce((s: number, a) => s + (a.cliques || 0), 0);
+      const impressoes = items.reduce((s: number, a) => s + (a.impressoes || 0), 0);
+      const alcance = items.reduce((s: number, a) => s + (a.alcance || 0), 0);
 
       // Avg frequency
-      const freqItems = items.filter((a: any) => a.frequencia && a.frequencia > 0);
-      const freq = freqItems.length > 0 ? freqItems.reduce((s: number, a: any) => s + parseFloat(a.frequencia), 0) / freqItems.length : 0;
+      const freqItems = items.filter((a) => a.frequencia && a.frequencia > 0);
+      const freq = freqItems.length > 0 ? freqItems.reduce((s: number, a) => s + Number(a.frequencia), 0) / freqItems.length : 0;
 
       // Avg hook rate
-      const hookItems = items.filter((a: any) => a.hook_rate && a.hook_rate > 0);
-      const hookRate = hookItems.length > 0 ? hookItems.reduce((s: number, a: any) => s + parseFloat(a.hook_rate), 0) / hookItems.length : 0;
+      const hookItems = items.filter((a) => a.hook_rate && a.hook_rate > 0);
+      const hookRate = hookItems.length > 0 ? hookItems.reduce((s: number, a) => s + Number(a.hook_rate), 0) / hookItems.length : 0;
 
       // CPM médio
-      const cpmItems = items.filter((a: any) => a.cpm && a.cpm > 0);
-      const cpm = cpmItems.length > 0 ? cpmItems.reduce((s: number, a: any) => s + parseFloat(a.cpm), 0) / cpmItems.length : (impressoes > 0 ? (gasto / impressoes) * 1000 : 0);
+      const cpmItems = items.filter((a) => a.cpm && a.cpm > 0);
+      const cpm = cpmItems.length > 0 ? cpmItems.reduce((s: number, a) => s + Number(a.cpm), 0) / cpmItems.length : (impressoes > 0 ? (gasto / impressoes) * 1000 : 0);
 
       // Vendas reais
-      const receitaReal = vendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+      const receitaReal = vendas.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
       const vendasReais = vendas.length;
       const roasReal = gasto > 0 ? receitaReal / gasto : 0;
 
@@ -135,12 +136,12 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
 
       // Top campanhas
       const campMap = new Map<string, { gasto: number; ctr: number; compras: number; checkouts: number; cliques: number; impressoes: number; count: number }>();
-      items.forEach((a: any) => {
+      items.forEach((a) => {
         const name = a.campanha || "Sem nome";
         const prev = campMap.get(name) || { gasto: 0, ctr: 0, compras: 0, checkouts: 0, cliques: 0, impressoes: 0, count: 0 };
         campMap.set(name, {
-          gasto: prev.gasto + (parseFloat(a.valor) || 0),
-          ctr: prev.ctr + (parseFloat(a.ctr) || 0),
+          gasto: prev.gasto + (Number(a.valor) || 0),
+          ctr: prev.ctr + (Number(a.ctr) || 0),
           compras: prev.compras + (a.compras || 0),
           checkouts: prev.checkouts + (a.checkouts_iniciados || 0),
           cliques: prev.cliques + (a.cliques || 0),
@@ -159,7 +160,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
 
       // Ads by project
       const projAds = new Map<string, number>();
-      items.forEach((a: any) => { projAds.set(a.project_id, (projAds.get(a.project_id) || 0) + (parseFloat(a.valor) || 0)); });
+      items.forEach((a) => { projAds.set(a.project_id, (projAds.get(a.project_id) || 0) + (Number(a.valor) || 0)); });
       const adsByProject = Array.from(projAds.entries()).map(([pid, val]) => {
         const p = projMap.get(pid);
         return { name: p ? `${p.icon || "📁"} ${p.name}` : pid?.slice(0, 8) || "?", value: val };
@@ -167,13 +168,13 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
 
       // Frequency alerts
       const sevenAgo = localDaysAgo(7);
-      const recentAds = items.filter((a: any) => a.data_ref >= sevenAgo);
+      const recentAds = items.filter((a) => a.data_ref >= sevenAgo);
       const freqAlerts: string[] = [];
       const freqCamp = new Map<string, { freq: number; count: number }>();
-      recentAds.forEach((a: any) => {
+      recentAds.forEach((a) => {
         if (a.frequencia > 0 && a.campanha) {
           const prev = freqCamp.get(a.campanha) || { freq: 0, count: 0 };
-          freqCamp.set(a.campanha, { freq: prev.freq + parseFloat(a.frequencia), count: prev.count + 1 });
+          freqCamp.set(a.campanha, { freq: prev.freq + Number(a.frequencia), count: prev.count + 1 });
         }
       });
       freqCamp.forEach((v, name) => {
@@ -186,8 +187,8 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
       const d5 = localDaysAgo(5);
       const d3 = localDaysAgo(3);
 
-      const diagCampMap = new Map<string, any[]>();
-      items.forEach((a: any) => {
+      const diagCampMap = new Map<string, Tables<"imphq_ads_spend">[]>();
+      items.forEach((a) => {
         const name = a.campanha || "Sem nome";
         if (!diagCampMap.has(name)) diagCampMap.set(name, []);
         diagCampMap.get(name)!.push(a);
@@ -195,27 +196,27 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
 
       const diagnosticos: CampaignDiag[] = [];
       diagCampMap.forEach((campItems, name) => {
-        const items7 = campItems.filter((a: any) => a.data_ref >= d7);
-        const items5 = campItems.filter((a: any) => a.data_ref >= d5);
-        const items3 = campItems.filter((a: any) => a.data_ref >= d3);
+        const items7 = campItems.filter((a) => a.data_ref >= d7);
+        const items5 = campItems.filter((a) => a.data_ref >= d5);
+        const items3 = campItems.filter((a) => a.data_ref >= d3);
         if (items7.length === 0) return;
 
         const cpa7 = calcCpa(items7);
         const cpa5 = calcCpa(items5);
         const cpa3 = calcCpa(items3);
-        const gasto7 = items7.reduce((s: number, a: any) => s + (parseFloat(a.valor) || 0), 0);
-        const compras7 = items7.reduce((s: number, a: any) => s + (a.compras || 0), 0);
-        const checkouts7 = items7.reduce((s: number, a: any) => s + (a.checkouts_iniciados || 0), 0);
-        const cliques7 = items7.reduce((s: number, a: any) => s + (a.cliques || 0), 0);
-        const impressoes7 = items7.reduce((s: number, a: any) => s + (a.impressoes || 0), 0);
+        const gasto7 = items7.reduce((s: number, a) => s + (Number(a.valor) || 0), 0);
+        const compras7 = items7.reduce((s: number, a) => s + (a.compras || 0), 0);
+        const checkouts7 = items7.reduce((s: number, a) => s + (a.checkouts_iniciados || 0), 0);
+        const cliques7 = items7.reduce((s: number, a) => s + (a.cliques || 0), 0);
+        const impressoes7 = items7.reduce((s: number, a) => s + (a.impressoes || 0), 0);
 
         const dLpToCko = cliques7 > 0 ? (checkouts7 / cliques7) * 100 : 0;
         const dCkoToSale = checkouts7 > 0 ? (compras7 / checkouts7) * 100 : 0;
         const dCustoCheckout = checkouts7 > 0 ? gasto7 / checkouts7 : 0;
         const landingRate = impressoes7 > 0 ? (cliques7 / impressoes7) * 100 : 0;
 
-        const dFreqItems = items7.filter((a: any) => a.frequencia && a.frequencia > 0);
-        const dFreq = dFreqItems.length > 0 ? dFreqItems.reduce((s: number, a: any) => s + parseFloat(a.frequencia), 0) / dFreqItems.length : 0;
+        const dFreqItems = items7.filter((a) => a.frequencia && a.frequencia > 0);
+        const dFreq = dFreqItems.length > 0 ? dFreqItems.reduce((s: number, a) => s + Number(a.frequencia), 0) / dFreqItems.length : 0;
 
         let trend: CampaignDiag["trend"] = "INSTÁVEL";
         if (cpa3 > 0 && cpa5 > 0 && cpa7 > 0) {
@@ -236,12 +237,12 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
         else if (trend === "PIORANDO") manobra = "CORTE -50%";
 
         // Campanha é ATIVA se houve gasto OU status ACTIVE em qualquer linha dos últimos 3 dias
-        const isActive = items3.some((a: any) => {
+        const isActive = items3.some((a) => {
           const st = String(a.effective_status || "").toUpperCase();
           if (st === "ACTIVE") return true;
           if (st && st !== "ACTIVE") return false;
           // sem status: infere por gasto > 0 nos últimos 3 dias
-          return (parseFloat(a.valor) || 0) > 0;
+          return (Number(a.valor) || 0) > 0;
         });
 
         diagnosticos.push({
@@ -321,7 +322,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-            {kpis.map((k: any) => {
+            {kpis.map((k) => {
               const clickable = !!k.drill;
               return (
                 <div
@@ -382,7 +383,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
               ].map(m => (
                 <div key={m.label} className="bg-background/50 rounded px-2 py-1">
                   <span className="text-muted-foreground">{m.label}</span>
-                  <p className={`font-mono font-bold ${(m as any).warn ? "text-red-400" : ""}`}>{m.val}</p>
+                  <p className={`font-mono font-bold ${m.warn ? "text-red-400" : ""}`}>{m.val}</p>
                 </div>
               ))}
             </div>
@@ -452,7 +453,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} width={100} />
-                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v: any) => `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v) => `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
                     <Bar dataKey="value" fill="hsl(217, 91%, 60%)" radius={[0, 4, 4, 0]} name="Gasto" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -468,7 +469,7 @@ export default function DashboardAds({ period, projectFilter, productFilter, all
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {adsGlobal.topCampanhas.map((c: any, i: number) => (
+                {adsGlobal.topCampanhas.map((c, i: number) => (
                   <button
                     key={i}
                     onClick={() => openDrill("campaign", c.name)}

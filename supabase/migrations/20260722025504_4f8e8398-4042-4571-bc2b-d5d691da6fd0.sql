@@ -1,0 +1,1 @@
+ALTER TABLE public.imphq_company_map_edges ADD COLUMN IF NOT EXISTS source_handle text, ADD COLUMN IF NOT EXISTS target_handle text;

@@ -1,4 +1,7 @@
-import { useState, useEffect } from "react";
+import { errorMessage } from "@/lib/error-message";
+import { useState, useEffect, useCallback } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +19,7 @@ interface Prediction {
   predicted_value: number;
   recommended_actions: string[];
   ai_summary: string;
-  scoring_factors: any;
+  scoring_factors: Record<string, unknown>;
   next_best_action: string;
   expires_at: string;
 }
@@ -38,18 +41,18 @@ export default function LeadPredictivePanel({ leadIds, projectFilter }: Props) {
   const [analyzing, setAnalyzing] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const loadPredictions = async () => {
+  const loadPredictions = useCallback(async () => {
     setLoading(true);
     let query = supabase.from("imphq_lead_predictions").select("*").order("conversion_probability", { ascending: false });
     if (projectFilter !== "all" && projectFilter !== "none") {
       query = query.eq("project_id", projectFilter);
     }
     const { data } = await query.limit(50);
-    setPredictions((data || []) as unknown as Prediction[]);
+    setPredictions((data || []).map(row => ({ ...row, recommended_actions: Array.isArray(row.recommended_actions) ? row.recommended_actions.filter((v): v is string => typeof v === "string") : [], scoring_factors: jsonFields(row.scoring_factors) })));
     setLoading(false);
-  };
+  }, [projectFilter]);
 
-  useEffect(() => { loadPredictions(); }, [projectFilter]);
+  useEffect(() => { loadPredictions(); }, [loadPredictions]);
 
   const runAnalysis = async () => {
     if (leadIds.length === 0) { toast.error("Nenhum lead para analisar"); return; }
@@ -68,10 +71,10 @@ export default function LeadPredictivePanel({ leadIds, projectFilter }: Props) {
       } else {
         toast.error(data?.error || "Erro na análise");
       }
-    } catch (err: any) {
-      if (err?.message?.includes("429")) toast.error("Rate limit - tente novamente em alguns segundos");
-      else if (err?.message?.includes("402")) toast.error("Créditos insuficientes - adicione fundos em Settings > Workspace");
-      else toast.error("Erro: " + (err?.message || "desconhecido"));
+    } catch (err: unknown) {
+      if (errorMessage(err)?.includes("429")) toast.error("Rate limit - tente novamente em alguns segundos");
+      else if (errorMessage(err)?.includes("402")) toast.error("Créditos insuficientes - adicione fundos em Settings > Workspace");
+      else toast.error("Erro: " + (errorMessage(err) || "desconhecido"));
     }
     setAnalyzing(false);
   };
@@ -84,14 +87,15 @@ export default function LeadPredictivePanel({ leadIds, projectFilter }: Props) {
     try {
       const { data, error } = await supabase.rpc("imphq_train_lead_scoring_model");
       if (error) throw error;
-      if (data && (data as any).success) {
-        toast.success(`Modelo treinado com sucesso! ${(data as any).total_leads} leads recalculados baseados em ${(data as any).converted} conversões.`);
+      const result = jsonFields(data);
+      if (result.success === true) {
+        toast.success(`Modelo treinado com sucesso! ${result.total_leads} leads recalculados baseados em ${result.converted} conversões.`);
         setTimeout(() => window.location.reload(), 1500);
       } else {
-        toast.error((data as any)?.message || "Erro ao treinar modelo.");
+        toast.error(jsonText(result.message) || "Erro ao treinar modelo.");
       }
-    } catch (err: any) {
-      toast.error("Erro no treinamento: " + (err.message || err));
+    } catch (err: unknown) {
+      toast.error("Erro no treinamento: " + errorMessage(err));
     }
     setTrainingML(false);
   };

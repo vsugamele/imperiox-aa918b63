@@ -13,13 +13,14 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Find waiting executions (up to 100 to avoid memory overflow)
+    // Find waiting or retrying executions (up to 100 to avoid memory overflow)
     const { data: waitingExecs, error: fetchErr } = await supabase
       .from("imphq_flow_executions")
-      .select("id, automacao_id, project_id, lead_id, trigger_tipo, current_step, step_results, next_run_at, created_at")
-      .eq("status", "waiting")
+      .select("id, automacao_id, project_id, lead_id, trigger_tipo, current_step, step_results, next_run_at, created_at, status, retry_count")
+      .in("status", ["waiting", "retrying"])
       .order("next_run_at", { ascending: true })
       .limit(100);
+
 
     if (fetchErr) {
       console.error("[openflow-resume] Fetch error:", fetchErr);
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
     }
 
     const nowStr = new Date().toISOString();
-    const pending: any[] = [];
+    const pending: NonNullable<typeof waitingExecs> = [];
 
     if (waitingExecs && waitingExecs.length > 0) {
       for (const exec of waitingExecs) {
@@ -42,11 +43,11 @@ Deno.serve(async (req) => {
           try {
             const { data: auto } = await supabase
               .from("imphq_automacoes")
-              .select("acoes, etapas")
+              .select("acoes")
               .eq("id", exec.automacao_id)
               .maybeSingle();
               
-            const rawSteps = auto?.acoes || auto?.etapas || [];
+            const rawSteps = auto?.acoes || [];
             const currentStepIdx = exec.current_step || 0;
             const step = rawSteps[currentStepIdx];
             
@@ -85,15 +86,24 @@ Deno.serve(async (req) => {
 
     console.log(`[openflow-resume] Found ${pending.length} waiting executions to resume`);
 
-    const results: any[] = [];
+    const results: { id: string; ok?: boolean; automacao_id?: string; error?: string }[] = [];
 
     for (const exec of pending) {
+      let claimedByWorker = false;
       try {
-        // Mark as running to prevent double-processing
-        await supabase.from("imphq_flow_executions")
+        // Mark as running to prevent double-processing (CAS: only if still waiting/retrying)
+        const prevStatus = exec.status;
+        const { data: claimed, error: claimError } = await supabase.from("imphq_flow_executions")
           .update({ status: "running" })
           .eq("id", exec.id)
-          .eq("status", "waiting"); // CAS-like: only update if still waiting
+          .eq("status", prevStatus)
+          .select("id")
+          .maybeSingle();
+        if (claimError) throw claimError;
+        // Another worker may already have claimed this execution.
+        if (!claimed) continue;
+        claimedByWorker = true;
+
 
         // Get trigger_data from the matching automacao_log
         const { data: logData } = await supabase
@@ -103,7 +113,7 @@ Deno.serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(1);
 
-        const triggerData = (logData?.[0] as any)?.trigger_data || {};
+        const triggerData = logData?.[0]?.trigger_data || {};
         const leadData = triggerData.lead_data || {};
 
         // Re-invoke the executor with the original context
@@ -147,21 +157,25 @@ Deno.serve(async (req) => {
         }
 
         results.push({ id: exec.id, ok: execResult.ok, automacao_id: exec.automacao_id });
-      } catch (e: any) {
+      } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
         console.error(`[openflow-resume] Error resuming ${exec.id}:`, e);
-        await supabase.from("imphq_flow_executions")
-          .update({ status: "failed", error_message: `Erro na retomada: ${e.message}` })
-          .eq("id", exec.id);
-        results.push({ id: exec.id, ok: false, error: e.message });
+        if (claimedByWorker) {
+          await supabase.from("imphq_flow_executions")
+            .update({ status: "failed", error_message: `Erro na retomada: ${eMessage}` })
+            .eq("id", exec.id);
+        }
+        results.push({ id: exec.id, ok: false, error: eMessage });
       }
     }
 
     return new Response(JSON.stringify({ ok: true, resumed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
     console.error("[openflow-resume] Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: eMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

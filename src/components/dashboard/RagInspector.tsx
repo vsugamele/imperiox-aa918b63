@@ -1,4 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { record } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +45,7 @@ interface ChunkItem {
 
 export default function RagInspector({ projectFilter = "all" }: Props) {
   const [projectId, setProjectId] = useState<string>("");
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Array<Pick<Tables<"imphq_projects">,"id"|"name"|"icon">>>([]);
   const [activeTab, setActiveTab] = useState<string>("inspector");
 
   // RAG Search States
@@ -99,13 +102,13 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
   // Sync project select when parent filter changes
   useEffect(() => {
-    if (projectFilter !== "all" && projectFilter !== projectId) {
+    if (projectFilter !== "all") {
       setProjectId(projectFilter);
     }
   }, [projectFilter]);
 
   // Fetch trained documents and count chunks in background
-  const fetchTrainedData = async () => {
+  const fetchTrainedData = useCallback(async () => {
     if (!projectId) return;
     setIsLoadingDocs(true);
     try {
@@ -118,7 +121,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
       if (docErr) throw docErr;
       
-      const allDocs: DocItem[] = (docData as any[]) || [];
+      const allDocs: DocItem[] = (docData || []).map(doc => ({ ...doc, tags: Array.isArray(doc.tags) ? doc.tags.filter((tag): tag is string => typeof tag === "string") : [] }));
       const trainedDocs = allDocs.filter(d => Array.isArray(d.tags) && d.tags.includes("ia_treinada"));
       setDocs(trainedDocs);
 
@@ -138,17 +141,17 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
       });
       setChunkCounts(counts);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[RagInspector] Error fetching trained base:", err);
       toast.error("Erro ao carregar base de conhecimento");
     } finally {
       setIsLoadingDocs(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     fetchTrainedData();
-  }, [projectId]);
+  }, [fetchTrainedData]);
 
   // Trigger RAG search embedding & RPC matching
   const handleRagSearch = async () => {
@@ -197,7 +200,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
       // Step 2: Query RPC function for cosine similarity matching
       const { data: matchData, error: matchErr } = await supabase.rpc("match_wa_knowledge", {
-        query_embedding: embedding as any,
+        query_embedding: JSON.stringify(embedding),
         p_project_id: projectId,
         match_count: matchCount,
         min_similarity: minSimilarity
@@ -205,7 +208,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
       if (matchErr) throw matchErr;
 
-      const formattedResults = (matchData || []).map((m: any) => ({
+      const formattedResults = (matchData || []).map((m) => ({
         id: m.id,
         pergunta: m.pergunta,
         resposta: m.resposta,
@@ -224,10 +227,10 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
         toast.success(`Encontrados ${formattedResults.length} resultados correspondentes!`);
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[RagInspector] Search error:", err);
-      setSearchLogs(prev => [...prev, `❌ Erro: ${err.message || err}`]);
-      toast.error(`Busca RAG falhou: ${err.message || err}`);
+      setSearchLogs(prev => [...prev, `❌ Erro: ${errorMessage(err) || err}`]);
+      toast.error(`Busca RAG falhou: ${errorMessage(err) || err}`);
     } finally {
       setIsSearching(false);
     }
@@ -248,7 +251,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
 
       if (error) throw error;
       setDocChunks(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[RagInspector] Error fetching chunks:", err);
       toast.error("Falha ao buscar blocos de texto");
     } finally {
@@ -257,7 +260,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
   };
 
   // Fetch health metrics
-  const fetchHealthData = async () => {
+  const fetchHealthData = useCallback(async () => {
     if (!projectId) return;
     setIsLoadingHealth(true);
     try {
@@ -266,7 +269,7 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
       const [ragEventsRes, unansweredRes, feedbackRes, knowledgeCountRes] = await Promise.all([
         supabase
           .from("imphq_events")
-          .select("data")
+          .select("event_data")
           .eq("event_name", "rag_query")
           .eq("project_id", projectId)
           .gte("created_at", since30d),
@@ -291,12 +294,12 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
           .eq("aprovada", true),
       ]);
 
-      const ragEvents = (ragEventsRes.data || []) as Array<{ data: Record<string, unknown> }>;
-      const hits = ragEvents.filter((e) => (e.data as any)?.hit === true).length;
-      const misses = ragEvents.filter((e) => (e.data as any)?.hit === false).length;
+      const ragEvents = (ragEventsRes.data || []).map((r) => ({ data: record(r?.event_data) }));
+      const hits = ragEvents.filter((e) => e.data?.hit === true).length;
+      const misses = ragEvents.filter((e) => e.data?.hit === false).length;
       const simScores = ragEvents
-        .filter((e) => (e.data as any)?.hit === true && typeof (e.data as any)?.max_similarity === "number")
-        .map((e) => Number((e.data as any).max_similarity));
+        .filter((e) => e.data?.hit === true && typeof e.data?.max_similarity === "number")
+        .map((e) => Number(e.data.max_similarity));
       const avgSimilarity = simScores.length > 0 ? simScores.reduce((a, b) => a + b, 0) / simScores.length : 0;
 
       const feedbackActions = (feedbackRes.data || []) as Array<{ kind: string }>;
@@ -313,17 +316,17 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
         feedbackBad,
         totalKnowledge: knowledgeCountRes.count ?? 0,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[RagInspector] Health fetch error:", err);
       toast.error("Erro ao carregar métricas de saúde da IA");
     } finally {
       setIsLoadingHealth(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (activeTab === "health") fetchHealthData();
-  }, [activeTab, projectId]);
+  }, [activeTab, fetchHealthData]);
 
   // Trigger retraining for a specific document
   const handleRetrainDoc = async (doc: DocItem) => {
@@ -345,9 +348,9 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
       
       // Update counts
       fetchTrainedData();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[RagInspector] Retraining failed:", err);
-      toast.error(`Falha no treinamento: ${err.message || err}`);
+      toast.error(`Falha no treinamento: ${errorMessage(err) || err}`);
     } finally {
       setTrainingIds(prev => prev.filter(id => id !== doc.id));
     }
@@ -370,41 +373,15 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
     if (!answerDraft.trim()) return;
     setSavingAnswer(true);
     try {
-      // Gera embedding para a resposta via Lovable AI
-      const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY || "";
-      let embedding: number[] | null = null;
-
-      if (LOVABLE_API_KEY) {
-        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "google/gemini-embedding-001", input: pergunta, dimensions: 768 }),
-        });
-        if (embRes.ok) {
-          const embData = await embRes.json();
-          embedding = embData?.data?.[0]?.embedding || null;
-        }
-      }
-
-      // Atualiza o registro existente com a resposta e aprova
-      const { error } = await supabase
-        .from("imphq_wa_knowledge")
-        .update({
-          resposta: answerDraft.trim(),
-          aprovada: true,
-          answered: true,
-          source: "admin_answer",
-          ...(embedding ? { embedding } : {}),
-        })
-        .eq("id", questionId);
-
+      const { error } = await supabase.functions.invoke("rag-embed-answer", {
+        body: { questionId, pergunta, resposta: answerDraft.trim() },
+      });
       if (error) throw error;
 
       toast.success("Resposta salva! A IA vai usar isso nas próximas conversas.");
       setAnsweringId(null);
       setAnswerDraft("");
 
-      // Atualiza lista local
       if (healthData) {
         setHealthData(prev => prev ? {
           ...prev,
@@ -412,8 +389,9 @@ export default function RagInspector({ projectFilter = "all" }: Props) {
           totalKnowledge: prev.totalKnowledge + 1,
         } : prev);
       }
-    } catch (e: any) {
-      toast.error("Erro ao salvar: " + e.message);
+
+    } catch (e: unknown) {
+      toast.error("Erro ao salvar: " + errorMessage(e));
     } finally {
       setSavingAnswer(false);
     }

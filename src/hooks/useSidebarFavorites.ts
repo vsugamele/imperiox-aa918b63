@@ -17,7 +17,9 @@ function read(): string[] {
 function write(favs: string[]) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(favs.slice(0, MAX_FAVS)));
-  } catch {}
+  } catch {
+    // Keep favorites usable in memory when browser storage is unavailable.
+  }
 }
 
 export function useSidebarFavorites() {

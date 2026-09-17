@@ -1,3 +1,7 @@
+import { supabase } from "@/integrations/supabase/client";
+import { record } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,10 +14,10 @@ import { toast } from "sonner";
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  target: any | null;
-  waProviders: any[];
-  waTemplates: any[];
-  projects: any[];
+  target: {phone?:string;nome?:string;email?:string;project_id?:string} | null;
+  waProviders: Array<Pick<Tables<"imphq_wa_providers">,"id"|"project_id"|"provider"|"instance_name"|"twilio_from">>;
+  waTemplates: Array<Pick<Tables<"imphq_wa_templates">,"id"|"name"|"content"|"category">>;
+  projects: Array<{id:string;name:string}>;
 }
 
 export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProviders, waTemplates, projects }: Props) {
@@ -25,7 +29,7 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
   useEffect(() => {
     if (!open || waProviders.length === 0) return;
     const projectProviders = target?.project_id
-      ? waProviders.filter((p: any) => p.project_id === target.project_id)
+      ? waProviders.filter((p) => p.project_id === target.project_id)
       : [];
     if (projectProviders.length > 0) {
       setProviderId(projectProviders[0].id);
@@ -47,13 +51,15 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
         .replace(/\{\{email\}\}/g, target.email || "")
         .replace(/\{\{telefone\}\}/g, target.phone || "");
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Faça login para enviar a mensagem");
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-api?action=send_message`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${session.access_token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
@@ -64,12 +70,12 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
           }),
         }
       );
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Erro ao enviar");
+      const result = record(await res.json());
+      if (!res.ok) throw new Error(String(result.error || "Erro ao enviar"));
       toast.success("Mensagem enviada via WhatsApp!");
       onOpenChange(false);
-    } catch (e: any) {
-      toast.error("Erro: " + (e?.message || "falha ao enviar"));
+    } catch (e: unknown) {
+      toast.error("Erro: " + (errorMessage(e) || "falha ao enviar"));
     } finally {
       setSending(false);
     }
@@ -85,9 +91,9 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
             <Select value={providerId} onValueChange={setProviderId}>
               <SelectTrigger><SelectValue placeholder="Selecionar número..." /></SelectTrigger>
               <SelectContent>
-                {waProviders.map((p: any) => (
+                {waProviders.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find((pr: any) => pr.id === p.project_id)?.name || ""}
+                    {p.provider === "hub_local" ? "📱" : p.provider === "evolution" ? "🟢" : "🔵"} {p.instance_name || p.twilio_from} — {projects.find((pr) => pr.id === p.project_id)?.name || ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -97,10 +103,10 @@ export default function LeadWhatsAppDialog({ open, onOpenChange, target, waProvi
           {waTemplates.length > 0 && (
             <div>
               <Label>Template (opcional)</Label>
-              <Select onValueChange={v => { const t = waTemplates.find((t: any) => t.id === v); if (t) setMessage(t.content); }}>
+              <Select onValueChange={v => { const t = waTemplates.find((t) => t.id === v); if (t) setMessage(t.content); }}>
                 <SelectTrigger><SelectValue placeholder="Usar template..." /></SelectTrigger>
                 <SelectContent>
-                  {waTemplates.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.category})</SelectItem>)}
+                  {waTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.category})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

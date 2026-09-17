@@ -1,10 +1,13 @@
+import { record } from "@/lib/funis-data";
+import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { useState, forwardRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, Pencil, Trash2 } from "lucide-react";
+import { Copy, Check, Pencil, Trash2, Star, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const BLOCKS: { key: string; label: string }[] = [
   { key: "gancho", label: "GANCHO — 0–3s" },
@@ -14,16 +17,17 @@ const BLOCKS: { key: string; label: string }[] = [
 ];
 
 interface Props {
-  swipe: any;
+  swipe: Tables<"imphq_swipes">;
   label: string;
   selected: boolean;
   onToggleSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onChanged?: (patch: TablesUpdate<"imphq_swipes">) => void;
 }
 
 export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
-  ({ swipe: s, label, selected, onToggleSelect, onEdit, onDelete }, ref) => {
+  ({ swipe: s, label, selected, onToggleSelect, onEdit, onDelete, onChanged }, ref) => {
     const [ctaTab, setCtaTab] = useState<"engajamento" | "venda">("engajamento");
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -38,7 +42,7 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
       }
     };
 
-    const blocks = s.blocks || {};
+    const blocks = Object.fromEntries(Object.entries(record(s.blocks)).flatMap(([key,value])=>typeof value === "string" ? [[key,value]] : []));
     const title = String(s.title || "").replace(/^ROTEIRO\s+[A-Z0-9]+\s*[—-]\s*/i, "");
 
     return (
@@ -83,6 +87,20 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={async () => {
+                const nv = !s.favorito;
+                onChanged?.({ favorito: nv });
+                await supabase.from("imphq_swipes").update({ favorito: nv }).eq("id", s.id);
+              }}
+              className={cn(
+                "p-1.5 rounded transition",
+                s.favorito ? "text-[hsl(var(--gold))]" : "text-muted-foreground/40 hover:text-[hsl(var(--gold))]/70",
+              )}
+              title={s.favorito ? "Remover favorito" : "Favoritar"}
+            >
+              <Star className="h-4 w-4" fill={s.favorito ? "currentColor" : "none"} />
+            </button>
             <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-[hsl(var(--gold))] text-background text-xs font-bold">
               {label}
             </span>
@@ -173,6 +191,37 @@ export const SwipeRoteiroCard = forwardRef<HTMLDivElement, Props>(
             </Badge>
           )}
           <div className="flex-1" />
+          {/* Score 1-5 */}
+          <div className="flex items-center gap-0.5 mr-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                onClick={async () => {
+                  const nv = s.rating === n ? 0 : n;
+                  onChanged?.({ rating: nv });
+                  await supabase.from("imphq_swipes").update({ rating: nv }).eq("id", s.id);
+                }}
+                className={cn(
+                  "p-0.5 transition",
+                  (s.rating || 0) >= n ? "text-[hsl(var(--gold))]" : "text-muted-foreground/30 hover:text-muted-foreground",
+                )}
+                title={`${n} estrela${n > 1 ? "s" : ""}`}
+              >
+                <Star className="h-3 w-3" fill={(s.rating || 0) >= n ? "currentColor" : "none"} />
+              </button>
+            ))}
+          </div>
+          {s.source_url && (
+            <a
+              href={s.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 text-muted-foreground hover:text-foreground transition"
+              title="Abrir fonte original"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
           <Button
             size="sm"
             variant="ghost"

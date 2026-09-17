@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,14 @@ interface ParsedStep {
   send_time: string;
   content: string;
   _keep: boolean;
+}
+
+function isParsedStep(value: unknown): value is Omit<ParsedStep, "_keep"> {
+  if (typeof value !== "object" || value === null) return false;
+  return "content" in value && typeof value.content === "string"
+    && "day_label" in value && typeof value.day_label === "string"
+    && "send_time" in value && typeof value.send_time === "string"
+    && "day_offset" in value && typeof value.day_offset === "number" && Number.isFinite(value.day_offset);
 }
 
 interface Props {
@@ -48,12 +57,14 @@ export default function CampaignImportDialog({ open, onClose, campaignId, onDone
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      const arr: ParsedStep[] = (data?.steps || []).map((s: any) => ({ ...s, _keep: true }));
+      const rawSteps: unknown = data?.steps;
+      if (!Array.isArray(rawSteps) || !rawSteps.every(isParsedStep)) throw new Error("Formato de mensagens inválido");
+      const arr: ParsedStep[] = rawSteps.map(s => ({ ...s, _keep: true }));
       if (arr.length === 0) { toast.error("IA não identificou mensagens. Verifique separadores."); return; }
       setSteps(arr);
       toast.success(`✨ ${arr.length} mensagens detectadas`);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao analisar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao analisar");
     } finally {
       setParsing(false);
     }
@@ -81,14 +92,14 @@ export default function CampaignImportDialog({ open, onClose, campaignId, onDone
         days_offset: s.day_offset,
         is_active: true,
       }));
-      const { error } = await supabase.from("imphq_wa_campaign_steps").insert(toInsert as any);
+      const { error } = await supabase.from("imphq_wa_campaign_steps").insert(toInsert);
       if (error) throw error;
       toast.success(`✅ ${toInsert.length} mensagens importadas`);
       onDone();
       reset();
       onClose();
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao importar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Erro ao importar");
     } finally {
       setImporting(false);
     }

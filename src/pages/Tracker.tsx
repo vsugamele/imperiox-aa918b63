@@ -1,4 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
+import { record } from "@/lib/funis-data";
+import type { Tables } from "@/integrations/supabase/types";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
@@ -101,10 +103,10 @@ function getDateRange(period: string): { from: string; to: string } {
 export default function Tracker() {
   const [links, setLinks] = useState<TrackingLink[]>([]);
   const [adsSpend, setAdsSpend] = useState<AdsSpendRow[]>([]);
-  const [vendas, setVendas] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [clicks, setClicks] = useState<any[]>([]);
+  const [vendas, setVendas] = useState<Tables<"imphq_vendas">[]>([]);
+  const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">,"id"|"name">[]>([]);
+  const [leads, setLeads] = useState<(Pick<Tables<"imphq_leads">,"score"|"criado_em"> & { utm_source?: string })[]>([]);
+  const [clicks, setClicks] = useState<Pick<Tables<"imphq_clicks">,"id"|"link_id"|"convertido"|"lead_id"|"created_at">[]>([]);
   const [selectedFunnelLink, setSelectedFunnelLink] = useState<TrackingLink | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showTargets, setShowTargets] = useState(false);
@@ -122,33 +124,33 @@ export default function Tracker() {
 
   const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [lRes, adsRes, vRes, pRes, leadsRes, cRes] = await Promise.all([
       supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }),
       supabase.from("imphq_vendas").select("*").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_leads").select("utm_source, score, criado_em").gte("criado_em", dateRange.from + "T00:00:00").lte("criado_em", dateRange.to + "T23:59:59"),
+      supabase.from("imphq_leads").select("data, score, criado_em").gte("criado_em", dateRange.from + "T00:00:00").lte("criado_em", dateRange.to + "T23:59:59"),
       supabase.from("imphq_clicks").select("id, link_id, convertido, lead_id, created_at").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
     ]);
     const clicksData = cRes.data || [];
     setClicks(clicksData);
-    const enriched = (lRes.data || []).map((l: any) => ({
-      ...l, clickCount: clicksData.filter((c: any) => c.link_id === l.id).length,
+    const enriched = (lRes.data || []).map((l) => ({
+      ...l, clickCount: clicksData.filter((c) => c.link_id === l.id).length,
     }));
     setLinks(enriched);
-    setAdsSpend((adsRes.data || []) as any);
+    setAdsSpend((adsRes.data || []));
     setVendas(vRes.data || []);
     setProjects(pRes.data || []);
-    setLeads(leadsRes.data || []);
+    setLeads((leadsRes.data || []).map(lead => { const source = record(record(lead.data).utms).utm_source || record(lead.data).utm_source; return { ...lead, utm_source: typeof source === "string" ? source : undefined }; }));
     // Extract unique product names
-    const prods = [...new Set((vRes.data || []).map((v: any) => v.produto_nome as string).filter(Boolean))].sort();
+    const prods = [...new Set((vRes.data || []).map((v) => v.produto_nome as string).filter(Boolean))].sort();
     setAllProducts(prods);
     const saved = localStorage.getItem("imphq_kpi_targets");
     if (saved) setTargets(JSON.parse(saved));
-  };
+  }, [dateRange]);
 
-  useEffect(() => { load(); }, [dateRange.from, dateRange.to]);
+  useEffect(() => { load(); }, [load]);
 
   const saveTargets = () => {
     localStorage.setItem("imphq_kpi_targets", JSON.stringify(targets));
@@ -197,7 +199,7 @@ export default function Tracker() {
       utm_campaign: form.utm_campaign || null, utm_content: form.utm_content || null,
       utm_term: form.utm_term || null, ativo: true,
       data_inicio: form.data_inicio || null, data_fim: form.data_fim || null,
-    } as any);
+    });
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Link criado!"); setShowNew(false);
     setForm({ nome: "", destino: "", plataforma: "Meta Ads", project_id: "none", utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "", data_inicio: "", data_fim: "" });
@@ -239,7 +241,7 @@ export default function Tracker() {
   const totalAlcance = filteredAds.reduce((s, a) => s + (parseInt(String(a.alcance)) || 0), 0);
   const totalComprasAds = filteredAds.reduce((s, a) => s + (parseInt(String(a.compras)) || 0), 0);
   const totalVendasCount = filteredVendas.length;
-  const totalReceita = filteredVendas.reduce((s: number, v: any) => s + (parseFloat(v.valor) || 0), 0);
+  const totalReceita = filteredVendas.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
 
   const roas = totalGasto > 0 ? totalReceita / totalGasto : 0;
   const cpa = totalVendasCount > 0 ? totalGasto / totalVendasCount : 0;
@@ -263,7 +265,7 @@ export default function Tracker() {
   filteredVendas.forEach(v => {
     const d = v.created_at ? toLocalDateStr(new Date(v.created_at)) : "";
     const prev = dailyMap.get(d) || { gasto: 0, receita: 0, clicks: 0 };
-    prev.receita += parseFloat(v.valor) || 0;
+    prev.receita += Number(v.valor) || 0;
     dailyMap.set(d, prev);
   });
   const dailyChart = Array.from(dailyMap.entries()).map(([date, v]) => ({ date, ...v })).sort((a, b) => a.date.localeCompare(b.date));
@@ -492,7 +494,7 @@ export default function Tracker() {
 
     const salesListForUtm = vendas.filter(v => v.utm_source === activeUtm || (activeUtm === "FB" && (v.utm_source === "facebook" || v.utm_source === "Meta Ads" || v.utm_source === "FB")));
     const historicalSalesCount = salesListForUtm.length;
-    const historicalRevenue = salesListForUtm.reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
+    const historicalRevenue = salesListForUtm.reduce((s, v) => s + (Number(v.valor) || 0), 0);
 
     const baseCpl = historicalLeadsCount > 0 ? historicalSpend / historicalLeadsCount : 6.00;
     const baseCr = historicalLeadsCount > 0 ? historicalSalesCount / historicalLeadsCount : 0.025;
@@ -675,11 +677,11 @@ export default function Tracker() {
           {/* UTM Source Attribution */}
           {filteredVendas.length > 0 && (() => {
             const sourceMap = new Map<string, { cnt: number; receita: number }>();
-            filteredVendas.forEach((v: any) => {
+            filteredVendas.forEach((v) => {
               const src = v.utm_source || "Direto / Desconhecido";
               const prev = sourceMap.get(src) || { cnt: 0, receita: 0 };
               prev.cnt += 1;
-              prev.receita += parseFloat(v.valor) || 0;
+              prev.receita += Number(v.valor) || 0;
               sourceMap.set(src, prev);
             });
             const sources = Array.from(sourceMap.entries()).map(([source, d]) => ({ source, ...d })).sort((a, b) => b.receita - a.receita);
@@ -725,11 +727,11 @@ export default function Tracker() {
           {/* Product Breakdown */}
           {filteredVendas.length > 0 && (() => {
             const prodMap = new Map<string, { cnt: number; receita: number }>();
-            filteredVendas.forEach((v: any) => {
+            filteredVendas.forEach((v) => {
               const prod = v.produto_nome || "Sem produto";
               const prev = prodMap.get(prod) || { cnt: 0, receita: 0 };
               prev.cnt += 1;
-              prev.receita += parseFloat(v.valor) || 0;
+              prev.receita += Number(v.valor) || 0;
               prodMap.set(prod, prev);
             });
             const prods = Array.from(prodMap.entries()).map(([produto, d]) => ({ produto, ...d })).sort((a, b) => b.receita - a.receita);
@@ -751,7 +753,7 @@ export default function Tracker() {
                   <TableBody>
                     {prods.map((p, i) => {
                       const tipoMap = new Map<string, number>();
-                      filteredVendas.filter((v: any) => (v.produto_nome || "Sem produto") === p.produto).forEach((v: any) => {
+                      filteredVendas.filter((v) => (v.produto_nome || "Sem produto") === p.produto).forEach((v) => {
                         const t = v.tipo_venda || "principal";
                         tipoMap.set(t, (tipoMap.get(t) || 0) + 1);
                       });
@@ -775,13 +777,13 @@ export default function Tracker() {
           {/* Campaign Attribution (UTM Campaign → Receita) */}
           {filteredVendas.length > 0 && (() => {
             const campMap = new Map<string, { cnt: number; receita: number }>();
-            filteredVendas.forEach((v: any) => {
+            filteredVendas.forEach((v) => {
               const raw = v.utm_campaign;
               if (!raw) return;
               const name = raw.split("|")[0].trim() || raw;
               const prev = campMap.get(name) || { cnt: 0, receita: 0 };
               prev.cnt += 1;
-              prev.receita += parseFloat(v.valor) || 0;
+              prev.receita += Number(v.valor) || 0;
               campMap.set(name, prev);
             });
             const camps = Array.from(campMap.entries()).map(([campanha, d]) => ({ campanha, ...d })).sort((a, b) => b.receita - a.receita).slice(0, 10);
@@ -1209,7 +1211,7 @@ export default function Tracker() {
             </div>
             {form.destino && (
               <div className="p-2 bg-secondary rounded text-xs text-muted-foreground break-all">
-                <span className="text-primary font-medium">Preview: </span>{buildUrl(form as any)}
+                <span className="text-primary font-medium">Preview: </span>{buildUrl(form)}
               </div>
             )}
 
@@ -1357,7 +1359,7 @@ export default function Tracker() {
             const linkSalesAprovadas = linkVendas.filter(v => v.status === 'aprovado');
             const numSales = linkSalesAprovadas.length;
             
-            const faturamento = linkSalesAprovadas.reduce((s, v) => s + (parseFloat(v.valor) || 0), 0);
+            const faturamento = linkSalesAprovadas.reduce((s, v) => s + (Number(v.valor) || 0), 0);
             const aov = numSales > 0 ? faturamento / numSales : 0;
             
             const linkSpend = adsSpend

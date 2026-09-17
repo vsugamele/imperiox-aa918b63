@@ -1,3 +1,5 @@
+import type { Tables } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,8 +18,8 @@ import {
   aggregateAudience, aggregateAds, buildFunnel, buildDiagnostics,
   semaforo, semColor, semaforoBenchmark, fmtMoney, fmtNum,
   DAYS, UF_REGION_EMOJI, type AudienceRow, type AdsRow,
-} from "./insights/aggregations";
-import { ProductInsightDrawer } from "./insights/ProductInsightDrawer";
+} from "@/components/projeto/insights/aggregations";
+import { ProductInsightDrawer } from "@/components/projeto/insights/ProductInsightDrawer";
 import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
 
 const ALL_PRODUCTS = "__all__";
@@ -45,7 +47,7 @@ export function ProjetoInsights({ projectId }: Props) {
         .select("produto_nome").eq("project_id", projectId)
         .not("produto_nome", "is", null).limit(5000);
       if (cancel) return;
-      const uniq = Array.from(new Set(((data ?? []) as any[]).map(d => d.produto_nome).filter(Boolean))) as string[];
+      const uniq = Array.from(new Set((data ?? []).map(d => d.produto_nome).filter(Boolean))) as string[];
       setProdutos(uniq.sort());
     })();
     return () => { cancel = true; };
@@ -63,7 +65,7 @@ export function ProjetoInsights({ projectId }: Props) {
 
       const audiencePromise = (async (): Promise<AudienceRow[]> => {
         if (source === "vendas") {
-          const vendas = await fetchAll<any>(
+          const vendas = await fetchAll<Pick<Tables<"imphq_vendas">,"created_at"|"valor"|"lead_id"|"produto_nome">>(
             (from, to) => {
               let q = supabase.from("imphq_vendas")
                 .select("created_at, valor, lead_id, produto_nome")
@@ -75,33 +77,33 @@ export function ProjetoInsights({ projectId }: Props) {
             1000, 50000, n => !cancel && setProgress(n),
           );
           const leadIds = [...new Set(vendas.map(v => v.lead_id).filter(Boolean))] as string[];
-          const leadsMap = new Map<string, any>();
+          const leadsMap = new Map<string, Pick<Tables<"imphq_leads">,"id"|"nome"|"phone"|"data">>();
           for (let i = 0; i < leadIds.length; i += 500) {
             const slice = leadIds.slice(i, i + 500);
-            const { data: leads } = await (supabase as any).from("imphq_leads")
-              .select("id, nome, genero, phone, data").in("id", slice);
-            ((leads ?? []) as any[]).forEach(l => leadsMap.set(l.id, l));
+            const { data: leads } = await supabase.from("imphq_leads")
+              .select("id, nome, phone, data").in("id", slice);
+            (leads ?? []).forEach(l => leadsMap.set(l.id, l));
           }
           return vendas.map(v => ({
             ts: v.created_at, valor: Number(v.valor || 0),
             lead: leadsMap.get(v.lead_id), produto: v.produto_nome,
           }));
         } else {
-          const leads = await fetchAll<any>(
+          const leads = await fetchAll<Pick<Tables<"imphq_leads">,"criado_em"|"nome"|"phone"|"data">>(
             (from, to) => {
-              let q: any = (supabase as any).from("imphq_leads")
-                .select("criado_em, nome, genero, phone, data, ultimo_produto")
+              let q = supabase.from("imphq_leads")
+                .select("criado_em, nome, phone, data")
                 .eq("project_id", projectId).gte("criado_em", since).range(from, to);
-              if (produto !== ALL_PRODUCTS) q = q.eq("ultimo_produto", produto);
+              if (produto !== ALL_PRODUCTS) q = q.eq("data->>ultimo_produto", produto);
               return q;
             },
             1000, 50000, n => !cancel && setProgress(n),
           );
-          return leads.map((l: any) => ({ ts: l.criado_em, lead: l, produto: l.ultimo_produto }));
+          return leads.map((l) => ({ ts: l.criado_em, lead: l, produto: jsonText(jsonFields(l.data).ultimo_produto) }));
         }
       })();
 
-      const adsPromise = fetchAll<any>(
+      const adsPromise = fetchAll<Pick<Tables<"imphq_ads_spend">,keyof AdsRow>>(
         (from, to) => {
           let q = supabase.from("imphq_ads_spend")
             .select("data_ref, campanha, valor, impressoes, alcance, link_clicks, cliques, landing_page_views, add_to_cart, init_checkout, checkouts_iniciados, compras, resultados, hook_rate, hold_rate, ctr, cpm, frequencia")
@@ -110,7 +112,7 @@ export function ProjetoInsights({ projectId }: Props) {
           return q;
         },
         1000, 50000, n => !cancel && setAdsProgress(n),
-      ).then(rs => rs.map((r: any) => ({
+      ).then(rs => rs.map((r) => ({
         ...r, valor: +r.valor||0, impressoes: +r.impressoes||0, alcance: +r.alcance||0,
         link_clicks: +r.link_clicks||0, cliques: +r.cliques||0,
         landing_page_views: +r.landing_page_views||0, add_to_cart: +r.add_to_cart||0,
@@ -153,7 +155,7 @@ export function ProjetoInsights({ projectId }: Props) {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-            <Tabs value={source} onValueChange={(v) => setSource(v as any)}>
+            <Tabs value={source} onValueChange={(v) => setSource(v === "leads" ? "leads" : "vendas")}>
               <TabsList className="h-8">
                 <TabsTrigger value="vendas" className="text-xs h-7">Vendas</TabsTrigger>
                 <TabsTrigger value="leads" className="text-xs h-7">Leads</TabsTrigger>

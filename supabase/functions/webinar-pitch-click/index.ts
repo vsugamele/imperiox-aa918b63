@@ -69,15 +69,19 @@ Deno.serve(async (req) => {
   const phone = normalizePhone(reg.phone || "");
   if (phone && click && Array.isArray(session.recovery_template)) {
     const now = Date.now();
-    const queue = (session.recovery_template as any[]).map((step) => ({
+    const queue = session.recovery_template.map((raw: unknown) => {
+      const step = raw && typeof raw === "object" ? raw : {};
+      const message = "message" in step ? step.message : "";
+      const delay = "delay_minutes" in step ? step.delay_minutes : undefined;
+      return ({
       click_id: click.id,
       session_id: sessionId,
       project_id: session.project_id,
       phone,
-      message: String(step.message || "").replace(/\[NOME\]/g, reg.nome || ""),
-      send_at: new Date(now + (Number(step.delay_minutes) || 15) * 60_000).toISOString(),
+      message: String(message || "").replace(/\[NOME\]/g, reg.nome || ""),
+      send_at: new Date(now + (Number(delay) || 15) * 60_000).toISOString(),
       status: "pending",
-    }));
+    }); });
     if (queue.length) await supabase.from("imphq_webinar_wa_queue").insert(queue);
   }
 

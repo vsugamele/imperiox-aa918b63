@@ -124,8 +124,8 @@ export function buildHyperPrompt(f: HyperFields): string {
   return lines.join("\n");
 }
 
-export function buildHyperPromptJson(f: HyperFields): Record<string, any> {
-  const clean = (o: Record<string, any>) =>
+export function buildHyperPromptJson(f: HyperFields): Record<string, Json> {
+  const clean = (o: Record<string, Json>) =>
     Object.fromEntries(Object.entries(o).filter(([_, v]) => v && String(v).trim()));
 
   return clean({
@@ -213,3 +213,4 @@ export const emptyHyperFields: HyperFields = {
   seed: "",
 };
 
+import type { Json } from "@/integrations/supabase/types";

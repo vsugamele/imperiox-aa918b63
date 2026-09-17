@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Play, Pause, Pencil, Copy, AlertCircle, CheckCircle2, History } from "lucide-react";
@@ -24,7 +25,7 @@ interface ActionRow {
   created_at: string;
 }
 
-const ICONS: Record<string, any> = {
+const ICONS: Record<string, LucideIcon> = {
   ativou: Play,
   pausou: Pause,
   editou_orcamento: Pencil,
@@ -43,7 +44,7 @@ export function RowHistoryDrawer({ open, onOpenChange, entityId, entityName, pro
       let q = supabase.from("imphq_ads_actions").select("*").eq("entidade_id", entityId).order("created_at", { ascending: false }).limit(80);
       if (projectId) q = q.eq("project_id", projectId);
       const { data } = await q;
-      setRows((data as any) || []);
+      setRows(data || []);
       setLoading(false);
     })();
   }, [open, entityId, projectId]);

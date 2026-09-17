@@ -43,16 +43,16 @@ export function TriagemPanel() {
     const since = new Date(); since.setHours(0, 0, 0, 0);
     const { data } = await supabase
       .from("imphq_wa_triage")
-      .select("*")
+      .select("id, intent, sentiment, urgency, fit_score, raw_message, ai_response, escalated, created_at, lead_id, projeto_id")
       .gte("created_at", since.toISOString())
       .order("created_at", { ascending: false })
       .limit(50);
-    const arr = (data as any) || [];
+    const arr = data || [];
     setItems(arr);
     setStats({
       hoje: arr.length,
-      escalados: arr.filter((x: any) => x.escalated).length,
-      hotLeads: arr.filter((x: any) => x.intent === "compra_quente").length,
+      escalados: arr.filter((x) => x.escalated).length,
+      hotLeads: arr.filter((x) => x.intent === "compra_quente").length,
     });
   };
 

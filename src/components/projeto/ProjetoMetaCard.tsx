@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -17,7 +19,7 @@ interface Props {
 }
 
 export function ProjetoMetaCard({ projectId, receitaMes, leadsMes, vendasMes }: Props) {
-  const [goal, setGoal] = useState<any>(null);
+  const [goal, setGoal] = useState<Tables<"imphq_project_goals"> | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ meta_receita: 0, meta_leads: 0, meta_vendas: 0, meta_roas: 0 });
   const [saving, setSaving] = useState(false);
@@ -25,9 +27,10 @@ export function ProjetoMetaCard({ projectId, receitaMes, leadsMes, vendasMes }: 
   const now = new Date();
   const ano = now.getFullYear();
   const mes = now.getMonth() + 1;
+  const day = now.getDate();
 
-  const load = async () => {
-    const { data } = await (supabase as any).from("imphq_project_goals")
+  const load = useCallback(async () => {
+    const { data } = await supabase.from("imphq_project_goals")
       .select("*").eq("project_id", projectId).eq("ano", ano).eq("mes", mes).maybeSingle();
     setGoal(data);
     if (data) {
@@ -38,14 +41,14 @@ export function ProjetoMetaCard({ projectId, receitaMes, leadsMes, vendasMes }: 
         meta_roas: Number(data.meta_roas) || 0,
       });
     }
-  };
+  }, [projectId, ano, mes]);
 
-  useEffect(() => { load(); }, [projectId]);
+  useEffect(() => { load(); }, [load]);
 
   const save = async () => {
     setSaving(true);
     const payload = { project_id: projectId, ano, mes, ...form };
-    const sb: any = supabase;
+    const sb = supabase;
     const { error } = goal
       ? await sb.from("imphq_project_goals").update(payload).eq("id", goal.id)
       : await sb.from("imphq_project_goals").insert(payload);
@@ -59,7 +62,6 @@ export function ProjetoMetaCard({ projectId, receitaMes, leadsMes, vendasMes }: 
   const { pctReceita, projecao, statusCor, diasRestantes, ritmoStatus } = useMemo(() => {
     const meta = Number(goal?.meta_receita) || 0;
     const pct = meta > 0 ? Math.min(100, (receitaMes / meta) * 100) : 0;
-    const day = now.getDate();
     const lastDay = new Date(ano, mes, 0).getDate();
     const diasRestantes = lastDay - day;
     const proj = day > 0 ? (receitaMes / day) * lastDay : 0;
@@ -70,7 +72,7 @@ export function ProjetoMetaCard({ projectId, receitaMes, leadsMes, vendasMes }: 
       else if (proj < meta) { cor = "text-amber-400"; ritmo = "atencao"; }
     }
     return { pctReceita: pct, projecao: proj, statusCor: cor, diasRestantes, ritmoStatus: ritmo };
-  }, [goal, receitaMes]);
+  }, [goal, receitaMes, day, ano, mes]);
 
   return (
     <>
@@ -165,7 +167,7 @@ export function ProjetoMetaCard({ projectId, receitaMes, leadsMes, vendasMes }: 
   );
 }
 
-function MiniGoal({ icon, label, actual, target, hideValue }: any) {
+function MiniGoal({ icon, label, actual, target, hideValue }: { icon: ReactNode; label: string; actual: number; target: number; hideValue?: boolean }) {
   const pct = target > 0 ? Math.min(100, (actual / target) * 100) : 0;
   return (
     <div className="bg-muted/30 rounded p-2">

@@ -1,3 +1,6 @@
+import { z } from "https://esm.sh/zod@3.25.76";
+function makeClient(url: string, key: string) { return createClient(url, key); }
+interface Provider { id: string; provider: string; api_url: string; api_key: string; instance_name: string }
 // Recovery Bucket Dispatch — dispara WhatsApp para todos itens de um bucket,
 // gerando copy personalizada via Lovable AI Gateway. Logs em recovery_logs + ai_actions.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
@@ -27,7 +30,7 @@ function normalizePhone(p: string): string {
   return s;
 }
 
-async function findActiveProvider(supabase: any, projectId: string) {
+async function findActiveProvider(supabase: ReturnType<typeof makeClient>, projectId: string) {
   const { data } = await supabase
     .from("imphq_wa_providers")
     .select("*")
@@ -44,7 +47,7 @@ async function findActiveProvider(supabase: any, projectId: string) {
   return any2;
 }
 
-async function sendWhatsApp(provider: any, phone: string, message: string) {
+async function sendWhatsApp(provider: Provider | null, phone: string, message: string) {
   if (!provider) return { ok: false, error: "no_provider" };
   try {
     if (provider.provider === "evolution") {
@@ -58,12 +61,13 @@ async function sendWhatsApp(provider: any, phone: string, message: string) {
       return { ok: true };
     }
     return { ok: false, error: "provider_unsupported" };
-  } catch (e: any) {
-    return { ok: false, error: String(e?.message || e) };
+  } catch (e) {
+    const eMessage = e instanceof Error ? e.message : e && typeof e === "object" && "message" in e && typeof e.message === "string" ? e.message : undefined;
+    return { ok: false, error: String(eMessage || e) };
   }
 }
 
-async function aiCopy(bucket: BucketId, nome: string, produto: string, valor: number, projeto: any): Promise<string> {
+async function aiCopy(bucket: BucketId, nome: string, produto: string, valor: number, projeto: { name?: string | null; avatar?: { nome?: string } | null; brand_kit?: { tom_de_voz?: string } | null } | null): Promise<string> {
   const fallback = `Oi ${nome || ""}! Vi seu interesse em *${produto || "nossa oferta"}*. Posso te ajudar a finalizar agora?`;
   if (!LOVABLE_API_KEY) return fallback;
   const avatar = projeto?.avatar || {};
@@ -93,7 +97,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const projectId: string = body?.project_id;
     const bucket: BucketId = body?.bucket;
-    const items: any[] = Array.isArray(body?.items) ? body.items : [];
+    const items = z.array(z.object({ id: z.string().nullish(), phone: z.string().nullish(), leadId: z.string().nullish(), leadName: z.string().nullish(), product: z.string().nullish(), value: z.union([z.string(), z.number()]).nullish(), vendaId: z.string().nullish() }).passthrough()).parse(Array.isArray(body?.items) ? body.items : []);
     const maxSend: number = Math.min(Math.max(Number(body?.max) || 25, 1), 100);
 
     if (!projectId || !bucket || items.length === 0) {
@@ -117,7 +121,7 @@ Deno.serve(async (req) => {
     const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const target = items.slice(0, maxSend);
     let sent = 0, skipped = 0;
-    const details: any[] = [];
+    const details: { id?: string | null; ok: boolean; error?: string }[] = [];
 
     for (const it of target) {
       const phone = normalizePhone(it.phone || "");
@@ -146,7 +150,7 @@ Deno.serve(async (req) => {
         status: result.ok ? "enviado" : "falha",
         valor: it.value || 0,
         observacao: result.ok ? "Disparo IA por bucket" : (result.error || "falha"),
-      } as any);
+      });
 
       await supabase.from("imphq_ai_actions").insert({
         kind: "recovery_bucket_dispatch",
@@ -162,7 +166,7 @@ Deno.serve(async (req) => {
         auto_executed: false,
         executed_at: now.toISOString(),
         error: result.ok ? null : (result.error || null),
-      } as any);
+      });
 
       if (result.ok) sent++; else skipped++;
       details.push({ id: it.id, ok: result.ok, error: result.error });
@@ -171,9 +175,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, sent, skipped, total: target.length, details }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : err && typeof err === "object" && "message" in err && typeof err.message === "string" ? err.message : undefined;
     console.error("[recovery-bucket-dispatch] Error:", err);
-    return new Response(JSON.stringify({ error: String(err?.message || err) }), {
+    return new Response(JSON.stringify({ error: String(errMessage || err) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

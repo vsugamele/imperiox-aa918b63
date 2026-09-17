@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useEffect } from "react";
+import type { LucideIcon } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useMemo, useEffect, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -8,11 +10,16 @@ import {
   Position,
   useNodesState,
   useEdgesState,
+  addEdge, // Added
   type Node,
   type Edge,
+  type Connection, // Added
   BackgroundVariant,
   Panel,
+  useReactFlow,
 } from "@xyflow/react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import "@xyflow/react/dist/style.css";
 import {
   Mail,
@@ -34,12 +41,18 @@ import {
   BarChart3,
   Sparkles,
   Repeat,
-  Octagon
+  Octagon,
+  LogOut,
+  CheckCircle2,
+  Plus,
+  ChevronLeft,
 } from "lucide-react";
-import type { Acao } from "./FlowEditor";
+import type { Acao } from "@/components/openflow/FlowEditor";
+
+type ActionNodeData = { tipo: string; label: string; index: number; delay_min?: number; acao: Partial<Acao>; stats?: { reached: number; completed: number; waiting: number; failed: number } };
 
 // ── Node type metadata map ───────────────────────────────────
-const NODE_META: Record<string, { color: string; bg: string; icon: any; emoji: string; label: string }> = {
+const NODE_META: Record<string, { color: string; bg: string; icon: LucideIcon; emoji: string; label: string }> = {
   whatsapp:        { color: "#22c55e", bg: "#022c22", icon: MessageCircle, emoji: "💬", label: "WhatsApp" },
   email:           { color: "#3b82f6", bg: "#1e3a8a", icon: Mail, emoji: "✉️", label: "Email" },
   audio:           { color: "#ec4899", bg: "#881337", icon: Mic, emoji: "🎙️", label: "Áudio IA" },
@@ -47,6 +60,8 @@ const NODE_META: Record<string, { color: string; bg: string; icon: any; emoji: s
   aguardar:        { color: "#f59e0b", bg: "#78350f", icon: Clock, emoji: "⏱", label: "Aguardar" },
   wait_event:      { color: "#06b6d4", bg: "#164e63", icon: Timer, emoji: "⏱️", label: "Aguardar Evento" },
   wait_reply:      { color: "#84cc16", bg: "#1a2e05", icon: MessageCircle, emoji: "💬", label: "Aguardar Resposta" },
+  input_capture:   { color: "#f97316", bg: "#7c2d12", icon: Zap, emoji: "📥", label: "Capturar Resposta" },
+  generate_image:  { color: "#ec4899", bg: "#831843", icon: Sparkles, emoji: "🎨", label: "Gerar Imagem" },
   ab_split:        { color: "#d946ef", bg: "#701a75", icon: Split, emoji: "🔀", label: "Divisão A/B" },
   condicao:        { color: "#8b5cf6", bg: "#4c1d95", icon: GitBranch, emoji: "🔀", label: "Condição" },
   condicao_lead:   { color: "#f97316", bg: "#7c2d12", icon: GitBranch, emoji: "🔀", label: "Condição Lead" },
@@ -72,19 +87,20 @@ const NODE_META: Record<string, { color: string; bg: string; icon: any; emoji: s
 };
 
 // ── Custom Node Component ──────────────────────────────────────
-function ActionNode({ data, selected }: { data: any; selected: boolean }) {
+function ActionNode({ data, selected }: { data: ActionNodeData; selected: boolean }) {
   const meta = NODE_META[data.tipo] || NODE_META.default;
   const acao = data.acao || {};
 
   return (
     <div
-      className={`rounded-2xl p-4 border text-left transition-all relative ${
+      className={`rounded-xl border text-left transition-all relative overflow-hidden ${
         selected
-          ? "border-primary bg-slate-900 shadow-[0_0_15px_rgba(234,179,8,0.3)] scale-[1.03]"
-          : "border-border/60 bg-slate-950/90 hover:border-slate-700 shadow-lg"
+          ? "border-primary shadow-[0_0_20px_rgba(234,179,8,0.35)] scale-[1.02]"
+          : "border-border/40 hover:border-slate-600 shadow-lg"
       }`}
       style={{
         width: 220,
+        background: "#0a0f1c",
       }}
     >
       {/* Input port for sequential flow */}
@@ -92,36 +108,35 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
         <Handle
           type="target"
           position={Position.Top}
-          style={{ background: "#475569", width: 8, height: 8, border: "2px solid #0f172a" }}
+          style={{ background: meta.color, width: 10, height: 10, border: "2px solid #0f172a" }}
         />
       )}
 
-      {/* Node Header */}
-      <div className="flex items-center gap-2 mb-2">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-lg shrink-0"
-          style={{ background: `${meta.color}22`, border: `1px solid ${meta.color}44` }}
-        >
-          <span className="text-sm">{meta.emoji}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" style={{ color: meta.color }}>
-            {meta.label}
-          </p>
-          {data.index !== undefined && data.index >= 0 && (
-            <span className="text-[8px] font-mono text-muted-foreground/80 font-bold bg-secondary/80 px-1 py-0.2 rounded">
-              #{data.index + 1}
-            </span>
-          )}
-        </div>
+      {/* Colored Header Banner */}
+      <div
+        className="flex items-center gap-2 px-3 py-2"
+        style={{
+          background: `linear-gradient(135deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
+        }}
+      >
+        <span className="text-base leading-none drop-shadow-sm">{meta.emoji}</span>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-white flex-1 truncate drop-shadow-sm">
+          {acao.cinna_stage ? "Resposta + IA" : meta.label}
+        </p>
+        {data.index !== undefined && data.index >= 0 && (
+          <span className="text-[9px] font-mono text-white/90 font-bold bg-black/25 px-1.5 py-0.5 rounded">
+            #{data.index + 1}
+          </span>
+        )}
       </div>
 
-      {/* Node Description/Detail */}
-      {data.label && (
-        <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-2">
-          {data.label}
-        </p>
-      )}
+      {/* Body */}
+      <div className="p-3 space-y-1.5">
+        {data.label && (
+          <p className="text-[11px] text-slate-200 font-medium leading-relaxed line-clamp-2">
+            {data.label}
+          </p>
+        )}
 
       {/* Loop detail */}
       {data.tipo === "loop_steps" && (
@@ -143,7 +158,7 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
       {data.tipo === "ia_message" && Array.isArray(acao.ia_routes) && acao.ia_routes.length > 0 && (
         <div className="mt-2 space-y-1.5 border-t border-white/5 pt-2 select-none">
           <p className="text-[8px] font-bold uppercase tracking-wider text-purple-400 mb-1">Rotas de Resposta:</p>
-          {acao.ia_routes.map((route: any, rIdx: number) => (
+          {acao.ia_routes.map((route, rIdx) => (
             <div key={rIdx} className="relative flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded px-2 py-1 text-[9px] text-slate-300 font-semibold shadow-sm">
               <span className="truncate pr-4">{route.name || `Rota ${rIdx + 1}`}</span>
               <Handle
@@ -208,6 +223,23 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
               }}
             />
           </div>
+          <div className="relative flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded px-2 py-1 text-[9px] text-red-400 font-semibold shadow-sm">
+            <span>Se Não / Falso</span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="branch-false"
+              style={{
+                top: "50%",
+                right: -4,
+                transform: "translateY(-50%)",
+                background: "#ef4444",
+                width: 7,
+                height: 7,
+                border: "2px solid #0f172a",
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -264,22 +296,42 @@ function ActionNode({ data, selected }: { data: any; selected: boolean }) {
       )}
 
       {/* Stats Overlay Panel */}
-      {data.stats && data.stats.reached > 0 && (
-        <div className="mt-3 pt-2 border-t border-slate-800/80 grid grid-cols-3 gap-1 text-center select-none">
-          <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
-            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Entraram</span>
-            <span className="text-xs font-mono font-extrabold text-blue-400">{data.stats.reached}</span>
+      {data.stats && data.stats.reached > 0 && (() => {
+        const s = data.stats as { reached: number; completed: number; waiting: number; failed: number };
+        const dropPct = s.reached > 0 ? Math.round(((s.reached - s.completed) / s.reached) * 100) : 0;
+        const dropTone =
+          dropPct >= 50 ? "text-rose-300" : dropPct >= 25 ? "text-amber-300" : "text-emerald-300";
+        return (
+          <div className="mt-3 pt-2 border-t border-slate-800/80 space-y-1 select-none">
+            <div className="grid grid-cols-4 gap-1 text-center">
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Entr.</span>
+                <span className="text-[11px] font-mono font-extrabold text-blue-400">{s.reached}</span>
+              </div>
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">OK</span>
+                <span className="text-[11px] font-mono font-extrabold text-emerald-400">{s.completed}</span>
+              </div>
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Wait</span>
+                <span className="text-[11px] font-mono font-extrabold text-amber-400">{s.waiting}</span>
+              </div>
+              <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Err</span>
+                <span className={`text-[11px] font-mono font-extrabold ${s.failed > 0 ? "text-rose-400" : "text-slate-600"}`}>{s.failed}</span>
+              </div>
+            </div>
+            {s.reached >= 3 && (
+              <div className={`text-[9px] font-mono font-bold text-center ${dropTone}`}>
+                queda {dropPct}%
+              </div>
+            )}
           </div>
-          <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
-            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Avançaram</span>
-            <span className="text-xs font-mono font-extrabold text-emerald-400">{data.stats.completed}</span>
-          </div>
-          <div className="flex flex-col p-1 rounded bg-slate-900/60 border border-slate-800/40">
-            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">Aguardando</span>
-            <span className="text-xs font-mono font-extrabold text-amber-400">{data.stats.waiting}</span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
+
+
+      </div>
 
       {/* Output port for sequential flow */}
       <Handle
@@ -297,9 +349,11 @@ const nodeTypes = { actionNode: ActionNode };
 function acoesToNodesEdges(
   acoes: Acao[], 
   triggerTipo: string,
-  stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>
-): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = [];
+  stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>,
+  flowObjective?: string,
+  onUpdateObjective?: (objective: string) => void
+): { nodes: Node<ActionNodeData>[]; edges: Edge[] } {
+  const nodes: Node<ActionNodeData>[] = [];
   const edges: Edge[] = [];
   
   // Grid layout parameters
@@ -319,10 +373,28 @@ function acoesToNodesEdges(
     },
   });
 
+  // Resolve unique node ids (protects React Flow from silently dropping duplicates)
+  const seen = new Set<string>(["trigger"]);
+  const resolvedIds: string[] = acoes.map((acao, i) => {
+    let candidate = acao.id || `step-${i}`;
+    if (seen.has(candidate)) {
+      const base = candidate;
+      let n = 2;
+      while (seen.has(`${base}__${n}`)) n++;
+      candidate = `${base}__${n}`;
+      if (typeof console !== "undefined") {
+        console.warn(`[OpenFlow] ID duplicado no bloco #${i + 1} (${base}) — renomeado para ${candidate}`);
+      }
+    }
+    seen.add(candidate);
+    return candidate;
+  });
+
   // 2. Add Action Nodes
-  acoes.forEach((acao: any, i) => {
-    const id = `step-${i}`;
+  acoes.forEach((acao, i) => {
+    const id = resolvedIds[i];
     let label = acao.template || acao.webhook_url || acao.tag || "";
+    
     
     if (acao.tipo === "ia_message") {
       label = `Objetivo: ${acao.template}`;
@@ -331,11 +403,20 @@ function acoesToNodesEdges(
     } else if (acao.tipo === "wait_event") {
       label = `Aguardar: ${acao.event_name}`;
     } else if (acao.tipo === "wait_reply") {
-      label = `Esperar lead responder (timeout ${acao.timeout_min ?? 1440}min)`;
+      label = acao.cinna_stage ? acao.cinna_stage.title : `Esperar lead responder (timeout ${acao.timeout_min ?? 1440}min)`;
     } else if (acao.tipo === "loop_steps") {
       label = `Loop: Repetir ${acao.loop_count ?? 3}x`;
     } else if (acao.tipo === "stop_on_event") {
       label = `Parar se: ${acao.stop_event_type || "Compra Aprovada"}`;
+    } else if (acao.tipo === "input_capture") {
+      label = acao.capture_variable ? `Definir {{${acao.capture_variable}}}` : "Definir variável…";
+    } else if (acao.tipo === "generate_image") {
+      const p = acao.image_prompt || acao.template || "";
+      label = p ? `🎨 ${p.slice(0, 60)}${p.length > 60 ? "…" : ""}` : "Gerar imagem…";
+    }
+
+    if (acao.tipo === "whatsapp" && acao.media?.url) {
+      label = `📎 ${acao.media.label || "mídia"}${label ? ` — ${label}` : ""}`;
     }
 
     const posX = acao.position_x !== undefined ? acao.position_x : xCenter;
@@ -355,49 +436,96 @@ function acoesToNodesEdges(
       },
     });
 
-    // Connect from previous node sequentially
-    const source = i === 0 ? "trigger" : `step-${i - 1}`;
+    // ── SEQUENTIAL CONNECTIONS ──
+    // Determine the source node for the sequential connection
+    const sourceId = i === 0 ? "trigger" : resolvedIds[i - 1];
     
-    let edgeLabel = undefined;
-    let edgeStyle = { stroke: "#64748b", strokeWidth: 2 };
-    let edgeLabelStyle = { fill: "#94a3b8", fontSize: 9, fontWeight: "bold" };
+    // If the action has an explicit next_id, we'll use that for the connection
+    // But for now we still support the legacy sequential flow by default if no explicit connection exists
+    const hasExplicitNext = !!acao.next_id;
     
-    if (i > 0 && stepStats) {
-      const prev = stepStats[i - 1];
-      const curr = stepStats[i];
-      if (prev && curr && prev.reached > 0) {
-        const pct = Math.min(100, Math.round((curr.reached / prev.reached) * 100));
-        edgeLabel = `${pct}% conv`;
-        edgeStyle = { stroke: pct > 50 ? "#10b981" : "#64748b", strokeWidth: 2 };
-        edgeLabelStyle = { fill: pct > 50 ? "#10b981" : "#94a3b8", fontSize: 9, fontWeight: "bold" };
+    if (!hasExplicitNext) {
+      // Default sequential connection
+      let edgeLabel = undefined;
+      let edgeStyle = { stroke: "#64748b", strokeWidth: 2 };
+      let edgeLabelStyle = { fill: "#94a3b8", fontSize: 9, fontWeight: "bold" };
+      
+      if (i > 0 && stepStats) {
+        const prev = stepStats[i - 1];
+        const curr = stepStats[i];
+        if (prev && curr && prev.reached > 0) {
+          const pct = Math.min(100, Math.round((curr.reached / prev.reached) * 100));
+          edgeLabel = `${pct}% conv`;
+          edgeStyle = { stroke: pct > 50 ? "#10b981" : "#64748b", strokeWidth: 2 };
+          edgeLabelStyle = { fill: pct > 50 ? "#10b981" : "#94a3b8", fontSize: 9, fontWeight: "bold" };
+        }
       }
+
+      edges.push({
+        id: `e-${sourceId}-${id}`,
+        source: sourceId,
+        target: id,
+        label: edgeLabel,
+        style: edgeStyle,
+        labelStyle: edgeLabelStyle,
+        animated: false,
+      });
+    } else if (acao.next_id) {
+      // Explicit connection from next_id
+      edges.push({
+        id: `e-${id}-${acao.next_id}`,
+        source: id,
+        target: acao.next_id,
+        style: { stroke: "#64748b", strokeWidth: 2 },
+        animated: false,
+      });
     }
 
-    edges.push({
-      id: `e-${source}-${id}`,
-      source,
-      target: id,
-      label: edgeLabel,
-      style: edgeStyle,
-      labelStyle: edgeLabelStyle,
-      animated: false,
-    });
+    // ── BRANCHING CONNECTIONS (Legacy jumps + New IDs) ──
+    
+    // 1. Explicit true_next_id / false_next_id
+    if (acao.true_next_id) {
+      edges.push({
+        id: `e-${id}-true-${acao.true_next_id}`,
+        source: id,
+        sourceHandle: "branch-true",
+        target: acao.true_next_id,
+        label: "Se Sim",
+        style: { stroke: "#8b5cf6", strokeWidth: 2, strokeDasharray: "5,3" },
+        labelStyle: { fill: "#8b5cf6", fontSize: 9, fontWeight: "bold" },
+      });
+    }
 
-    // Handle branching jumps (Conditions / AB Split / Semantic Router / Business Hours)
+    if (acao.false_next_id) {
+      edges.push({
+        id: `e-${id}-false-${acao.false_next_id}`,
+        source: id,
+        sourceHandle: "branch-false", // We should probably add this handle to ActionNode
+        target: acao.false_next_id,
+        label: "Se Não",
+        style: { stroke: "#ef4444", strokeWidth: 2, strokeDasharray: "5,3" },
+        labelStyle: { fill: "#ef4444", fontSize: 9, fontWeight: "bold" },
+      });
+    }
+
+    // 2. Legacy jumps (Compatibility)
     if (
+      !acao.true_next_id &&
       (acao.tipo === "condicao_lead" || acao.tipo === "ab_split" || acao.tipo === "condicao" || acao.tipo === "semantic_router" || acao.tipo === "business_hours_split") &&
       (acao.condition_jump_steps || acao.jump_steps || acao.else_skip)
     ) {
       const jumpVal = acao.condition_jump_steps || acao.jump_steps || acao.else_skip || 1;
-      const jumpTarget = i + jumpVal;
-      if (jumpTarget < acoes.length) {
+      const jumpTargetIdx = i + jumpVal;
+      if (jumpTargetIdx < acoes.length) {
+        const jumpTargetId = resolvedIds[jumpTargetIdx];
         const isAb = acao.tipo === "ab_split";
         const isSem = acao.tipo === "semantic_router";
         const isBh = acao.tipo === "business_hours_split";
         const handleId = isAb || isSem || isBh ? "route-b" : "branch-true";
         
-        let label = "Se Sim / Verdadeiro";
-        let strokeColor = "#8b5cf6";
+        let label = "Se Sim";
+        let strokeColor = "#10b981";
+
         if (isAb) {
           label = "Rota B";
           strokeColor = "#d946ef";
@@ -412,7 +540,7 @@ function acoesToNodesEdges(
         let labelText = label;
         if (stepStats) {
           const src = stepStats[i];
-          const tgt = stepStats[jumpTarget];
+          const tgt = stepStats[jumpTargetIdx];
           if (src && tgt && src.reached > 0) {
             const pct = Math.min(100, Math.round((tgt.reached / src.reached) * 100));
             labelText = `${label} (${pct}% conv)`;
@@ -420,10 +548,10 @@ function acoesToNodesEdges(
         }
 
         edges.push({
-          id: `e-branch-${id}`,
+          id: `e-legacy-branch-${id}`,
           source: id,
           sourceHandle: handleId,
-          target: `step-${jumpTarget}`,
+          target: jumpTargetId,
           label: labelText,
           style: { stroke: strokeColor, strokeWidth: 2, strokeDasharray: "5,3" },
           labelStyle: { fill: strokeColor, fontSize: 9, fontWeight: "bold" },
@@ -431,9 +559,42 @@ function acoesToNodesEdges(
       }
     }
 
+    // 2b. Else branch real (If/Else) para condicao_lead — desenha aresta vermelha "Se Não"
+    if (
+      acao.tipo === "condicao_lead" &&
+      !acao.false_next_id &&
+      typeof acao.condition_else_jump_steps === "number" &&
+      acao.condition_else_jump_steps > 0
+    ) {
+      const elseTargetIdx = i + acao.condition_else_jump_steps;
+      if (elseTargetIdx < acoes.length) {
+        const elseTargetId = resolvedIds[elseTargetIdx];
+        let labelText = "Se Não";
+        if (stepStats) {
+          const src = stepStats[i];
+          const tgt = stepStats[elseTargetIdx];
+          if (src && tgt && src.reached > 0) {
+            const pct = Math.min(100, Math.round((tgt.reached / src.reached) * 100));
+            labelText = `Se Não (${pct}% conv)`;
+          }
+        }
+        edges.push({
+          id: `e-legacy-else-${id}`,
+          source: id,
+          sourceHandle: "branch-false",
+          target: elseTargetId,
+          label: labelText,
+          style: { stroke: "#ef4444", strokeWidth: 2, strokeDasharray: "5,3" },
+          labelStyle: { fill: "#ef4444", fontSize: 9, fontWeight: "bold" },
+        });
+      }
+    }
+
+
+
     // Handle branching jumps for Conversational AI (ia_message routes)
     if (acao.tipo === "ia_message" && Array.isArray(acao.ia_routes) && acao.ia_routes.length > 0) {
-      acao.ia_routes.forEach((route: any, rIdx: number) => {
+      acao.ia_routes.forEach((route, rIdx) => {
         const jumpVal = route.jump_steps || 0;
         const jumpTarget = i + 1 + jumpVal;
         if (jumpTarget < acoes.length) {
@@ -451,7 +612,7 @@ function acoesToNodesEdges(
             id: `e-ai-route-${id}-${rIdx}`,
             source: id,
             sourceHandle: `route-${rIdx}`,
-            target: `step-${jumpTarget}`,
+            target: resolvedIds[jumpTarget],
             label,
             style: { stroke: "#a855f7", strokeWidth: 2, strokeDasharray: "4,4" },
             labelStyle: { fill: "#a855f7", fontSize: 9, fontWeight: "bold" },
@@ -478,7 +639,7 @@ function acoesToNodesEdges(
       edges.push({
         id: `e-loop-${id}`,
         source: id,
-        target: targetIdx === 0 ? "trigger" : `step-${targetIdx}`,
+        target: targetIdx === 0 ? "trigger" : resolvedIds[targetIdx] ?? `step-${targetIdx}`,
         label,
         style: { stroke: "#eab308", strokeWidth: 2, strokeDasharray: "4,4" },
         labelStyle: { fill: "#eab308", fontSize: 8, fontWeight: "bold" },
@@ -495,33 +656,69 @@ interface FlowEditorCanvasProps {
   acoes: Acao[];
   triggerTipo: string;
   onChange: (acoes: Acao[]) => void;
-  onNodeClick?: (acao: Acao, index: number) => void;
+  onActionSelect?: (index: number) => void;
   stepStats?: Record<number, { reached: number; completed: number; waiting: number; failed: number }>;
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
 }
 
-// Tipos disponíveis na paleta rápida do canvas (ordem de uso mais comum)
-const PALETTE_TYPES: { tipo: string; label: string }[] = [
-  { tipo: "whatsapp", label: "💬 WhatsApp" },
-  { tipo: "ia_message", label: "🤖 IA Conversacional" },
-  { tipo: "audio", label: "🎙️ Áudio IA" },
-  { tipo: "wait_reply", label: "💬 Aguardar Resposta" },
-  { tipo: "aguardar", label: "⏱ Aguardar Tempo" },
-  { tipo: "wait_event", label: "⏱️ Aguardar Evento" },
-  { tipo: "condicao_lead", label: "🔀 Condição por Lead" },
-  { tipo: "ab_split", label: "🔀 Teste A/B" },
-  { tipo: "adicionar_tag", label: "🏷️ Atribuir Tag" },
-  { tipo: "qualify_lead", label: "⭐ Qualificar Lead" },
-  { tipo: "notify_operator", label: "🔔 Notificar Atendente" },
-  { tipo: "webhook_call", label: "🌐 Webhook" },
-  { tipo: "email", label: "✉️ Email" },
-  { tipo: "gpt_prompt", label: "🤖 Prompt GPT" },
-  { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
+// Paleta de elementos agrupada por categoria
+const PALETTE_GROUPS: { group: string; items: { tipo: string; label: string }[] }[] = [
+  {
+    group: "Mensagens",
+    items: [
+      { tipo: "whatsapp", label: "💬 WhatsApp" },
+      { tipo: "ia_message", label: "🤖 IA Conversacional" },
+      { tipo: "audio", label: "🎙️ Áudio IA" },
+      { tipo: "email", label: "✉️ Email" },
+    ],
+  },
+  {
+    group: "Esperas",
+    items: [
+      { tipo: "aguardar", label: "⏱ Aguardar Tempo" },
+      { tipo: "wait_reply", label: "💬 Aguardar Resposta" },
+      { tipo: "wait_event", label: "⏱️ Aguardar Evento" },
+    ],
+  },
+  {
+    group: "Lógica",
+    items: [
+      { tipo: "condicao_lead", label: "🔀 Condição por Lead" },
+      { tipo: "ab_split", label: "🔀 Teste A/B" },
+      { tipo: "stop_on_event", label: "🛑 Parar Fluxo" },
+    ],
+  },
+  {
+    group: "Ações no Lead",
+    items: [
+      { tipo: "adicionar_tag", label: "🏷️ Atribuir Tag" },
+      { tipo: "qualify_lead", label: "⭐ Qualificar Lead" },
+      { tipo: "notify_operator", label: "🔔 Notificar Atendente" },
+    ],
+  },
+  {
+    group: "Integrações",
+    items: [
+      { tipo: "webhook_call", label: "🌐 Webhook" },
+      { tipo: "gpt_prompt", label: "🤖 Prompt GPT" },
+    ],
+  },
 ];
 
-export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, stepStats }: FlowEditorCanvasProps) {
+
+export function FlowEditorCanvas({ 
+  acoes, 
+  triggerTipo, 
+  onChange, 
+  onActionSelect, 
+  stepStats,
+  flowObjective,
+  onUpdateObjective
+}: FlowEditorCanvasProps) {
   const { nodes: initNodes, edges: initEdges } = useMemo(
-    () => acoesToNodesEdges(acoes, triggerTipo, stepStats),
-    [acoes, triggerTipo, stepStats]
+    () => acoesToNodesEdges(acoes, triggerTipo, stepStats, flowObjective, onUpdateObjective),
+    [acoes, triggerTipo, stepStats, flowObjective, onUpdateObjective]
   );
   
   const [nodes, setNodes, onNodesChange] = useNodesState(initNodes);
@@ -536,17 +733,18 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
   }, [initEdges, setEdges]);
 
   const handleNodeClick = useCallback(
-    (_: any, node: Node) => {
-      if (node.data?.index !== undefined && node.data.index >= 0 && onNodeClick) {
-        onNodeClick(node.data.acao as Acao, node.data.index as number);
+    (_: ReactMouseEvent, node: Node) => {
+      const idx = node.data?.index as number | undefined;
+      if (idx !== undefined && idx >= 0 && onActionSelect) {
+        onActionSelect(idx);
       }
     },
-    [onNodeClick]
+    [onActionSelect]
   );
 
   const handleNodeDragStop = useCallback(
-    (_event: any, node: Node) => {
-      const idx = node.data?.index;
+    (_event: MouseEvent | TouchEvent, node: Node) => {
+      const idx = node.data?.index as number | undefined;
       if (idx !== undefined && idx >= 0) {
         const updatedAcoes = [...acoes];
         updatedAcoes[idx] = {
@@ -560,6 +758,31 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
     [acoes, onChange]
   );
 
+  const onConnect = useCallback(
+    (params: Connection) => {
+      setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2 } }, eds));
+      
+      const updatedAcoes = [...acoes];
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const sourceIdx = sourceNode?.data?.index as number | undefined;
+      const targetId = params.target;
+      
+      if (sourceIdx !== undefined && sourceIdx >= 0) {
+        if (params.sourceHandle === "branch-true") {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], true_next_id: targetId };
+        } else if (params.sourceHandle === "branch-false") {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], false_next_id: targetId };
+        } else if (params.sourceHandle?.startsWith("route-")) {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
+        } else {
+          updatedAcoes[sourceIdx] = { ...updatedAcoes[sourceIdx], next_id: targetId };
+        }
+        onChange(updatedAcoes);
+      }
+    },
+    [nodes, acoes, onChange, setEdges]
+  );
+
   return (
     <div className="flex-1 w-full h-full relative" style={{ minHeight: "530px" }}>
       <ReactFlow
@@ -567,6 +790,7 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
@@ -578,47 +802,222 @@ export function FlowEditorCanvas({ acoes, triggerTipo, onChange, onNodeClick, st
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#334155" />
-        <Controls style={{ background: "#0f172a", border: "1px solid #334155", color: "#fff" }} />
+        <Controls
+          position="bottom-left"
+          showInteractive={false}
+          className="!bg-slate-900/85 !border !border-white/10 !rounded-xl !shadow-lg backdrop-blur-md overflow-hidden [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-white/5 [&>button]:!text-slate-200 [&>button:hover]:!bg-white/10"
+        />
         <MiniMap
-          style={{ background: "#090d16", border: "1px solid #1e293b" }}
+          position="bottom-right"
+          pannable
+          zoomable
+          style={{
+            background: "#0b0a10",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12,
+            width: 200,
+            height: 120,
+            boxShadow: "0 10px 30px -10px rgba(0,0,0,0.6)",
+          }}
           nodeColor={(n) => {
-            const meta = NODE_META[(n.data as any)?.tipo] || NODE_META.default;
+            const meta = NODE_META[typeof n.data.tipo === "string" ? n.data.tipo : "default"] || NODE_META.default;
             return meta.color;
           }}
-          maskColor="rgba(15, 23, 42, 0.6)"
+          nodeStrokeWidth={2}
+          maskColor="rgba(8, 6, 7, 0.75)"
         />
+
         <Panel
           position="bottom-left"
-          className="bg-slate-900/90 border border-slate-800 text-[10px] text-muted-foreground p-2 rounded-lg"
+          className="bg-slate-900/90 border border-slate-800 text-[10px] text-muted-foreground p-2 rounded-lg pointer-events-none"
         >
           ✨ Arraste os blocos para organizar • Clique em um bloco para editar
         </Panel>
 
-        {/* Paleta de adicionar etapa direto no canvas */}
-        <Panel
-          position="top-center"
-          className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-xl p-1.5 flex items-center gap-1.5"
-        >
-          <select
-            className="bg-slate-950 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1.5 outline-none focus:border-amber-500 cursor-pointer"
-            defaultValue=""
-            onChange={(e) => {
-              const tipo = e.target.value;
-              if (!tipo) return;
-              onChange([...acoes, { tipo, template: "", delay_min: 0 } as Acao]);
-              e.target.value = "";
-            }}
+        <Panel position="top-right" className="m-3 pointer-events-auto flex items-center gap-2">
+          <div
+            className={`px-2 py-1 rounded-md text-[10px] font-semibold border ${
+              nodes.length - 1 < acoes.length
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-300"
+                : "bg-slate-900/90 border-slate-800 text-slate-300"
+            }`}
+            title={
+              nodes.length - 1 < acoes.length
+                ? "Alguns blocos tinham IDs duplicados. Corrigimos no canvas — duplique/edite novamente para persistir."
+                : "Todos os blocos da lista estão no canvas"
+            }
           >
-            <option value="" disabled>＋ Adicionar etapa…</option>
-            {PALETTE_TYPES.map((t) => (
-              <option key={t.tipo} value={t.tipo}>{t.label}</option>
-            ))}
-          </select>
-          <span className="text-[9px] text-slate-500 pr-1 hidden sm:inline">
-            adiciona ao final do fluxo
-          </span>
+            {nodes.length - 1}/{acoes.length} blocos
+          </div>
+          <FitViewButton />
+        </Panel>
+
+        {/* Sidebar de Elementos + Painéis Estratégicos */}
+        <Panel position="top-left" className="m-3 pointer-events-auto">
+          <FlowSidebar
+            flowObjective={flowObjective}
+            onUpdateObjective={onUpdateObjective}
+            onAddAcao={(tipo) => onChange([...acoes, { id: crypto.randomUUID(), tipo, template: "", delay_min: 0 } as Acao])}
+          />
         </Panel>
       </ReactFlow>
     </div>
   );
 }
+
+// Botão que recentraliza a viewport nos nós atuais
+function FitViewButton() {
+  const rf = useReactFlow();
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      className="h-7 text-[10px] bg-slate-900/90 border border-slate-800 hover:bg-slate-800"
+      onClick={() => rf.fitView({ padding: 0.15, duration: 300 })}
+    >
+      Ajustar à tela
+    </Button>
+  );
+}
+
+// ── Sidebar de Elementos ───────────────────────────────────────
+function FlowSidebar({
+  flowObjective,
+  onUpdateObjective,
+  onAddAcao,
+}: {
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
+  onAddAcao: (tipo: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [tab, setTab] = useState<"elementos" | "objetivo" | "saida">("elementos");
+
+  if (!open) {
+    const totalItems = PALETTE_GROUPS.reduce((acc, g) => acc + g.items.length, 0);
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-xl px-2 py-4 text-slate-300 hover:text-amber-400 hover:border-amber-500/40 transition-all flex flex-col items-center gap-2"
+        title="Abrir paleta de elementos"
+      >
+        <Sparkles className="h-4 w-4" />
+        <span className="text-[9px] uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 font-bold">
+          Elementos
+        </span>
+        <span className="text-[9px] text-slate-500 font-medium">{totalItems}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl w-64 h-[calc(100vh-200px)] flex flex-col overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
+      {/* Header com tabs */}
+      <div className="flex items-center border-b border-slate-800 bg-slate-950/40 shrink-0">
+        <button
+          onClick={() => setTab("elementos")}
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2 transition-colors ${
+            tab === "elementos" ? "text-amber-400 border-b-2 border-amber-500" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <span className="text-xs mr-1">✨</span>Elementos
+        </button>
+        <button
+          onClick={() => setTab("objetivo")}
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2 transition-colors ${
+            tab === "objetivo" ? "text-purple-400 border-b-2 border-purple-500" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <span className="text-xs mr-1">🎯</span>Objetivo
+        </button>
+        <button
+          onClick={() => setTab("saida")}
+          className={`flex-1 text-[10px] uppercase font-bold tracking-wider py-2 transition-colors ${
+            tab === "saida" ? "text-rose-400 border-b-2 border-rose-500" : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          <span className="text-xs mr-1">🚪</span>Saída
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          className="px-2 py-2 text-slate-500 hover:text-amber-400 border-l border-slate-800"
+          title="Recolher paleta"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Conteúdo scrollável */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-8">
+        {tab === "elementos" && (
+          <div className="space-y-5">
+            <p className="text-[10px] text-slate-500 leading-snug px-1">
+              Clique em um elemento para adicionar ao final do fluxo.
+            </p>
+            {PALETTE_GROUPS.map((g, gi) => (
+              <div key={g.group} className={`space-y-1.5 ${gi > 0 ? "border-t border-slate-800/60 pt-3" : ""}`}>
+                <div className="text-[10px] uppercase tracking-widest font-bold text-slate-500 px-1">
+                  {g.group}
+                </div>
+                <div className="grid grid-cols-1 gap-1">
+                  {g.items.map((it) => (
+                    <button
+                      key={it.tipo}
+                      onClick={() => onAddAcao(it.tipo)}
+                      className="text-left text-[12px] text-slate-200 bg-slate-950/60 hover:bg-amber-500/10 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-lg px-2.5 py-2.5 transition-all flex items-center justify-between group"
+                    >
+                      <span className="truncate">{it.label}</span>
+                      <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "objetivo" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-purple-400">
+              <Brain className="h-4 w-4" />
+              <span className="text-[10px] uppercase font-bold tracking-wider">Objetivo do Fluxo</span>
+            </div>
+            <Textarea
+              value={flowObjective || ""}
+              onChange={(e) => onUpdateObjective?.(e.target.value)}
+              placeholder="Ex: Recuperar leads de carrinho abandonado com foco em objeção de preço..."
+              className="text-[11px] bg-slate-950/50 border-white/10 min-h-[140px] resize-none leading-relaxed text-slate-300"
+            />
+            <p className="text-[9px] text-muted-foreground/60 italic leading-snug">
+              Este objetivo guia a IA e ajuda a manter a régua estratégica.
+            </p>
+          </div>
+        )}
+
+        {tab === "saida" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-rose-400">
+              <LogOut className="h-4 w-4" />
+              <span className="text-[10px] uppercase font-bold tracking-wider">Condições de Saída</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              O lead sairá do fluxo se:
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Compra Aprovada
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-slate-950/50 border border-white/5 rounded-lg text-[10px] text-slate-300">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Lead respondeu (se IA)
+              </div>
+              <Button variant="outline" size="sm" className="w-full text-[9px] h-7 border-dashed border-white/10 bg-transparent hover:bg-white/5">
+                <Plus className="h-3 w-3 mr-1" /> Add Condição Personalizada
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

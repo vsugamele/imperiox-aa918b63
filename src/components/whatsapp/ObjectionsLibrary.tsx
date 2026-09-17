@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Plus, Trash2, Edit2, Save, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,24 +22,24 @@ type Objection = {
 
 export function ObjectionsLibrary() {
   const [items, setItems] = useState<Objection[]>([]);
-  const [projetos, setProjetos] = useState<any[]>([]);
+  const [projetos, setProjetos] = useState<{ id: string; name: string }[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<Objection>>({});
   const [creating, setCreating] = useState(false);
   const [filterProj, setFilterProj] = useState<string>("__all__");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     let q = supabase.from("imphq_wa_objections").select("*").order("score_uso", { ascending: false });
     if (filterProj !== "__all__") q = filterProj === "global" ? q.is("projeto_id", null) : q.eq("projeto_id", filterProj);
     const { data } = await q;
-    setItems((data as any) || []);
-  };
+    setItems(data || []);
+  }, [filterProj]);
 
   useEffect(() => {
     supabase.from("imphq_projects").select("id, name").then(({ data }) => setProjetos(data || []));
   }, []);
 
-  useEffect(() => { load(); }, [filterProj]);
+  useEffect(() => { load(); }, [load]);
 
   const save = async (id?: string) => {
     if (!draft.objecao || !draft.resposta_padrao) {

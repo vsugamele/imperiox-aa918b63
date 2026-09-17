@@ -1,3 +1,7 @@
+import { expertPortalSchema, expertActionSchema, type ExpertPortalData, type ExpertLog, type ExpertMessage, type ExpertDocument } from "@/lib/expert-portal-data";
+import { migrateToMonthly, type ContentItem, type MonthlyPlan, type WeekSummary } from "@/components/projeto/expert-plan-data";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,36 +58,6 @@ const COLUMN_LABELS: Record<string, string> = {
   backlog: "Backlog", todo: "A Fazer", doing: "Em Andamento", review: "Revisão", done: "Concluído",
 };
 
-interface ContentItem {
-  id: string;
-  platform: string;
-  type: string;
-  description: string;
-  copy?: string;
-  hashtags?: string;
-  cross_platforms?: string[];
-  hook?: string;
-  cta?: string;
-  recording_tips?: string;
-  roteiro?: string;
-  sequencia?: number;
-}
-
-interface WeekSummary { focus?: string; event?: string; }
-interface WeekPlan { [day: string]: ContentItem[]; }
-interface MonthlyPlan {
-  semana_1: WeekPlan; semana_2: WeekPlan; semana_3: WeekPlan; semana_4: WeekPlan;
-  week_labels?: Record<string, string>;
-  week_summaries?: Record<string, WeekSummary>;
-}
-
-function migrateToMonthly(plan: any): MonthlyPlan {
-  const empty: WeekPlan = {};
-  if (!plan) return { semana_1: empty, semana_2: empty, semana_3: empty, semana_4: empty };
-  if (plan.semana_1) return plan as MonthlyPlan;
-  return { semana_1: plan, semana_2: empty, semana_3: empty, semana_4: empty };
-}
-
 function getWeekDates(weekIndex: number): Date[] {
   const now = new Date();
   const som = startOfMonth(now);
@@ -100,15 +74,15 @@ function getWeekDates(weekIndex: number): Date[] {
 
 export default function ExpertPortal() {
   const { token } = useParams<{ token: string }>();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ExpertPortalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeWeek, setActiveWeek] = useState("semana_1");
+  const [activeWeek, setActiveWeek] = useState<typeof WEEKS[number]>("semana_1");
   const [selectedCard, setSelectedCard] = useState<ContentItem | null>(null);
-  const [expertLogs, setExpertLogs] = useState<any[]>([]);
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [expertLogs, setExpertLogs] = useState<ExpertLog[]>([]);
+  const [chatMessages, setChatMessages] = useState<ExpertMessage[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<ExpertDocument | null>(null);
   const [mainTab, setMainTab] = useState("hoje");
   const [teleprompterCard, setTeleprompterCard] = useState<ContentItem | null>(null);
   const [recorderState, setRecorderState] = useState<{ id: string; week: string; day: string; mode: "video" | "audio" } | null>(null);
@@ -117,25 +91,27 @@ export default function ExpertPortal() {
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-  const callApi = useCallback(async (body: any) => {
+  const callApi = useCallback(async (body: Record<string, Json | undefined>) => {
     const res = await fetch(`${supabaseUrl}/functions/v1/expert-portal?token=${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    return res.json();
+    const result = expertActionSchema.parse(await res.json());
+    if (!res.ok || result.error) throw new Error(result.error || "Operação não confirmada pelo servidor.");
+    return result;
   }, [supabaseUrl, token]);
 
   useEffect(() => {
     if (!token) return;
     fetch(`${supabaseUrl}/functions/v1/expert-portal?token=${token}`)
       .then(r => r.json())
-      .then(d => {
-        if (d.error) setError(d.error);
-        else {
+      .then((response: unknown) => {
+        const d = expertPortalSchema.parse(response);
+        {
           setData(d);
           setExpertLogs(d.expert_logs || []);
-          setChatMessages(d.chat_messages || []);
+          setChatMessages((d.chat_messages || []).map(m => ({ from: m.from, content: m.content, created_at: m.created_at, id: m.id, content_id: m.content_id })));
         }
       })
       .catch(() => setError("Erro ao carregar dados"))
@@ -149,8 +125,8 @@ export default function ExpertPortal() {
       content_id: contentId || null,
       created_at: new Date().toISOString(),
     };
-    setChatMessages(prev => [...prev, optimistic]);
     await callApi({ action: "send_message", content, content_id: contentId });
+    setChatMessages(prev => [...prev, optimistic]);
   }, [callApi]);
 
   const uploadRecordedFile = useCallback(async (file: File, contentId: string, week: string, day: string, mode: "video" | "audio") => {
@@ -159,8 +135,11 @@ export default function ExpertPortal() {
       const action = mode === "audio" ? "audio_upload" : "video_upload";
       const { signed_url, path, error: urlError } = await callApi({ action: "upload_url", content_id: contentId, filename: file.name });
       if (urlError) throw new Error(urlError);
-      await fetch(signed_url, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!signed_url || !path) throw new Error("URL de upload ausente.");
+      const upload = await fetch(signed_url, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!upload.ok) throw new Error("O armazenamento não confirmou o upload.");
       const { url } = await callApi({ action: "register_upload", content_id: contentId, week, day, file_path: path, filename: file.name, upload_type: action });
+      if (!url) throw new Error("Registro do upload não retornou a URL.");
       setExpertLogs(prev => [...prev, { content_id: contentId, action, metadata: { url, filename: file.name, path }, created_at: new Date().toISOString() }]);
     } finally {
       setUploadingId(null);
@@ -180,17 +159,18 @@ export default function ExpertPortal() {
     }
   }, [data]);
 
-  const isMarkedDone = (contentId: string) => expertLogs.some(l => l.content_id === contentId && l.action === "mark_done");
+  const isMarkedDone = useCallback((contentId: string) => expertLogs.some(l => l.content_id === contentId && l.action === "mark_done"), [expertLogs]);
   const getMediaLog = (contentId: string) => expertLogs.find(l => l.content_id === contentId && (l.action === "video_upload" || l.action === "audio_upload"));
 
   const toggleDone = async (contentId: string, week: string, day: string) => {
     const wasDone = isMarkedDone(contentId);
+    try { await callApi({ action: "mark_done", content_id: contentId, week, day, done: !wasDone }); }
+    catch (error) { toast.error(errorMessage(error)); return; }
     if (wasDone) {
       setExpertLogs(prev => prev.filter(l => !(l.content_id === contentId && l.action === "mark_done")));
     } else {
       setExpertLogs(prev => [...prev, { content_id: contentId, action: "mark_done", week, day, created_at: new Date().toISOString() }]);
     }
-    await callApi({ action: "mark_done", content_id: contentId, week, day, done: !wasDone });
   };
 
   const downloadDoc = (doc: { title?: string; content?: string }) => {
@@ -211,12 +191,15 @@ export default function ExpertPortal() {
     try {
       const { signed_url, path, error: urlError } = await callApi({ action: "upload_url", content_id: contentId, filename: file.name });
       if (urlError) throw new Error(urlError);
-      await fetch(signed_url, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!signed_url || !path) throw new Error("URL de upload ausente.");
+      const upload = await fetch(signed_url, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!upload.ok) throw new Error("O armazenamento não confirmou o upload.");
       const { url } = await callApi({ action: "register_upload", content_id: contentId, week, day, file_path: path, filename: file.name, upload_type: action });
+      if (!url) throw new Error("Registro do upload não retornou a URL.");
       setExpertLogs(prev => [...prev, { content_id: contentId, action, metadata: { url, filename: file.name, path }, created_at: new Date().toISOString() }]);
       toast.success(isAudio ? "Áudio enviado!" : "Vídeo enviado!");
-    } catch (err: any) {
-      toast.error("Erro no upload: " + (err.message || "Tente novamente"));
+    } catch (err: unknown) {
+      toast.error("Erro no upload: " + (errorMessage(err) || "Tente novamente"));
     } finally {
       setUploadingId(null); setPendingUploadCard(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -234,7 +217,7 @@ export default function ExpertPortal() {
       const dates = getWeekDates(wi);
       DAYS.forEach((day, di) => {
         if (isSameDay(dates[di], now)) {
-          const wp = (monthlyPlan as any)[wk] || {};
+          const wp = monthlyPlan[wk] || {};
           (wp[day] || []).forEach((item: ContentItem) => {
             items.push({ item, week: wk, day });
           });
@@ -253,7 +236,7 @@ export default function ExpertPortal() {
       const dates = getWeekDates(wi);
       DAYS.forEach((day, di) => {
         if (isSameDay(dates[di], tomorrow)) {
-          const wp = (monthlyPlan as any)[wk] || {};
+          const wp = monthlyPlan[wk] || {};
           (wp[day] || []).forEach((item: ContentItem) => {
             items.push({ item, week: wk, day });
           });
@@ -266,7 +249,7 @@ export default function ExpertPortal() {
   // Week progress
   const weekProgress = useMemo(() => {
     if (!monthlyPlan) return { total: 0, done: 0 };
-    const wp = (monthlyPlan as any)[activeWeek] || {};
+    const wp = monthlyPlan[activeWeek] || {};
     let total = 0, done = 0;
     DAYS.forEach(d => {
       (wp[d] || []).forEach((item: ContentItem) => {
@@ -275,7 +258,7 @@ export default function ExpertPortal() {
       });
     });
     return { total, done };
-  }, [monthlyPlan, activeWeek, expertLogs]);
+  }, [monthlyPlan, activeWeek, isMarkedDone]);
 
   // Stories sequences for today
   const todayStories = useMemo(() => {
@@ -634,10 +617,10 @@ export default function ExpertPortal() {
               <Progress value={weekProgress.total > 0 ? (weekProgress.done / weekProgress.total) * 100 : 0} className="h-2" />
             </div>
 
-            <Tabs value={activeWeek} onValueChange={setActiveWeek}>
+            <Tabs value={activeWeek} onValueChange={value => { const week = WEEKS.find(w => w === value); if (week) setActiveWeek(week); }}>
               <TabsList className="w-full grid grid-cols-4 mb-3">
                 {WEEKS.map((wk, i) => {
-                  const weekItems = DAYS.reduce((s, d) => s + (((monthlyPlan as any)[wk] || {})[d]?.length || 0), 0);
+                  const weekItems = DAYS.reduce((s, d) => s + ((monthlyPlan[wk] || {})[d]?.length || 0), 0);
                   return (
                     <TabsTrigger key={wk} value={wk} className="text-[10px] gap-0.5">
                       S{i + 1}
@@ -648,7 +631,7 @@ export default function ExpertPortal() {
               </TabsList>
 
               {WEEKS.map((wk, wi) => {
-                const weekData = (monthlyPlan as any)[wk] || {};
+                const weekData = monthlyPlan[wk] || {};
                 const summary = weekSummaries[wk];
                 const dates = getWeekDates(wi);
                 return (
@@ -766,7 +749,7 @@ export default function ExpertPortal() {
                 <CardContent className="space-y-2">
                   {(data.events?.length || 0) === 0 ? (
                     <p className="text-xs text-muted-foreground">Nenhum evento</p>
-                  ) : data.events.map((ev: any) => (
+                  ) : data.events.map((ev) => (
                     <div key={ev.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 border border-border">
                       <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -789,7 +772,7 @@ export default function ExpertPortal() {
                 <CardContent className="space-y-2">
                   {(data.tasks?.length || 0) === 0 ? (
                     <p className="text-xs text-muted-foreground">Nenhuma tarefa</p>
-                  ) : data.tasks.map((t: any) => (
+                  ) : data.tasks.map((t) => (
                     <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 border border-border">
                       <Badge variant="outline" className="text-[9px] h-4 flex-shrink-0">
                         {t.priority === "high" ? "🔴" : t.priority === "medium" ? "🟡" : "🟢"}
@@ -817,9 +800,9 @@ export default function ExpertPortal() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {data.processes.map((p: any) => {
+                  {data.processes.map((p) => {
                     const steps = p.steps || [];
-                    const done = steps.filter((s: any) => s.done).length;
+                    const done = steps.filter((s) => s.done).length;
                     const pct = steps.length > 0 ? Math.round((done / steps.length) * 100) : 0;
                     return (
                       <div key={p.id} className="p-3 rounded-lg bg-secondary/50 border border-border">
@@ -900,7 +883,7 @@ export default function ExpertPortal() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-1.5">
-                        {data.avatar.dores.map((d: any, i: number) => (
+                        {data.avatar.dores.map((d, i: number) => (
                           <Badge key={i} variant="outline" className="text-[10px] border-destructive/30 text-destructive">
                             {typeof d === "string" ? d : d.dor || d.nome || d.titulo || JSON.stringify(d)}
                           </Badge>
@@ -918,7 +901,7 @@ export default function ExpertPortal() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-1.5">
-                        {data.avatar.desejos.map((d: any, i: number) => (
+                        {data.avatar.desejos.map((d, i: number) => (
                           <Badge key={i} variant="outline" className="text-[10px] border-primary/30 text-primary">
                             {typeof d === "string" ? d : d.desejo || d.nome || d.titulo || JSON.stringify(d)}
                           </Badge>
@@ -935,7 +918,7 @@ export default function ExpertPortal() {
                       <CardTitle className="text-xs uppercase tracking-wider text-amber-500">⚡ Gatilhos Emocionais</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1.5">
-                      {data.avatar.gatilhos.map((g: any, i: number) => (
+                      {data.avatar.gatilhos.map((g, i: number) => (
                         <div key={i} className="text-sm text-foreground p-2 rounded-lg bg-secondary/30 border border-border">
                           {typeof g === "string" ? g : (
                             <>
@@ -957,7 +940,7 @@ export default function ExpertPortal() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {Object.entries(data.avatar.camadas_psique).map(([key, val]: [string, any]) => (
+                        {Object.entries(data.avatar.camadas_psique).map(([key, val]) => (
                           <div key={key} className="p-3 rounded-lg bg-secondary/50 border border-border">
                             <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">{key.replace(/_/g, " ").toUpperCase()}</p>
                             <p className="text-sm text-foreground">{typeof val === "string" ? val : JSON.stringify(val)}</p>
@@ -975,7 +958,7 @@ export default function ExpertPortal() {
                       <CardTitle className="text-xs uppercase tracking-wider text-purple-400">👁️ Voyerismos</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1.5">
-                      {data.avatar.voyerismos.map((v: any, i: number) => (
+                      {data.avatar.voyerismos.map((v, i: number) => (
                         <div key={i} className="text-sm text-foreground p-2 rounded-lg bg-secondary/30 border border-border">
                           {typeof v === "string" ? v : v.cena || v.nome || JSON.stringify(v)}
                         </div>
@@ -991,7 +974,7 @@ export default function ExpertPortal() {
                       <CardTitle className="text-xs uppercase tracking-wider text-orange-400">⚠️ Problemas</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1.5">
-                      {data.avatar.problemas.map((p: any, i: number) => (
+                      {data.avatar.problemas.map((p, i: number) => (
                         <div key={i} className="text-sm text-foreground p-2 rounded-lg bg-secondary/30 border border-border">
                           {typeof p === "string" ? p : p.problema || p.nome || JSON.stringify(p)}
                         </div>
@@ -1013,7 +996,7 @@ export default function ExpertPortal() {
                 </CardContent>
               </Card>
             ) : (
-              data.shared_docs.map((doc: any) => (
+              data.shared_docs.map((doc) => (
                 <Card key={doc.id} className="bg-card border-border">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-3">

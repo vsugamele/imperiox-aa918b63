@@ -1,0 +1,2 @@
+ALTER TABLE public.imphq_company_maps ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE;
+CREATE INDEX IF NOT EXISTS idx_company_maps_share_token ON public.imphq_company_maps(share_token) WHERE share_token IS NOT NULL;

@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,7 @@ interface WebhookRow {
   lead_id: string | null;
   processado: boolean;
   created_at: string;
-  payload: any;
+  payload: Json;
   error?: { id: string; erro: string; reprocessado: boolean } | null;
   leadName?: string;
   leadPhone?: string;
@@ -27,23 +29,22 @@ export function WebhookLogTab() {
   const [webhooks, setWebhooks] = useState<WebhookRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
-  const [viewPayload, setViewPayload] = useState<any>(null);
+  const [viewPayload, setViewPayload] = useState<Json>(null);
   const [reprocessing, setReprocessing] = useState<string | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
-  const extractProduct = (payload: any): string => {
+  const extractProduct = useCallback((payload: Json): string => {
     if (!payload) return "";
-    // Ticto
-    if (payload.product?.name) return payload.product.name;
-    if (payload.items?.[0]?.product?.name) return payload.items[0].product.name;
-    // Hotmart
-    if (payload.data?.product?.name) return payload.data.product.name;
-    // Kiwify
-    if (payload.Product?.product_name) return payload.Product.product_name;
-    if (payload.order_id && payload.product_name) return payload.product_name;
-    return "";
-  };
+    const p = jsonFields(payload);
+    const firstItem = Array.isArray(p.items) ? jsonFields(p.items[0]) : {};
+    return jsonText(jsonFields(p.product).name)
+      || jsonText(jsonFields(firstItem.product).name)
+      || jsonText(jsonFields(jsonFields(p.data).product).name)
+      || jsonText(jsonFields(p.Product).product_name)
+      || (p.order_id ? jsonText(p.product_name) : "") || "";
+  }, []);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
@@ -64,26 +65,26 @@ export function WebhookLogTab() {
         .order("created_at", { ascending: false })
         .limit(200);
 
-      const errorMap = new Map<string, any>();
-      (errors || []).forEach((e: any) => {
+      const errorMap = new Map<string, NonNullable<WebhookRow["error"]>>();
+      (errors || []).forEach((e) => {
         if (e.webhook_id) errorMap.set(e.webhook_id, e);
       });
 
       // Collect lead IDs to fetch names/phones
-      const leadIds = [...new Set((wh || []).map((w: any) => w.lead_id).filter(Boolean))];
+      const leadIds = [...new Set((wh || []).map((w) => w.lead_id).filter(Boolean))];
       const leadMap = new Map<string, { nome: string; telefone: string }>();
 
       if (leadIds.length > 0) {
         const { data: leads } = await supabase
           .from("imphq_leads")
-          .select("id, nome, telefone")
+          .select("id, nome, phone")
           .in("id", leadIds);
-        (leads || []).forEach((l: any) => {
-          leadMap.set(l.id, { nome: l.nome || "", telefone: l.telefone || "" });
+        (leads || []).forEach((l) => {
+          leadMap.set(l.id, { nome: l.nome || "", telefone: l.phone || "" });
         });
       }
 
-      const rows: WebhookRow[] = (wh || []).map((w: any) => {
+      const rows: WebhookRow[] = (wh || []).map((w) => {
         const lead = w.lead_id ? leadMap.get(w.lead_id) : null;
         return {
           ...w,
@@ -99,9 +100,9 @@ export function WebhookLogTab() {
       toast.error("Erro ao carregar webhooks");
     }
     setLoading(false);
-  };
+  }, [filter, extractProduct]);
 
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => { load(); }, [load]);
 
   const reprocess = async (wh: WebhookRow) => {
     if (!wh.payload) return;
@@ -131,6 +132,26 @@ export function WebhookLogTab() {
     setReprocessing(null);
   };
 
+  const reprocessAll = async () => {
+    setBulkRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("webhook-error-reprocess", {
+        body: { limit: 20 },
+      });
+      if (error) throw error;
+      const r = data as { reprocessed?: number; failed?: number; skipped?: number } | null;
+      toast.success(
+        `${r?.reprocessed ?? 0} recuperados · ${r?.failed ?? 0} falhas · ${r?.skipped ?? 0} sem dados`,
+      );
+      load();
+    } catch {
+      toast.error("Não foi possível reprocessar a fila agora");
+    }
+    setBulkRunning(false);
+  };
+
+  const pendingErrors = webhooks.filter((w) => w.error && !w.error.reprocessado).length;
+
   const platforms = [...new Set(webhooks.map(w => w.plataforma))];
 
   const statusBadge = (wh: WebhookRow) => {
@@ -156,7 +177,12 @@ export function WebhookLogTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold">Log de Webhooks</h2>
-          <p className="text-xs text-muted-foreground">{webhooks.length} webhooks recentes</p>
+          <p className="text-xs text-muted-foreground">
+            {webhooks.length} webhooks recentes
+            {pendingErrors > 0 && (
+              <span className="text-destructive"> · {pendingErrors} com erro</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={filter} onValueChange={setFilter}>
@@ -168,10 +194,15 @@ export function WebhookLogTab() {
               {platforms.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={reprocessAll} disabled={bulkRunning}>
+            <RotateCcw className={`h-3.5 w-3.5 mr-1 ${bulkRunning ? "animate-spin" : ""}`} />
+            Reprocessar tudo
+          </Button>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
+
         </div>
       </div>
 

@@ -1,0 +1,8 @@
+[
+  {"id":"welcome","stage":"connection","text":"Hi, I'm Ana, from the support team. Tell me what's on your mind. We can take this one question at a time, and you can skip anything you'd rather not answer."},
+  {"id":"introduction","stage":"curiosity","text":"Let's make this easy to compare. Cinna Shield is a dietary supplement described as Ceylon cinnamon extract and MCT in capsules. We can look at the ingredients, the practical details and your questions before you decide."},
+  {"id":"formula","stage":"mechanism","text":"An ingredient name doesn't tell the whole story. The full product label is where we need to check the amounts and directions. If you've tried supplements before, tell me what you liked or didn't like about the experience."},
+  {"id":"confidence","stage":"proof","text":"It's fair to want something you can check before spending money. Let's look at the label, the seller and the written purchase terms. A testimonial isn't a promise of what will happen for you."},
+  {"id":"decision","stage":"decision","text":"You don't need to rush a decision. If cost, the formula or another question is holding you back, let's focus on that. You can also ask for someone from the team."},
+  {"id":"close","stage":"close","text":"If you'd like to order, the next step is to confirm the current package, total price and secure checkout. Those details still need to be verified here. If you prefer to leave it for now, that's fine too."}
+]

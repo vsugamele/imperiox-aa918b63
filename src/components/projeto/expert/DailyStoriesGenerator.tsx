@@ -1,3 +1,6 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +42,7 @@ export function DailyStoriesGenerator({ projectId, onAddToToday }: Props) {
   const [showCustom, setShowCustom] = useState(false);
   const [stories, setStories] = useState<StoryIdea[]>([]);
   const [resumo, setResumo] = useState("");
-  const [contexto, setContexto] = useState<any>(null);
+  const [contexto, setContexto] = useState<{ dores?: number; vendas_24h?: number; leads_quentes?: number; stories_evitados?: number } | null>(null);
 
   async function generate() {
     if (!projectId) {
@@ -48,7 +51,7 @@ export function DailyStoriesGenerator({ projectId, onAddToToday }: Props) {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("daily-stories-ideas", {
+      const { data, error } = await supabase.functions.invoke<Json>("daily-stories-ideas", {
         body: {
           project_id: projectId,
           mode,
@@ -56,16 +59,19 @@ export function DailyStoriesGenerator({ projectId, onAddToToday }: Props) {
         },
       });
       if (error) throw error;
-      setStories(data?.stories || []);
-      setResumo(data?.resumo_contexto || "");
-      setContexto(data?.contexto_usado || null);
-      if ((data?.stories || []).length === 0) {
-        toast.info("IA não retornou ideias — tente novamente.");
-      } else {
-        toast.success(`${data.stories.length} stories gerados!`);
-      }
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao gerar stories");
+      const fields = jsonFields(data), context = jsonFields(fields.contexto_usado);
+      const ideas: StoryIdea[] = Array.isArray(fields.stories) ? fields.stories.flatMap(value => {
+        const item = jsonFields(value);
+        const hook=jsonText(item.hook), tensao=jsonText(item.tensao), cta=jsonText(item.cta), formato=jsonText(item.formato), gatilho_origem=jsonText(item.gatilho_origem), duracao_segundos=jsonNumber(item.duracao_segundos);
+        return hook !== undefined && tensao !== undefined && cta !== undefined && formato !== undefined && gatilho_origem !== undefined && duracao_segundos !== undefined ? [{hook,tensao,cta,formato,gatilho_origem,duracao_segundos}] : [];
+      }) : [];
+      setStories(ideas);
+      setResumo(jsonText(fields.resumo_contexto) || "");
+      setContexto({dores:jsonNumber(context.dores),vendas_24h:jsonNumber(context.vendas_24h),leads_quentes:jsonNumber(context.leads_quentes),stories_evitados:jsonNumber(context.stories_evitados)});
+      if (!ideas.length) toast.info("IA não retornou ideias — tente novamente.");
+      else toast.success(`${ideas.length} stories gerados!`);
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao gerar stories");
     } finally {
       setLoading(false);
     }
@@ -82,7 +88,7 @@ export function DailyStoriesGenerator({ projectId, onAddToToday }: Props) {
       const today = new Date();
       const day = DAYS[getDay(today)];
       // Log usage to avoid repetition next time
-      await supabase.from("imphq_expert_logs" as any).insert({
+      await supabase.from("imphq_expert_logs").insert({
         project_id: projectId,
         content_id: `daily-story-${Date.now()}`,
         week: "semana_1",
@@ -102,8 +108,8 @@ export function DailyStoriesGenerator({ projectId, onAddToToday }: Props) {
         await onAddToToday(story);
       }
       toast.success(`Story adicionado ao plano de ${format(today, "dd/MM")}`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao adicionar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao adicionar");
     }
   }
 

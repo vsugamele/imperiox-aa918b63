@@ -3,6 +3,8 @@
 // v2: detecta cruzamento de threshold (CLOSER_THRESHOLD) e seta closer_triggered_at
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function eventText(value: unknown, key: string): string | undefined { if (!value || typeof value !== "object") return undefined; const field = (value as Record<string, unknown>)[key]; return typeof field === "string" ? field : undefined; }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -42,7 +44,7 @@ Deno.serve(async (req) => {
       try {
         const body = await req.json();
         projectFilter = body?.project_id || null;
-      } catch (_) {}
+      } catch { /* Missing JSON is allowed for scheduled calls. */ }
     }
 
     // Busca todos os projetos (ou o filtrado)
@@ -73,9 +75,9 @@ Deno.serve(async (req) => {
       if (!leads || leads.length === 0) continue;
 
       // Dados agregados por projeto (uma query por tipo, não por lead)
-      const phones = leads.map((l: any) => l.phone).filter(Boolean);
-      const leadIds = leads.map((l: any) => l.id);
-      const emails = leads.map((l: any) => l.email).filter(Boolean);
+      const phones = leads.map((l) => l.phone).filter(Boolean);
+      const leadIds = leads.map((l) => l.id);
+      const emails = leads.map((l) => l.email).filter(Boolean);
 
       const [
         waMsgsRes,
@@ -144,7 +146,7 @@ Deno.serve(async (req) => {
       const emailOpensByEmail: Record<string, number> = {};
       const emailClicksByEmail: Record<string, number> = {};
       for (const e of (emailEventsRes.data || [])) {
-        const email = (e.event_data as any)?.to_email || (e.event_data as any)?.email;
+        const email = eventText(e.event_data, "to_email") || eventText(e.event_data, "email");
         if (!email) continue;
         if (e.event_name === "email_opened") emailOpensByEmail[email] = (emailOpensByEmail[email] || 0) + 1;
         if (e.event_name === "email_clicked") emailClicksByEmail[email] = (emailClicksByEmail[email] || 0) + 1;
@@ -152,14 +154,14 @@ Deno.serve(async (req) => {
 
       const checkoutByLeadId = new Set<string>();
       for (const e of (checkoutEventsRes.data || [])) {
-        const leadId = (e.event_data as any)?.lead_id;
+        const leadId = eventText(e.event_data, "lead_id");
         if (leadId) checkoutByLeadId.add(leadId);
       }
 
-      const purchasedLeadIds = new Set((purchasesRes.data || []).map((p: any) => p.lead_id));
-      const activeFlowLeadIds = new Set((activeFlowsRes.data || []).map((f: any) => f.lead_id));
+      const purchasedLeadIds = new Set((purchasesRes.data || []).map((p) => p.lead_id));
+      const activeFlowLeadIds = new Set((activeFlowsRes.data || []).map((f) => f.lead_id));
       const attributedLeadIds = new Set(
-        (attributionRes.data || []).map((e: any) => (e.event_data as any)?.lead_id).filter(Boolean)
+        (attributionRes.data || []).map((e) => eventText(e.event_data, "lead_id")).filter(Boolean)
       );
 
       // Última atividade indexada por phone
@@ -213,7 +215,7 @@ Deno.serve(async (req) => {
 
         // Só atualiza se mudou
         if (score !== prevScore || crossedThreshold) {
-          const updatePayload: Record<string, any> = {
+          const updatePayload: { score: number; updated_at: string; closer_triggered_at?: string } = {
             score,
             updated_at: new Date().toISOString(),
           };
@@ -238,9 +240,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, updated: totalUpdated }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[lead-score-updater] Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : eventText(e, "message") }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

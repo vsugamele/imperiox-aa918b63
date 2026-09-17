@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +13,10 @@ import { GuideDrawer } from "@/components/assistente/GuideDrawer";
 import { toast } from "sonner";
 
 interface Project { id: string; nome: string; }
-interface Lead { id: string; created_at: string; project_id: string | null; data: any; email?: string | null; }
+interface Lead { id: string; created_at: string; project_id: string | null; data: Json; email?: string | null; }
 interface Sequence { id: string; nome: string; project_id: string | null; produto_nome: string | null; ativa: boolean; }
 interface Enrollment { lead_id: string; sequence_id: string; status: string; }
-interface Campaign { id: string; nome: string; project_id: string | null; produto: string | null; status: string; data: any; }
+interface Campaign { id: string; nome: string; project_id: string | null; produto: string | null; status: string; data: Json; }
 
 const PERIODS = [7, 14, 30, 60, 90];
 
@@ -29,41 +31,41 @@ export default function Lancamentos() {
   const [emailCount, setEmailCount] = useState<number>(0);
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const since = new Date(Date.now() - days * 86400000).toISOString();
     const [{ data: prjs }, { data: cps }, { data: seqs }] = await Promise.all([
       supabase.from("imphq_projects").select("id,name").order("name"),
       supabase.from("imphq_campaigns").select("*").order("created_at", { ascending: false }),
       supabase.from("imphq_nurture_sequences").select("id,nome,project_id,produto_nome,ativa"),
-    ] as PromiseLike<any>[]);
-    setProjects(((prjs || []) as any[]).map((p: any) => ({ id: p.id, nome: p.name })));
-    setCampaigns((cps || []) as any);
-    setSequences((seqs || []) as any);
+    ]);
+    setProjects((prjs || []).map((p) => ({ id: p.id, nome: p.name })));
+    setCampaigns(cps || []);
+    setSequences(seqs || []);
 
     let leadsQ = supabase.from("imphq_leads").select("id,criado_em,project_id,data,email").gte("criado_em", since).limit(5000);
     if (projectId !== "__all__") leadsQ = leadsQ.eq("project_id", projectId);
     const { data: lds } = await leadsQ;
-    const mappedLds = (lds || []).map((l: any) => ({
+    const mappedLds = (lds || []).map((l) => ({
       ...l,
       created_at: l.criado_em,
     }));
-    setLeads(mappedLds as any);
+    setLeads(mappedLds);
 
-    const leadIds = (lds || []).map((l: any) => l.id);
+    const leadIds = (lds || []).map((l) => l.id);
     if (leadIds.length) {
       const { data: enr } = await supabase
         .from("imphq_lead_sequence_enrollments")
         .select("lead_id,sequence_id,status")
         .in("lead_id", leadIds);
-      setEnrollments((enr || []) as any);
+      setEnrollments(enr || []);
     } else {
       setEnrollments([]);
     }
 
     // contagem global de e-mails enviados (do projeto/filtro)
-    const seqIds = ((seqs || []) as any[])
-      .filter((s: any) => projectId === "__all__" || s.project_id === projectId)
-      .map((s: any) => s.id);
+    const seqIds = (seqs || [])
+      .filter((s) => projectId === "__all__" || s.project_id === projectId)
+      .map((s) => s.id);
     if (seqIds.length) {
       const { count } = await supabase
         .from("imphq_nurture_emails")
@@ -74,18 +76,18 @@ export default function Lancamentos() {
     } else {
       setEmailCount(0);
     }
-  };
+  }, [projectId, days]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [projectId, days]);
+  useEffect(() => { load();   }, [load]);
 
-  const projectName = (id: string | null) => projects.find(p => p.id === id)?.nome || id || "Sem projeto";
+  const projectName = useCallback((id: string | null) => projects.find(p => p.id === id)?.nome || id || "Sem projeto", [projects]);
 
   // Agrupa por lançamento (campanha se houver; senão por projeto)
   type Group = { key: string; nome: string; project_id: string | null; campaign_id: string | null; leads: Lead[]; };
   const groups = useMemo<Group[]>(() => {
     const map = new Map<string, Group>();
     for (const l of leads) {
-      const cid = l.data?.campaign_id as string | undefined;
+      const cid = jsonText(jsonFields(l.data).campaign_id);
       const camp = cid ? campaigns.find(c => c.id === cid) : null;
       const key = camp ? `c:${camp.id}` : `p:${l.project_id || "__none__"}`;
       const nome = camp ? camp.nome : `${projectName(l.project_id)} (sem campanha)`;
@@ -93,7 +95,7 @@ export default function Lancamentos() {
       map.get(key)!.leads.push(l);
     }
     return Array.from(map.values()).sort((a, b) => b.leads.length - a.leads.length);
-  }, [leads, campaigns, projects]);
+  }, [leads, campaigns, projectName]);
 
   const enrolledLeadIds = useMemo(() => new Set(enrollments.filter(e => e.status === "ativa" || e.status === "active" || !e.status).map(e => e.lead_id)), [enrollments]);
 
@@ -126,7 +128,7 @@ export default function Lancamentos() {
     const id = `camp_${Date.now()}`;
     const { error } = await supabase.from("imphq_campaigns").insert({
       id, nome, project_id: g.project_id, status: "ativa", funil: "aquisicao", data: {}, user_id: user.id,
-    } as any);
+    });
     if (error) { toast.error(error.message); return; }
     toast.success("Lançamento criado");
     load();
@@ -225,7 +227,7 @@ export default function Lancamentos() {
           {groups.map(g => {
             const s = stats(g);
             const camp = g.campaign_id ? campaigns.find(c => c.id === g.campaign_id) : null;
-            const hasSeq = !!camp?.data?.default_sequence_id;
+            const hasSeq = !!jsonText(jsonFields(camp?.data).default_sequence_id);
             return (
               <Card key={g.key} className="bg-secondary/40 border-border hover:border-primary/30 transition">
                 <CardHeader className="pb-2">
@@ -282,7 +284,7 @@ export default function Lancamentos() {
       <BulkEnrollDialog
         open={bulkOpen}
         onOpenChange={setBulkOpen}
-        sequences={availableSequences as any}
+        sequences={availableSequences}
         onDone={load}
       />
     </div>

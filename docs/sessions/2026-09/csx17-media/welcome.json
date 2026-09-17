@@ -1,0 +1,9 @@
+{
+  "provider": "elevenlabs",
+  "disclosure": "Prerecorded audio · AI-generated voice",
+  "url": "https://tkbivipqiewkfnhktmqq.supabase.co/storage/v1/object/public/creative-assets/cinna-shield/csx17/welcome.mp3",
+  "text": "Hi, I'm Ana, from the support team. Tell me what's on your mind. We can take this one question at a time, and you can skip anything you'd rather not answer.",
+  "stage": "connection",
+  "id": "welcome",
+  "bytes": 150509
+}

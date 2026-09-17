@@ -1,3 +1,8 @@
+import type { Json, Tables } from "@/integrations/supabase/types";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText } from "@/lib/json-fields";
+import { parseFormFields, isFieldType, isJson, completionText, type FormField } from "@/components/leads/form-builder-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,25 +26,7 @@ const FORM_TYPES = [
 ];
 const getTypeMeta = (t?: string) => FORM_TYPES.find(x => x.value === t);
 
-interface FormField {
-  key: string;
-  label: string;
-  type: "text" | "email" | "tel" | "select" | "textarea" | "number" | "radio" | "checkbox";
-  required: boolean;
-  options?: string[];
-  placeholder?: string;
-}
-
-interface CaptureForm {
-  id: string;
-  project_id: string | null;
-  nome: string;
-  step: string | null;
-  fields: FormField[];
-  is_active: boolean | null;
-  created_at: string | null;
-  settings?: any;
-}
+type CaptureForm = Omit<Tables<"imphq_capture_forms">, "fields"> & { fields: FormField[] };
 
 interface Props {
   projects: { id: string; name: string; icon?: string }[];
@@ -49,7 +36,7 @@ interface FormTemplate {
   id: string;
   name: string;
   description: string;
-  icon: any;
+  icon: LucideIcon;
   stage: string;
   fields: FormField[];
 }
@@ -214,23 +201,27 @@ export function FormBuilder({ projects }: Props) {
 
   const loadForms = async () => {
     const { data } = await supabase.from("imphq_capture_forms").select("*").order("created_at", { ascending: false });
-    setForms((data || []) as any[]);
+    try {
+      setForms((data || []).map(form => ({ ...form, fields: parseFormFields(form.fields) })));
+    } catch (error) {
+      toast.error("Não foi possível abrir os campos: " + errorMessage(error));
+    }
   };
 
   const loadCampaigns = async () => {
     const { data } = await supabase.from("imphq_campaigns").select("id,nome,project_id,produto").order("created_at", { ascending: false });
-    setCampaigns((data || []) as any);
+    setCampaigns(data || []);
   };
 
   useEffect(() => { loadForms(); loadCampaigns(); }, []);
 
   const filteredForms = forms.filter(f => {
     if (listFilterProject !== "all" && f.project_id !== listFilterProject) return false;
-    if (listFilterType !== "all" && (f.settings as any)?.form_type !== listFilterType) return false;
+    if (listFilterType !== "all" && jsonText(jsonFields(f.settings).form_type) !== listFilterType) return false;
     if (listSearch.trim()) {
       const q = listSearch.toLowerCase();
-      const cn = ((f.settings as any)?.campaign_name || "").toLowerCase();
-      if (!f.nome.toLowerCase().includes(q) && !cn.includes(q)) return false;
+      const cn = (jsonText(jsonFields(f.settings).campaign_name) || "").toLowerCase();
+      if (!jsonText(f.nome).toLowerCase().includes(q) && !cn.includes(q)) return false;
     }
     return true;
   });
@@ -240,8 +231,8 @@ export function FormBuilder({ projects }: Props) {
     if (aiProject === "none") { setAiProductsList([]); setAiProduct(""); return; }
     (async () => {
       const { data } = await supabase.from("imphq_projects").select("data").eq("id", aiProject).single();
-      const produtos = (data?.data as any)?.produtos;
-      if (Array.isArray(produtos)) setAiProductsList(produtos.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
+      const produtos = jsonFields(data?.data).produtos;
+      if (Array.isArray(produtos)) setAiProductsList(produtos.map((p) => typeof p === "string" ? p : jsonText(jsonFields(p).nome) || jsonText(jsonFields(p).name) || ""));
       else setAiProductsList([]);
     })();
   }, [aiProject]);
@@ -251,9 +242,9 @@ export function FormBuilder({ projects }: Props) {
     if (formProject === "none") { setProjectProducts([]); setFormProduct(""); return; }
     (async () => {
       const { data } = await supabase.from("imphq_projects").select("data").eq("id", formProject).single();
-      const produtos = (data?.data as any)?.produtos;
+      const produtos = jsonFields(data?.data).produtos;
       if (Array.isArray(produtos)) {
-        setProjectProducts(produtos.map((p: any) => typeof p === "string" ? p : p.nome || p.name || ""));
+        setProjectProducts(produtos.map((p) => typeof p === "string" ? p : jsonText(jsonFields(p).nome) || jsonText(jsonFields(p).name) || ""));
       } else {
         setProjectProducts([]);
       }
@@ -302,7 +293,7 @@ export function FormBuilder({ projects }: Props) {
     if (!aiBriefing.trim()) { toast.error("Descreva o que precisa"); return; }
     setAiLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+      const { data, error } = await supabase.functions.invoke<Json>("ai-form-builder", {
         body: {
           briefing: aiBriefing,
           project_id: aiProject !== "none" ? aiProject : null,
@@ -312,29 +303,31 @@ export function FormBuilder({ projects }: Props) {
         },
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (jsonFields(data).error) throw new Error(jsonText(jsonFields(data).error) || "Erro no formulário IA");
 
-      if (variants === 2 && Array.isArray(data.forms)) {
+      if (variants === 2 && Array.isArray(jsonFields(data).forms)) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Sem usuário");
-        const rows = data.forms.map((f: any, i: number) => {
-          const settings: Record<string, any> = { form_type: f.form_type || "captura" };
-          if (f.campaign_name) settings.campaign_name = f.campaign_name;
+        const variantsData = jsonFields(data).forms;
+        const rows = (Array.isArray(variantsData) ? variantsData : []).map((value, i) => {
+          const f = jsonFields(value);
+          const settings: { [key: string]: Json | undefined } = { form_type: jsonText(f.form_type) || "captura" };
+          if (jsonText(f.campaign_name)) settings.campaign_name = jsonText(f.campaign_name);
           if (aiProduct) settings.product_name = aiProduct;
-          if (f.tag) settings.tag = f.tag;
-          if (f.description) settings.description = f.description;
+          if (jsonText(f.tag)) settings.tag = jsonText(f.tag);
+          if (jsonText(f.description)) settings.description = jsonText(f.description);
           settings.ab_variant = i === 0 ? "A" : "B";
           return {
-            nome: `${f.nome || "Form IA"} · ${i === 0 ? "A" : "B"}`,
+            nome: `${jsonText(f.nome) || "Form IA"} · ${i === 0 ? "A" : "B"}`,
             project_id: aiProject !== "none" ? aiProject : null,
-            step: f.stage || "lead_capturado",
-            fields: f.fields || [],
+            step: jsonText(f.stage) || "lead_capturado",
+            fields: parseFormFields(f.fields || []),
             is_active: true,
             user_id: user.id,
             settings,
           };
         });
-        const { error: insErr } = await supabase.from("imphq_capture_forms").insert(rows as any);
+        const { error: insErr } = await supabase.from("imphq_capture_forms").insert(rows);
         if (insErr) throw insErr;
         toast.success("2 variantes A/B criadas! Distribua o tráfego entre elas.");
         setShowAI(false);
@@ -342,22 +335,22 @@ export function FormBuilder({ projects }: Props) {
         return;
       }
 
-      const f = data.form;
-      setFormName(f.nome || "");
-      setFormType(f.form_type || "captura");
-      setFormCampaign(f.campaign_name || "");
-      setFormStage(f.stage || "lead_capturado");
-      setFormDescription(f.description || "");
-      setFormTag(f.tag || "");
-      setFormFields(f.fields || []);
+      const f = jsonFields(jsonFields(data).form);
+      setFormName(jsonText(f.nome) || "");
+      setFormType(jsonText(f.form_type) || "captura");
+      setFormCampaign(jsonText(f.campaign_name) || "");
+      setFormStage(jsonText(f.stage) || "lead_capturado");
+      setFormDescription(jsonText(f.description) || "");
+      setFormTag(jsonText(f.tag) || "");
+      setFormFields(parseFormFields(f.fields || []));
       setFormProject(aiProject);
       setFormProduct(aiProduct);
       setShowAI(false);
       setShowTemplates(false);
       setShowNew(true);
       toast.success("Formulário gerado pela IA! Revise e salve.");
-    } catch (err: any) {
-      toast.error(err.message || "Falha ao gerar com IA");
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Falha ao gerar com IA");
     } finally {
       setAiLoading(false);
     }
@@ -371,8 +364,9 @@ export function FormBuilder({ projects }: Props) {
     setLoadingFieldsAI(true);
     try {
       const savedKeys = localStorage.getItem("imphq_api_keys");
-      const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
-      const orKey = apiKeys.openrouter;
+      const parsedKeys: unknown = savedKeys ? JSON.parse(savedKeys) : {};
+      const apiKeys = isJson(parsedKeys) ? jsonFields(parsedKeys) : {};
+      const orKey = jsonText(apiKeys.openrouter);
 
       let generatedFields: FormField[] = [];
 
@@ -426,15 +420,15 @@ Regras:
         }
 
         const data = await response.json();
-        const content = data.choices?.[0]?.message?.content?.trim();
+        const content = completionText(data).trim();
         if (!content) throw new Error("A IA não retornou nenhum conteúdo.");
 
         const jsonString = content.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-        generatedFields = JSON.parse(jsonString);
+        generatedFields = parseFormFields(JSON.parse(jsonString));
       } else {
         // Fallback to supabase edge function
         toast.info("Chave OpenRouter não configurada. Usando gateway padrão...");
-        const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+        const { data, error } = await supabase.functions.invoke<Json>("ai-form-builder", {
           body: {
             briefing: `Gere apenas os campos para o formulário com base em: ${aiFieldsPrompt}`,
             project_id: formProject !== "none" ? formProject : null,
@@ -444,9 +438,9 @@ Regras:
         });
 
         if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+        if (jsonFields(data).error) throw new Error(jsonText(jsonFields(data).error) || "Erro no formulário IA");
 
-        generatedFields = data.form?.fields || [];
+        generatedFields = parseFormFields(jsonFields(jsonFields(data).form).fields || []);
       }
 
       if (Array.isArray(generatedFields) && generatedFields.length > 0) {
@@ -465,9 +459,9 @@ Regras:
       } else {
         toast.error("Nenhum campo válido pôde ser gerado.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("AI Fields Error:", err);
-      toast.error(`Falha ao gerar campos: ${err.message || "Erro desconhecido"}`);
+      toast.error(`Falha ao gerar campos: ${errorMessage(err) || "Erro desconhecido"}`);
     } finally {
       setLoadingFieldsAI(false);
     }
@@ -522,11 +516,11 @@ Regras:
       setAnalysisData({
         totalSubmissions,
         completionRate,
-        emptyFieldsStats: stats as any,
+        emptyFieldsStats: stats,
         aiInsights: null
       });
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error loading form analysis:", err);
       toast.error("Erro ao carregar métricas do formulário.");
     } finally {
@@ -539,13 +533,14 @@ Regras:
     setAiGeneratingInsights(true);
     try {
       const savedKeys = localStorage.getItem("imphq_api_keys");
-      const apiKeys = savedKeys ? JSON.parse(savedKeys) : {};
-      const orKey = apiKeys.openrouter;
+      const parsedKeys: unknown = savedKeys ? JSON.parse(savedKeys) : {};
+      const apiKeys = isJson(parsedKeys) ? jsonFields(parsedKeys) : {};
+      const orKey = jsonText(apiKeys.openrouter);
 
       const statsString = JSON.stringify(analysisData.emptyFieldsStats);
       const prompt = `Formulário: "${analysisForm.nome}"
-Tipo: "${(analysisForm.settings as any)?.form_type || "captura"}"
-Descrição: "${(analysisForm.settings as any)?.description || "Sem descrição"}"
+Tipo: "${jsonText(jsonFields(analysisForm.settings).form_type) || "captura"}"
+Descrição: "${jsonText(jsonFields(analysisForm.settings).description) || "Sem descrição"}"
 Total de Submissões: ${analysisData.totalSubmissions}
 Taxa de Preenchimento Geral: ${analysisData.completionRate}%
 
@@ -595,29 +590,29 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
         }
 
         const data = await response.json();
-        insights = data.choices?.[0]?.message?.content || "";
+        insights = completionText(data);
       } else {
         toast.info("Chave OpenRouter não configurada. Usando gateway padrão...");
-        const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+        const { data, error } = await supabase.functions.invoke<Json>("ai-form-builder", {
           body: {
             briefing: `Forneça uma análise de insights, pontos fortes e fracos em formato markdown para este formulário: ${prompt}`,
             project_id: analysisForm.project_id,
-            form_type: (analysisForm.settings as any)?.form_type,
+            form_type: jsonText(jsonFields(analysisForm.settings).form_type),
           },
         });
 
         if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+        if (jsonFields(data).error) throw new Error(jsonText(jsonFields(data).error) || "Erro no formulário IA");
 
-        insights = data.form?.description || "Análise gerada pelo gateway padrão.";
+        insights = jsonText(jsonFields(jsonFields(data).form).description) || "Análise gerada pelo gateway padrão.";
       }
 
       setAnalysisData(prev => prev ? { ...prev, aiInsights: insights } : null);
       toast.success("Insights gerados com sucesso!");
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("AI Insights Error:", err);
-      toast.error(`Falha ao gerar insights: ${err.message || "Erro desconhecido"}`);
+      toast.error(`Falha ao gerar insights: ${errorMessage(err) || "Erro desconhecido"}`);
     } finally {
       setAiGeneratingInsights(false);
     }
@@ -631,9 +626,11 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const settings: Record<string, any> = {
+    const settings: { [key: string]: Json | undefined } = {
+      ...jsonFields(editForm?.settings),
       form_type: formType,
     };
+    for (const key of ["campaign_id", "campaign_name", "product_name", "tag", "description"]) delete settings[key];
     if (formCampaignId && formCampaignId !== "none") {
       settings.campaign_id = formCampaignId;
       const c = campaigns.find(x => x.id === formCampaignId);
@@ -649,7 +646,7 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
       nome: formName,
       project_id: formProject !== "none" ? formProject : null,
       step: formStage,
-      fields: formFields as any,
+      fields: formFields,
       is_active: true,
       user_id: user.id,
       settings,
@@ -659,7 +656,7 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
       await supabase.from("imphq_capture_forms").update(payload).eq("id", editForm.id);
       toast.success("Formulário atualizado!");
     } else {
-      await supabase.from("imphq_capture_forms").insert(payload as any);
+      await supabase.from("imphq_capture_forms").insert(payload);
       toast.success("Formulário criado!");
     }
     setShowNew(false);
@@ -672,13 +669,13 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
     setFormName(form.nome);
     setFormProject(form.project_id || "none");
     setFormStage(form.step || "lead_capturado");
-    setFormFields((form.fields as any as FormField[]) || []);
-    setFormProduct((form.settings as any)?.product_name || "");
-    setFormTag((form.settings as any)?.tag || "");
-    setFormDescription((form.settings as any)?.description || "");
-    setFormType((form.settings as any)?.form_type || "captura");
-    setFormCampaign((form.settings as any)?.campaign_name || "");
-    setFormCampaignId((form.settings as any)?.campaign_id || "none");
+    setFormFields(form.fields || []);
+    setFormProduct(jsonText(jsonFields(form.settings).product_name) || "");
+    setFormTag(jsonText(jsonFields(form.settings).tag) || "");
+    setFormDescription(jsonText(jsonFields(form.settings).description) || "");
+    setFormType(jsonText(jsonFields(form.settings).form_type) || "captura");
+    setFormCampaign(jsonText(jsonFields(form.settings).campaign_name) || "");
+    setFormCampaignId(jsonText(jsonFields(form.settings).campaign_id) || "none");
     setShowNew(true);
   };
 
@@ -692,32 +689,32 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
     const briefing = window.prompt("O que melhorar? (deixe vazio para otimização automática)") ?? "";
     toast.loading("IA analisando respostas...", { id: "opt" });
     try {
-      const { data, error } = await supabase.functions.invoke("ai-form-builder", {
+      const { data, error } = await supabase.functions.invoke<Json>("ai-form-builder", {
         body: {
           optimize_form_id: form.id,
           briefing: briefing || undefined,
           project_id: form.project_id,
-          form_type: (form.settings as any)?.form_type,
+          form_type: jsonText(jsonFields(form.settings).form_type),
         },
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const f = data.form;
+      if (jsonFields(data).error) throw new Error(jsonText(jsonFields(data).error) || "Erro no formulário IA");
+      const f = jsonFields(jsonFields(data).form);
       setEditForm(form);
-      setFormName(f.nome || form.nome);
-      setFormType(f.form_type || (form.settings as any)?.form_type || "captura");
-      setFormCampaign(f.campaign_name || (form.settings as any)?.campaign_name || "");
-      setFormCampaignId((form.settings as any)?.campaign_id || "none");
-      setFormStage(f.stage || form.step || "lead_capturado");
-      setFormDescription(f.description || "");
-      setFormTag(f.tag || "");
-      setFormFields(f.fields || []);
+      setFormName(jsonText(f.nome) || form.nome);
+      setFormType(jsonText(f.form_type) || jsonText(jsonFields(form.settings).form_type) || "captura");
+      setFormCampaign(jsonText(f.campaign_name) || jsonText(jsonFields(form.settings).campaign_name) || "");
+      setFormCampaignId(jsonText(jsonFields(form.settings).campaign_id) || "none");
+      setFormStage(jsonText(f.stage) || form.step || "lead_capturado");
+      setFormDescription(jsonText(f.description) || "");
+      setFormTag(jsonText(f.tag) || "");
+      setFormFields(parseFormFields(f.fields || []));
       setFormProject(form.project_id || "none");
-      setFormProduct((form.settings as any)?.product_name || "");
+      setFormProduct(jsonText(jsonFields(form.settings).product_name) || "");
       setShowNew(true);
       toast.success("Sugestão da IA aplicada. Revise e salve.", { id: "opt" });
-    } catch (err: any) {
-      toast.error(err.message || "Falha ao otimizar", { id: "opt" });
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Falha ao otimizar", { id: "opt" });
     }
   };
 
@@ -728,11 +725,11 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
       nome: `${form.nome} (cópia)`,
       project_id: form.project_id,
       step: form.step,
-      fields: form.fields as any,
+      fields: form.fields,
       is_active: true,
       user_id: user.id,
       settings: form.settings || {},
-    } as any);
+    });
     if (error) { toast.error("Erro ao duplicar"); return; }
     toast.success("Formulário duplicado!");
     loadForms();
@@ -741,16 +738,16 @@ Mantenha o tom de um consultor sênior de growth hacking de forma curta, direta 
   const saveAsTemplate = async (form: CaptureForm) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const settings = { ...(form.settings || {}), is_template: true, product_name: (form.settings as any)?.product_name };
+    const settings = { ...jsonFields(form.settings), is_template: true, product_name: jsonText(jsonFields(form.settings).product_name) };
     const { error } = await supabase.from("imphq_capture_forms").insert({
       nome: `[Template] ${form.nome}`,
       project_id: null,
       step: form.step,
-      fields: form.fields as any,
+      fields: form.fields,
       is_active: false,
       user_id: user.id,
       settings,
-    } as any);
+    });
     if (error) { toast.error("Erro ao salvar template"); return; }
     toast.success("Template salvo!");
     loadForms();
@@ -910,33 +907,33 @@ async function imphqSubmit(e) {
                   <div>
                     <p className="font-medium text-sm">{form.nome}</p>
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      {(() => { const tm = getTypeMeta((form.settings as any)?.form_type); return tm ? (
+                      {(() => { const tm = getTypeMeta(jsonText(jsonFields(form.settings).form_type)); return tm ? (
                         <Badge variant="outline" className={`text-[10px] py-0 ${tm.color}`}>{tm.label}</Badge>
                       ) : null; })()}
                       <Badge variant="outline" className="text-[10px] py-0 bg-primary/10 text-primary border-primary/20">
                         {getProjectName(form.project_id)}
                       </Badge>
-                      {(form.settings as any)?.campaign_name && (
+                      {jsonText(jsonFields(form.settings).campaign_name) && (
                         <Badge variant="outline" className="text-[10px] py-0 bg-secondary/60 text-foreground border-border">
-                          🎯 {(form.settings as any).campaign_name}
+                          🎯 {jsonText(jsonFields(form.settings).campaign_name)}
                         </Badge>
                       )}
-                      {(form.settings as any)?.product_name && (
+                      {jsonText(jsonFields(form.settings).product_name) && (
                         <Badge variant="outline" className="text-[10px] py-0 bg-amber-500/10 text-amber-400 border-amber-500/20">
-                          📦 {(form.settings as any).product_name}
+                          📦 {jsonText(jsonFields(form.settings).product_name)}
                         </Badge>
                       )}
-                      {(form.settings as any)?.tag && (
+                      {jsonText(jsonFields(form.settings).tag) && (
                         <Badge variant="outline" className="text-[10px] py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                          🏷️ {(form.settings as any).tag}
+                          🏷️ {jsonText(jsonFields(form.settings).tag)}
                         </Badge>
                       )}
                       {form.created_at && (
                         <span className="text-[10px] text-muted-foreground">• {new Date(form.created_at).toLocaleDateString("pt-BR")}</span>
                       )}
                     </div>
-                    {(form.settings as any)?.description && (
-                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{(form.settings as any).description}</p>
+                    {jsonText(jsonFields(form.settings).description) && (
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{jsonText(jsonFields(form.settings).description)}</p>
                     )}
                   </div>
                   <Badge variant={form.is_active ? "default" : "secondary"} className="text-[10px]">
@@ -999,14 +996,14 @@ async function imphqSubmit(e) {
               </button>
             ))}
             {/* Saved templates from DB */}
-            {forms.filter(f => (f.settings as any)?.is_template).map(tpl => (
+            {forms.filter(f => jsonFields(f.settings).is_template).map(tpl => (
               <button
                 key={tpl.id}
                 onClick={() => {
                   setFormName(tpl.nome.replace(/^\[Template\]\s*/, ""));
                   setFormStage(tpl.step || "lead_capturado");
-                  setFormFields([...((tpl.fields as any as FormField[]) || [])]);
-                  setFormProduct((tpl.settings as any)?.product_name || "");
+                  setFormFields([...(tpl.fields || [])]);
+                  setFormProduct(jsonText(jsonFields(tpl.settings).product_name) || "");
                   setShowTemplates(false);
                   setShowNew(true);
                 }}
@@ -1017,7 +1014,7 @@ async function imphqSubmit(e) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm">{tpl.nome}</p>
-                  <p className="text-xs text-muted-foreground">Template salvo • {((tpl.fields as any as FormField[]) || []).length} campos</p>
+                  <p className="text-xs text-muted-foreground">Template salvo • {(tpl.fields || []).length} campos</p>
                 </div>
                 <Badge variant="outline" className="text-[9px] shrink-0 bg-primary/10 text-primary border-primary/20">Meu Template</Badge>
               </button>
@@ -1212,7 +1209,7 @@ async function imphqSubmit(e) {
                 <div key={idx} className="flex items-center gap-2 p-2 bg-secondary/50 rounded border border-border">
                   <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
                   <Input value={field.label} onChange={e => updateField(idx, { label: e.target.value, key: e.target.value.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "") })} placeholder="Nome do campo" className="bg-background h-8 text-xs flex-1" />
-                  <Select value={field.type} onValueChange={v => updateField(idx, { type: v as any })}>
+                  <Select value={field.type} onValueChange={v => { if (isFieldType(v)) updateField(idx, { type: v }); }}>
                     <SelectTrigger className="w-24 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="text">Texto</SelectItem>

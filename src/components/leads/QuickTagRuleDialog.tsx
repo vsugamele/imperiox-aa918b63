@@ -1,3 +1,4 @@
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -44,14 +45,14 @@ export default function QuickTagRuleDialog({ open, onOpenChange, tag, projects }
     try {
       const { data: leads } = await supabase
         .from("imphq_leads").select("id").is("project_id", null).contains("tags", [tag]).limit(5000);
-      const ids = (leads || []).map((l: any) => l.id);
+      const ids = (leads || []).map((l) => l.id);
       for (let i = 0; i < ids.length; i += 500) {
         const chunk = ids.slice(i, i + 500);
         await supabase.from("imphq_leads").update({ project_id: createdRuleProj }).in("id", chunk);
       }
       toast.success(`${ids.length} leads movidos`);
       onOpenChange(false);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: unknown) { toast.error(errorMessage(e)); }
     setBackfillBusy(false);
   };
 

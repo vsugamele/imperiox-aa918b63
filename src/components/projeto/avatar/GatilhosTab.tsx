@@ -1,3 +1,5 @@
+import type { Json } from "@/integrations/supabase/types";
+import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -5,11 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AIGenerateButton } from "../AIGenerateButton";
+import { AIGenerateButton } from "@/components/projeto/AIGenerateButton";
 
 interface Props {
-  avatar: any;
-  onUpdate: (avatar: any) => void;
+  avatar: Json;
+  onUpdate: (avatar: Json) => void;
   projectId?: string;
 }
 
@@ -21,12 +23,13 @@ const STORYBOARD_SECTIONS = [
   { key: "decisao", label: "🔵 Decisão", border: "border-l-blue-500" },
 ];
 
-export function GatilhosTab({ avatar, onUpdate, projectId }: Props) {
-  const gatilhos = avatar.gatilhos || [];
-  const storyboard = avatar.storyboard || {};
+export function GatilhosTab({ avatar: rawAvatar, onUpdate, projectId }: Props) {
+  const avatar = jsonFields(rawAvatar);
+  const gatilhos = Array.isArray(avatar.gatilhos) ? avatar.gatilhos.map(jsonFields) : [];
+  const storyboard = jsonFields(avatar.storyboard);
 
   const add = () => onUpdate({ ...avatar, gatilhos: [...gatilhos, { nome: "", categoria: "", intensidade: "", situacao: "", copy_sugerido: "" }] });
-  const remove = (i: number) => onUpdate({ ...avatar, gatilhos: gatilhos.filter((_: any, j: number) => j !== i) });
+  const remove = (i: number) => onUpdate({ ...avatar, gatilhos: gatilhos.filter((_, j: number) => j !== i) });
   const edit = (i: number, field: string, val: string) => {
     const updated = [...gatilhos];
     updated[i] = { ...updated[i], [field]: val };
@@ -34,15 +37,15 @@ export function GatilhosTab({ avatar, onUpdate, projectId }: Props) {
   };
   const updateStory = (key: string, val: string) => onUpdate({ ...avatar, storyboard: { ...storyboard, [key]: val } });
 
-  const handleAIResult = (data: any) => {
-    if (data?.gatilhos) {
-      const g = data.gatilhos;
+  const handleAIResult = (data: Json) => {
+    if (jsonFields(data).gatilhos) {
+      const g = jsonFields(jsonFields(data).gatilhos);
       const newAvatar = { ...avatar };
-      if (g.gatilhos && (!gatilhos.length || gatilhos.every((gt: any) => !gt.nome))) newAvatar.gatilhos = g.gatilhos;
+      if (g.gatilhos && (!gatilhos.length || gatilhos.every((gt) => !gt.nome))) newAvatar.gatilhos = g.gatilhos;
       if (g.storyboard) {
         const newStory = { ...storyboard };
-        for (const key of Object.keys(g.storyboard)) {
-          if (!newStory[key]) newStory[key] = g.storyboard[key];
+        for (const key of Object.keys(jsonFields(g.storyboard))) {
+          if (!newStory[key]) newStory[key] = jsonFields(g.storyboard)[key];
         }
         newAvatar.storyboard = newStory;
       }
@@ -76,18 +79,18 @@ export function GatilhosTab({ avatar, onUpdate, projectId }: Props) {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {gatilhos.map((g: any, i: number) => (
+          {gatilhos.map((g, i: number) => (
             <div key={i} className="p-3 rounded-md bg-secondary/50 border border-border space-y-2 relative">
               <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-6 w-6 text-destructive" onClick={() => remove(i)}>
                 <Trash2 className="h-3 w-3" />
               </Button>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div><Label className="text-[10px] text-muted-foreground">Nome</Label><Input value={g.nome || ""} onChange={e => edit(i, "nome", e.target.value)} className="bg-secondary" placeholder="Ex: Medo de rejeição" /></div>
-                <div><Label className="text-[10px] text-muted-foreground">Categoria</Label><Input value={g.categoria || ""} onChange={e => edit(i, "categoria", e.target.value)} className="bg-secondary" placeholder="Ex: Medo, Raiva, Vergonha" /></div>
-                <div><Label className="text-[10px] text-muted-foreground">Intensidade</Label><Input value={g.intensidade || ""} onChange={e => edit(i, "intensidade", e.target.value)} className="bg-secondary" placeholder="Ex: 9/10" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Nome</Label><Input value={jsonText(g.nome) ?? jsonNumber(g.nome) ?? ""} onChange={e => edit(i, "nome", e.target.value)} className="bg-secondary" placeholder="Ex: Medo de rejeição" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Categoria</Label><Input value={jsonText(g.categoria) ?? jsonNumber(g.categoria) ?? ""} onChange={e => edit(i, "categoria", e.target.value)} className="bg-secondary" placeholder="Ex: Medo, Raiva, Vergonha" /></div>
+                <div><Label className="text-[10px] text-muted-foreground">Intensidade</Label><Input value={jsonText(g.intensidade) ?? jsonNumber(g.intensidade) ?? ""} onChange={e => edit(i, "intensidade", e.target.value)} className="bg-secondary" placeholder="Ex: 9/10" /></div>
               </div>
-              <div><Label className="text-[10px] text-muted-foreground">Situação que Ativa</Label><Input value={g.situacao || ""} onChange={e => edit(i, "situacao", e.target.value)} className="bg-secondary" /></div>
-              <div><Label className="text-[10px] text-muted-foreground">Copy Sugerido</Label><Textarea value={g.copy_sugerido || ""} onChange={e => edit(i, "copy_sugerido", e.target.value)} className="bg-secondary text-sm min-h-[40px]" /></div>
+              <div><Label className="text-[10px] text-muted-foreground">Situação que Ativa</Label><Input value={jsonText(g.situacao) ?? jsonNumber(g.situacao) ?? ""} onChange={e => edit(i, "situacao", e.target.value)} className="bg-secondary" /></div>
+              <div><Label className="text-[10px] text-muted-foreground">Copy Sugerido</Label><Textarea value={jsonText(g.copy_sugerido) ?? jsonNumber(g.copy_sugerido) ?? ""} onChange={e => edit(i, "copy_sugerido", e.target.value)} className="bg-secondary text-sm min-h-[40px]" /></div>
             </div>
           ))}
           {gatilhos.length === 0 && <p className="text-sm text-muted-foreground">Nenhum gatilho.</p>}
@@ -100,7 +103,7 @@ export function GatilhosTab({ avatar, onUpdate, projectId }: Props) {
           {STORYBOARD_SECTIONS.map(s => (
             <div key={s.key} className={`border-l-4 ${s.border} pl-4`}>
               <Label className="text-xs font-semibold">{s.label}</Label>
-              <Textarea value={storyboard[s.key] || ""} onChange={e => updateStory(s.key, e.target.value)} className="bg-secondary text-sm min-h-[60px] mt-1" placeholder={`Descreva a fase "${s.label}"...`} />
+              <Textarea value={jsonText(storyboard[s.key]) || ""} onChange={e => updateStory(s.key, e.target.value)} className="bg-secondary text-sm min-h-[60px] mt-1" placeholder={`Descreva a fase "${s.label}"...`} />
             </div>
           ))}
         </CardContent>
@@ -109,13 +112,13 @@ export function GatilhosTab({ avatar, onUpdate, projectId }: Props) {
       <Card className="bg-card border-border">
         <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">🎯 Síntese Estratégica</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div><Label className="text-xs text-muted-foreground">Gatilho Nuclear</Label><Textarea value={avatar.gatilho_nuclear || ""} onChange={e => onUpdate({ ...avatar, gatilho_nuclear: e.target.value })} className="bg-secondary text-sm min-h-[50px]" placeholder="Trauma + frase + sintoma físico..." /></div>
+          <div><Label className="text-xs text-muted-foreground">Gatilho Nuclear</Label><Textarea value={jsonText(avatar.gatilho_nuclear) ?? jsonNumber(avatar.gatilho_nuclear) ?? ""} onChange={e => onUpdate({ ...avatar, gatilho_nuclear: e.target.value })} className="bg-secondary text-sm min-h-[50px]" placeholder="Trauma + frase + sintoma físico..." /></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label className="text-xs text-muted-foreground">O High (momento ideal)</Label><Textarea value={avatar.the_high || ""} onChange={e => onUpdate({ ...avatar, the_high: e.target.value })} className="bg-secondary text-sm min-h-[50px]" /></div>
-            <div><Label className="text-xs text-muted-foreground">O Hell (pior cenário)</Label><Textarea value={avatar.the_hell || ""} onChange={e => onUpdate({ ...avatar, the_hell: e.target.value })} className="bg-secondary text-sm min-h-[50px]" /></div>
+            <div><Label className="text-xs text-muted-foreground">O High (momento ideal)</Label><Textarea value={jsonText(avatar.the_high) ?? jsonNumber(avatar.the_high) ?? ""} onChange={e => onUpdate({ ...avatar, the_high: e.target.value })} className="bg-secondary text-sm min-h-[50px]" /></div>
+            <div><Label className="text-xs text-muted-foreground">O Hell (pior cenário)</Label><Textarea value={jsonText(avatar.the_hell) ?? jsonNumber(avatar.the_hell) ?? ""} onChange={e => onUpdate({ ...avatar, the_hell: e.target.value })} className="bg-secondary text-sm min-h-[50px]" /></div>
           </div>
-          <div><Label className="text-xs text-muted-foreground">O Segredo Final</Label><Textarea value={avatar.segredo_final || ""} onChange={e => onUpdate({ ...avatar, segredo_final: e.target.value })} className="bg-secondary text-sm min-h-[50px]" placeholder="O que o avatar realmente compra..." /></div>
-          <div><Label className="text-xs text-muted-foreground">Ângulo de Diferenciação</Label><Input value={avatar.angulo_diferenciacao || ""} onChange={e => onUpdate({ ...avatar, angulo_diferenciacao: e.target.value })} className="bg-secondary" /></div>
+          <div><Label className="text-xs text-muted-foreground">O Segredo Final</Label><Textarea value={jsonText(avatar.segredo_final) ?? jsonNumber(avatar.segredo_final) ?? ""} onChange={e => onUpdate({ ...avatar, segredo_final: e.target.value })} className="bg-secondary text-sm min-h-[50px]" placeholder="O que o avatar realmente compra..." /></div>
+          <div><Label className="text-xs text-muted-foreground">Ângulo de Diferenciação</Label><Input value={jsonText(avatar.angulo_diferenciacao) ?? jsonNumber(avatar.angulo_diferenciacao) ?? ""} onChange={e => onUpdate({ ...avatar, angulo_diferenciacao: e.target.value })} className="bg-secondary" /></div>
         </CardContent>
       </Card>
     </div>

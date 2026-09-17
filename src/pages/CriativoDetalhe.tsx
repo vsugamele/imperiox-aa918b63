@@ -1,3 +1,5 @@
+import { record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, FolderInput, Heart, History, Loader2, Package, Pencil, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Download, FolderInput, Heart, History, Link2, Link2Off, Loader2, Package, Pencil, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 
@@ -17,6 +19,7 @@ interface Batch {
   total_gerado: number;
   total_planejado: number;
   error_message: string | null;
+  source_swipe_ids?: string[] | null;
 }
 
 interface Asset {
@@ -33,6 +36,7 @@ interface Asset {
   exported_to_midia: boolean;
   created_at: string;
   image_provider?: string | null;
+  card_id?: string | null;
 }
 
 type ImgProvider = "lovable-gemini" | "openai-image";
@@ -42,6 +46,7 @@ const providerLabel = (p?: string | null) =>
 export default function CriativoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const [batch, setBatch] = useState<Batch | null>(null);
+  const [sourceSwipes, setSourceSwipes] = useState<Array<{ id: string; title: string }>>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [editTarget, setEditTarget] = useState<Asset | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
@@ -51,6 +56,33 @@ export default function CriativoDetalhe() {
   const [historyTarget, setHistoryTarget] = useState<Asset | null>(null);
   const [exporting, setExporting] = useState(false);
   const [zipping, setZipping] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<Asset | null>(null);
+  const [cardOptions, setCardOptions] = useState<Array<{ id: string; titulo: string; board_id: string | null }>>([]);
+  const [cardSearch, setCardSearch] = useState("");
+
+  async function openLinkDialog(a: Asset) {
+    setLinkTarget(a);
+    setCardSearch("");
+    const { data } = await supabase
+      .from("imphq_kanban_cards")
+      .select("id, titulo:title, board_id:board")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setCardOptions(data || []);
+  }
+
+  async function linkToCard(cardId: string | null) {
+    if (!linkTarget) return;
+    const { error } = await supabase
+      .from("imphq_creative_assets")
+      .update({ card_id: cardId })
+      .eq("id", linkTarget.id);
+    if (error) { toast.error(error.message); return; }
+    setAssets((prev) => prev.map((x) => x.id === linkTarget.id ? { ...x, card_id: cardId } : x));
+    toast.success(cardId ? "Criativo vinculado ao card" : "Vínculo removido");
+    setLinkTarget(null);
+  }
+
 
   async function load() {
     if (!id) return;
@@ -63,8 +95,21 @@ export default function CriativoDetalhe() {
         .neq("image_url", "pending")
         .order("created_at", { ascending: true }),
     ]);
-    if (bRes.data) setBatch(bRes.data as any);
-    if (aRes.data) setAssets(aRes.data as any);
+    if (bRes.data) {
+      setBatch(bRes.data);
+      const sourceIds = record(bRes.data.briefing).source_swipe_ids;
+      const ids = Array.isArray(sourceIds) ? sourceIds.filter((id): id is string => typeof id === "string") : [];
+      if (ids.length) {
+        const { data: sws } = await supabase
+          .from("imphq_swipes")
+          .select("id, title")
+          .in("id", ids);
+        setSourceSwipes(sws || []);
+      } else {
+        setSourceSwipes([]);
+      }
+    }
+    if (aRes.data) setAssets(aRes.data);
   }
 
   useEffect(() => {
@@ -120,13 +165,13 @@ export default function CriativoDetalhe() {
         },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (record(data).error) throw new Error(String(record(data).error));
       toast.success(`Nova versão gerada (${providerLabel(editProvider)})`);
       setEditTarget(null);
       setEditInstruction("");
       load();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha na edição");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha na edição");
     } finally {
       setEditing(false);
     }
@@ -147,8 +192,8 @@ export default function CriativoDetalhe() {
       if (error) throw error;
       toast.success("Enviado pra biblioteca de mídias");
       load();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao exportar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao exportar");
     } finally {
       setExporting(false);
     }
@@ -168,8 +213,8 @@ export default function CriativoDetalhe() {
       if (error) throw error;
       toast.success(`${aprovados.length} criativo(s) enviado(s) pra mídias`);
       load();
-    } catch (e: any) {
-      toast.error(e?.message || "Falha ao exportar");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha ao exportar");
     } finally {
       setExporting(false);
     }
@@ -202,8 +247,8 @@ export default function CriativoDetalhe() {
       link.click();
       URL.revokeObjectURL(link.href);
       toast.success(`${i} criativo(s) baixado(s)`);
-    } catch (e: any) {
-      toast.error(e?.message || "Falha no ZIP");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e) || "Falha no ZIP");
     } finally {
       setZipping(false);
     }
@@ -221,12 +266,17 @@ export default function CriativoDetalhe() {
           </Button>
           <div>
             <h1 className="font-serif text-2xl text-primary">{batch?.nome || "..."}</h1>
-            <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
+            <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
               <Badge variant={batch?.status === "completed" ? "default" : "secondary"}>
                 {batch?.status === "processing" && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 {batch?.status || "..."}
               </Badge>
               <span>{batch?.total_gerado || 0}/{batch?.total_planejado || 0} ({pct}%)</span>
+              {sourceSwipes.map((s) => (
+                <Badge key={s.id} variant="outline" className="text-[10px] border-amber-500/40 text-amber-400 gap-1">
+                  <Sparkles className="h-3 w-3" /> Inspirado em VSL: {s.title}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>
@@ -301,6 +351,9 @@ export default function CriativoDetalhe() {
                   )}
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => exportarParaMidia(a)} disabled={a.exported_to_midia || exporting} title="Enviar pra Mídias">
                     <FolderInput className={`h-4 w-4 ${a.exported_to_midia ? "text-primary" : ""}`} />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLinkDialog(a)} title={a.card_id ? "Vinculado a um card do Kanban" : "Vincular a card do Kanban"}>
+                    <Link2 className={`h-4 w-4 ${a.card_id ? "text-primary" : ""}`} />
                   </Button>
                   <Button size="icon" variant="ghost" className="h-7 w-7" asChild title="Download">
                     <a href={a.image_url} download target="_blank" rel="noreferrer">
@@ -424,6 +477,46 @@ export default function CriativoDetalhe() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Link to Kanban card */}
+      <Dialog open={!!linkTarget} onOpenChange={(o) => !o && setLinkTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" /> Vincular criativo a um card
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Buscar card pelo título..."
+              value={cardSearch}
+              onChange={(e) => setCardSearch(e.target.value)}
+            />
+            <div className="max-h-80 overflow-y-auto space-y-1">
+              {cardOptions
+                .filter((c) => !cardSearch || c.titulo?.toLowerCase().includes(cardSearch.toLowerCase()))
+                .slice(0, 50)
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => linkToCard(c.id)}
+                    className={`w-full text-left px-3 py-2 rounded border text-sm hover:border-primary/60 hover:bg-primary/5 ${linkTarget?.card_id === c.id ? "border-primary bg-primary/10" : "border-border/60"}`}
+                  >
+                    {c.titulo || "(sem título)"}
+                  </button>
+                ))}
+              {cardOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">Nenhum card encontrado.</p>
+              )}
+            </div>
+            {linkTarget?.card_id && (
+              <Button variant="outline" size="sm" onClick={() => linkToCard(null)} className="w-full gap-1">
+                <Link2Off className="h-3.5 w-3.5" /> Remover vínculo
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,3 +1,6 @@
+import { getLeadStage, STAGE_LABELS } from "@/components/leads/lead-stages";
+import { record } from "@/lib/funis-data";
+import type { Tables, Json } from "@/integrations/supabase/types";
 import React from "react";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,35 +15,23 @@ import { parseISO, isValid, format } from "date-fns";
 
 
 interface LeadVenda {
-  id: string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: any; created_at?: string;
+  id: string; tipo_venda?:string; produto_nome?: string; valor: number; plataforma?: string; status?: string; data?: Json; created_at?: string;
 }
 
 interface Lead {
   id: string; nome?: string; phone?: string; email?: string; project_id?: string;
   funil_id?: string; plataforma?: string; status?: string; score?: number;
-  tags?: string[]; total_gasto?: number; data?: any; criado_em?: string; updated_at?: string;
+  tags?: string[]; total_gasto?: number; data?: Json; criado_em?: string; updated_at?: string;
   _isNew?: boolean; _vendas?: LeadVenda[]; _score?: number;
 }
 
-const STAGE_LABELS: Record<string, { label: string; color: string }> = {
-  lead_capturado: { label: "Lead", color: "bg-blue-500/20 text-blue-400" },
-  carrinho_abandonado: { label: "Carrinho", color: "bg-amber-500/20 text-amber-400" },
-  pix_gerado: { label: "Pix Gerado", color: "bg-yellow-500/20 text-yellow-400" },
-  aguardando_pagamento: { label: "Aguardando", color: "bg-orange-500/20 text-orange-400" },
-  compra_aprovada: { label: "Compra ✓", color: "bg-emerald-500/20 text-emerald-400" },
-  reembolso: { label: "Reembolso", color: "bg-destructive/20 text-destructive" },
-};
-
-function getLeadStage(lead: Lead): string {
-  if (lead.status === "cliente") return "compra_aprovada";
-  return (lead.data as any)?.ultimo_evento || "lead_capturado";
-}
 
 function getLeadReferenceDate(lead: Lead): string | null {
-  const data = (lead.data as any) || {};
+  const data = record(lead.data) || {};
   const interacoes = Array.isArray(data.interacoes) ? data.interacoes : [];
-  const lastInteraction = interacoes.length > 0 ? interacoes[interacoes.length - 1]?.data : null;
-  return data.ultimo_evento_em || lastInteraction || lead.updated_at || lead.criado_em || null;
+  const lastInteraction = interacoes.length > 0 ? record(interacoes[interacoes.length - 1]).data : null;
+  const date = data.ultimo_evento_em || lastInteraction || lead.updated_at || lead.criado_em;
+  return typeof date === "string" ? date : null;
 }
 
 function getScoreBreakdown(lead: Lead): { items: { label: string; pts: number }[]; total: number } {
@@ -50,7 +41,7 @@ function getScoreBreakdown(lead: Lead): { items: { label: string; pts: number }[
   if (lead.phone) items.push({ label: "Telefone cadastrado", pts: 5 });
   if (vendas.length > 0) items.push({ label: "Cliente (1+ compra)", pts: 30 });
   if (vendas.length > 1) items.push({ label: "Recorrência (2+ compras)", pts: 20 });
-  const utms = (lead.data as any)?.utms;
+  const utms = record(lead.data)?.utms;
   if (utms && Object.values(utms).some(Boolean)) items.push({ label: "UTM rastreado", pts: 5 });
   const total = Math.min(items.reduce((s, i) => s + i.pts, 0), 100);
   return { items, total };
@@ -67,7 +58,7 @@ function scoreColor(score: number): string {
 
 interface Props {
   leads: Lead[];
-  projects: any[];
+  projects: Array<{id:string;name:string;icon?:string}>;
   captureForms: { id: string; name: string }[];
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -80,7 +71,7 @@ interface Props {
   pageSize: number;
   loading: boolean;
   onPageChange: (page: number) => void;
-  automations?: any[];
+  automations?: Array<Pick<Tables<"imphq_automacoes">,"id"|"nome">>;
 }
 
 export default function LeadsTable({
@@ -111,22 +102,22 @@ export default function LeadsTable({
               const stage = getLeadStage(l);
               const cfg = STAGE_LABELS[stage] || STAGE_LABELS.lead_capturado;
               const isPending = ["carrinho_abandonado", "pix_gerado", "aguardando_pagamento"].includes(stage);
-              const proj = projects.find((p: any) => p.id === l.project_id);
-              const formName = (l.data as any)?.form_name;
-              const formId = (l.data as any)?.form_id;
-              const vendas = (l._vendas || []) as any[];
+              const proj = projects.find((p) => p.id === l.project_id);
+              const formName = String(record(l.data).form_name || "");
+              const formId = String(record(l.data).form_id || "");
+              const vendas = (l._vendas || []);
               const tipoMap: Record<string, string> = { orderbump: "OB", upsell: "UP", downsell: "DS" };
               const tipoCls: Record<string, string> = { orderbump: "bg-amber-500/20 text-amber-400 border-amber-500/30", upsell: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", downsell: "bg-rose-500/20 text-rose-400 border-rose-500/30" };
               const pgto = vendas
-                .map((v: any) => v.data?.metodo_pagamento ?? v.data?.payment_method ?? v.data?.payment_type ?? v.data?.forma_pagamento ?? v.data?.payment?.method ?? v.data?.payment?.type)
-                .find((m: any) => m && String(m).trim().length > 0);
-              const ultimoProduto = (l.data as any)?.ultimo_produto;
+                .map((v) => record(v.data).metodo_pagamento ?? record(v.data).payment_method ?? record(v.data).payment_type ?? record(v.data).forma_pagamento ?? record(record(v.data).payment).method ?? record(record(v.data).payment).type)
+                .find((m) => m && String(m).trim().length > 0);
+              const ultimoProduto = String(record(l.data).ultimo_produto || "");
               // Receita: usa total_gasto se houver, senão soma vendas aprovadas como fallback
               const APROVADOS = ["aprovado","aprovada","approved","paid","pago","completed","complete","succeeded"];
               const totalGastoNum = l.total_gasto != null ? parseFloat(String(l.total_gasto)) : 0;
               const vendasAprovadasTotal = vendas
-                .filter((v: any) => APROVADOS.includes(String(v.status || "").toLowerCase()))
-                .reduce((acc: number, v: any) => acc + (parseFloat(String(v.valor || 0)) || 0), 0);
+                .filter((v) => APROVADOS.includes(String(v.status || "").toLowerCase()))
+                .reduce((acc: number, v) => acc + (parseFloat(String(v.valor || 0)) || 0), 0);
               const receitaExibir = totalGastoNum > 0 ? totalGastoNum : vendasAprovadasTotal;
 
               return (
@@ -150,8 +141,8 @@ export default function LeadsTable({
                   </TableCell>
                   <TableCell>{proj ? <span className="text-xs text-muted-foreground truncate max-w-[100px] block">{proj.icon || "📁"} {proj.name}</span> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{(() => { if (formName) return <span className="text-xs text-muted-foreground truncate max-w-[120px] block" title={formName}>📋 {formName}</span>; if (formId) { const cf = captureForms.find(f => f.id === formId); return cf ? <span className="text-xs text-muted-foreground truncate max-w-[120px] block" title={cf.name}>📋 {cf.name}</span> : <span className="text-xs text-muted-foreground">📋 Form</span>; } return <span className="text-xs text-muted-foreground">—</span>; })()}</TableCell>
-                  <TableCell>{vendas.length === 0 ? (ultimoProduto ? <span className="text-xs text-muted-foreground truncate max-w-[140px] block" title={ultimoProduto}>{ultimoProduto}</span> : <span className="text-xs text-muted-foreground">—</span>) : <div className="flex flex-col gap-0.5 max-w-[140px]">{vendas.slice(0, 3).map((v: any, i: number) => { const badge = tipoMap[v.tipo_venda]; return <div key={i} className="flex items-center gap-1"><span className="text-xs text-primary truncate" title={v.produto_nome}>{v.produto_nome || "—"}</span>{badge && <Badge variant="outline" className={cn("text-[8px] px-1 py-0 h-3.5 leading-none border", tipoCls[v.tipo_venda])}>{badge}</Badge>}</div>; })}{vendas.length > 3 && <span className="text-[10px] text-muted-foreground">+{vendas.length - 3} mais</span>}</div>}</TableCell>
-                  <TableCell>{pgto ? <span className="text-[10px] text-muted-foreground">{pgto}</span> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                  <TableCell>{vendas.length === 0 ? (ultimoProduto ? <span className="text-xs text-muted-foreground truncate max-w-[140px] block" title={ultimoProduto}>{ultimoProduto}</span> : <span className="text-xs text-muted-foreground">—</span>) : <div className="flex flex-col gap-0.5 max-w-[140px]">{vendas.slice(0, 3).map((v, i: number) => { const badge = tipoMap[v.tipo_venda]; return <div key={i} className="flex items-center gap-1"><span className="text-xs text-primary truncate" title={v.produto_nome}>{v.produto_nome || "—"}</span>{badge && <Badge variant="outline" className={cn("text-[8px] px-1 py-0 h-3.5 leading-none border", tipoCls[v.tipo_venda])}>{badge}</Badge>}</div>; })}{vendas.length > 3 && <span className="text-[10px] text-muted-foreground">+{vendas.length - 3} mais</span>}</div>}</TableCell>
+                  <TableCell>{pgto ? <span className="text-[10px] text-muted-foreground">{String(pgto)}</span> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell><div className="flex items-center gap-1"><Badge className={cn("text-[10px]", cfg.color, isPending && "animate-pulse ring-1 ring-amber-500/40")}>{cfg.label}</Badge>{isPending && <AlertCircle className="h-3 w-3 text-amber-400" />}</div></TableCell>
                   <TableCell onClick={e => e.stopPropagation()}>{(() => {
                     const bd = getScoreBreakdown(l);
@@ -223,5 +214,5 @@ export default function LeadsTable({
   );
 }
 
-export { getLeadStage, STAGE_LABELS };
+
 export type { Lead, LeadVenda };

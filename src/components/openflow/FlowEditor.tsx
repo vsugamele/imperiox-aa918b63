@@ -1,4 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import type { Config as CinnaConfig, Stage as CinnaStage } from "@/lib/cinna-shield-x1/engine";
+import { answerFields } from "@/lib/cinna-shield-x1/engine";
+import { record } from "@/lib/funis-data";
+import { errorMessage } from "@/lib/error-message";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,12 +15,26 @@ import {
   Plus, Trash2, Clock, Mail, MessageCircle, Send, Sparkles,
   ChevronUp, ChevronDown, GitBranch, SaveAll, Variable, Eye, EyeOff,
   ZoomIn, ZoomOut, Maximize2, Settings2, CheckCircle2, ArrowRight,
-  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare
+  Mic, Volume2, VolumeX, Pause, Play, Sliders, Loader2, Tag, Split, Brain, BarChart3, Bell, Unlock, Globe, Repeat, Octagon, Copy, Timer, Minimize2, MessageSquare, User, MoveRight, Bot, Users
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FlowEditorCanvas } from "./FlowEditorCanvas";
+import { FlowEditorCanvas } from "@/components/openflow/FlowEditorCanvas";
+import { FlowLivePreview } from "@/components/openflow/FlowLivePreview";
+import { useFlowHistory } from "@/components/openflow/flow-editor/useFlowHistory";
+import { validateFlow } from "@/components/openflow/flow-editor/validate";
+import { syncX1Media, hasMediaPlaceholder } from "@/components/openflow/flow-editor/templates";
+import { ValidationPanel } from "@/components/openflow/flow-editor/ValidationPanel";
+import { TemplatePicker } from "@/components/openflow/flow-editor/TemplatePicker";
+import { GuardrailsPanel } from "@/components/openflow/GuardrailsPanel";
+import { MediaPicker } from "@/components/openflow/MediaPicker";
+import { ABVariantStats } from "@/components/openflow/flow-editor/ABVariantStats";
+import { useFlowNodeStats } from "@/components/openflow/flow-editor/useFlowNodeStats";
+import { LivePanel } from "@/components/openflow/flow-editor/LivePanel";
+import { CinnaJourneyPanel } from "@/components/openflow/CinnaJourneyPanel";
+import { Undo2, Redo2, Radio, Shield } from "lucide-react";
+
 
 const CONDICAO_TIPOS = [
   { value: "nao_abriu_email", label: "Não abriu email" },
@@ -38,6 +56,9 @@ const ACAO_TIPOS = [
   { value: "aguardar", label: "Aguardar", icon: Clock, emoji: "⏱", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
   { value: "wait_event", label: "Aguardar Evento", icon: Clock, emoji: "⏱️", color: "border-cyan-500/40 bg-cyan-500/5 hover:border-cyan-400" },
   { value: "wait_reply", label: "Aguardar Resposta do Lead", icon: MessageSquare, emoji: "💬", color: "border-lime-500/40 bg-lime-500/5 hover:border-lime-400" },
+  { value: "input_capture", label: "Capturar Resposta → Variável", icon: Variable, emoji: "📥", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
+  { value: "quick_reply", label: "Pergunta com Opções (Quick Reply)", icon: MessageSquare, emoji: "🔘", color: "border-teal-500/40 bg-teal-500/5 hover:border-teal-400" },
+  { value: "generate_image", label: "Gerar Imagem (IA)", icon: Sparkles, emoji: "🎨", color: "border-pink-500/40 bg-pink-500/5 hover:border-pink-400" },
   { value: "ab_split", label: "Teste A/B de Caminho", icon: Split, emoji: "🔀", color: "border-fuchsia-500/40 bg-fuchsia-500/5 hover:border-fuchsia-400" },
   { value: "condicao", label: "Condição (Se…)", icon: GitBranch, emoji: "🔀", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
   { value: "condicao_lead", label: "Condição por Dado do Lead", icon: GitBranch, emoji: "🔀", color: "border-orange-500/40 bg-orange-500/5 hover:border-orange-400" },
@@ -54,6 +75,12 @@ const ACAO_TIPOS = [
   { value: "ia_scheduling", label: "Agendamento por IA", icon: Clock, emoji: "📅", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
   { value: "semantic_router", label: "Roteador Semântico (IA)", icon: GitBranch, emoji: "🔀", color: "border-purple-500/40 bg-purple-500/5 hover:border-purple-400" },
   { value: "business_hours_split", label: "Horário Comercial (Se...)", icon: Timer, emoji: "⏰", color: "border-amber-500/40 bg-amber-500/5 hover:border-amber-400" },
+  { value: "branch_by_score", label: "Ramificar por Score do Lead", icon: BarChart3, emoji: "📊", color: "border-yellow-500/40 bg-yellow-500/5 hover:border-yellow-400" },
+  { value: "slack_notify", label: "Notificar Slack", icon: Bell, emoji: "💼", color: "border-violet-500/40 bg-violet-500/5 hover:border-violet-400" },
+  { value: "update_lead", label: "Atualizar Lead (campo)", icon: User, emoji: "👤", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
+  { value: "move_stage", label: "Mover Lead de Etapa (Funil)", icon: MoveRight, emoji: "➡️", color: "border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400" },
+  { value: "ai_agent", label: "Agente IA (Autônomo)", icon: Bot, emoji: "🧠", color: "border-primary/40 bg-primary/5 hover:border-primary" },
+  { value: "distribuir_atendentes", label: "Divisão de Atendentes", icon: Users, emoji: "👥", color: "border-blue-500/40 bg-blue-500/5 hover:border-blue-400" },
 ];
 
 const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string }> = {
@@ -75,7 +102,16 @@ const TRIGGERS_MAP: Record<string, { label: string; icon: string; group: string 
   assinatura_renovada: { label: "Assinatura Renovada", icon: "🔄", group: "Retenção" },
   trial_iniciado: { label: "Trial Iniciado", icon: "🆓", group: "Retenção" },
   tag_adicionada: { label: "Tag Adicionada", icon: "🏷️", group: "Lead" },
+  whatsapp_mensagem_recebida: { label: "Mensagem recebida no WhatsApp", icon: "💬", group: "WhatsApp" },
+  whatsapp_palavra_chave: { label: "Palavra-chave no WhatsApp", icon: "🔑", group: "WhatsApp" },
+  whatsapp_primeira_mensagem: { label: "Primeira mensagem do lead (WA)", icon: "🆕", group: "WhatsApp" },
+  messenger_mensagem_recebida: { label: "Qualquer DM no Messenger", icon: "📨", group: "Outros canais" },
+  messenger_palavra_chave: { label: "Palavra-chave no Messenger", icon: "🔑", group: "Outros canais" },
+  webchat_mensagem_recebida: { label: "Mensagem no chat do site", icon: "🌐", group: "Outros canais" },
+  webchat_sessao_iniciada: { label: "Chat do site iniciado", icon: "✨", group: "Outros canais" },
+  webhook_externo: { label: "Webhook externo (Zernio, n8n, Make)", icon: "🔗", group: "Outros canais" },
 };
+
 
 const DYNAMIC_VARS = [
   { var: "{{nome}}", label: "Nome" },
@@ -86,10 +122,49 @@ const DYNAMIC_VARS = [
   { var: "{{link}}", label: "Link" },
 ];
 
+function CinnaReplyFields({ stage, policy, consultative, onStage, onPolicy }: { consultative: boolean; stage: NonNullable<Acao["cinna_stage"]>; policy?: Acao["cinna_policy"]; onStage: (value: NonNullable<Acao["cinna_stage"]>) => void; onPolicy: (value: NonNullable<Acao["cinna_policy"]>) => void }) {
+  return <div className="space-y-3 rounded-lg border border-lime-500/30 p-3">
+    <p className="text-xs font-semibold">Resposta + IA · Cinna Shield</p>
+    <p className="text-xs text-muted-foreground">{consultative ? "A Ana acolhe a resposta e seleciona informações dos textos aprovados. Dúvidas mantêm a etapa; a apresentação do produto exige permissão explícita. A próxima etapa é enviada pelo roteiro, sem repetir sua pergunta na resposta contextual." : "A IA identifica a intenção. Dúvidas usam respostas aprovadas sem avançar a etapa."} Pedidos de parada ou atendimento humano interrompem o roteiro. Edite a pergunta na última mensagem antes deste bloco.</p>
+    <Label>Título da etapa<Input value={stage.title} onChange={e => onStage({ ...stage, title: e.target.value })} /></Label>
+    <Label>Guardar resposta nesta conversa<Select value={stage.capture || "none"} onValueChange={value => onStage({ ...stage, capture: answerFields.find(field => field === value) })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Não capturar</SelectItem>{answerFields.map(field => <SelectItem key={field} value={field}>{{ name: "Nome", concern: "Motivo do contato", goal: "Objetivo", previousExperience: "Experiência anterior", idealRoutine: "Rotina desejada", objection: "Objeção" }[field]}</SelectItem>)}</SelectContent></Select></Label>
+    {stage.capture && <p className="text-xs text-muted-foreground">Apenas a resposta fornecida é guardada na execução, com até 240 caracteres. Perguntas e recusas não são respostas ao roteiro. Não cria diagnóstico ou perfil clínico no lead.</p>}
+    <Label>Tipo de resposta<Select value={stage.input} onValueChange={value => { if (value === "name" || value === "free" || value === "confirm") onStage({ ...stage, input: value }); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="name">Nome</SelectItem><SelectItem value="free">Resposta livre</SelectItem><SelectItem value="confirm">Confirmação</SelectItem></SelectContent></Select></Label>
+    {(stage.choices || []).map((choice, index) => <div key={index} className="space-y-2 border rounded p-2">
+      <Label>Opção {index + 1}<Input value={choice.label} onChange={e => onStage({ ...stage, choices: stage.choices?.map((item, i) => i === index ? { ...item, label: e.target.value } : item) })} /></Label>
+      <Label>Confirmação aprovada<Textarea value={choice.acknowledgement} onChange={e => onStage({ ...stage, choices: stage.choices?.map((item, i) => i === index ? { ...item, acknowledgement: e.target.value } : item) })} /></Label>
+      <Button type="button" variant="ghost" onClick={() => onStage({ ...stage, choices: stage.choices?.filter((_, i) => i !== index) })}>Remover opção</Button>
+    </div>)}
+    {(stage.choices?.length || 0) < 4 && <Button type="button" variant="outline" onClick={() => onStage({ ...stage, choices: [...(stage.choices || []), { label: "", acknowledgement: "" }] })}>Adicionar opção</Button>}
+    {policy && <div className="space-y-3 border-t pt-3">
+      <p className="text-xs font-semibold">Política compartilhada pelas 9 etapas</p>
+      <Label>Modelo de IA<Input value={policy.model} onChange={e => onPolicy({ ...policy, model: e.target.value })} /></Label>
+      <p className="text-xs text-muted-foreground">As credenciais permanecem na configuração do servidor.</p>
+      <Label>Checkout HTTPS<Input value={policy.offer.checkoutUrl || ""} onChange={e => onPolicy({ ...policy, offer: { ...policy.offer, checkoutUrl: e.target.value || null } })} /></Label>
+      <Label>Preço aprovado<Input value={policy.offer.priceLabel || ""} onChange={e => onPolicy({ ...policy, offer: { ...policy.offer, priceLabel: e.target.value || null } })} /></Label>
+      <Label className="flex items-center gap-2"><Switch checked={policy.offer.approved} onCheckedChange={approved => onPolicy({ ...policy, offer: { ...policy.offer, approved } })} />Oferta aprovada</Label>
+      {policy.consultative && <div className="space-y-3 border-t pt-3">
+        <p className="text-xs font-semibold">Atendimento consultivo · {policy.consultative.personaName}</p>
+        <p className="text-xs text-muted-foreground">A Ana usa os textos aprovados abaixo para responder com contexto. O roteiro continua controlando consentimento, etapas e oferta. Alterações valem para novas conversas; conversas em andamento preservam sua configuração.</p>
+        {policy.consultative.approvedSnippets.map((snippet, index) => <div key={index} className="space-y-2 rounded border p-2">
+          <Label>Identificador do texto<Input value={snippet.id} onChange={e => onPolicy({ ...policy, consultative: { ...policy.consultative!, approvedSnippets: policy.consultative!.approvedSnippets.map((item, i) => i === index ? { ...item, id: e.target.value } : item) } })} /></Label>
+          <Label>Texto aprovado<Textarea value={snippet.text} onChange={e => onPolicy({ ...policy, consultative: { ...policy.consultative!, approvedSnippets: policy.consultative!.approvedSnippets.map((item, i) => i === index ? { ...item, text: e.target.value } : item) } })} /></Label>
+        </div>)}
+      </div>}
+      {(Object.keys(policy.replies) as Array<keyof CinnaConfig["replies"]>).map(intent => <Label key={intent} className="block">Resposta aprovada · {intent}<Textarea value={policy.replies[intent]} onChange={e => onPolicy({ ...policy, replies: { ...policy.replies, [intent]: e.target.value } })} /></Label>)}
+    </div>}
+  </div>;
+}
+
 export interface Acao {
+  cinna_stage?: Omit<CinnaStage, "messages" | "question">;
+  cinna_policy?: Omit<CinnaConfig, "stages"> & { model: string };
+  id?: string;
   tipo: string;
   template: string;
   delay_min: number;
+  /** Espera em segundos antes de enviar (ritmo de conversa). Somada ao delay_min. */
+  delay_sec?: number;
   personality?: string;
   condicao_tipo?: string;
   condicao_tempo_min?: number;
@@ -99,8 +174,13 @@ export interface Acao {
   voice_stability?: number;
   voice_clarity?: number;
   tag?: string;
+  next_id?: string;
+  true_next_id?: string;
+  false_next_id?: string;
   else_action?: string;
   else_skip?: number;
+  // aguardar: data/hora específica (ISO). Se preenchido, ignora delay_min.
+  wait_until?: string;
   // branch_by_awareness
   awareness_min?: number;
   awareness_max?: number;
@@ -115,7 +195,19 @@ export interface Acao {
   lead_stage?: string;
   // wait_event
   event_name?: string;
+  event_names?: string;
   timeout_min?: number;
+  // branch_by_score
+  score_min?: number;
+  score_max?: number;
+  // slack_notify
+  text?: string;
+  // update_lead
+  lead_field?: string;
+  lead_op?: string;
+  lead_value?: string;
+  // move_stage
+  target_stage?: string;
   // ab_split
   rota_a_porcentagem?: number;
   jump_steps?: number;
@@ -138,6 +230,8 @@ export interface Acao {
   ia_vision?: boolean;
   ia_voice_response?: boolean;
   ia_routes?: { name: string; jump_steps: number }[];
+  personality_prompt?: string;
+  questioning_strategy?: string;
   // condicao_lead
   condition_field?: string;
   condition_operator?: string;
@@ -171,6 +265,34 @@ export interface Acao {
   work_hours_start?: string;
   work_hours_end?: string;
   work_days?: string;
+  // generic fields used by validators / canvas
+  mensagem?: string;
+  corpo?: string;
+  assunto?: string;
+  conteudo?: string;
+  position_x?: number;
+  position_y?: number;
+  // media attachment (WhatsApp node)
+  media?: { id: string; url: string; label: string; kind: "image" | "audio" | "video" | "doc" } | null;
+  // input_capture
+  capture_variable?: string;
+  ai_extract_prompt?: string;
+  // quick_reply
+  question?: string;
+  options?: Array<{ label: string; value?: string; skip_n?: number } | string>;
+  // generate_image
+  image_prompt?: string;
+  image_style?: string;
+  image_ratio?: "1:1" | "9:16" | "16:9";
+  send_after?: boolean;
+  // ai_agent
+  ai_agent_id?: string;
+  ai_agent_pass_context?: boolean;
+  ai_agent_save_variable?: string;
+  // distribuir_atendentes
+  distrib_strategy?: "round_robin" | "random" | "least_busy";
+  distrib_operators?: string; // csv com IDs ou nomes
+  distrib_save_variable?: string;
 }
 
 export interface WaProvider {
@@ -198,27 +320,84 @@ interface FlowEditorProps {
   projectId?: string;
   onTemplateSaved?: () => void;
   automacaoId?: string;
+  flowObjective?: string;
+  onUpdateObjective?: (objective: string) => void;
+  onTriggerChange?: (trigger: string) => void;
 }
 
 export function FlowEditor({
-  triggerTipo, acoes, onChange, onGenerateAI, isGenerating,
+  triggerTipo, acoes, onChange: onChangeProp, onGenerateAI, isGenerating,
   templates = [], providers = [], projectId, onTemplateSaved,
-  automacaoId
+  automacaoId, flowObjective, onUpdateObjective, onTriggerChange,
 }: FlowEditorProps) {
+
+  const history = useFlowHistory<Acao[]>(acoes, onChangeProp, { limit: 50 });
+  const onChange = history.push;
+  const issues = useMemo(() => validateFlow(acoes), [acoes]);
+
+  /** Passos que ainda têm placeholder de mídia ({{img_...}}, {{audio_...}}, {{video_...}}) */
+  const pendingMediaCount = useMemo(
+    () =>
+      acoes.filter((a) =>
+        (["template", "mensagem", "corpo", "conteudo"] as const).some((f) => hasMediaPlaceholder(a[f])),
+      ).length,
+    [acoes],
+  );
+
+  const handleSyncX1Media = () => {
+    const { acoes: next, fixed, pending } = syncX1Media(acoes);
+    if (fixed === 0) {
+      toast.info(
+        pending.length
+          ? `Nada para sincronizar. Ainda sem arquivo: ${pending.join(", ")}`
+          : "Nenhum placeholder de mídia encontrado",
+      );
+      return;
+    }
+    onChange(next);
+    toast.success(
+      `${fixed} passo(s) atualizados com as mídias reais` +
+        (pending.length ? ` — pendentes: ${pending.join(", ")}` : ""),
+    );
+  };
+
+
   
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [zoom, setZoom] = useState<number>(1);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const [guardrailsOpen, setGuardrailsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [livePreviewOpen, setLivePreviewOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("openflow:livePreviewOpen") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("openflow:livePreviewOpen", livePreviewOpen ? "1" : "0");
+  }, [livePreviewOpen]);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("openflow:inspectorCollapsed") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("openflow:inspectorCollapsed", inspectorCollapsed ? "1" : "0");
+  }, [inspectorCollapsed]);
 
   const [resendConfig, setResendConfig] = useState<{ from_email?: string; from_name?: string } | null>(null);
 
-  const [stepStats, setStepStats] = useState<Record<number, { reached: number; completed: number; waiting: number; failed: number }>>({});
-  const [loadingStats, setLoadingStats] = useState(false);
+  const { stats: stepStats, executions: liveExecutions, summary: liveSummary, loading: loadingStats } = useFlowNodeStats({
+    automacaoId,
+    totalSteps: acoes.length,
+    enabled: !!automacaoId,
+  });
+  const [livePanelOpen, setLivePanelOpen] = useState(false);
+  const [journeyOpen, setJourneyOpen] = useState(false);
 
   const [customSkills, setCustomSkills] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(false);
+  const [aiAgents, setAiAgents] = useState<{ id: string; nome: string; avatar?: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; nome: string }[]>([]);
 
   useEffect(() => {
     const fetchSkills = async () => {
@@ -240,66 +419,34 @@ export function FlowEditor({
   }, []);
 
   useEffect(() => {
-    if (!automacaoId) {
-      setStepStats({});
-      return;
-    }
-
-    const fetchStats = async () => {
-      setLoadingStats(true);
+    (async () => {
       try {
-        const { data, error } = await supabase
-          .from("imphq_flow_executions")
-          .select("step_results")
-          .eq("automacao_id", automacaoId);
+        const q = supabase.from("imphq_ai_agents").select("id, nome, avatar:avatar_url").eq("ativo", true).order("nome");
+        const { data } = projectId ? await q.eq("project_id", projectId) : await q;
+        setAiAgents(data || []);
+      } catch (e) { console.warn("agents load", e); }
+      try {
+        const { data } = await supabase.from("imphq_team_members").select("id, nome:name").order("name");
+        setTeamMembers(data || []);
+      } catch (e) { console.warn("team load", e); }
+    })();
+  }, [projectId]);
 
-        if (error) throw error;
+  // Step stats agora vêm de useFlowNodeStats (com Realtime)
 
-        const tempStats: Record<number, { reached: number; completed: number; waiting: number; failed: number }> = {};
-        
-        // Initialize stats for each action
-        acoes.forEach((_, idx) => {
-          tempStats[idx] = { reached: 0, completed: 0, waiting: 0, failed: 0 };
-        });
 
-        (data || []).forEach((exec: any) => {
-          const results = exec.step_results || [];
-          if (!Array.isArray(results)) return;
 
-          results.forEach((stepRes: any) => {
-            const stepIdx = typeof stepRes.step === "number" ? stepRes.step : parseInt(stepRes.step);
-            if (isNaN(stepIdx) || stepIdx < 0 || stepIdx >= acoes.length) return;
-
-            if (!tempStats[stepIdx]) {
-              tempStats[stepIdx] = { reached: 0, completed: 0, waiting: 0, failed: 0 };
-            }
-
-            tempStats[stepIdx].reached++;
-
-            const isCompleted = stepRes.status === "completed" || stepRes.status === "sent" || stepRes.status === "success" || stepRes.status === "guided_ai_completed";
-            const isWaiting = stepRes.status === "waiting" || stepRes.status === "running" || stepRes.status === "waiting_for_lead_response" || stepRes.status === "delayed_for_condition";
-            const isFailed = stepRes.status === "error" || stepRes.status === "failed";
-
-            if (isCompleted) {
-              tempStats[stepIdx].completed++;
-            } else if (isWaiting) {
-              tempStats[stepIdx].waiting++;
-            } else if (isFailed) {
-              tempStats[stepIdx].failed++;
-            }
-          });
-        });
-
-        setStepStats(tempStats);
-      } catch (err) {
-        console.error("Error fetching automation step stats:", err);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
-
-    fetchStats();
-  }, [automacaoId, acoes.length]);
+  useEffect(() => {
+    // Ensure all actions have a unique ID for graph branching
+    const needsIds = acoes.some(a => !a.id);
+    if (needsIds) {
+      const updated = acoes.map(a => ({
+        ...a,
+        id: a.id || crypto.randomUUID()
+      }));
+      onChange(updated);
+    }
+  }, [acoes, onChange]);
 
   useEffect(() => {
     if (!projectId) {
@@ -317,10 +464,10 @@ export function FlowEditor({
           .maybeSingle();
         
         if (data?.credentials) {
-          const creds = data.credentials as any;
+          const creds = record(data.credentials);
           setResendConfig({
-            from_email: creds.from_email || "",
-            from_name: creds.from_name || "",
+            from_email: typeof creds.from_email === "string" ? creds.from_email : "",
+            from_name: typeof creds.from_name === "string" ? creds.from_name : "",
           });
         } else {
           // Fallback to legacy project data
@@ -329,11 +476,11 @@ export function FlowEditor({
             .select("data")
             .eq("id", projectId)
             .single();
-          const emailConfig = (proj?.data as any)?.email_config || {};
-          const briefing = (proj?.data as any)?.checklist?.resend || {};
+          const emailConfig = record(record(proj?.data).email_config);
+          const briefing = record(record(record(proj?.data).checklist).resend);
           setResendConfig({
-            from_email: emailConfig.from_email || briefing.from_email || "sem_config@resend.com",
-            from_name: emailConfig.from_name || briefing.from_name || "Sem Nome",
+            from_email: [emailConfig.from_email, briefing.from_email].find((value): value is string => typeof value === "string" && !!value) || "sem_config@resend.com",
+            from_name: [emailConfig.from_name, briefing.from_name].find((value): value is string => typeof value === "string" && !!value) || "Sem Nome",
           });
         }
       } catch (e) {
@@ -393,8 +540,8 @@ export function FlowEditor({
   const [isMuted, setIsMuted] = useState(false);
   
   const canvasRef = useRef<HTMLDivElement>(null);
-  const utteranceRef = useRef<any>(null);
-  const speechIntervalRef = useRef<any>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speechIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Cancel speech synthesis when changing active node or unmounting
@@ -539,12 +686,12 @@ export function FlowEditor({
         category: acao.tipo || "whatsapp",
         project_id: projectId || null,
         user_id: user?.id,
-      } as any);
+      });
       if (error) throw error;
       toast.success("Template de automação salvo!");
       onTemplateSaved?.();
-    } catch (e: any) {
-      toast.error("Erro ao salvar template: " + (e?.message || ""));
+    } catch (e: unknown) {
+      toast.error("Erro ao salvar template: " + (errorMessage(e) || ""));
     } finally {
       setSavingTemplate(false);
     }
@@ -554,6 +701,20 @@ export function FlowEditor({
     const updated = [...acoes];
     updated[idx] = { ...updated[idx], template: (updated[idx].template || "") + variable };
     onChange(updated);
+  };
+
+  /** Extrai a 1ª URL de mídia de um texto (imagem/áudio/vídeo) para preview visual no nó. */
+  const mediaFromText = (text?: string): { url: string; kind: "image" | "audio" | "video" } | null => {
+    if (!text) return null;
+    const m = text.match(/https?:\/\/\S+\.(jpg|jpeg|png|webp|gif|mp3|ogg|m4a|wav|mp4|webm)(\?\S*)?/i);
+    if (!m) return null;
+    const ext = m[1].toLowerCase();
+    const kind = ["mp3", "ogg", "m4a", "wav"].includes(ext)
+      ? "audio"
+      : ["mp4", "webm"].includes(ext)
+        ? "video"
+        : "image";
+    return { url: m[0], kind };
   };
 
   const renderPreview = (text: string) => {
@@ -568,14 +729,35 @@ export function FlowEditor({
   const trigger = TRIGGERS_MAP[triggerTipo] || { label: triggerTipo, icon: "⚡" };
 
   const addAcao = (insertAt?: number) => {
-    const newAcao: Acao = { tipo: "email", template: "", delay_min: 0 };
+    const newAcao: Acao = { 
+      id: crypto.randomUUID(),
+      tipo: "email", 
+      template: "", 
+      delay_min: 0 
+    };
     if (insertAt !== undefined) {
       const updated = [...acoes];
+      // When inserting between nodes, we should probably update connections too
+      // but for now let's just insert into the array for compatibility
       updated.splice(insertAt + 1, 0, newAcao);
+      
+      // Update next_id if it's a linear flow
+      if (updated[insertAt]) {
+        updated[insertAt].next_id = newAcao.id;
+      }
+      if (updated[insertAt + 2]) {
+        newAcao.next_id = updated[insertAt + 2].id;
+      }
+
       onChange(updated);
       setSelectedIdx(insertAt + 1);
     } else {
-      onChange([...acoes, newAcao]);
+      const lastAcao = acoes[acoes.length - 1];
+      const updated = [...acoes, newAcao];
+      if (lastAcao) {
+        lastAcao.next_id = newAcao.id;
+      }
+      onChange(updated);
       setSelectedIdx(acoes.length);
     }
     toast.success("Novo nó adicionado ao fluxo!");
@@ -589,10 +771,14 @@ export function FlowEditor({
 
   const duplicateAcao = (idx: number) => {
     const original = acoes[idx];
-    const cloned: Acao = JSON.parse(JSON.stringify(original));
+    const cloned = structuredClone(original);
+    cloned.id = crypto.randomUUID();
+    delete cloned.next_id;
+    delete cloned.true_next_id;
+    delete cloned.false_next_id;
     if (cloned.position_x !== undefined) cloned.position_x += 40;
     if (cloned.position_y !== undefined) cloned.position_y += 40;
-    
+
     const updated = [...acoes];
     updated.splice(idx + 1, 0, cloned);
     onChange(updated);
@@ -600,7 +786,7 @@ export function FlowEditor({
     toast.success("Ação duplicada com sucesso!");
   };
 
-  const updateAcao = (idx: number, field: string, value: any) => {
+  const updateAcao = <K extends keyof Acao,>(idx: number, field: K, value: Acao[K]) => {
     const updated = [...acoes];
     updated[idx] = { ...updated[idx], [field]: value };
     onChange(updated);
@@ -662,7 +848,57 @@ export function FlowEditor({
             </Button>
           </>
         )}
+
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.undo}
+          disabled={!history.canUndo}
+          title={`Desfazer (Ctrl+Z) — ${history.pastSize} passos`}
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-40"
+          onClick={history.redo}
+          disabled={!history.canRedo}
+          title="Refazer (Ctrl+Shift+Z)"
+        >
+          <Redo2 className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-[1px] h-4 bg-border/60 mx-1" />
+        <ValidationPanel
+          issues={issues}
+          onJump={(i) => {
+            setSelectedIdx(i);
+            const el = document.querySelector(`[data-step-index="${i}"]`);
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        />
+        {pendingMediaCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] font-bold text-amber-400 hover:text-amber-300"
+            title="Trocar placeholders {{img_...}} / {{audio_...}} pelas URLs reais das mídias X1"
+            onClick={handleSyncX1Media}
+          >
+            🖼️ Sincronizar mídias X1 ({pendingMediaCount})
+          </Button>
+        )}
+        <TemplatePicker
+          triggerTipo={triggerTipo}
+          onApply={(novasAcoes) => {
+            onChange(novasAcoes);
+            toast.success("Template aplicado");
+          }}
+        />
       </div>
+
 
       {/* ── VIEWPORT TABS (Top Centered Toolbar) ── */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-slate-900/80 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-lg shrink-0 select-none">
@@ -708,6 +944,51 @@ export function FlowEditor({
           <MessageCircle className="h-3.5 w-3.5" />
           Simulador WhatsApp
         </Button>
+        <Button
+          variant={livePreviewOpen ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setLivePreviewOpen((v) => !v)}
+          title="Preview ao vivo (bolhas de WhatsApp)"
+          className={`h-7 text-[10px] font-bold gap-1 rounded-lg ${livePreviewOpen ? "bg-emerald-500 text-black hover:bg-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Preview ao vivo
+        </Button>
+        {automacaoId && (
+          <Button
+            variant={livePanelOpen ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setLivePanelOpen(v => !v)}
+            title="Painel Ao Vivo — execuções em tempo real"
+            className={`h-7 text-[10px] font-bold gap-1 rounded-lg relative ${livePanelOpen ? "bg-emerald-500 text-black hover:bg-emerald-400" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Radio className={`h-3.5 w-3.5 ${liveSummary.running + liveSummary.waiting > 0 ? "animate-pulse text-emerald-400" : ""}`} />
+            Ao Vivo
+            {(liveSummary.running + liveSummary.waiting) > 0 && (
+              <span className="ml-1 rounded-full bg-emerald-500/30 text-emerald-100 px-1.5 py-0 text-[9px] font-mono">
+                {liveSummary.running + liveSummary.waiting}
+              </span>
+            )}
+            {liveSummary.failed > 0 && (
+              <span className="ml-1 rounded-full bg-rose-500/30 text-rose-100 px-1.5 py-0 text-[9px] font-mono">
+                {liveSummary.failed}
+              </span>
+            )}
+          </Button>
+        )}
+        {automacaoId === "cinna-shield-x1-native" && <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold gap-1" onClick={() => setJourneyOpen(true)}><BarChart3 className="h-3.5 w-3.5" /> Etapas e histórico</Button>}
+        {automacaoId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setGuardrailsOpen(true)}
+            title="Guardrails: rate limit, quiet hours, circuit breaker"
+            className="h-7 text-[10px] font-bold gap-1 rounded-lg text-muted-foreground hover:text-foreground"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Guardrails
+          </Button>
+        )}
         <div className="w-[1px] h-4 bg-border/60 mx-1" />
         <Button
           variant="ghost"
@@ -727,8 +1008,10 @@ export function FlowEditor({
             acoes={acoes}
             triggerTipo={triggerTipo}
             onChange={onChange}
-            onNodeClick={(acao, index) => setSelectedIdx(index)}
+            onActionSelect={setSelectedIdx}
             stepStats={stepStats}
+            flowObjective={flowObjective}
+            onUpdateObjective={onUpdateObjective}
           />
         ) : (
           <div 
@@ -750,9 +1033,38 @@ export function FlowEditor({
               <div className="w-10 h-10 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
                 {trigger.icon}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <span className="text-[8px] font-bold tracking-widest text-primary uppercase bg-primary/10 px-1.5 py-0.5 rounded">Gatilho Principal</span>
-                <p className="text-xs font-bold text-foreground mt-1 truncate">{trigger.label}</p>
+                {onTriggerChange ? (
+                  <Select
+                    value={triggerTipo}
+                    onValueChange={(v) => {
+                      onTriggerChange(v);
+                      toast.success(`Gatilho alterado para "${TRIGGERS_MAP[v]?.label || v}"`);
+                    }}
+                  >
+                    <SelectTrigger className="h-7 mt-1 bg-transparent border-0 px-0 py-0 text-xs font-bold text-foreground hover:text-primary focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[60vh]">
+                      {Object.entries(
+                        Object.entries(TRIGGERS_MAP).reduce<Record<string, [string, typeof TRIGGERS_MAP[string]][]>>((acc, [k, v]) => {
+                          (acc[v.group] = acc[v.group] || []).push([k, v]);
+                          return acc;
+                        }, {})
+                      ).map(([group, items]) => (
+                        <div key={group}>
+                          <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{group}</div>
+                          {items.map(([k, v]) => (
+                            <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>
+                          ))}
+                        </div>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-xs font-bold text-foreground mt-1 truncate">{trigger.label}</p>
+                )}
               </div>
               
               {/* Output Connection Node */}
@@ -766,18 +1078,30 @@ export function FlowEditor({
           {acoes.length > 0 && <SVGBezierConnector delay="0s" />}
 
           {acoes.length === 0 && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-3">
               <SVGBezierConnector delay="0s" />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => addAcao()} 
-                className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
-              </Button>
+              <div className="flex flex-col items-center gap-2">
+                <TemplatePicker
+                  triggerTipo={triggerTipo}
+                  variant="hero"
+                  onApply={(novasAcoes) => {
+                    onChange(novasAcoes);
+                    toast.success("Template aplicado");
+                  }}
+                />
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">ou</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addAcao()}
+                  className="text-xs bg-slate-900 border-dashed border-border/80 text-muted-foreground hover:text-primary rounded-xl"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar Primeira Ação
+                </Button>
+              </div>
             </div>
           )}
+
 
           {/* ACTION NODES (Floating Serpentine Seriado Layout) */}
           {acoes.map((acao, idx) => {
@@ -796,6 +1120,7 @@ export function FlowEditor({
             return (
               <div 
                 key={idx} 
+                data-step-index={idx}
                 className="flex flex-col items-center shrink-0"
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={(e) => handleDrop(e, idx)}
@@ -839,10 +1164,11 @@ export function FlowEditor({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-foreground">{meta.label}</span>
+                          <span className="text-xs font-bold text-foreground">{acao.cinna_stage ? "Resposta + IA" : meta.label}</span>
                           <span className="text-[8px] text-muted-foreground/80 font-mono">#{idx + 1}</span>
                         </div>
                         
+                        {acao.cinna_stage && <p className="text-xs text-lime-300 mt-1">{acao.cinna_stage.title}</p>}
                         {/* Node details summary */}
                         <div className="mt-1">
                           {isCondicao && acao.condicao_tipo && (
@@ -860,9 +1186,11 @@ export function FlowEditor({
                               🔀 A: {acao.rota_a_porcentagem ?? 50}% / B: {100 - (acao.rota_a_porcentagem ?? 50)}% (pular {acao.jump_steps ?? 1})
                             </Badge>
                           )}
-                          {isAguardar && acao.delay_min > 0 && (
+                          {isAguardar && (acao.wait_until || acao.delay_min > 0) && (
                             <Badge variant="secondary" className="text-[8px] bg-amber-500/10 text-amber-400 border-amber-500/20">
-                              Aguardar {acao.delay_min} min
+                              {acao.wait_until
+                                ? `📅 até ${new Date(acao.wait_until).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                                : `Aguardar ${acao.delay_min} min`}
                             </Badge>
                           )}
                           {(acao.tipo === "adicionar_tag" || acao.tipo === "remover_tag") && acao.tag && (
@@ -891,9 +1219,39 @@ export function FlowEditor({
                             </p>
                           )}
                           {!isAguardar && !isCondicao && !isWaitEvent && !isAbSplit && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.tipo !== "ia_message" && acao.tipo !== "notify_operator" && acao.tipo !== "abrir_conversa" && acao.tipo !== "gpt_prompt" && acao.template && (
-                            <p className="text-[9px] text-muted-foreground truncate leading-snug">
-                              {acao.template}
-                            </p>
+                            (() => {
+                              const med = mediaFromText(acao.template);
+                              if (med?.kind === "image") {
+                                return (
+                                  <img
+                                    src={med.url}
+                                    alt=""
+                                    loading="lazy"
+                                    className="mt-1 w-full h-16 object-cover rounded border border-border/50"
+                                  />
+                                );
+                              }
+                              if (med?.kind === "audio") {
+                                return (
+                                  <audio
+                                    src={med.url}
+                                    controls
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mt-1 w-full h-7"
+                                  />
+                                );
+                              }
+                              return (
+                                <p className="text-[9px] text-muted-foreground truncate leading-snug">
+                                  {acao.template}
+                                </p>
+                              );
+                            })()
+                          )}
+                          {hasMediaPlaceholder(acao.template) && (
+                            <Badge variant="secondary" className="text-[8px] mt-0.5 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                              ⚠️ mídia não resolvida
+                            </Badge>
                           )}
                           {!isAguardar && !isCondicao && !isWaitEvent && !isAbSplit && acao.tipo !== "adicionar_tag" && acao.tipo !== "remover_tag" && acao.delay_min > 0 && (
                             <Badge variant="secondary" className="text-[8px] mt-0.5 bg-blue-500/10 text-blue-400 border-blue-500/20">
@@ -1045,7 +1403,8 @@ export function FlowEditor({
                     const isCondicao = acao.tipo === "condicao";
                     const isWaitEvent = acao.tipo === "wait_event" || acao.tipo === "wait_until_event";
                     const isAbSplit = acao.tipo === "ab_split";
-                    accumDelay += acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0);
+                    const hasWaitUntil = isAguardar && !!acao.wait_until;
+                    if (!hasWaitUntil) accumDelay += acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0);
 
                     const isDragging = draggedIdx === idx;
                     const isDragOver = dragOverIdx === idx;
@@ -1068,7 +1427,9 @@ export function FlowEditor({
                         {/* Time Offset Indicator tag */}
                         <div className="flex justify-center my-1">
                           <span className="text-[8px] bg-slate-900/90 text-amber-400 border border-amber-500/10 px-2 py-0.5 rounded-full font-mono font-bold tracking-wider shadow">
-                            ⏱️ +{acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0)}min (Acumulado: {accumDelay}min)
+                            {hasWaitUntil
+                              ? `📅 ${new Date(acao.wait_until!).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                              : `⏱️ +${acao.delay_min || (isCondicao ? (acao.condicao_tempo_min || 0) : 0) || (isWaitEvent ? (acao.timeout_min || 0) : 0)}min (Acumulado: ${accumDelay}min)`}
                           </span>
                         </div>
 
@@ -1082,7 +1443,9 @@ export function FlowEditor({
                         ) : isAguardar ? (
                           <div className="flex justify-center select-none my-1">
                             <span className="text-[9px] bg-slate-900/60 text-slate-400 border border-border px-3 py-1 rounded-lg">
-                              ⏱️ Ação de Espera de {acao.delay_min} minutos
+                              {acao.wait_until
+                                ? `📅 Aguardar até ${new Date(acao.wait_until).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                                : `⏱️ Ação de Espera de ${acao.delay_min} minutos`}
                             </span>
                           </div>
                         ) : isCondicao ? (
@@ -1207,13 +1570,48 @@ export function FlowEditor({
                             }`}>
                               <div className="flex items-center justify-between text-[8px] font-bold opacity-80 select-none pb-0.5 border-b border-white/10">
                                 <span className="flex items-center gap-1">
-                                  {meta.emoji} {meta.label}
+                                  {meta.emoji} {acao.cinna_stage ? "Resposta + IA" : meta.label}
                                 </span>
                                 <span>#{idx + 1}</span>
                               </div>
 
-                              {/* Audio Content mock */}
-                              {acao.tipo === "audio" ? (
+                              {/* Mídia real (URL no template) — preview visual */}
+                              {(() => {
+                                const med = mediaFromText(acao.template);
+                                if (!med) return null;
+                                if (med.kind === "image") {
+                                  return (
+                                    <img
+                                      src={med.url}
+                                      alt=""
+                                      loading="lazy"
+                                      className="w-full max-h-40 object-cover rounded-md border border-emerald-400/20 my-1"
+                                    />
+                                  );
+                                }
+                                if (med.kind === "video") {
+                                  return (
+                                    <video
+                                      src={med.url}
+                                      controls
+                                      preload="metadata"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full max-h-40 rounded-md border border-emerald-400/20 my-1"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <audio
+                                    src={med.url}
+                                    controls
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full h-8 my-1"
+                                  />
+                                );
+                              })()}
+
+                              {/* Audio Content mock (TTS por texto) */}
+                              {acao.tipo === "audio" && !mediaFromText(acao.template) ? (
                                 <div className="py-1.5 space-y-1">
                                   <div className="flex items-center gap-2">
                                     <Button
@@ -1252,11 +1650,20 @@ export function FlowEditor({
                                     "{renderPreview(acao.template || "")}"
                                   </p>
                                 </div>
-                              ) : (
-                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
-                                  {renderPreview(acao.template || "")}
-                                </p>
-                              )}
+                              ) : acao.tipo !== "audio" ? (
+                                (() => {
+                                  const med = mediaFromText(acao.template);
+                                  const caption = renderPreview(acao.template || "")
+                                    .replace(med?.url || "", "")
+                                    .trim();
+                                  if (!caption) return null;
+                                  return (
+                                    <p className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans">
+                                      {caption}
+                                    </p>
+                                  );
+                                })()
+                              ) : null}
 
                               {/* WhatsApp Timestamp and Single check */}
                               <div className="text-[7px] text-emerald-300 flex justify-end items-center gap-0.5 select-none leading-none pt-0.5">
@@ -1277,6 +1684,29 @@ export function FlowEditor({
         </div>
       )}
 
+      {/* ── LIVE WHATSAPP PREVIEW ── */}
+      {livePreviewOpen && activeTab === "editor" && (
+        <FlowLivePreview acoes={acoes} triggerTipo={triggerTipo} onClose={() => setLivePreviewOpen(false)} />
+      )}
+
+      {/* ── LIVE OBSERVABILITY PANEL ── */}
+      {automacaoId && (
+        <LivePanel
+          open={livePanelOpen}
+          onOpenChange={setLivePanelOpen}
+          executions={liveExecutions}
+          summary={liveSummary}
+          acoes={acoes}
+          loading={loadingStats}
+          onFocusStep={(idx) => setSelectedIdx(idx)}
+        />
+      )}
+
+      {automacaoId === "cinna-shield-x1-native" && <CinnaJourneyPanel open={journeyOpen} onOpenChange={setJourneyOpen} />}
+      <GuardrailsPanel automacaoId={guardrailsOpen ? (automacaoId || null) : null} onClose={() => setGuardrailsOpen(false)} />
+
+
+
       {/* ── RIGHT PROPERTIES DRAWER ── */}
       {selectedIdx !== null && selectedIdx < acoes.length && (
         (() => {
@@ -1287,8 +1717,38 @@ export function FlowEditor({
           const isAbSplit = acao.tipo === "ab_split";
           const showPreview = previewIdx === selectedIdx;
 
+          if (inspectorCollapsed) {
+            return (
+              <div className="absolute top-0 right-0 h-full w-11 border-l border-border bg-slate-900/95 backdrop-blur-md z-30 flex flex-col items-center py-3 gap-3 shadow-2xl animate-slide-in">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Expandir propriedades"
+                  onClick={() => setInspectorCollapsed(false)}
+                  className="h-7 w-7 text-primary hover:bg-primary/10 rounded-full"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+                <div className="text-[10px] font-bold text-primary [writing-mode:vertical-rl] rotate-180 uppercase tracking-widest">
+                  #{selectedIdx + 1} · {acao.tipo}
+                </div>
+                <div className="flex-1" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Fechar"
+                  onClick={() => setSelectedIdx(null)}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-full"
+                >
+                  <Plus className="h-4 w-4 rotate-45" />
+                </Button>
+              </div>
+            );
+          }
+
           return (
             <div className="absolute top-0 right-0 w-80 h-full border-l border-border bg-slate-900/95 backdrop-blur-md z-30 flex flex-col shadow-2xl animate-slide-in select-text">
+
               
               {/* Drawer Header */}
               <div className="p-4 border-b border-border bg-card/50 flex items-center justify-between shrink-0">
@@ -1306,7 +1766,11 @@ export function FlowEditor({
                     title="Duplicar etapa"
                     onClick={() => {
                       const updated = [...acoes];
-                      const clone = JSON.parse(JSON.stringify(acoes[selectedIdx]));
+                      const clone = structuredClone(acoes[selectedIdx]);
+                      clone.id = crypto.randomUUID();
+                      delete clone.next_id;
+                      delete clone.true_next_id;
+                      delete clone.false_next_id;
                       delete clone.position_x;
                       delete clone.position_y;
                       updated.splice(selectedIdx + 1, 0, clone);
@@ -1317,6 +1781,15 @@ export function FlowEditor({
                     className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full"
                   >
                     <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Minimizar painel"
+                    onClick={() => setInspectorCollapsed(true)}
+                    className="h-6 w-6 text-muted-foreground hover:text-primary rounded-full"
+                  >
+                    <Minimize2 className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -1392,20 +1865,73 @@ export function FlowEditor({
 
                 {/* Delay Selector */}
                 {!isWaitEvent && !isAbSplit && acao.tipo !== "wait_reply" && (
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-                      {isAguardar ? "Tempo de Espera (minutos)" : isCondicao ? "Verificar após (minutos)" : "Atraso no Envio (minutos)"}
-                    </Label>
-                    <Input
-                      type="number"
-                      value={isCondicao ? (acao.condicao_tempo_min || 0) : acao.delay_min}
-                      onChange={e => {
-                        const val = parseInt(e.target.value) || 0;
-                        if (isCondicao) updateAcao(selectedIdx, "condicao_tempo_min", val);
-                        else updateAcao(selectedIdx, "delay_min", val);
-                      }}
-                      className="h-9 text-xs bg-background/50 border-border/80"
-                    />
+                  <div className="space-y-2">
+                    {isAguardar && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Modo de Espera</Label>
+                        <Select
+                          value={acao.wait_until ? "absolute" : "relative"}
+                          onValueChange={(v) => {
+                            if (v === "relative") updateAcao(selectedIdx, "wait_until", undefined);
+                            else {
+                              // default: agora + 1h, arredondado
+                              const d = new Date(Date.now() + 60 * 60 * 1000);
+                              d.setSeconds(0, 0);
+                              updateAcao(selectedIdx, "wait_until", d.toISOString());
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="relative">⏱️ Relativo (minutos)</SelectItem>
+                            <SelectItem value="absolute">📅 Data e hora específica</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {isAguardar && acao.wait_until ? (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Aguardar até</Label>
+                        <Input
+                          type="datetime-local"
+                          value={(() => {
+                            const d = new Date(acao.wait_until);
+                            if (isNaN(d.getTime())) return "";
+                            const pad = (n: number) => String(n).padStart(2, "0");
+                            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                          })()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const iso = new Date(val).toISOString();
+                            updateAcao(selectedIdx, "wait_until", iso);
+                          }}
+                          className="h-9 text-xs bg-background/50 border-border/80"
+                        />
+                        <p className="text-[9px] text-muted-foreground/70 leading-relaxed mt-1">
+                          O fluxo pausará até a data/hora escolhida (fuso do navegador). Se a data já passou, avança imediatamente.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                          {isAguardar ? "Tempo de Espera (minutos)" : isCondicao ? "Verificar após (minutos)" : "Atraso no Envio (minutos)"}
+                        </Label>
+                        <Input
+                          type="number"
+                          value={isCondicao ? (acao.condicao_tempo_min || 0) : acao.delay_min}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            if (isCondicao) updateAcao(selectedIdx, "condicao_tempo_min", val);
+                            else updateAcao(selectedIdx, "delay_min", val);
+                          }}
+                          className="h-9 text-xs bg-background/50 border-border/80"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1512,7 +2038,8 @@ export function FlowEditor({
                 )}
 
                 {/* wait_reply Fields */}
-                {acao.tipo === "wait_reply" && (
+                {acao.tipo === "wait_reply" && acao.cinna_stage && <CinnaReplyFields consultative={acoes.some(action => Boolean(action.cinna_policy?.consultative))} stage={acao.cinna_stage} policy={acao.cinna_policy} onStage={value => updateAcao(selectedIdx, "cinna_stage", value)} onPolicy={value => updateAcao(selectedIdx, "cinna_policy", value)} />}
+                {acao.tipo === "wait_reply" && !acao.cinna_stage && (
                   <div className="space-y-3">
                     <div className="rounded-lg border border-lime-500/30 bg-lime-500/5 p-3">
                       <p className="text-[10px] text-lime-300/90 leading-relaxed">
@@ -1534,6 +2061,203 @@ export function FlowEditor({
                     </div>
                   </div>
                 )}
+
+                {/* input_capture Fields */}
+                {acao.tipo === "input_capture" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3">
+                      <p className="text-[10px] text-orange-300/90 leading-relaxed">
+                        📥 <strong>Capturar Resposta:</strong> pausa o fluxo, aguarda a próxima mensagem do lead e salva em uma variável (ex: <code>DOR_PRINCIPAL</code>). Depois use como <code>{"{{DOR_PRINCIPAL}}"}</code> em qualquer mensagem.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Nome da variável</Label>
+                      <Input
+                        value={acao.capture_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "capture_variable", e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}
+                        placeholder="DOR_PRINCIPAL"
+                        className="h-9 text-xs bg-background/50 border-border/80 font-mono uppercase"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60">Só letras, números e _. Fica em MAIÚSCULO.</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Extração via IA (opcional)</Label>
+                      <Textarea
+                        value={acao.ai_extract_prompt || ""}
+                        onChange={e => updateAcao(selectedIdx, "ai_extract_prompt", e.target.value)}
+                        placeholder="Ex: Extraia a dor central do lead em 1 frase curta, sem enfeites."
+                        className="min-h-[70px] text-xs bg-background/50 border-border/80"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60">Se preenchido, a IA processa a resposta antes de salvar. Vazio = salva o texto exato.</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Timeout (min)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={acao.timeout_min ?? 1440}
+                        onChange={e => updateAcao(selectedIdx, "timeout_min", Math.max(1, parseInt(e.target.value) || 1440))}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* quick_reply Fields */}
+                {acao.tipo === "quick_reply" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3">
+                      <p className="text-[10px] text-teal-300/90 leading-relaxed">
+                        🔘 <strong>Pergunta com Opções:</strong> envia a pergunta + opções numeradas no WhatsApp, aguarda a resposta do lead e salva a escolha em <code>{"{{"}{acao.capture_variable || "QUICK_CHOICE"}{"}}"}</code>. Aceita número ("1") ou texto contendo o label.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Pergunta</Label>
+                      <Textarea
+                        value={acao.question || ""}
+                        onChange={e => updateAcao(selectedIdx, "question", e.target.value)}
+                        placeholder="Ex: Qual sua maior dificuldade hoje?"
+                        className="min-h-[60px] text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Salvar escolha em</Label>
+                      <Input
+                        value={acao.capture_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "capture_variable", e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"))}
+                        placeholder="QUICK_CHOICE"
+                        className="h-9 text-xs bg-background/50 border-border/80 font-mono uppercase"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Opções (até 9)</Label>
+                      {(Array.isArray(acao.options) ? acao.options : []).map((opt, oi: number) => (
+                        <div key={oi} className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground w-4">{oi + 1}.</span>
+                          <Input
+                            value={typeof opt === "string" ? opt : (opt?.label || "")}
+                            onChange={e => {
+                              const next = [...(acao.options || [])].map((o) => typeof o === "string" ? { label: o } : { ...o });
+                              next[oi] = { ...(next[oi] || {}), label: e.target.value };
+                              updateAcao(selectedIdx, "options", next);
+                            }}
+                            placeholder={`Opção ${oi + 1}`}
+                            className="h-8 text-xs bg-background/50 border-border/80 flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              const next = [...(acao.options || [])];
+                              next.splice(oi, 1);
+                              updateAcao(selectedIdx, "options", next);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-xs border-dashed"
+                        disabled={(acao.options?.length || 0) >= 9}
+                        onClick={() => {
+                          const next = [...(acao.options || []), { label: "" }];
+                          updateAcao(selectedIdx, "options", next);
+                        }}
+                      >
+                        + Adicionar opção
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Timeout (min)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={acao.timeout_min ?? 1440}
+                        onChange={e => updateAcao(selectedIdx, "timeout_min", Math.max(1, parseInt(e.target.value) || 1440))}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                  </div>
+                )}
+
+
+
+                {/* generate_image Fields */}
+                {acao.tipo === "generate_image" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-pink-500/30 bg-pink-500/5 p-3">
+                      <p className="text-[10px] text-pink-300/90 leading-relaxed">
+                        🎨 <strong>Gerar Imagem:</strong> cria uma imagem via IA no meio do fluxo (autoridade, prova social, infográfico) e envia no WhatsApp. Pode usar variáveis capturadas, ex: <code>{"{{DOR_PRINCIPAL}}"}</code>.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Prompt da imagem</Label>
+                      <Textarea
+                        value={acao.image_prompt || ""}
+                        onChange={e => updateAcao(selectedIdx, "image_prompt", e.target.value)}
+                        placeholder='Ex: Infográfico "3 Etapas Simples" mostrando Limpar → Construir → Selar, estilo minimalista'
+                        className="min-h-[80px] text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Estilo</Label>
+                        <Select value={acao.image_style || "autoridade"} onValueChange={v => updateAcao(selectedIdx, "image_style", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="autoridade">Autoridade</SelectItem>
+                            <SelectItem value="prova_social">Prova Social</SelectItem>
+                            <SelectItem value="infografico">Infográfico</SelectItem>
+                            <SelectItem value="meme">Meme / Casual</SelectItem>
+                            <SelectItem value="produto">Mockup Produto</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Formato</Label>
+                        <Select value={acao.image_ratio || "1:1"} onValueChange={v => { if (v === "1:1" || v === "9:16" || v === "16:9") updateAcao(selectedIdx, "image_ratio", v); }}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1:1">Quadrado 1:1</SelectItem>
+                            <SelectItem value="9:16">Vertical 9:16</SelectItem>
+                            <SelectItem value="16:9">Horizontal 16:9</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Legenda (opcional)</Label>
+                      <Textarea
+                        value={acao.template || ""}
+                        onChange={e => updateAcao(selectedIdx, "template", e.target.value)}
+                        placeholder="Texto que acompanha a imagem no WhatsApp"
+                        className="min-h-[50px] text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/40 border border-border/30">
+                      <Label className="text-xs text-foreground flex flex-col gap-0.5 cursor-pointer" htmlFor="img-send-after">
+                        <span>Enviar automaticamente no WhatsApp?</span>
+                        <span className="text-[9px] text-muted-foreground">Desligue para só gerar e salvar em {"{{IMG_<id>}}"}</span>
+                      </Label>
+                      <Switch
+                        id="img-send-after"
+                        checked={acao.send_after ?? true}
+                        onCheckedChange={c => updateAcao(selectedIdx, "send_after", c)}
+                        className="scale-90"
+                      />
+                    </div>
+                  </div>
+                )}
+
+
 
                 {/* ab_split Fields */}
                 {isAbSplit && (
@@ -1566,8 +2290,16 @@ export function FlowEditor({
                         Número de ações consecutivas a serem puladas caso o lead caia na Rota B.
                       </p>
                     </div>
+
+                    <ABVariantStats
+                      automacaoId={automacaoId}
+                      stepIndex={selectedIdx}
+                      jumpSteps={acao.jump_steps ?? 1}
+                      onPromoteWinner={(pct) => updateAcao(selectedIdx, "rota_a_porcentagem", pct)}
+                    />
                   </div>
                 )}
+
 
                 {/* branch_by_awareness */}
                 {acao.tipo === "branch_by_awareness" && (
@@ -1620,7 +2352,46 @@ export function FlowEditor({
                   </div>
                 )}
 
-                {/* update_memory */}
+                {/* branch_by_score */}
+                {acao.tipo === "branch_by_score" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Continua o fluxo apenas se o score do lead estiver dentro do intervalo. Caso contrário, pula N nós.
+                      <br />Sugestão: cold &lt;30, warm 30-70, hot &gt;70.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Score mín.</Label>
+                        <Input type="number" min={0} max={100} value={acao.score_min ?? 0} onChange={e => updateAcao(selectedIdx, "score_min", parseInt(e.target.value) || 0)} className="h-9 text-xs bg-background/50 border-border/80" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Score máx.</Label>
+                        <Input type="number" min={0} max={100} value={acao.score_max ?? 100} onChange={e => updateAcao(selectedIdx, "score_max", parseInt(e.target.value) || 100)} className="h-9 text-xs bg-background/50 border-border/80" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Pular N nós (se fora do range)</Label>
+                      <Input type="number" min={1} value={acao.else_skip ?? 1} onChange={e => updateAcao(selectedIdx, "else_skip", parseInt(e.target.value) || 1)} className="h-9 text-xs bg-background/50 border-border/80" />
+                    </div>
+                  </div>
+                )}
+
+                {/* slack_notify */}
+                {acao.tipo === "slack_notify" && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                      Envia uma mensagem para um canal do Slack via Incoming Webhook. Use <code className="bg-muted px-0.5 rounded">{"{{variavel}}"}</code> no texto.
+                    </p>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Webhook URL</Label>
+                      <Input value={acao.webhook_url || ""} onChange={e => updateAcao(selectedIdx, "webhook_url", e.target.value)} className="h-9 text-xs bg-background/50 border-border/80" placeholder="https://hooks.slack.com/services/..." />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Texto</Label>
+                      <Textarea value={acao.text || ""} onChange={e => updateAcao(selectedIdx, "text", e.target.value)} className="text-xs bg-background/50 border-border/80 min-h-[80px]" placeholder="🔥 Novo hot lead: {{nome}} ({{phone}})" />
+                    </div>
+                  </div>
+                )}
                 {acao.tipo === "update_memory" && (
                   <div className="space-y-3">
                     <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
@@ -2099,6 +2870,20 @@ export function FlowEditor({
                   </div>
                 )}
 
+                {/* Media attachment for WhatsApp */}
+                {acao.tipo === "whatsapp" && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
+                      📎 Mídia anexada <span className="text-muted-foreground/50 normal-case font-normal">(opcional — o template vira legenda)</span>
+                    </Label>
+                    <MediaPicker
+                      value={acao.media || null}
+                      projects={projectId ? [{ id: projectId, name: "Projeto atual" }] : []}
+                      onChange={(m) => updateAcao(selectedIdx, "media", m)}
+                    />
+                  </div>
+                )}
+
                 {/* Audio Custom Voice Settings */}
                 {acao.tipo === "audio" && (
                   <div className="space-y-3 border-t border-border/40 pt-3">
@@ -2198,6 +2983,68 @@ export function FlowEditor({
                     </p>
                   </div>
                 )}
+
+                {/* update_lead fields */}
+                {acao.tipo === "update_lead" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Campo do Lead</Label>
+                        <Select value={acao.lead_field || ""} onValueChange={v => updateAcao(selectedIdx, "lead_field", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue placeholder="Escolha…" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="status">status</SelectItem>
+                            <SelectItem value="score">score (número)</SelectItem>
+                            <SelectItem value="awareness_level">awareness_level</SelectItem>
+                            <SelectItem value="nome">nome</SelectItem>
+                            <SelectItem value="email">email</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Operação</Label>
+                        <Select value={acao.lead_op || "set"} onValueChange={v => updateAcao(selectedIdx, "lead_op", v)}>
+                          <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="set">Definir (set)</SelectItem>
+                            <SelectItem value="inc">Incrementar (+) — apenas score</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Valor</Label>
+                      <Input
+                        value={acao.lead_value ?? ""}
+                        onChange={e => updateAcao(selectedIdx, "lead_value", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: qualificado, 25, sales_aware"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        👤 Atualiza o campo no registro do lead. Para <code>score</code> use número; para <code>awareness_level</code> use unaware/problem_aware/solution_aware/product_aware/most_aware.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* move_stage fields */}
+                {acao.tipo === "move_stage" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Novo Funil/Etapa (funil_id)</Label>
+                      <Input
+                        value={acao.target_stage || ""}
+                        onChange={e => updateAcao(selectedIdx, "target_stage", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80 text-foreground"
+                        placeholder="Ex: aquisicao, conversao, retencao"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        ➡️ Move o lead para outra etapa do funil atualizando <code>imphq_leads.funil_id</code>. Use o slug exato da etapa.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 
                 {/* notify_operator fields */}
                 {acao.tipo === "notify_operator" && (
@@ -2216,6 +3063,81 @@ export function FlowEditor({
                     </div>
                   </div>
                 )}
+
+
+                {/* ai_agent fields */}
+                {acao.tipo === "ai_agent" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Agente IA</Label>
+                      <Select value={acao.ai_agent_id || ""} onValueChange={v => updateAcao(selectedIdx, "ai_agent_id", v)}>
+                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80">
+                          <SelectValue placeholder={aiAgents.length ? "Escolha um agente…" : "Nenhum agente ativo — crie em /openflow/agentes"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {aiAgents.map(a => (
+                            <SelectItem key={a.id} value={a.id}>{a.avatar || "🤖"} {a.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        🧠 O agente assume a conversa com sua identidade, diretrizes, Q&A e base de conhecimento configuradas. Ideal para atendimento autônomo prolongado.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={!!acao.ai_agent_pass_context} onCheckedChange={v => updateAcao(selectedIdx, "ai_agent_pass_context", v)} />
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground cursor-pointer">Passar contexto do fluxo (variáveis + últimas msgs)</Label>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Salvar resposta em (variável)</Label>
+                      <Input
+                        value={acao.ai_agent_save_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "ai_agent_save_variable", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                        placeholder="Ex: agent_resposta (opcional)"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* distribuir_atendentes fields */}
+                {acao.tipo === "distribuir_atendentes" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Estratégia de Distribuição</Label>
+                      <Select value={acao.distrib_strategy || "round_robin"} onValueChange={v => { if (v === "round_robin" || v === "random" || v === "least_busy") updateAcao(selectedIdx, "distrib_strategy", v); }}>
+                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="round_robin">🔁 Round-Robin (revezamento)</SelectItem>
+                          <SelectItem value="random">🎲 Aleatório</SelectItem>
+                          <SelectItem value="least_busy">📉 Menos ocupado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Atendentes Elegíveis</Label>
+                      <Input
+                        value={acao.distrib_operators || ""}
+                        onChange={e => updateAcao(selectedIdx, "distrib_operators", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                        placeholder={teamMembers.length ? teamMembers.slice(0, 3).map(t => t.nome).join(", ") : "Ex: Carina, João, Maria"}
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-1">
+                        👥 Nomes separados por vírgula. Deixe vazio para distribuir entre TODA a equipe cadastrada em Empresa &gt; Equipe.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Salvar atendente escolhido em (variável)</Label>
+                      <Input
+                        value={acao.distrib_save_variable || ""}
+                        onChange={e => updateAcao(selectedIdx, "distrib_save_variable", e.target.value)}
+                        className="h-9 text-xs bg-background/50 border-border/80"
+                        placeholder="Ex: atendente (padrão)"
+                      />
+                    </div>
+                  </div>
+                )}
+
 
                 {/* abrir_conversa fields */}
                 {acao.tipo === "abrir_conversa" && (
@@ -2361,6 +3283,32 @@ export function FlowEditor({
                       </Select>
                       <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
                         Define a persona e o tom de voz que a IA usará especificamente nesta etapa do fluxo.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Instruções de Agir (Persona)</Label>
+                      <Textarea 
+                        value={acao.personality_prompt || ""} 
+                        onChange={e => updateAcao(selectedIdx, "personality_prompt", e.target.value)}
+                        placeholder="Ex: Aja como um vendedor amigável que nunca pressiona o cliente, mas usa gatilhos de prova social..."
+                        className="text-xs bg-background/50 border-border/80 min-h-[80px] resize-none"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
+                        Como a IA deve se comportar nesta etapa? (Tom de voz, restrições, estilo).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">O que perguntar? (Direcionamento)</Label>
+                      <Textarea 
+                        value={acao.questioning_strategy || ""} 
+                        onChange={e => updateAcao(selectedIdx, "questioning_strategy", e.target.value)}
+                        placeholder="Ex: Pergunte se o problema dele é o preço ou a falta de tempo para implementar..."
+                        className="text-xs bg-background/50 border-border/80 min-h-[80px] resize-none"
+                      />
+                      <p className="text-[9px] text-muted-foreground/60 leading-relaxed mt-0.5">
+                        Quais perguntas ou tópicos a IA deve abordar para direcionar o lead?
                       </p>
                     </div>
 
