@@ -1,10 +1,11 @@
-﻿import {
+import {
   LayoutDashboard, FolderKanban, ListTodo, Users, DollarSign,
   Search, Brain, FileText, MessageSquare, Link2,
   Zap, UsersRound, Building2, Settings, LogOut, Crown,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
   Inbox, Pencil, Workflow, Globe, Coins, Stethoscope, BarChart3,
+  Palette,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/auth-context";
@@ -16,7 +17,7 @@ import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 // ── Nav items ──────────────────────────────────────────────────────────
 // Reorganizado em 5 hubs para reduzir ruído e criar caminhos claros.
 const hojeitems = [
-  { title: "Cockpit",          url: "/tarefas",    icon: LayoutDashboard },
+  { title: "Cockpit",          url: "/cockpit",    icon: LayoutDashboard },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
@@ -56,6 +57,7 @@ const capitalItems = [
 ];
 
 const acervoItems = [
+  { title: "Master Redesign", url: "/redesign", icon: Palette },
   { title: "Referências",  url: "/referencias", icon: Library },
   { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
   { title: "Docs / KB",    url: "/docs",        icon: FileText },

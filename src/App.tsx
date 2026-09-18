@@ -13,6 +13,8 @@ import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages for bundle size optimization and faster page load speeds
 const Login = lazyWithRetry(() => import("./pages/Login"));
+const Cockpit = lazyWithRetry(() => import("./pages/Cockpit"));
+const RedesignPrototype = lazyWithRetry(() => import("./pages/RedesignPrototype"));
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
 const DashboardClassic = lazyWithRetry(() => import("./pages/DashboardClassic"));
 const AISaude = lazyWithRetry(() => import("./pages/AISaude"));
@@ -142,8 +144,10 @@ const App = () => (
               <Route path="/linfaflow-care" element={<LinfaFlowCareRoom />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 {/* Smart landing — Cockpit da Empresa (foco do dia + pulso) */}
-                <Route index element={<Navigate to="/tarefas?view=kanban" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
+                <Route index element={<Navigate to="/cockpit" replace />} />
+                <Route path="cockpit" element={<Cockpit />} />
+                <Route path="redesign" element={<RedesignPrototype />} />
+                <Route path="dashboard" element={<Cockpit />} />
                 <Route path="dashboard-classic" element={<DashboardClassic />} />
                 <Route path="inteligencia-ia" element={<InteligenciaIA />} />
                 <Route path="ai-saude" element={<Navigate to="/inteligencia-ia?tab=saude" replace />} />
