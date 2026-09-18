@@ -93,6 +93,7 @@ const LinfaFlowX1 = lazyWithRetry(() => import("./pages/LinfaFlowX1"));
 const LinfaFlowX1Ready = lazyWithRetry(() => import("./pages/LinfaFlowX1Ready"));
 const LinfaFlowCareRoom = lazyWithRetry(() => import("./pages/LinfaFlowCareRoom"));
 const LinfaFlowCareDashboard = lazyWithRetry(() => import("./pages/LinfaFlowCareDashboard"));
+const SlimSodaX1 = lazyWithRetry(() => import("./pages/SlimSodaX1"));
 const OpenRouterCustos = lazyWithRetry(() => import("./pages/OpenRouterCustos"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 
@@ -171,8 +172,10 @@ const App = () => (
                 <Route path="funis/linfaflow-x1-ready" element={<LinfaFlowX1Ready />} />
                 <Route path="funis/linfaflow-care" element={<LinfaFlowCareRoom />} />
                 <Route path="funis/linfaflow-care-dashboard" element={<LinfaFlowCareDashboard />} />
+                <Route path="funis/slimsoda-x1" element={<SlimSodaX1 />} />
                 <Route path="openflow" element={<OpenFlow />} />
                 <Route path="openflow/cinna-shield" element={<CinnaShieldX1 />} />
+                <Route path="openflow/slimsoda" element={<SlimSodaX1 />} />
                 <Route path="openflow/agentes" element={<AgentesIA />} />
                 <Route path="openflow/agentes/:id" element={<AgenteEditor />} />
                 <Route path="docs" element={<Docs />} />
