@@ -29,7 +29,6 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || Deno.env.get("OPENROUTER_API_KEY");
 
 const MAX_PER_PROJECT = 40;
-const MIN_HOURS_SINCE_LAST_OUTBOUND = 1; // não atropelar mensagem recente da IA
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -57,18 +56,19 @@ Deno.serve(async (req) => {
       const { project_id } = cfg;
       const delays = (cfg.pitch_followup_delays_hours && cfg.pitch_followup_delays_hours.length === 3)
         ? cfg.pitch_followup_delays_hours
-        : [3, 24, 48];
+        : [0.35, 2.5, 22];
 
       try {
         const { data: providers } = await supabase
           .from("imphq_wa_providers")
-          .select("id, api_url, api_key, instance_name, provider")
+          .select("id, api_url, api_key, instance_name, provider, ai_enabled, status")
           .eq("project_id", project_id)
-          .eq("provider", "evolution")
-          .eq("ai_enabled", true)
-          .limit(1);
-        const provider = providers?.[0];
-        if (!provider?.api_url || !provider?.api_key) continue;
+          .eq("provider", "evolution");
+
+        if (!providers?.length) continue;
+        const providerMap = new Map(providers.map((p) => [p.id, p]));
+        const defaultProvider = providers.find((p) => p.ai_enabled && p.api_url && p.api_key) || providers.find((p) => p.api_url && p.api_key);
+        if (!defaultProvider) continue;
 
         const { data: project } = await supabase
           .from("imphq_projects")
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
         // Conversas elegíveis: tem pitch, ainda no ciclo (>=0), não em fluxo, IA ativa
         const { data: conversations } = await supabase
           .from("imphq_wa_conversations")
-          .select("id, phone, contact_name, lead_id, last_pitch_at, last_pitch_produto, last_pitch_link, pitch_followup_stage, pitch_followup_last_at, ai_last_reply_at, conversation_summary")
+          .select("id, provider_id, phone, contact_name, lead_id, last_pitch_at, last_pitch_produto, last_pitch_link, pitch_followup_stage, pitch_followup_last_at, ai_last_reply_at, last_message_direction, last_incoming_at, conversation_summary")
           .eq("project_id", project_id)
           .eq("ia_ativa", true)
           .not("last_pitch_at", "is", null)
@@ -107,16 +107,33 @@ Deno.serve(async (req) => {
           if (inFlow.has(conv.id)) { results.skipped++; continue; }
           if (!isWithinSendWindow(conv.phone)) { results.skipped++; continue; }
 
+          // Se o lead respondeu após o último pitch ou se a última mensagem foi incoming, cancela o ciclo de follow-up imediatamente
+          if (conv.last_message_direction === "incoming" || (conv.last_incoming_at && conv.last_pitch_at && new Date(conv.last_incoming_at).getTime() > new Date(conv.last_pitch_at).getTime())) {
+            await supabase.from("imphq_wa_conversations")
+              .update({ pitch_followup_stage: -1 }).eq("id", conv.id);
+            results.finished++;
+            continue;
+          }
+
           const stageNext = (conv.pitch_followup_stage || 0) + 1; // 1, 2 ou 3
-          const delayH = delays[stageNext - 1];
+          const delayH = Number(delays[stageNext - 1]) || 1;
           const referenceAt = conv.pitch_followup_last_at || conv.last_pitch_at;
           if (!referenceAt) { results.skipped++; continue; }
           const hoursSince = (nowMs - new Date(referenceAt).getTime()) / 3_600_000;
           if (hoursSince < delayH) { results.skipped++; continue; }
 
+          // Delay mínimo desde último envio outbound (Stage 1 permite 15min para não colidir com o próprio pitch)
+          const minHoursOutbound = stageNext === 1 ? 0.25 : 1.0;
           if (conv.ai_last_reply_at) {
             const hSinceOutbound = (nowMs - new Date(conv.ai_last_reply_at).getTime()) / 3_600_000;
-            if (hSinceOutbound < MIN_HOURS_SINCE_LAST_OUTBOUND) { results.skipped++; continue; }
+            if (hSinceOutbound < minHoursOutbound) { results.skipped++; continue; }
+          }
+
+          // Resolver provider específico da conversa ou fallback para o default ativo
+          const provider = (conv.provider_id && providerMap.get(conv.provider_id)) || defaultProvider;
+          if (!provider?.api_url || !provider?.api_key || !provider?.instance_name) {
+            results.skipped++;
+            continue;
           }
 
           // venda paga após o pitch? encerra ciclo
@@ -183,21 +200,19 @@ Deno.serve(async (req) => {
             : "");
 
           const stageBriefing = stageNext === 1
-            ? `Toque 1 — Sondar dúvida residual. O lead recebeu o link há ~${Math.round(hoursSince)}h e não respondeu nem comprou.
-- Tom: leve, curioso, sem pressão.
-- Pergunte se conseguiu dar uma olhada e se ficou alguma dúvida específica sobre conteúdo, formato de acesso ou se é isso mesmo que ele buscava.
-- 1 pergunta aberta no final. Máx 3 linhas.`
+            ? `Toque 1 — Sondar de forma rápida e informal se o link abriu certinho. O lead recebeu o link há ~${Math.round(hoursSince * 60)} minutos e não falou mais nada.
+- Tom: super informal, curto, como quem acabou de mandar um link e quer saber se deu certo.
+- Exemplos de estilo: "Conseguiu abrir o link certinho aí?", "Deu certo o link ou travou aí?", "Passando só pra ver se conseguiu acessar de boa".
+- Máx 2 linhas curtas. Sem textão, sem parecer mensagem automática. 1 pergunta direta.`
             : stageNext === 2
-            ? `Toque 2 — Investigar objeção real e remover barreira de pagamento.
-- O lead viu o pitch há ~${Math.round(hoursSince)}h após o último contato, ainda não fechou.
-- Reconheça que decisão pode envolver investimento e pergunte direto, com empatia, qual a maior barreira: preço, momento, confiança no resultado, ou forma de pagamento.
-- Mencione opções concretas: Pix com desconto à vista, parcelamento no cartão, ou alternativa de pagamento se o projeto tiver.
-- 1 pergunta no final. Máx 4 linhas.`
-            : `Toque 3 — Último toque. Oferecer entrada por valor menor.
-- Reconheça em 1 linha que o investimento do ${produtoOfertado} pode não fazer sentido agora.
-${entryProduct ? `- Sugira EXPLICITAMENTE pelo nome o produto de entrada: "${entryProduct.nome || entryProduct.name}" (R$ ${entryProduct.preco || entryProduct.price}). Explique em 1 linha por que faz sentido começar por ele.` : `- Sugira começar por um material/curso de entrada mais leve para construir confiança.`}
-- Convide a tirar dúvidas. Não pressione.
-- Máx 4 linhas. 1 pergunta no final.`;
+            ? `Toque 2 — Investigar objeção real e flexibilizar pagamento.
+- O lead recebeu o link há ~${Math.round(hoursSince)}h e ainda não finalizou.
+- Reconheça com empatia que a decisão envolve investimento. Pergunte se a trava foi valor, tempo ou forma de pagamento (Pix / cartão parcelado).
+- 1 pergunta consultiva no final. Máx 3 linhas.`
+            : `Toque 3 — Último toque / Descompressão ou plano de entrada.
+- Reconheça com leveza que talvez o momento esteja corrido ou o investimento do ${produtoOfertado} pese agora.
+${entryProduct ? `- Sugira a opção de entrada: "${entryProduct.nome || entryProduct.name}" (R$ ${entryProduct.preco || entryProduct.price}) caso queira começar de forma mais acessível.` : `- Diga que se preferir ver isso com calma depois ou tiver qualquer dúvida, tá tudo bem.`}
+- Sem pressão comercial. Máx 3 linhas. 1 pergunta acolhedora no final.`;
 
           const systemPrompt = `Você é um vendedor consultivo humano e empático no WhatsApp, atendendo para "${project?.name || project_id}".
 ${cfg.expert_persona ? `Persona: ${cfg.expert_persona}.` : ""}

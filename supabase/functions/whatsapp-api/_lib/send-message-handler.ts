@@ -268,6 +268,23 @@ export async function handleSendMessage(req: Request, deps: SendMessageDeps): Pr
 
   await updateConversationAfterMessage(conv.id, content || "📎 Mídia", conv.message_count || 0, false, sent_by === "human");
 
+  // Se a mensagem enviada contém link de checkout/oferta, arma a régua anti-vácuo (stage 0)
+  const isPitchLink = /checkout|pay|hotmart|kiwify|monetizze|eduzz|braip|ticto|perfectpay|stripe|comprar|inscri/i.test(content || "");
+  if (isPitchLink) {
+    const urlMatch = (content || "").match(/https?:\/\/[^\s]+/);
+    supabase
+      .from("imphq_wa_conversations")
+      .update({
+        last_pitch_at: new Date().toISOString(),
+        last_pitch_link: urlMatch ? urlMatch[0] : null,
+        pitch_followup_stage: 0,
+        pitch_followup_last_at: null,
+      })
+      .eq("id", conv.id)
+      .then(() => {}, () => {});
+    console.log(`[send_message] Armed 3-shot anti-ghosting recovery for conv ${conv.id}`);
+  }
+
   if (sent_by === "human" && content && content.length > 15) {
     supabase.functions.invoke("wa-learn-from-human", {
       body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: project_id || provider.project_id },

@@ -121,10 +121,15 @@ export async function updateConversationAfterMessage(
   if (incrementUnread) {
     const { data: cur } = await supabase
       .from("imphq_wa_conversations")
-      .select("unread_count")
+      .select("unread_count, pitch_followup_stage")
       .eq("id", conversationId)
       .maybeSingle();
     patch.unread_count = ((cur?.unread_count as number) || 0) + 1;
+    patch.last_incoming_at = new Date().toISOString();
+    // Se o lead respondeu, encerra o ciclo de recuperação de pitch pendente para não atropelar
+    if (cur && (cur as any).pitch_followup_stage !== undefined && (cur as any).pitch_followup_stage >= 0) {
+      patch.pitch_followup_stage = -1;
+    }
   } else {
     patch.unread_count = 0;
   }
