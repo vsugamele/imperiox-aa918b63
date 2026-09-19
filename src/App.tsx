@@ -142,6 +142,8 @@ const App = () => (
               <Route path="/linfaflow-x1" element={<LinfaFlowX1 />} />
               <Route path="/linfaflow-x1-ready" element={<LinfaFlowX1Ready />} />
               <Route path="/linfaflow-care" element={<LinfaFlowCareRoom />} />
+              <Route path="/cockpit" element={<Cockpit />} />
+              <Route path="/redesign" element={<RedesignPrototype />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 {/* Smart landing — Cockpit da Empresa (foco do dia + pulso) */}
                 <Route index element={<Navigate to="/cockpit" replace />} />

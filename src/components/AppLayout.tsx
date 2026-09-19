@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -148,6 +148,12 @@ export function AppLayout() {
               <GlobalSearch />
             </div>
             <div className="ml-auto flex items-center gap-1 md:gap-2">
+              <Link
+                to="/cockpit"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded bg-[#D6FF4B]/15 border border-[#D6FF4B]/50 text-[#D6FF4B] font-mono text-[11px] font-bold hover:bg-[#D6FF4B] hover:text-[#0A0B0D] transition-all shadow-sm"
+              >
+                🎛️ NOVO COCKPIT
+              </Link>
               <CmdKHint />
               <CommandPalette />
               <ActionInbox />
