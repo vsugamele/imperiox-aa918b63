@@ -1,9 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Familjen+Grotesk:wght@400;500;600;700&family=Martian+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 #lovable-badge {
   display: none !important;
 }
-
 
 @tailwind base;
 @tailwind components;
@@ -11,54 +10,59 @@
 
 @layer base {
   :root {
-    --background: 20 7% 3%;
-    --foreground: 30 30% 93%;
+    /* Base Graphite Palette (ImperioHQ Master Redesign) */
+    --background: 220 14% 4.5%;      /* #0A0B0D */
+    --foreground: 216 12% 92%;       /* #E8EAED */
 
-    --card: 20 10% 5%;
-    --card-foreground: 30 30% 93%;
+    --card: 216 15% 6.5%;            /* #0E1013 */
+    --card-foreground: 216 12% 92%;  /* #E8EAED */
 
-    --popover: 20 10% 5%;
-    --popover-foreground: 30 30% 93%;
+    --popover: 216 15% 6.5%;         /* #0E1013 */
+    --popover-foreground: 216 12% 92%;
 
-    --primary: 38 65% 47%;
-    --primary-foreground: 20 7% 3%;
+    /* Primary Accent: Acid / Citric Lime #D6FF4B */
+    --primary: 74 100% 65%;          /* #D6FF4B */
+    --primary-foreground: 220 14% 4.5%;
 
-    --secondary: 20 8% 10%;
-    --secondary-foreground: 30 30% 93%;
+    --secondary: 214 15% 9%;         /* #14171B */
+    --secondary-foreground: 216 12% 92%;
 
-    --muted: 20 5% 15%;
-    --muted-foreground: 10 5% 47%;
+    --muted: 214 15% 9%;             /* #14171B */
+    --muted-foreground: 221 8% 57%;  /* #8A8F98 */
 
-    --accent: 38 65% 47%;
-    --accent-foreground: 20 7% 3%;
+    --accent: 74 100% 65%;           /* #D6FF4B */
+    --accent-foreground: 220 14% 4.5%;
 
-    --destructive: 0 72% 41%;
-    --destructive-foreground: 30 30% 93%;
+    --destructive: 351 95% 71%;      /* #FB7185 */
+    --destructive-foreground: 220 14% 4.5%;
 
-    --success: 160 84% 30%;
-    --success-foreground: 30 30% 93%;
+    --success: 142 69% 58%;          /* #4ADE80 */
+    --success-foreground: 220 14% 4.5%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 20 7% 3%;
+    --warning: 42 96% 56%;           /* #FBBF24 */
+    --warning-foreground: 220 14% 4.5%;
 
-    --border: 20 10% 12%;
-    --input: 20 10% 12%;
-    --ring: 38 65% 47%;
+    /* Hairlines #1B1E23 */
+    --border: 218 13% 12.2%;         /* #1B1E23 */
+    --input: 220 11% 15.5%;          /* #23262C */
+    --ring: 74 100% 65%;             /* #D6FF4B */
 
-    --radius: 0.5rem;
+    --radius: 0.375rem;
 
-    --sidebar-background: 20 10% 4%;
-    --sidebar-foreground: 30 20% 80%;
-    --sidebar-primary: 38 65% 47%;
-    --sidebar-primary-foreground: 20 7% 3%;
-    --sidebar-accent: 20 8% 10%;
-    --sidebar-accent-foreground: 30 30% 93%;
-    --sidebar-border: 20 10% 10%;
-    --sidebar-ring: 38 65% 47%;
+    /* Sidebar Graphite #0C0D10 */
+    --sidebar-background: 225 14% 5.5%; /* #0C0D10 */
+    --sidebar-foreground: 221 8% 65%;
+    --sidebar-primary: 74 100% 65%;
+    --sidebar-primary-foreground: 220 14% 4.5%;
+    --sidebar-accent: 220 14% 9%;
+    --sidebar-accent-foreground: 216 12% 92%;
+    --sidebar-border: 218 13% 12.2%;    /* #1B1E23 */
+    --sidebar-ring: 74 100% 65%;
 
-    --gold: 38 65% 47%;
-    --gold-light: 38 65% 66%;
-    --gold-glow: 38 80% 55%;
+    /* Map legacy gold tokens to citric accent for instant compatibility */
+    --gold: 74 100% 65%;             /* #D6FF4B */
+    --gold-light: 74 100% 78%;
+    --gold-glow: 74 100% 65%;
   }
 
   * {
@@ -67,15 +71,18 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Archivo', sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Archivo', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 
   .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
   }
 }
 
@@ -218,69 +225,63 @@
     .kpi-strip > *:nth-child(4) { border-left: none; }
   }
 
-  /* ───────── Chrome (Sidebar + Header) editorial ───────── */
+  /* ───────── Chrome (Sidebar + Header) Redesign System ───────── */
   .brand-kicker {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.32em;
-    color: hsl(var(--gold) / 0.85);
+    letter-spacing: 0.14em;
+    color: #5F646D;
     line-height: 1;
   }
   .brand-wordmark {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-weight: 500;
-    font-size: 1.75rem;
+    font-family: 'Archivo', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.01em;
     line-height: 1;
-    color: hsl(var(--foreground));
+    color: #E8EAED;
   }
   .nav-kicker {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.28em;
-    color: hsl(var(--gold) / 0.55);
+    letter-spacing: 0.2em;
+    color: #5F646D;
   }
   .nav-item {
     position: relative;
-    color: hsl(var(--sidebar-foreground) / 0.72) !important;
+    color: #8A8F98 !important;
     font-size: 13px;
-    letter-spacing: 0.01em;
-    transition: color 180ms ease, background 180ms ease;
+    letter-spacing: -0.005em;
+    border-radius: 5px;
+    transition: color 140ms ease, background 140ms ease;
   }
   .nav-item:hover {
-    color: hsl(var(--foreground)) !important;
-    background: hsl(var(--gold) / 0.05) !important;
+    color: #E8EAED !important;
+    background: #14161A !important;
   }
   .nav-item:hover .nav-icon {
-    color: hsl(var(--gold) / 0.7);
+    color: #E8EAED;
   }
   .nav-item-active {
-    color: hsl(var(--gold)) !important;
+    color: #E8EAED !important;
     font-weight: 500 !important;
-    background: transparent !important;
-    border-right: 0 !important;
+    background: #14161A !important;
+    border-left: 2px solid #D6FF4B !important;
+    border-radius: 0 5px 5px 0 !important;
   }
   .nav-item-active::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 2px;
-    background: hsl(var(--gold));
-    box-shadow: 0 0 8px hsl(var(--gold) / 0.6);
-    border-radius: 2px;
+    display: none !important;
   }
   .nav-item-active .nav-icon {
-    color: hsl(var(--gold)) !important;
+    color: #D6FF4B !important;
   }
   .nav-icon {
-    color: hsl(var(--muted-foreground) / 0.7);
-    transition: color 180ms ease;
+    color: #5F646D;
+    transition: color 140ms ease;
   }
   .header-hairline {
     position: absolute;
@@ -288,25 +289,18 @@
     right: 0;
     bottom: -1px;
     height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--gold) / 0.35) 30%,
-      hsl(var(--gold) / 0.5) 50%,
-      hsl(var(--gold) / 0.35) 70%,
-      transparent 100%
-    );
+    background: #1B1E23;
     pointer-events: none;
   }
   .header-search-pill {
-    background: hsl(var(--secondary) / 0.4);
-    border: 1px solid hsl(var(--border) / 0.5);
+    background: #101215;
+    border: 1px solid #1B1E23;
     border-radius: 999px;
     transition: border-color 180ms ease, background 180ms ease;
   }
   .header-search-pill:hover {
-    border-color: hsl(var(--gold) / 0.4);
-    background: hsl(var(--secondary) / 0.6);
+    border-color: #2A2E35;
+    background: #14161A;
   }
 }
 

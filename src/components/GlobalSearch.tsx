@@ -87,11 +87,12 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="header-search-pill w-full max-w-md flex items-center gap-2 px-3.5 py-1.5 text-muted-foreground/70 hover:text-foreground text-sm"
+        className="flex items-center gap-2 h-[30px] px-3 border border-[#1B1E23] rounded-full bg-[#101215] hover:border-[#2A2E35] text-[#5F646D] hover:text-[#8A8F98] transition-colors w-full max-w-[220px]"
       >
-        <Search className="h-3.5 w-3.5 text-gold/60" />
-        <span className="hidden sm:inline italic font-serif text-[13px]">Buscar no Império…</span>
-        <kbd className="ml-auto hidden md:inline-flex h-5 items-center gap-1 rounded border border-border/60 bg-background/60 px-1.5 text-[10px] font-mono text-muted-foreground/70">
+        <Search className="h-3.5 w-3.5 text-[#5F646D]" />
+        <span className="font-mono text-[11px]">buscar</span>
+        <span className="flex-1" />
+        <kbd className="hidden sm:inline-flex items-center border border-[#23262C] rounded px-1.5 py-0.5 text-[9px] font-mono text-[#5F646D]">
           ⌘K
         </kbd>
       </button>

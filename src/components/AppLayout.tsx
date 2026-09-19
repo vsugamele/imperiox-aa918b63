@@ -75,11 +75,11 @@ function EditorialBreadcrumb() {
   const meta = ROUTE_META[compound] || ROUTE_META[first] || { kicker: "Imperio HQ", title: first };
   return (
     <div className="hidden md:flex items-baseline gap-2 min-w-0">
-      <span className="text-[9px] uppercase tracking-[0.28em] text-gold/70 shrink-0">
+      <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#5F646D] shrink-0">
         {meta.kicker}
       </span>
-      <span className="text-muted-foreground/40">·</span>
-      <span className="font-serif italic text-base text-foreground truncate">
+      <span className="text-[#33373F]">/</span>
+      <span className="font-sans font-semibold text-[14px] tracking-[-0.01em] text-[#E8EAED] truncate">
         {meta.title}
       </span>
     </div>
@@ -109,9 +109,9 @@ function CmdKHint() {
 
   if (!visible) return null;
   return (
-    <span className="hidden lg:flex items-center gap-1 text-[10px] text-muted-foreground/60 border border-border/40 rounded px-1.5 py-0.5 animate-pulse">
+    <span className="hidden lg:flex items-center gap-1 text-[10px] text-[#5F646D] border border-[#1B1E23] rounded px-1.5 py-0.5">
       <kbd className="font-mono">⌘K</kbd>
-      <span>para tudo</span>
+      <span>buscar</span>
     </span>
   );
 }
@@ -134,35 +134,38 @@ export function AppLayout() {
   // Mobile auto-redirect removido — app desktop agora responsivo no celular.
   // Cockpit continua acessível via /mobile-cockpit se o usuário quiser.
 
-
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-[#0A0B0D] text-[#E8EAED]">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="relative h-14 flex items-center px-3 md:px-4 shrink-0 bg-background/70 backdrop-blur-xl sticky top-0 z-10 gap-2 md:gap-3" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-            <SidebarTrigger className="text-muted-foreground/60 hover:text-gold transition-colors h-10 w-10 md:h-8 md:w-8" />
-            <div className="hidden md:block h-5 w-px bg-border/60" />
-            <EditorialBreadcrumb />
-            <div className="hidden md:flex flex-1 justify-center px-4 max-w-2xl mx-auto">
+          <header className="relative h-14 flex items-center px-3 md:px-5 shrink-0 bg-[#0A0B0D]/85 backdrop-blur-md border-b border-[#1B1E23] sticky top-0 z-20 gap-2 md:gap-3" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+            <SidebarTrigger className="text-[#8A8F98] hover:text-[#D6FF4B] hover:bg-[#14161A] transition-colors h-8 w-8 rounded" />
+            <div className="shrink-0">
+              <EditorialBreadcrumb />
+            </div>
+            <div className="hidden md:flex items-center ml-2">
               <GlobalSearch />
             </div>
-            <div className="ml-auto flex items-center gap-1 md:gap-2">
+            <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+              {/* Live indicator */}
+              <div className="hidden sm:flex items-center gap-1.5 h-7 px-2.5 border border-[#1B1E23] rounded bg-[#101215] shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
+                <span className="font-mono text-[9px] text-[#8A8F98] tracking-wider uppercase">AO VIVO · 14 LEADS/H</span>
+              </div>
+
               <Link
                 to="/cockpit"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded bg-[#D6FF4B]/15 border border-[#D6FF4B]/50 text-[#D6FF4B] font-mono text-[11px] font-bold hover:bg-[#D6FF4B] hover:text-[#0A0B0D] transition-all shadow-sm"
+                className="hidden sm:flex items-center gap-1 h-7 px-2.5 rounded bg-[#D6FF4B]/10 border border-[#D6FF4B]/40 text-[#D6FF4B] font-mono text-[10px] font-semibold hover:bg-[#D6FF4B] hover:text-[#0A0B0D] transition-all shrink-0"
               >
-                🎛️ NOVO COCKPIT
+                🎛️ COCKPIT
               </Link>
-              <CmdKHint />
               <CommandPalette />
               <ActionInbox />
               <PushOptIn />
               <ProactiveAlertsBell />
               <NotificationBell />
             </div>
-
-            <div className="header-hairline" />
           </header>
           {isMobile && <MobilePushNudge />}
           <main
