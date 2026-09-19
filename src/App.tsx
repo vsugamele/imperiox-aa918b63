@@ -145,12 +145,12 @@ const App = () => (
               <Route path="/cockpit" element={<Cockpit />} />
               <Route path="/redesign" element={<RedesignPrototype />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-                {/* Smart landing — Cockpit da Empresa (foco do dia + pulso) */}
-                <Route index element={<Navigate to="/cockpit" replace />} />
+                {/* Smart landing — Dashboard Operacional */}
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="dashboard-classic" element={<DashboardClassic />} />
                 <Route path="cockpit" element={<Cockpit />} />
                 <Route path="redesign" element={<RedesignPrototype />} />
-                <Route path="dashboard" element={<Cockpit />} />
-                <Route path="dashboard-classic" element={<DashboardClassic />} />
                 <Route path="inteligencia-ia" element={<InteligenciaIA />} />
                 <Route path="ai-saude" element={<Navigate to="/inteligencia-ia?tab=saude" replace />} />
                 <Route path="ai-learning" element={<Navigate to="/inteligencia-ia?tab=memoria" replace />} />

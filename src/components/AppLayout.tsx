@@ -154,12 +154,6 @@ export function AppLayout() {
                 <span className="font-mono text-[9px] text-[#8A8F98] tracking-wider uppercase">AO VIVO · 14 LEADS/H</span>
               </div>
 
-              <Link
-                to="/cockpit"
-                className="hidden sm:flex items-center gap-1 h-7 px-2.5 rounded bg-[#D6FF4B]/10 border border-[#D6FF4B]/40 text-[#D6FF4B] font-mono text-[10px] font-semibold hover:bg-[#D6FF4B] hover:text-[#0A0B0D] transition-all shrink-0"
-              >
-                🎛️ COCKPIT
-              </Link>
               <CommandPalette />
               <ActionInbox />
               <PushOptIn />
