@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers, Link2 } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers, Link2, AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate, type WaProvider } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -167,6 +167,8 @@ export default function OpenFlow() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showX1Wizard, setShowX1Wizard] = useState(false);
   const [showX1Templates, setShowX1Templates] = useState(false);
+  const [activeTabsValue, setActiveTabsValue] = useState('fluxos');
+  const [alertDismissed, setAlertDismissed] = useState(false);
 
   const load = async () => {
     const [aRes, wRes, pRes, provRes, hubRes, cRes] = await Promise.all([
@@ -379,13 +381,44 @@ export default function OpenFlow() {
 
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-900/50 border-white/5"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Execuções</p><p className="text-2xl font-bold">{kpis.total}</p></CardContent></Card>
-        <Card className="bg-slate-900/50 border-white/5"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Sucessos (7d)</p><p className="text-2xl font-bold text-emerald-400">{kpis.success}</p></CardContent></Card>
-        <Card className="bg-slate-900/50 border-white/5"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Falhas</p><p className="text-2xl font-bold text-rose-400">{kpis.errors}</p></CardContent></Card>
-        <Card className="bg-slate-900/50 border-white/5"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Taxa Global</p><p className="text-2xl font-bold text-primary">{kpis.rate}%</p></CardContent></Card>
+        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Execuções</p><p className="text-2xl font-bold">{kpis.total}</p></CardContent></Card>
+        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Sucessos (7d)</p><p className="text-2xl font-bold text-emerald-400">{kpis.success}</p></CardContent></Card>
+        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Falhas</p><p className="text-2xl font-bold text-rose-400">{kpis.errors}</p></CardContent></Card>
+        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Taxa Global</p><p className="text-2xl font-bold text-primary">{kpis.rate}%</p></CardContent></Card>
       </div>
 
-      <Tabs defaultValue="fluxos" className="w-full">
+      {kpis.errors > 0 && !alertDismissed && (
+        <div className="bg-rose-500/10 border border-rose-500/25 rounded-lg px-4 py-3 flex items-center gap-3">
+          <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
+          <p className="text-sm font-medium text-rose-300 flex-1">
+            {kpis.errors} execuções com falha nos últimos 7 dias
+          </p>
+          <button
+            onClick={() => setActiveTabsValue('logs')}
+            className="text-xs font-semibold text-rose-300 hover:text-rose-100 transition-colors whitespace-nowrap"
+          >
+            Ver Logs →
+          </button>
+          <button
+            onClick={() => setAlertDismissed(true)}
+            className="text-rose-400 hover:text-rose-200 transition-colors ml-1"
+            aria-label="Fechar alerta"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {kpis.errors === 0 && kpis.total > 0 && (
+        <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-lg px-4 py-3 flex items-center gap-3">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <p className="text-sm font-medium text-emerald-300">
+            Todos os fluxos saudáveis nos últimos 7 dias
+          </p>
+        </div>
+      )}
+
+      <Tabs value={activeTabsValue} onValueChange={setActiveTabsValue} className="w-full">
         <TabsList className="bg-slate-900/80 border border-white/5 p-1">
           <TabsTrigger value="fluxos" className="gap-2"><Zap className="h-4 w-4" /> Fluxos Ativos</TabsTrigger>
           <TabsTrigger value="guia" className="gap-2"><Info className="h-4 w-4" /> Guia de Etapas</TabsTrigger>
@@ -412,10 +445,10 @@ export default function OpenFlow() {
               <Button onClick={() => setShowX1Templates(true)} variant="outline" className="border-white/10 hover:bg-white/5 font-semibold">
                 <Layers className="h-4 w-4 mr-2" /> Templates X1
               </Button>
-              <Button onClick={() => setShowX1Wizard(true)} variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 font-semibold">
+              <Button onClick={() => setShowX1Wizard(true)} className="bg-amber-500 text-black hover:bg-amber-400 font-bold">
                 <Bot className="h-4 w-4 mr-2" /> Novo Fluxo X1
               </Button>
-              <Button onClick={() => setShowNew(true)} className="bg-amber-500 text-black hover:bg-amber-400 font-bold"><Plus className="h-4 w-4 mr-2" /> Novo Fluxo</Button>
+              <Button onClick={() => setShowNew(true)} variant="ghost" className="text-muted-foreground hover:text-foreground font-medium"><Plus className="h-4 w-4 mr-2" /> Avançado</Button>
             </div>
           </div>
 
