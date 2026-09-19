@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, MessageSquare, Instagram, Flame, Phone, Mail, Sparkles, ChevronUp } from "lucide-react";
+import { Loader2, MessageSquare, Instagram, Flame, Phone, Mail, Sparkles, ChevronUp, Zap, Clock, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,10 +24,274 @@ const TabLoader = () => (
   </div>
 );
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function elapsedMinutes(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+}
+
+function formatElapsed(minutes: number): string {
+  if (minutes < 60) return `${minutes}min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+// ── Fila Unificada Tab ─────────────────────────────────────────────────────────
+type WaConvRow = Pick<
+  Tables<"imphq_wa_conversations">,
+  | "id"
+  | "contact_name"
+  | "phone"
+  | "lead_id"
+  | "last_message"
+  | "last_message_at"
+  | "unread_count"
+  | "status"
+>;
+
+type HotLeadRow = Pick<
+  Tables<"imphq_leads">,
+  "id" | "nome" | "email" | "score" | "criado_em"
+>;
+
+type Priority = "urgent" | "warning" | "opportunity";
+
+interface FilaItem {
+  key: string;
+  priority: Priority;
+  name: string;
+  preview: string;
+  elapsed: number; // minutes
+  href: string;
+}
+
+function priorityLabel(p: Priority) {
+  if (p === "urgent") return "Urgente";
+  if (p === "warning") return "Aguardando";
+  return "Oportunidade";
+}
+
+function priorityClasses(p: Priority): { pill: string; dot: string } {
+  if (p === "urgent")
+    return {
+      pill: "bg-red-500/15 text-red-400 border-red-500/30",
+      dot: "bg-red-400",
+    };
+  if (p === "warning")
+    return {
+      pill: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+      dot: "bg-orange-400",
+    };
+  return {
+    pill: "bg-[#D6FF4B]/10 text-[#D6FF4B] border-[#D6FF4B]/30",
+    dot: "bg-[#D6FF4B]",
+  };
+}
+
+function FilaUnificadaTab() {
+  const [items, setItems] = useState<FilaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    const fourHoursAgo = new Date(Date.now() - 4 * 3600_000).toISOString();
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
+
+    const [convsRes, leadsRes] = await Promise.all([
+      supabase
+        .from("imphq_wa_conversations")
+        .select("id,contact_name,phone,lead_id,last_message,last_message_at,unread_count,status")
+        .neq("status", "closed")
+        .order("unread_count", { ascending: false })
+        .order("last_message_at", { ascending: true })
+        .limit(100),
+      supabase
+        .from("imphq_leads")
+        .select("id,nome,email,score,criado_em")
+        .gt("score", 70)
+        .gte("criado_em", fourHoursAgo)
+        .order("score", { ascending: false })
+        .limit(50),
+    ]);
+
+    const convs: WaConvRow[] = (convsRes.data ?? []) as WaConvRow[];
+    const leads: HotLeadRow[] = (leadsRes.data ?? []) as HotLeadRow[];
+
+    // Set of lead_ids that already have an open WA conversation
+    const coveredLeadIds = new Set(convs.map((c) => c.lead_id).filter(Boolean));
+
+    const queue: FilaItem[] = [];
+
+    for (const c of convs) {
+      const elapsed = elapsedMinutes(c.last_message_at);
+      let priority: Priority;
+      if ((c.unread_count ?? 0) > 0) {
+        priority = "urgent";
+      } else if (c.last_message_at && c.last_message_at < thirtyMinAgo) {
+        priority = "warning";
+      } else {
+        priority = "warning";
+      }
+      queue.push({
+        key: `conv-${c.id}`,
+        priority,
+        name: c.contact_name ?? c.phone ?? "Desconhecido",
+        preview: c.last_message
+          ? c.last_message.slice(0, 60) + (c.last_message.length > 60 ? "\u2026" : "")
+          : "",
+        elapsed,
+        href: "/inbox?tab=whatsapp",
+      });
+    }
+
+    for (const l of leads) {
+      if (coveredLeadIds.has(l.id)) continue;
+      const elapsed = elapsedMinutes(l.criado_em);
+      queue.push({
+        key: `lead-${l.id}`,
+        priority: "opportunity",
+        name: l.nome ?? l.email ?? "Lead sem nome",
+        preview: "Sem conversa \u2014 lead quente",
+        elapsed,
+        href: `/leads?id=${l.id}`,
+      });
+    }
+
+    const priorityOrder: Record<Priority, number> = { urgent: 0, warning: 1, opportunity: 2 };
+    queue.sort((a, b) => {
+      const pd = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (pd !== 0) return pd;
+      return b.elapsed - a.elapsed;
+    });
+
+    setItems(queue);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 60_000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading) return <TabLoader />;
+
+  const urgentCount = items.filter((i) => i.priority === "urgent").length;
+  const waitingCount = items.filter((i) => i.priority === "warning").length;
+  const oppCount = items.filter((i) => i.priority === "opportunity").length;
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
+        <CheckCircle2 className="h-12 w-12 text-emerald-400/60" />
+        <p className="font-display text-lg text-foreground/70">
+          Fila limpa \u2014 tudo respondido
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-3 max-w-4xl mx-auto">
+      {/* Summary kicker */}
+      <div className="flex items-center gap-3 mb-3 text-[11px] font-mono tracking-wider uppercase text-muted-foreground">
+        {urgentCount > 0 && (
+          <span className="text-red-400 font-semibold">{urgentCount} urgentes</span>
+        )}
+        {urgentCount > 0 && waitingCount > 0 && <span>\u00b7</span>}
+        {waitingCount > 0 && (
+          <span className="text-orange-400 font-semibold">{waitingCount} aguardando</span>
+        )}
+        {(urgentCount > 0 || waitingCount > 0) && oppCount > 0 && <span>\u00b7</span>}
+        {oppCount > 0 && (
+          <span className="text-[#D6FF4B] font-semibold">{oppCount} oportunidades</span>
+        )}
+      </div>
+
+      {items.map((item) => {
+        const cls = priorityClasses(item.priority);
+        return (
+          <div
+            key={item.key}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[#1B1E23] bg-[#0A0B0D]/60 hover:border-border/60 transition-colors"
+          >
+            {/* SLA pill */}
+            <span
+              className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-mono font-semibold ${cls.pill}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${cls.dot}`} />
+              {priorityLabel(item.priority)}
+            </span>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm text-foreground truncate">
+                  {item.name}
+                </span>
+                {item.key.startsWith("conv-") && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-400 shrink-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    WA
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{item.preview}</p>
+            </div>
+
+            {/* Time elapsed */}
+            <span className="shrink-0 text-[10px] font-mono text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {item.elapsed > 0 ? formatElapsed(item.elapsed) : "agora"}
+            </span>
+
+            {/* Action button */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 text-xs h-7 border-[#1B1E23] hover:border-[#D6FF4B]/40 hover:text-[#D6FF4B]"
+              onClick={() => (window.location.href = item.href)}
+            >
+              Atender \u2192
+            </Button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Hot Leads Tab ─────────────────────────────────────────────────────────────
 type Lead = Pick<Tables<"imphq_leads">, "id" | "nome" | "email" | "score" | "criado_em" | "data"> & {
   telefone: string | null;
 };
+
+function SlaBadge({ criado_em }: { criado_em: string | null }) {
+  const mins = elapsedMinutes(criado_em);
+  let cls: string;
+  let label: string;
+  if (mins < 30) {
+    cls = "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    label = `${mins}min`;
+  } else if (mins < 60) {
+    cls = "bg-orange-500/15 text-orange-400 border-orange-500/30";
+    label = `${mins}min`;
+  } else {
+    cls = "bg-red-500/15 text-red-400 border-red-500/30";
+    label = formatElapsed(mins);
+  }
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-mono font-semibold shrink-0 ${cls}`}
+    >
+      <Clock className="h-2.5 w-2.5" />
+      {label}
+    </span>
+  );
+}
 
 function HotLeadsTab() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -84,7 +348,7 @@ function HotLeadsTab() {
           <Card key={lead.id} className="bg-secondary/40 border-border card-hover-gold">
             <CardContent className="p-4 flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-foreground truncate">
                     {lead.nome || lead.email || "Lead sem nome"}
                   </span>
@@ -94,6 +358,7 @@ function HotLeadsTab() {
                   >
                     Score {lead.score}
                   </Badge>
+                  <SlaBadge criado_em={lead.criado_em} />
                 </div>
                 <div className="text-xs text-muted-foreground mt-1 flex gap-3">
                   {lead.telefone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {lead.telefone}</span>}
@@ -264,13 +529,14 @@ function InboxKpiStrip({ collapsed, onToggle }: { collapsed?: boolean; onToggle?
 }
 
 // ── Main Inbox ─────────────────────────────────────────────────────────────────
-type InboxTab = "whatsapp" | "instagram" | "hotleads" | "imperius";
+type InboxTab = "fila" | "whatsapp" | "instagram" | "hotleads" | "imperius";
 
 const TABS: { value: InboxTab; label: string; icon: React.ElementType }[] = [
+  { value: "fila",      label: "Fila",        icon: Zap },
   { value: "imperius",  label: "Sugestões IA", icon: Sparkles },
-  { value: "whatsapp",  label: "WhatsApp",  icon: MessageSquare },
-  { value: "instagram", label: "Instagram", icon: Instagram },
-  { value: "hotleads",  label: "Hot Leads", icon: Flame },
+  { value: "whatsapp",  label: "WhatsApp",    icon: MessageSquare },
+  { value: "instagram", label: "Instagram",   icon: Instagram },
+  { value: "hotleads",  label: "Hot Leads",   icon: Flame },
 ];
 
 export default function Inbox() {
@@ -283,7 +549,7 @@ export default function Inbox() {
     if (p && TABS.some((t) => t.value === p)) return p;
     if ((badges?.inbox ?? 0) > 0) return "whatsapp";
     if ((badges?.leads ?? 0) > 0) return "hotleads";
-    return "whatsapp";
+    return "fila";
   })();
 
   const [active, setActive] = useState<InboxTab>(defaultTab);
@@ -300,6 +566,7 @@ export default function Inbox() {
   };
 
   const badgeCount: Record<InboxTab, number> = {
+    fila: 0,
     imperius: 0,
     whatsapp: badges?.inbox ?? 0,
     instagram: 0,
@@ -346,6 +613,9 @@ export default function Inbox() {
             </TabsList>
           </div>
 
+          <TabsContent value="fila" className="mt-0 pt-0 h-full">
+            <FilaUnificadaTab />
+          </TabsContent>
           <TabsContent value="imperius" className="mt-0 pt-0 h-full">
             <Suspense fallback={<TabLoader />}>
               <ImperiusSuggestionsTab />
