@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, MessageCircle } from "lucide-react";
 import LeadActionsMenu from "./LeadActionsMenu";
 import { parseISO, isValid, format } from "date-fns";
 
@@ -136,6 +136,27 @@ export default function LeadsTable({
                           {l.tags && l.tags.slice(0, 2).map(t => <Badge key={t} variant="outline" className="text-[8px] px-1 py-0 h-3.5 leading-none">{t}</Badge>)}
                           {l.tags && l.tags.length > 2 && <span className="text-[8px] text-muted-foreground">+{l.tags.length - 2}</span>}
                         </div>
+                        {l.phone && (() => {
+                          const digits = l.phone.replace(/\D/g, '');
+                          const waLink = digits ? `https://wa.me/${digits}` : null;
+                          return (
+                            <div className="flex items-center gap-1 group/phone">
+                              <p className="text-[10px] text-muted-foreground">📱 {l.phone}</p>
+                              {waLink && (
+                                <a
+                                  href={waLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  className="opacity-0 group-hover/phone:opacity-100 transition-opacity text-emerald-400 hover:text-emerald-300"
+                                  title="Abrir no WhatsApp"
+                                >
+                                  <MessageCircle className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </TableCell>

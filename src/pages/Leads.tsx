@@ -179,6 +179,7 @@ function LeadsDesktop() {
   const [realtimeActive, setRealtimeActive] = useState(false);
   const [stageFilter, setStageFilter] = useState(persisted.stageFilter ?? "all");
   const [hotOnly, setHotOnly] = useState<boolean>(persisted.hotOnly ?? false);
+  const [filterPreset, setFilterPreset] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string>(persisted.tagFilter ?? "all");
   const [showImport, setShowImport] = useState(false);
   const [productFilter, setProductFilter] = useState(persisted.productFilter ?? "all");
@@ -364,6 +365,22 @@ function LeadsDesktop() {
   const { timeline, loading: timelineLoading, leadAutomationLogs, scoreLog, formResponses, recoveryLogs } = useLeadTimeline(editLead, automations);
 
   const HOT_STAGES = new Set(["pix_gerado", "aguardando_pagamento", "carrinho_abandonado"]);
+
+  // "Esquecidos": leads com status='lead', score>=50, sem atividade há mais de 48h
+  const esquecidosCount = leads.filter((l) => {
+    if (l.status !== "lead") return false;
+    const score = l._score ?? 0;
+    if (score < 50) return false;
+    const ref = getLeadActivityDate(l);
+    if (!ref) {
+      // sem nenhuma data de atividade — usa criado_em
+      const created = l.criado_em;
+      if (!created) return false;
+      try { return differenceInHours(new Date(), parseISO(created)) > 48; } catch { return false; }
+    }
+    try { return differenceInHours(new Date(), parseISO(ref)) > 48; } catch { return false; }
+  }).length;
+
   const filtered = leads.filter((l) => {
     const matchStage = stageFilter === "all" || getLeadStage(l) === stageFilter;
     const matchProduct = productFilter === "all" || (productLeadIds && productLeadIds.has(l.id));
@@ -381,7 +398,23 @@ function LeadsDesktop() {
         }
       }
     }
-    return matchStage && matchProduct && matchForm && matchHot && matchTag;
+    let matchEsquecidos = true;
+    if (filterPreset === "esquecidos") {
+      if (l.status !== "lead") { matchEsquecidos = false; }
+      else {
+        const score = l._score ?? 0;
+        if (score < 50) { matchEsquecidos = false; }
+        else {
+          const ref = getLeadActivityDate(l);
+          const dateStr = ref || l.criado_em;
+          if (!dateStr) { matchEsquecidos = false; }
+          else {
+            try { matchEsquecidos = differenceInHours(new Date(), parseISO(dateStr)) > 48; } catch { matchEsquecidos = false; }
+          }
+        }
+      }
+    }
+    return matchStage && matchProduct && matchForm && matchHot && matchTag && matchEsquecidos;
   });
 
 
@@ -704,6 +737,18 @@ function LeadsDesktop() {
                 title="Apenas leads com Pix/Carrinho/Boleto nas últimas 2h"
               >
                 <Flame className="h-4 w-4" /> Hot {hotOnly ? "ON" : ""}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setFilterPreset(fp => fp === "esquecidos" ? null : "esquecidos")}
+                className={cn("h-9 gap-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10", filterPreset === "esquecidos" && "bg-amber-500/20 border-amber-500/60")}
+                title="Leads com score ≥ 50 sem atividade há mais de 48h"
+              >
+                <Clock className="h-4 w-4" /> Esquecidos
+                {esquecidosCount > 0 && (
+                  <span className="ml-1 bg-amber-500 text-white text-[9px] font-bold rounded-full px-1.5">{esquecidosCount}</span>
+                )}
               </Button>
               {someSelected && (
                 <>
