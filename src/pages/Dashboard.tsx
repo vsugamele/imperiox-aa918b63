@@ -1,4 +1,5 @@
 import { EditorialHeader } from "@/components/dashboard/cockpit/EditorialHeader";
+import { AlertCard } from "@/components/dashboard/cockpit/AlertCard";
 import { ProjectSellingGrid } from "@/components/dashboard/cockpit/ProjectSellingGrid";
 import { DecisionQueue } from "@/components/dashboard/cockpit/DecisionQueue";
 import { BlendedFunnelStrip } from "@/components/dashboard/cockpit/BlendedFunnelStrip";
@@ -21,6 +22,7 @@ export default function Dashboard() {
   return (
     <div className="max-w-[1600px] mx-auto animate-fade-in space-y-8 pb-8">
       <EditorialHeader />
+      <AlertCard />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         <div className="space-y-8 min-w-0">

@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ProactiveAlertsBell } from "@/components/ProactiveAlertsBell";
+import { supabase } from "@/integrations/supabase/client";
 
 import { PushOptIn } from "@/components/PushOptIn";
 import { CopilotFab } from "@/components/copilot/CopilotFab";
@@ -15,6 +16,31 @@ import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
 import { MobilePushNudge } from "@/components/mobile/MobilePushNudge";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+
+function useLiveLeadCount(): number | null {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval>;
+
+    async function fetchCount() {
+      if (document.visibilityState === "hidden") return;
+      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count: c, error } = await supabase
+        .from("imphq_leads")
+        .select("*", { count: "exact", head: true })
+        .gte("criado_em", since);
+      if (!error && c !== null) setCount(c);
+    }
+
+    fetchCount();
+    intervalId = setInterval(fetchCount, 5 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return count;
+}
 
 const SIDEBAR_LS_KEY = "imphq:sidebar:open";
 
@@ -121,6 +147,7 @@ const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
 
 export function AppLayout() {
   const isMobile = useIsMobile();
+  const liveLeadCount = useLiveLeadCount();
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem(SIDEBAR_LS_KEY);
@@ -151,7 +178,9 @@ export function AppLayout() {
               {/* Live indicator */}
               <div className="hidden sm:flex items-center gap-1.5 h-7 px-2.5 border border-[#1B1E23] rounded bg-[#101215] shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
-                <span className="font-mono text-[9px] text-[#8A8F98] tracking-wider uppercase">AO VIVO · 14 LEADS/H</span>
+                <span className="font-mono text-[9px] text-[#8A8F98] tracking-wider uppercase">
+                  {liveLeadCount === null ? "AO VIVO" : `AO VIVO · ${liveLeadCount} LEADS/H`}
+                </span>
               </div>
 
               <CommandPalette />
