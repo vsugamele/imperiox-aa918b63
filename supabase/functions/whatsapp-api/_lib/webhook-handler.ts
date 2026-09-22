@@ -515,13 +515,26 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
 
     if (instanceName && state) {
       const dbStatus = state === "open" ? "connected" : state === "close" ? "disconnected" : state;
+      const isActive = state === "open";
+      const ownerJid = body?.data?.ownerJid || body?.data?.owner || body?.data?.jid;
+      const phone = ownerJid ? String(ownerJid).split("@")[0].replace(/\D/g, "") : null;
+
+      const updateData: Record<string, unknown> = {
+        status: dbStatus,
+        is_active: isActive,
+        status_updated_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+      };
+      if (phone) {
+        updateData.twilio_from = phone;
+      }
 
       const { error } = await supabase
         .from("imphq_wa_providers")
-        .update({ status: dbStatus, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("instance_name", instanceName);
 
-      console.log(`[webhook] CONNECTION_UPDATE instance=${instanceName} state=${state} dbStatus=${dbStatus} err=${error?.message || "none"}`);
+      console.log(`[webhook] CONNECTION_UPDATE instance=${instanceName} state=${state} dbStatus=${dbStatus} isActive=${isActive} phone=${phone || "none"} err=${error?.message || "none"}`);
     }
 
     return new Response(JSON.stringify({ success: true, event: "CONNECTION_UPDATE" }), {

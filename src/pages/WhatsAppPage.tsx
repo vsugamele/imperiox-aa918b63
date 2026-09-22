@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import ChatView from "@/components/whatsapp/ChatView";
 import QrCodePanel from "@/components/whatsapp/QrCodePanel";
 import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
+import ConnectWhatsAppModal from "@/components/whatsapp/ConnectWhatsAppModal";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
 import WaHubQrPanel from "@/components/whatsapp/WaHubQrPanel";
 import HubGuide from "@/components/whatsapp/HubGuide";
@@ -46,7 +47,7 @@ interface WaTemplate {
 }
 
 type WaSession = Pick<Tables<"imphq_wa_conversations">, "id" | "contact_name" | "phone" | "session" | "project_id" | "status" | "message_count" | "metadata" | "created_at" | "provider_id" | "last_message" | "updated_at" | "last_message_at" | "last_read_at" | "avatar_url" | "unread_count" | "last_message_direction" | "jid_suffix" | "ai_last_reply_at" | "ai_lock_until" | "ai_paused_until" | "assigned_to" | "snoozed_until" | "handoff_at" | "color_override">;
-type WaProvider = Pick<Tables<"imphq_wa_providers">, "id" | "display_name" | "instance_name" | "provider" | "api_url" | "is_active" | "project_id" | "webhook_verify_token" | "waba_id" | "phone_number_id" | "health_alerts_enabled" | "health_alerts_muted_until" | "twilio_from" | "created_at" | "ai_enabled">;
+type WaProvider = Pick<Tables<"imphq_wa_providers">, "id" | "display_name" | "instance_name" | "provider" | "api_url" | "is_active" | "project_id" | "webhook_verify_token" | "waba_id" | "phone_number_id" | "health_alerts_enabled" | "health_alerts_muted_until" | "twilio_from" | "created_at" | "ai_enabled" | "status">;
 type HubSession = Pick<Tables<"wa_hub_iso_sessions">, "id" | "session_key" | "tenant_id" | "status">;
 
 let waRefCache: {
@@ -69,6 +70,8 @@ export default function WhatsApp() {
   useEffect(() => { localStorage.setItem("wa.filterProvider", filterProvider); }, [filterProvider]);
   const [selectedSession, setSelectedSession] = useState<WaSession | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [connectingProvider, setConnectingProvider] = useState<WaProvider | null>(null);
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [editingProvider, setEditingProvider] = useState<WaProvider | null>(null);
   const [showBulk, setShowBulk] = useState(false);
@@ -117,7 +120,7 @@ export default function WhatsApp() {
     }
     const [pRes, provRes, tRes] = await Promise.all([
       supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at, ai_enabled").eq("is_active", true).order("created_at"),
+      supabase.from("imphq_wa_providers").select("id, display_name, instance_name, provider, api_url, is_active, project_id, webhook_verify_token, waba_id, phone_number_id, health_alerts_enabled, health_alerts_muted_until, twilio_from, created_at, ai_enabled, status").order("created_at"),
       supabase.from("imphq_wa_templates").select("id, name, content, category, project_id, created_at").order("created_at", { ascending: false }),
     ]);
     const projectsData = pRes.data || [];
@@ -367,7 +370,17 @@ export default function WhatsApp() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-card">
         <h1 className="font-display text-xl font-bold text-primary flex items-center gap-2">💬 WhatsApp <SectionInfo {...sectionHelpTexts.whatsapp} /></h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <Button
+            size="sm"
+            onClick={() => {
+              setConnectingProvider(null);
+              setShowConnectModal(true);
+            }}
+            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-colors"
+          >
+            <QrCode className="h-3.5 w-3.5 mr-1.5" /> Conectar WhatsApp
+          </Button>
           <Button size="sm" variant="outline" onClick={() => { setEditingProvider(null); setShowProviderConfig(true); }} className="h-8 text-xs">
             <Settings2 className="h-3.5 w-3.5 mr-1" /> Provider
           </Button>
@@ -380,7 +393,17 @@ export default function WhatsApp() {
       {/* Provider status strip */}
       {providers.map(p => {
         if (p.provider === "evolution") {
-          return <EvolutionStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} onEdit={(prov) => { setEditingProvider(prov); setShowProviderConfig(true); }} />;
+          return (
+            <EvolutionStatusCard
+              key={p.id}
+              provider={p}
+              projectName={projectName(p.project_id)}
+              projects={projects}
+              onSynced={load}
+              onEdit={(prov) => { setEditingProvider(prov); setShowProviderConfig(true); }}
+              onConnect={(prov) => { setConnectingProvider(prov); setShowConnectModal(true); }}
+            />
+          );
         }
         if (p.provider === "meta_cloud") {
           return <MetaCloudStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} onEdit={(prov) => { setEditingProvider(prov); setShowProviderConfig(true); }} />;
@@ -388,10 +411,20 @@ export default function WhatsApp() {
         return null;
       })}
       {providers.length === 0 && (
-        <div className="px-4 py-2 bg-muted/30 border-b border-border text-center shrink-0">
-          <p className="text-xs text-muted-foreground inline">Nenhum provider configurado.</p>
-          <Button size="sm" variant="link" className="text-xs h-auto p-0 ml-1" onClick={() => setShowProviderConfig(true)}>
-            Configurar agora →
+        <div className="px-4 py-2.5 bg-muted/30 border-b border-border text-center shrink-0 flex items-center justify-center gap-3">
+          <p className="text-xs text-muted-foreground">Nenhum provider conectado.</p>
+          <Button
+            size="sm"
+            onClick={() => {
+              setConnectingProvider(null);
+              setShowConnectModal(true);
+            }}
+            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+          >
+            <QrCode className="h-3 w-3 mr-1" /> Conectar WhatsApp Agora
+          </Button>
+          <Button size="sm" variant="link" className="text-xs h-auto p-0" onClick={() => setShowProviderConfig(true)}>
+            Configuração Avançada →
           </Button>
         </div>
       )}
@@ -741,6 +774,19 @@ export default function WhatsApp() {
         editingProvider={editingProvider}
         onCreated={() => { load(); setEditingProvider(null); }}
       />
+      <ConnectWhatsAppModal
+        open={showConnectModal}
+        onOpenChange={(open) => {
+          setShowConnectModal(open);
+          if (!open) setConnectingProvider(null);
+        }}
+        projects={projects}
+        provider={connectingProvider}
+        onSuccess={() => {
+          load();
+          loadReference();
+        }}
+      />
       <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} templates={templates} />
     </div>
   );
@@ -875,7 +921,7 @@ function HubConversations({ projects, providers }: { projects: { id: string; nam
 }
 
 // ── Evolution Status Card ──
-function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit }: { provider: WaProvider; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: WaProvider) => void }) {
+function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit, onConnect }: { provider: WaProvider; projectName: string; projects: { id: string; name: string }[]; onSynced: () => void; onEdit: (provider: WaProvider) => void; onConnect?: (provider: WaProvider) => void }) {
   const [status, setStatus] = useState<string>("loading");
   const [number, setNumber] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -999,9 +1045,13 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
         </div>
         <div className="flex gap-1.5 items-center">
           {!isConnected && !loading && (
-            <Button size="sm" variant="outline" onClick={restartInstance} disabled={restarting} className="h-7 text-[10px] border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
-              {restarting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Power className="h-3 w-3 mr-1" />}
-              Reconectar
+            <Button
+              size="sm"
+              onClick={() => onConnect?.(provider)}
+              className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-colors"
+            >
+              <QrCode className="h-3 w-3 mr-1" />
+              Conectar WhatsApp
             </Button>
           )}
           <AlertControls provider={provider} onChanged={onSynced} />
@@ -1035,8 +1085,11 @@ function EvolutionStatusCard({ provider, projectName, projects, onSynced, onEdit
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs text-emerald-400 font-medium" onClick={() => onConnect?.(provider)}>
+                <QrCode className="h-3 w-3 mr-2 text-emerald-400" /> Conectar via QR Code
+              </DropdownMenuItem>
               <DropdownMenuItem className="text-xs" onClick={restartInstance} disabled={restarting}>
-                <Power className="h-3 w-3 mr-2" /> Reconectar / Novo QR
+                <Power className="h-3 w-3 mr-2" /> Reiniciar Instância
               </DropdownMenuItem>
               <DropdownMenuItem className="text-xs" onClick={copyWebhook}>
                 <Copy className={`h-3 w-3 mr-2 ${copied ? "text-emerald-400" : ""}`} /> Copiar webhook URL
