@@ -1062,6 +1062,33 @@ Deno.serve(async (req) => {
         }
       }
 
+      let jpBookingInstruction = "";
+      let jpMastercutsInstruction = "";
+      if (isJPProject(project_id)) {
+        const lcMsg = (message || "").toLowerCase();
+        const SALAO_AGENDA_PATTERNS = /\b(agend(ar|amento|a)|cort(e|ar|ando)|hor[aá]rio|marcar|sal[aã]o|est[uú]dio|jp6|quanto (custa|fica|est[aá]) o corte|corte com o jp|fazer o cabelo|cortar o cabelo|lavar e cortar|transi[çc][aã]o no sal[aã]o)\b/i;
+        const isJPBookingQuery = SALAO_AGENDA_PATTERNS.test(lcMsg) && !lcMsg.includes("curso") && !lcMsg.includes("plataforma") && !lcMsg.includes("aula") && !lcMsg.includes("alun");
+        if (isJPBookingQuery) {
+          jpBookingInstruction = `\n🚨 ATENÇÃO MÁXIMA — PEDIDO DE AGENDAMENTO NO SALÃO:
+O cliente está perguntando sobre CORTAR CABELO, agendar horário ou serviços no salão/estúdio com o JP Freitas.
+SUA CONDUTA OBRIGATÓRIA:
+1. Explique com gentileza e simpatia que este WhatsApp é exclusivo para os cursos online e área de membros.
+2. Peça gentilmente para falar no canal correto de agendamentos do salão e envie SEMPRE o link oficial:
+   👉 https://jpfreitas.com.br/agenda
+3. NUNCA tente agendar por aqui e NUNCA tente vender cursos ou formações para quem quer apenas cortar o cabelo no salão. Envie o link da agenda.\n`;
+        }
+
+        const isJPMastercutsQuery = /\b(master\s*cuts?|mastercuts?|imers[aã]o presencial)\b/i.test(lcMsg);
+        if (isJPMastercutsQuery) {
+          jpMastercutsInstruction = `\n🚨 ATENÇÃO MÁXIMA — PERGUNTA SOBRE MASTER CUTS / PRESENCIAL:
+O cliente perguntou sobre o Master Cuts ou imersão presencial.
+SUA CONDUTA OBRIGATÓRIA:
+1. Informe que o Master Cuts NÃO TEM TURMAS ABERTAS no momento (a imersão presencial não possui vagas/turma aberta).
+2. É PROIBIDO enviar link de checkout ou tentar vender o Master Cuts.
+3. Se ele tiver interesse em aprender técnicas de corte agora com o JP Freitas, ofereça com entusiasmo os treinamentos online disponíveis: O Código dos Cortes Perfeitos (R$ 47) ou a Formação JP Hair Education.\n`;
+        }
+      }
+
       // 7.2.1. Momento atual (lead OU aluna) — injeta o estado salvo da última conversa
       let momentoBlock = "";
       try {
@@ -1404,6 +1431,9 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
         const entries = d.produtos
           .map((raw: unknown) => {
             const p = record(raw);
+            if (p.status === "inativo" || p.status === "esgotado" || p.status === "encerrado" || p.ativo === false) return null;
+            const pNome = String(p.nome || "").toLowerCase();
+            if (pNome.includes("master cuts") || pNome.includes("mastercuts")) return null;
             const link = p.link_checkout || p.link || (Array.isArray(p.links) && p.links[0]) || (typeof p.links === 'string' ? p.links : null);
             if (!link || !p.nome) return null;
             const price = p.preco ? ` · R$ ${p.preco}` : "";
@@ -1424,7 +1454,13 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       // Fallback checkout link from project data
       let fallbackLink = null;
       if (d) {
-        const getProdLink = (raw: unknown) => { const p = record(raw); return p.link_checkout || p.link || (Array.isArray(p.links) && p.links[0]) || (typeof p.links === "string" ? p.links : null); };
+        const getProdLink = (raw: unknown) => {
+          const p = record(raw);
+          if (p.status === "inativo" || p.status === "esgotado" || p.status === "encerrado" || p.ativo === false) return null;
+          const pNome = String(p.nome || "").toLowerCase();
+          if (pNome.includes("master cuts") || pNome.includes("mastercuts")) return null;
+          return p.link_checkout || p.link || (Array.isArray(p.links) && p.links[0]) || (typeof p.links === "string" ? p.links : null);
+        };
         fallbackLink = getProdLink(d.produto_principal) ||
                        (Array.isArray(d.produtos) && d.produtos.map(getProdLink).find(Boolean)) ||
                        d.link_checkout ||
@@ -1689,7 +1725,7 @@ ${sugameleStyleRules}
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? jpBuildInstructionsBlock(jpEmailKnown) : ""}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? (jpBuildInstructionsBlock(jpEmailKnown) + jpBookingInstruction + jpMastercutsInstruction) : ""}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] }[] = [{ role: "system", content: systemPrompt }];
