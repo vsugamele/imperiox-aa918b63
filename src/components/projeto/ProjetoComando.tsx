@@ -158,7 +158,11 @@ export function ProjetoComando({ projectId, project }: Props) {
   const leadsToday = leads.filter(l => l.criado_em && l.criado_em >= dayStartUtc).length;
   const pixToday = vendasHoje.filter(v => {
     const s = (v.status || "").toLowerCase();
-    return s.includes("pend") || s.includes("pix") || s.includes("waiting") || s.includes("carrinho");
+    return s.includes("pix") || s.includes("waiting");
+  }).length;
+  const carrinhosToday = vendasHoje.filter(v => {
+    const s = (v.status || "").toLowerCase();
+    return s.includes("carrinho");
   }).length;
   const salesToday = vendasHoje.filter(v => (v.status || "").toLowerCase() === "aprovado").length;
   const pendingTotal = pendingVendas.length;
@@ -449,9 +453,14 @@ export function ProjetoComando({ projectId, project }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Leads Hoje", value: leadsToday, icon: Users, color: "text-blue-400" },
-          { label: "Pix Gerados", value: pixToday, icon: Zap, color: "text-amber-400" },
+          {
+            label: pixToday > 0 && carrinhosToday === 0 ? "Pix Gerados" : carrinhosToday > 0 && pixToday === 0 ? "Carrinhos Abandonados" : "Pix / Carrinhos",
+            value: pixToday + carrinhosToday,
+            icon: Zap,
+            color: "text-amber-400",
+          },
           { label: "Vendas Hoje", value: salesToday, icon: ShoppingCart, color: "text-emerald-400" },
-          { label: "Pendentes", value: pendingTotal, icon: AlertCircle, color: "text-rose-400" },
+          { label: "Pendentes Total", value: pendingTotal, icon: AlertCircle, color: "text-rose-400" },
         ].map((kpi) => (
           <Card key={kpi.label} className="bg-card border-border">
             <CardContent className="p-4 text-center">

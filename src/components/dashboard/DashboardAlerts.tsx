@@ -15,11 +15,19 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
   useEffect(() => {
     async function load() {
       const alertList: string[] = [];
-      const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+      // Horário Brasil (UTC-3)
+      const now = new Date();
+      const brOffset = -3 * 60;
+      const brNow = new Date(now.getTime() + (brOffset + now.getTimezoneOffset()) * 60000);
+      const todayStr = brNow.toISOString().split("T")[0];
+      const dayStartUtc = `${todayStr}T03:00:00.000Z`;
       const hasProject = projectFilter && projectFilter !== "all";
 
-      let pixQ = supabase.from("imphq_leads").select("id", { count: "exact", head: true }).not("data->ultimo_evento", "is", null).neq("status", "cliente").gte("updated_at", todayStr);
-      if (hasProject) pixQ = pixQ.eq("project_id", projectFilter);
+      let pendingVendasQ = supabase
+        .from("imphq_vendas")
+        .select("id, status, valor, produto_nome")
+        .gte("created_at", dayStartUtc);
+      if (hasProject) pendingVendasQ = pendingVendasQ.eq("project_id", projectFilter);
 
       let costsQ = supabase.from("imphq_project_costs").select("valor, moeda, created_at, project_id");
       if (hasProject) costsQ = costsQ.eq("project_id", projectFilter);
@@ -33,9 +41,30 @@ export default function DashboardAlerts({ period, projectFilter }: Props) {
       let adsQ = supabase.from("imphq_ads_spend").select("valor, data_ref, leads, project_id");
       if (hasProject) adsQ = adsQ.eq("project_id", projectFilter);
 
-      const [pixTodayRes, costsRes, revsRes, vendasRes, adsRes] = await Promise.all([pixQ, costsQ, revsQ, vendasQ, adsQ]);
+      const [pendingVendasRes, costsRes, revsRes, vendasRes, adsRes] = await Promise.all([
+        pendingVendasQ,
+        costsQ,
+        revsQ,
+        vendasQ,
+        adsQ,
+      ]);
 
-      if ((pixTodayRes.count || 0) > 0) alertList.push(`💳 ${pixTodayRes.count} lead(s) geraram pix hoje e não compraram${hasProject ? " (no projeto)" : ""}`);
+      const pendingVendasHoje = pendingVendasRes.data || [];
+      const pixHoje = pendingVendasHoje.filter((v) => {
+        const s = (v.status || "").toLowerCase();
+        return s.includes("pix") || s.includes("waiting");
+      });
+      const carrinhosHoje = pendingVendasHoje.filter((v) => {
+        const s = (v.status || "").toLowerCase();
+        return s.includes("carrinho");
+      });
+
+      if (pixHoje.length > 0) {
+        alertList.push(`💳 ${pixHoje.length} lead(s) geraram PIX hoje e aguardam pagamento${hasProject ? " (no projeto)" : ""}`);
+      }
+      if (carrinhosHoje.length > 0) {
+        alertList.push(`🛒 ${carrinhosHoje.length} carrinho(s) abandonado(s) hoje sem compra concluída${hasProject ? " (no projeto)" : ""}`);
+      }
 
       // Revenue vs Cost by month
       const monthMap: Record<string, { receita: number; custo: number; ads: number }> = {};
