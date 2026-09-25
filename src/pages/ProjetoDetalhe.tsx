@@ -30,6 +30,8 @@ import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { ProjetoRaioXFunil } from "@/components/projeto/ProjetoRaioXFunil";
+import { ProjetoMapaOperacional } from "@/components/projeto/ProjetoMapaOperacional";
+import { ProjetoMcpDialog } from "@/components/projeto/ProjetoMcpDialog";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
@@ -39,7 +41,7 @@ import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
 import { ProjetoInsights } from "@/components/projeto/ProjetoInsights";
 import { ProjetoInstagram } from "@/components/projeto/ProjetoInstagram";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
-import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff } from "lucide-react";
+import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff, Zap } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -49,6 +51,7 @@ const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = 
   {
     id: "comando", label: "Comando", emoji: "🎯",
     tabs: [
+      { value: "mapa", label: "Mapa Operacional", emoji: "🗺️" },
       { value: "comando", label: "Comando", emoji: "🎯" },
       { value: "raiox", label: "Raio-X & Funil", emoji: "⚡" },
       { value: "identidade", label: "Identidade", emoji: "🎨" },
@@ -113,6 +116,7 @@ export default function ProjetoDetalhe() {
     storageKey ? (localStorage.getItem(storageKey) || "comando") : "comando"
   ));
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [mcpOpen, setMcpOpen] = useState(false);
 
   const allTabs = useMemo(() => PILLARS.flatMap(p => p.tabs.map(t => ({ ...t, pillar: p.label }))), []);
 
@@ -274,6 +278,13 @@ export default function ProjetoDetalhe() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <SalesPathButton projectId={id!} projectName={project.name} />
               <Button
+                size="sm"
+                className="gap-1.5 text-xs bg-primary hover:bg-primary/90 text-black font-semibold shadow-lg shadow-primary/20"
+                onClick={() => setMcpOpen(true)}
+              >
+                <Zap className="h-3 w-3" /> 🔌 Conectar IA / MCP
+              </Button>
+              <Button
                 variant="outline"
                 size="sm"
                 className="gap-1.5 text-xs border-border/60 hover:border-gold/40"
@@ -406,6 +417,14 @@ export default function ProjetoDetalhe() {
           </div>
         </div>
 
+        <TabsContent value="mapa" className="mt-4 focus:outline-none">
+          <ProjetoMapaOperacional
+            projectId={id!}
+            project={project}
+            onNavigateTab={goToTab}
+            onRefresh={refreshProject}
+          />
+        </TabsContent>
         <TabsContent value="comando" className="mt-4">
           <ProjetoComando projectId={id!} project={project} />
         </TabsContent>
@@ -550,6 +569,12 @@ export default function ProjetoDetalhe() {
           ))}
         </CommandList>
       </CommandDialog>
+
+      <ProjetoMcpDialog
+        open={mcpOpen}
+        onOpenChange={setMcpOpen}
+        project={project}
+      />
     </div>
   );
 }
