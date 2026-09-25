@@ -172,7 +172,7 @@ const App = () => (
                 <Route path="financas" element={<Financas />} />
                 <Route path="market-intel" element={<MarketIntel />} />
                 <Route path="mentes" element={<Mentes />} />
-                <Route path="funis" element={<Funis />} />
+                <Route path="funis" element={<Navigate to="/projetos" replace />} />
                 <Route path="funis/simulador" element={<FunilSimulador />} />
                 <Route path="funis/linfaflow-x1" element={<LinfaFlowX1 />} />
                 <Route path="funis/linfaflow-x1-ready" element={<LinfaFlowX1Ready />} />

@@ -27,7 +27,6 @@ const hojeitems = [
 const venderItems = [
   { title: "Projetos",   url: "/projetos",  icon: FolderKanban },
   { title: "Campanhas",  url: "/campanhas", icon: Target },
-  { title: "Funis",      url: "/funis",     icon: Target },
   { title: "LinfaFlow X1", url: "/funis/linfaflow-x1-ready", icon: Stethoscope },
   { title: "LinfaFlow Care", url: "/funis/linfaflow-care", icon: MessageSquare },
   { title: "Care Conversão", url: "/funis/linfaflow-care-dashboard", icon: BarChart3 },

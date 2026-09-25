@@ -14,7 +14,6 @@ const PRIMARY = [
 const MORE = [
   { to: "/financas", label: "Finanças" },
   { to: "/gerenciador", label: "Gerenciador" },
-  { to: "/funis", label: "Funis" },
   { to: "/recuperacao", label: "Recuperação" },
   { to: "/imperius", label: "Imperius" },
   { to: "/projetos", label: "Projetos" },

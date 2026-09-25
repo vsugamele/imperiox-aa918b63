@@ -31,6 +31,7 @@ import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { ProjetoRaioXFunil } from "@/components/projeto/ProjetoRaioXFunil";
 import { ProjetoMapaOperacional } from "@/components/projeto/ProjetoMapaOperacional";
+import { ProjetoEcossistema } from "@/components/projeto/ProjetoEcossistema";
 import { ProjetoMcpDialog } from "@/components/projeto/ProjetoMcpDialog";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
@@ -52,6 +53,7 @@ const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = 
     id: "comando", label: "Comando", emoji: "🎯",
     tabs: [
       { value: "mapa", label: "Mapa Operacional", emoji: "🗺️" },
+      { value: "ecossistema", label: "Ecossistema & Produtos", emoji: "🌐" },
       { value: "comando", label: "Comando", emoji: "🎯" },
       { value: "raiox", label: "Raio-X & Funil", emoji: "⚡" },
       { value: "identidade", label: "Identidade", emoji: "🎨" },
@@ -423,6 +425,14 @@ export default function ProjetoDetalhe() {
             project={project}
             onNavigateTab={goToTab}
             onRefresh={refreshProject}
+          />
+        </TabsContent>
+        <TabsContent value="ecossistema" className="mt-4 focus:outline-none">
+          <ProjetoEcossistema
+            projectId={id!}
+            project={project}
+            onUpdateData={onUpdateData}
+            onNavigateTab={goToTab}
           />
         </TabsContent>
         <TabsContent value="comando" className="mt-4">
