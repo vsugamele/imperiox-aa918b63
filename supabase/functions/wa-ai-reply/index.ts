@@ -511,40 +511,56 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (conv?.status === "needs_human" && !isTestMode) {
-      // Auto-resume: se nenhum humano respondeu após o handoff dentro do timeout configurado, IA reassume
-      const autoResumeMinutes = Number(aiConfig?.handoff_auto_resume_minutes ?? 30);
-      let autoResumeHandoff = false;
-      if (autoResumeMinutes > 0) {
-        try {
-          // Referência: última saída humana OU horário do handoff
-          const { data: lastOut } = await supabase
-            .from("imphq_wa_messages")
-            .select("created_at")
-            .eq("conversation_id", conversation_id)
-            .eq("direction", "outgoing")
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          const handoffAt = conv?.handoff_at ? new Date(conv.handoff_at).getTime() : 0;
-          const lastOutAt = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
-          const refAt = Math.max(handoffAt, lastOutAt);
-          const minutesSince = refAt ? (Date.now() - refAt) / 60_000 : Infinity;
-          if (minutesSince >= autoResumeMinutes) autoResumeHandoff = true;
-        } catch (_) { /* ignore */ }
-      }
+    const isFullAutonomy = Boolean(
+      aiConfig?.full_autonomy ||
+      aiConfig?.never_handoff ||
+      aiConfig?.disable_handoff ||
+      (aiConfig as any)?.autonomous_mode ||
+      (aiConfig?.custom_instructions && /nunca pare no humano|autonomia total|sem handoff|nunca parar no humano/i.test(aiConfig.custom_instructions))
+    );
 
-      if (autoResumeHandoff) {
-        console.log(`[wa-ai-reply] Auto-resume de needs_human (>=${autoResumeMinutes}min sem humano). Reativando IA.`);
+    if (conv?.status === "needs_human" && !isTestMode) {
+      if (isFullAutonomy) {
+        console.log(`[wa-ai-reply] Autonomia total ativa: reativando conversa needs_human ${conversation_id}`);
         await supabase.from("imphq_wa_conversations").update({
           status: "active",
           ai_paused_until: null,
         }).eq("id", conversation_id);
       } else {
-        console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA (timeout=${autoResumeMinutes}min)`);
-        return new Response(JSON.stringify({ skipped: "needs_human" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // Auto-resume: se nenhum humano respondeu após o handoff dentro do timeout configurado, IA reassume
+        const autoResumeMinutes = Number(aiConfig?.handoff_auto_resume_minutes ?? 30);
+        let autoResumeHandoff = false;
+        if (autoResumeMinutes > 0) {
+          try {
+            // Referência: última saída humana OU horário do handoff
+            const { data: lastOut } = await supabase
+              .from("imphq_wa_messages")
+              .select("created_at")
+              .eq("conversation_id", conversation_id)
+              .eq("direction", "outgoing")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const handoffAt = conv?.handoff_at ? new Date(conv.handoff_at).getTime() : 0;
+            const lastOutAt = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
+            const refAt = Math.max(handoffAt, lastOutAt);
+            const minutesSince = refAt ? (Date.now() - refAt) / 60_000 : Infinity;
+            if (minutesSince >= autoResumeMinutes) autoResumeHandoff = true;
+          } catch (_) { /* ignore */ }
+        }
+
+        if (autoResumeHandoff) {
+          console.log(`[wa-ai-reply] Auto-resume de needs_human (>=${autoResumeMinutes}min sem humano). Reativando IA.`);
+          await supabase.from("imphq_wa_conversations").update({
+            status: "active",
+            ai_paused_until: null,
+          }).eq("id", conversation_id);
+        } else {
+          console.log(`[wa-ai-reply] Conversa com status needs_human, ignorando IA (timeout=${autoResumeMinutes}min)`);
+          return new Response(JSON.stringify({ skipped: "needs_human" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
@@ -558,29 +574,35 @@ Deno.serve(async (req) => {
       { rx: /\b(fdp|merda|porra|caralho|filha? da puta|otari[oa]|idiota|imbecil)\b/i, reason: "linguagem hostil" },
       { rx: /\b(para|pare|chega) de (mandar|me mandar|responder|enviar)\b/i, reason: "pediu parar" },
     ];
+    let frictionReason: string | null = null;
     if (!isTestMode && message && typeof message === "string") {
       const hit = HANDOFF_PATTERNS.find(p => p.rx.test(message));
       if (hit) {
-        console.log(`[wa-ai-reply] HANDOFF detectado: ${hit.reason} — pausando IA e marcando needs_human`);
-        try {
-          await supabase.from("imphq_wa_conversations").update({
-            status: "needs_human",
-            ai_paused_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-          }).eq("id", conversation_id);
-          await supabase.from("imphq_notifications").insert({
-            projeto_id: project_id || null,
-            tipo: "handoff_humano",
-            titulo: `🔥 Precisa humano: ${hit.reason}`,
-            mensagem: `Conversa ${conv?.contact_name || conv?.phone || conversation_id}: "${String(message).slice(0, 180)}"`,
-            payload: { conversation_id, reason: hit.reason, snippet: String(message).slice(0, 300) },
-            lida: false,
+        frictionReason = hit.reason;
+        if (!isFullAutonomy) {
+          console.log(`[wa-ai-reply] HANDOFF detectado: ${hit.reason} — pausando IA e marcando needs_human`);
+          try {
+            await supabase.from("imphq_wa_conversations").update({
+              status: "needs_human",
+              ai_paused_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+            }).eq("id", conversation_id);
+            await supabase.from("imphq_notifications").insert({
+              projeto_id: project_id || null,
+              tipo: "handoff_humano",
+              titulo: `🔥 Precisa humano: ${hit.reason}`,
+              mensagem: `Conversa ${conv?.contact_name || conv?.phone || conversation_id}: "${String(message).slice(0, 180)}"`,
+              payload: { conversation_id, reason: hit.reason, snippet: String(message).slice(0, 300) },
+              lida: false,
+            });
+          } catch (e) {
+            console.warn(`[wa-ai-reply] handoff persist error: ${errorMessage(e)}`);
+          }
+          return new Response(JSON.stringify({ skipped: "handoff_humano", reason: hit.reason }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
-        } catch (e) {
-          console.warn(`[wa-ai-reply] handoff persist error: ${errorMessage(e)}`);
+        } else {
+          console.log(`[wa-ai-reply] Autonomia total ativa: desescalando internamente motivo=${hit.reason}`);
         }
-        return new Response(JSON.stringify({ skipped: "handoff_humano", reason: hit.reason }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
       }
     }
 
@@ -1684,12 +1706,25 @@ Sua missão NESTA resposta:
 Máximo 6 linhas no total.
 ` : "";
 
+      const fullAutonomyBlock = isFullAutonomy ? `
+AUTONOMIA TOTAL E DESESCALADA DE CONFLITO (NUNCA PARE NO HUMANO):
+- Você NUNCA transfere ou sugere transferir para outro atendente humano. Você tem autonomia total para acolher, responder, negociar, desarmar qualquer estresse e resolver 100% da conversa com calma, autoridade e empatia.
+- SE O CLIENTE PERGUNTAR SE VOCÊ É UM ROBÔ / IA: Não entre em crise nem seja frio. Responda com naturalidade e acolhimento humano: "Sou da equipe de consultoria aqui pelo WhatsApp! Uso o teclado automático pra agilizar as mensagens porque são muitas pessoas chamando, mas estou lendo tudo o que você me manda com atenção. Me conta, o que você precisa?"
+- SE O CLIENTE PEDIR PARA FALAR COM HUMANO / ATENDENTE: Assuma a responsabilidade com segurança e leveza: "Pode falar comigo mesma! Sou eu que cuido dessa parte aqui no WhatsApp e estou com o seu caso aberto agora. Me diz o que aconteceu ou o que você precisa que eu resolvo direto com você."
+- SE O CLIENTE ESTIVER ESTRESSADO / IRRITADO / DESCONFIADO / COM RAIVA ("parem de enrolar", "isso é golpe", "quero meu dinheiro"):
+  * NUNCA discuta, NUNCA dê lições de moral e NUNCA fique na defensiva.
+  * Baixe o tom imediatamente. Acolha a frustração em 1 linha e vá direto ao ponto: "Te entendo perfeitamente. Se você já teve problema com atendimento ou coisas que não funcionaram, tem toda razão de estar chateado. Me fala direto o que você quer saber ou resolver agora, que eu vou direto ao ponto sem enrolação."
+- SE HOUVER MEDO DE GOLPE / FRAUDE: Valide a cautela com naturalidade: "Você tem toda razão de ter cuidado, hoje em dia tem muita promessa furada na internet. Nosso envio é oficial com nota fiscal, código de rastreamento e garantia incondicional de 60 dias. Se não gostar, o reembolso é feito direto sem burocracia."
+${frictionReason ? `\n[ALERTA DE FRICÇÃO DETECTADO]: O cliente expressou "${frictionReason}". Acolha imediatamente esse sentimento e desescale com calma e foco na resolução!\n` : ""}
+` : "";
+
       const systemPrompt = `${temporalAnchorBlock}${paymentConfirmationBlock}${consultiveBlock}${expertPersona}Voce e um consultor especialista em vendas pelo WhatsApp, atendendo para "${project?.name || project_id}".
 ${selectedPersonalityText}
 ${toneMap[aiConfig.tone] || toneMap.amigavel}
 ${leadGreeting}
 ${leadContextBlock}${leadLongMemoryBlock}${crossProjectMemoryBlock}${campaignContextBlock}${jpCrmContextBlock}${momentoBlock}
 ${humanizationRules}${anglesPromptBlock()}
+${fullAutonomyBlock}
 ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 
 (A) LEAD QUE JÁ SABE O QUE QUER E EXPLICITAMENTE PEDIU AVANÇO (perguntou PREÇO, pediu LINK, disse "quero comprar"/"quero fechar", pediu PIX, mandou comprovante):
