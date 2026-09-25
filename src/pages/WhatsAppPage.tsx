@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +27,7 @@ import QrCodePanel from "@/components/whatsapp/QrCodePanel";
 import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import ConnectWhatsAppModal from "@/components/whatsapp/ConnectWhatsAppModal";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
+import HubLocalManager from "@/components/whatsapp/HubLocalManager";
 import ConversationList from "@/components/whatsapp/ConversationList";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
@@ -71,7 +72,7 @@ export default function WhatsApp() {
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [editingProvider, setEditingProvider] = useState<WaProvider | null>(null);
   const [showBulk, setShowBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "ai" | "triagem" | "objecoes" | "conversao">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "ai" | "triagem" | "objecoes" | "conversao" | "hub">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
   const [selectedAiProviderId, setSelectedAiProviderId] = useState<string>("");
@@ -451,6 +452,9 @@ export default function WhatsApp() {
         <button onClick={() => setActiveTab("conversao")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "conversao" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           📊 Conversão
         </button>
+        <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-[#D6FF4B] text-[#D6FF4B]" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <Radio className="h-3 w-3 inline mr-1 text-[#D6FF4B]" />📡 Hub Local (Baileys)
+        </button>
       </div>
 
       {/* Main content */}
@@ -721,6 +725,22 @@ export default function WhatsApp() {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === "hub" && (
+          <ScrollArea className="h-full">
+            <HubLocalManager
+              projects={projects}
+              providers={providers}
+              onOpenConversation={(convId) => {
+                const target = sessions.find(s => s.id === convId);
+                if (target) {
+                  setSelectedSession(target);
+                  setActiveTab("sessoes");
+                }
+              }}
+            />
+          </ScrollArea>
         )}
       </div>
 
