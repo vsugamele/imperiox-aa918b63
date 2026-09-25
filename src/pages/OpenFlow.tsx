@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { z } from "zod";
 import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 import type { Tables, Json } from "@/integrations/supabase/types";
@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers, Link2, AlertTriangle, X } from "lucide-react";
+import { Plus, Trash2, Zap, Mail, MessageCircle, Send, Save, Copy, BookOpen, Clock, ScrollText, Play, Pause, CopyPlus, Activity, CheckCircle2, XCircle, Loader2, RotateCcw, Megaphone, Users, Mic, BarChart3, History, LogOut, Info, Image as ImageIcon, Bot, Layers, Link2, AlertTriangle, X, Package } from "lucide-react";
 import { toast } from "sonner";
 import { FlowEditor, type Acao, type ProjectTemplate, type WaProvider } from "@/components/openflow/FlowEditor";
 import { ExecutionsPanel } from "@/components/openflow/ExecutionsPanel";
@@ -158,6 +158,8 @@ export default function OpenFlow() {
   const [templatesRefresh, setTemplatesRefresh] = useState(0);
   const [kpis, setKpis] = useState({ total: 0, success: 0, errors: 0, rate: 0 });
   const [filterProject, setFilterProject] = useState<string>("__all__");
+  const [filterProduct, setFilterProduct] = useState<string>("__all__");
+  const [projectProductsMap, setProjectProductsMap] = useState<Record<string, string[]>>({});
   const [allTags, setAllTags] = useState<string[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
   const [customTagMode, setCustomTagMode] = useState(false);
@@ -202,15 +204,27 @@ export default function OpenFlow() {
 
     try {
       const [fullProjsRes, tagCountsRes] = await Promise.all([
-        supabase.from("imphq_projects").select("data"),
+        supabase.from("imphq_projects").select("id, data"),
         supabase.rpc("get_lead_tag_counts", { p_project_id: null, p_limit: 200 })
       ]);
       const prodsSet = new Set<string>();
+      const projMap: Record<string, string[]> = {};
       (fullProjsRes.data || []).forEach((p) => {
         const prods = jsonFields(p.data).produtos;
-        if (Array.isArray(prods)) prods.forEach(prod => { const nome = jsonText(jsonFields(prod).nome); if (nome) prodsSet.add(nome); });
+        const pList: string[] = [];
+        if (Array.isArray(prods)) {
+          prods.forEach(prod => {
+            const nome = jsonText(jsonFields(prod).nome);
+            if (nome) {
+              prodsSet.add(nome);
+              pList.push(nome);
+            }
+          });
+        }
+        if (p.id) projMap[p.id] = pList;
       });
       setAllProducts(Array.from(prodsSet).sort());
+      setProjectProductsMap(projMap);
       setAllTags((tagCountsRes.data || []).map((t) => t.tag).filter(Boolean));
     } catch (e) { console.warn(e); }
 
@@ -360,7 +374,36 @@ export default function OpenFlow() {
     else { toast.success("Excluído"); load(); }
   };
 
-  const filtered = automacoes.filter(a => filterProject === "__all__" || a.project_id === filterProject);
+  const availableProducts = useMemo(() => {
+    const set = new Set<string>();
+    automacoes.forEach(a => {
+      if (filterProject === "__all__" || a.project_id === filterProject) {
+        if (a.produto && a.produto.trim()) {
+          set.add(a.produto.trim());
+        }
+      }
+    });
+
+    if (filterProject === "__all__") {
+      allProducts.forEach(p => set.add(p));
+    } else if (projectProductsMap[filterProject]) {
+      projectProductsMap[filterProject].forEach(p => set.add(p));
+    }
+
+    return Array.from(set).sort();
+  }, [automacoes, filterProject, allProducts, projectProductsMap]);
+
+  const hasNoProductFlows = useMemo(() => {
+    return automacoes.some(a => (filterProject === "__all__" || a.project_id === filterProject) && (!a.produto || !a.produto.trim()));
+  }, [automacoes, filterProject]);
+
+  const filtered = automacoes.filter(a => {
+    const matchProject = filterProject === "__all__" || a.project_id === filterProject;
+    if (!matchProject) return false;
+    if (filterProduct === "__all__") return true;
+    if (filterProduct === "__none__") return !a.produto || !a.produto.trim();
+    return a.produto === filterProduct;
+  });
 
   const [templates, setTemplates] = useState<Tables<"imphq_flow_templates">[]>([]);
   useEffect(() => {
@@ -435,11 +478,63 @@ export default function OpenFlow() {
 
         <TabsContent value="fluxos" className="space-y-6 pt-4">
           <div className="flex flex-col md:flex-row justify-between gap-4">
-            <div className="flex gap-2 items-center flex-1 md:flex-none">
-              <Select value={filterProject} onValueChange={setFilterProject}>
-                <SelectTrigger className="w-full md:w-[240px] h-9 bg-slate-900 border-white/5"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="__all__">Todos os Projetos</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+            <div className="flex gap-2 items-center flex-1 md:flex-none flex-wrap">
+              <Select
+                value={filterProject}
+                onValueChange={(val) => {
+                  setFilterProject(val);
+                  setFilterProduct("__all__");
+                }}
+              >
+                <SelectTrigger className="w-full md:w-[220px] h-9 bg-slate-900 border-white/5">
+                  <SelectValue placeholder="Todos os Projetos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos os Projetos</SelectItem>
+                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
               </Select>
+
+              <Select value={filterProduct} onValueChange={setFilterProduct}>
+                <SelectTrigger className="w-full md:w-[240px] h-9 bg-slate-900 border-white/5">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Package className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    <SelectValue placeholder="Filtrar por produto" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">
+                    Todos os Produtos ({automacoes.filter(a => filterProject === "__all__" || a.project_id === filterProject).length})
+                  </SelectItem>
+                  {hasNoProductFlows && (
+                    <SelectItem value="__none__">Sem Produto Específico</SelectItem>
+                  )}
+                  {availableProducts.map(prod => {
+                    const count = automacoes.filter(a => (filterProject === "__all__" || a.project_id === filterProject) && a.produto === prod).length;
+                    return (
+                      <SelectItem key={prod} value={prod}>
+                        📦 {prod} {count > 0 ? `(${count})` : ''}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              {(filterProject !== "__all__" || filterProduct !== "__all__") && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setFilterProject("__all__");
+                    setFilterProduct("__all__");
+                  }}
+                  className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  title="Limpar todos os filtros"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Limpar
+                </Button>
+              )}
             </div>
             <div className="flex gap-2">
               <Button onClick={() => setShowX1Templates(true)} variant="outline" className="border-white/10 hover:bg-white/5 font-semibold">
@@ -457,7 +552,7 @@ export default function OpenFlow() {
 
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {!automacoes.some(a => a.id === CINNA_NATIVE_FLOW_ID) && (filterProject === "__all__" || filterProject === "cinna-shield") && <CinnaCloudFlowCard />}
+            {!automacoes.some(a => a.id === CINNA_NATIVE_FLOW_ID) && (filterProject === "__all__" || filterProject === "cinna-shield") && filterProduct === "__all__" && <CinnaCloudFlowCard />}
             {filtered.map(a => {
               const meta = triggerMeta(a.trigger_tipo);
               const stats = health.get(a.id);
@@ -526,6 +621,28 @@ export default function OpenFlow() {
                 </Card>
               );
             })}
+            {filtered.length === 0 && (
+              <div className="col-span-full text-center py-12 p-6 rounded-xl border border-dashed border-white/10 bg-slate-900/30 space-y-2">
+                <Package className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+                <p className="text-sm font-medium text-slate-300">Nenhum fluxo encontrado para este filtro.</p>
+                <p className="text-xs text-muted-foreground">
+                  Tente alterar o projeto ou produto selecionado, ou crie um novo fluxo X1.
+                </p>
+                {(filterProject !== "__all__" || filterProduct !== "__all__") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFilterProject("__all__");
+                      setFilterProduct("__all__");
+                    }}
+                    className="mt-2 text-xs border-white/10"
+                  >
+                    Limpar Filtros
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
 
