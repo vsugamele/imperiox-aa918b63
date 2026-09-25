@@ -1,4 +1,3 @@
-import { groupHubMessages, type HubMessage } from "@/components/whatsapp/hub-conversations";
 import { record } from "@/lib/funis-data";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { PostgrestError } from "@supabase/supabase-js";
@@ -18,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,8 +27,6 @@ import QrCodePanel from "@/components/whatsapp/QrCodePanel";
 import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import ConnectWhatsAppModal from "@/components/whatsapp/ConnectWhatsAppModal";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
-import WaHubQrPanel from "@/components/whatsapp/WaHubQrPanel";
-import HubGuide from "@/components/whatsapp/HubGuide";
 import ConversationList from "@/components/whatsapp/ConversationList";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
@@ -48,7 +45,6 @@ interface WaTemplate {
 
 type WaSession = Pick<Tables<"imphq_wa_conversations">, "id" | "contact_name" | "phone" | "session" | "project_id" | "status" | "message_count" | "metadata" | "created_at" | "provider_id" | "last_message" | "updated_at" | "last_message_at" | "last_read_at" | "avatar_url" | "unread_count" | "last_message_direction" | "jid_suffix" | "ai_last_reply_at" | "ai_lock_until" | "ai_paused_until" | "assigned_to" | "snoozed_until" | "handoff_at" | "color_override">;
 type WaProvider = Pick<Tables<"imphq_wa_providers">, "id" | "display_name" | "instance_name" | "provider" | "api_url" | "is_active" | "project_id" | "webhook_verify_token" | "waba_id" | "phone_number_id" | "health_alerts_enabled" | "health_alerts_muted_until" | "twilio_from" | "created_at" | "ai_enabled" | "status">;
-type HubSession = Pick<Tables<"wa_hub_iso_sessions">, "id" | "session_key" | "tenant_id" | "status">;
 
 let waRefCache: {
   ts: number;
@@ -75,7 +71,7 @@ export default function WhatsApp() {
   const [showProviderConfig, setShowProviderConfig] = useState(false);
   const [editingProvider, setEditingProvider] = useState<WaProvider | null>(null);
   const [showBulk, setShowBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "hub" | "ai" | "triagem" | "objecoes" | "conversao">("sessoes");
+  const [activeTab, setActiveTab] = useState<"sessoes" | "templates" | "campanhas" | "comandos" | "ai" | "triagem" | "objecoes" | "conversao">("sessoes");
   const [form, setForm] = useState({ phone: "", contact_name: "", session: "", project_id: "", default_message: "" });
   const [chatTab, setChatTab] = useState<"chat" | "qrcode" | "info">("chat");
   const [selectedAiProviderId, setSelectedAiProviderId] = useState<string>("");
@@ -452,9 +448,6 @@ export default function WhatsApp() {
         <button onClick={() => setActiveTab("objecoes")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "objecoes" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           📚 Objeções
         </button>
-        <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <Radio className="h-3 w-3 inline mr-1" />Hub Local (Beta)
-        </button>
         <button onClick={() => setActiveTab("conversao")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "conversao" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           📊 Conversão
         </button>
@@ -718,14 +711,6 @@ export default function WhatsApp() {
           </ScrollArea>
         )}
 
-        {activeTab === "hub" && (
-          <ScrollArea className="h-full">
-            <div className="p-4">
-              <HubConversations projects={projects} providers={providers} />
-            </div>
-          </ScrollArea>
-        )}
-
         {activeTab === "conversao" && (
           <div className="h-full overflow-hidden">
             {(filterProject !== "all" ? filterProject : projects[0]?.id) ? (
@@ -788,134 +773,6 @@ export default function WhatsApp() {
         }}
       />
       <BulkSendDialog open={showBulk} onOpenChange={setShowBulk} providers={providers} templates={templates} />
-    </div>
-  );
-}
-
-// ── Hub Conversations (kept inline, simplified) ──
-function HubConversations({ projects, providers }: { projects: { id: string; name: string }[]; providers: WaProvider[] }) {
-  const [messages, setMessages] = useState<HubMessage[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Pick<Tables<"imphq_wa_conversations">, "id" | "phone" | "project_id" | "provider_id"> | null>(null);
-  const [hubSessions, setHubSessions] = useState<HubSession[]>([]);
-  const [hubFilterProject, setHubFilterProject] = useState("all");
-  const projectName = (id: string) => projects.find(p => p.id === id)?.name || "—";
-
-  useEffect(() => {
-    Promise.all([
-      supabase.from("imphq_wa_messages").select("id, phone, content, created_at, project_id, conversation_id").order("created_at", { ascending: false }).limit(100),
-      supabase.from("wa_hub_iso_sessions").select("id, session_key, tenant_id, status"),
-    ]).then(([msgRes, hubRes]) => {
-      setMessages(msgRes.data || []);
-      setHubSessions(hubRes.data || []);
-    });
-  }, []);
-
-  const connectedCount = hubSessions.filter(s => s.status === "connected").length;
-
-  const grouped = useMemo(() => {
-    let result = groupHubMessages(messages);
-    if (hubFilterProject !== "all") result = result.filter(g => g.projectId === hubFilterProject);
-    return result;
-  }, [messages, hubFilterProject]);
-
-  if (selectedConversation) {
-    return (
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setSelectedConversation(null)}>← Voltar</Button>
-        <h2 className="text-lg font-semibold text-primary">Chat: {selectedConversation.phone}</h2>
-        <Card className="bg-card border-border h-[500px]">
-          <ChatView conversationId={selectedConversation.id} phone={selectedConversation.phone} projectId={selectedConversation.project_id || ""} providerId={selectedConversation.provider_id} />
-        </Card>
-      </div>
-    );
-  }
-
-  const deleteHubSession = async (session: HubSession) => {
-    const results = await Promise.all([
-      supabase.from("wa_hub_iso_events").delete().eq("tenant_id", session.tenant_id).eq("session_key", session.session_key),
-      supabase.from("wa_hub_iso_commands").delete().eq("tenant_id", session.tenant_id).eq("session_key", session.session_key),
-    ]);
-    if (results.some(result => result.error)) { toast.error("Não foi possível limpar os dados da sessão."); return false; }
-    const { error } = await supabase.from("wa_hub_iso_sessions").delete().eq("id", session.id);
-    if (error) { toast.error("Não foi possível remover a sessão."); return false; }
-    setHubSessions(prev => prev.filter(s => s.id !== session.id));
-    toast.success(`Sessão ${session.session_key} removida`);
-    return true;
-  };
-
-  const cleanOfflineSessions = async () => {
-    const offline = hubSessions.filter(s => s.status !== "connected");
-    if (offline.length === 0) { toast.info("Nenhuma sessão offline"); return; }
-    let removed = 0;
-    for (const session of offline) { if (await deleteHubSession(session)) removed++; }
-    if (removed) toast.success(`${removed} sessão(ões) offline removida(s)`);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-muted/50 rounded-lg p-3 border border-border">
-        <p className="text-xs text-muted-foreground">
-          <strong>Hub Local (Beta)</strong> — Conecta diretamente ao WhatsApp Web via QR Code no navegador. Diferente da Evolution API, funciona apenas enquanto o navegador estiver aberto.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <Badge variant="outline" className={`text-xs gap-1 ${connectedCount > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
-          {connectedCount > 0 ? "🟢" : "🔴"} Hub: {connectedCount} sessão(ões)
-        </Badge>
-        {hubSessions.filter(s => s.status !== "connected").map(s => (
-          <Badge key={s.id} variant="outline" className="text-[10px] bg-muted text-muted-foreground gap-1">
-            🔴 {s.session_key}
-            <button onClick={() => deleteHubSession(s)} className="ml-1 hover:text-destructive transition-colors"><XIcon className="h-3 w-3" /></button>
-          </Badge>
-        ))}
-        {hubSessions.filter(s => s.status !== "connected").length > 0 && (
-          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={cleanOfflineSessions}>
-            <Trash2 className="h-3 w-3 mr-1" /> Limpar Offline
-          </Button>
-        )}
-      </div>
-
-      <div className="max-w-lg mx-auto"><WaHubQrPanel /></div>
-      <HubGuide />
-
-      <Select value={hubFilterProject} onValueChange={setHubFilterProject}>
-        <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Filtrar por projeto" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos os Projetos</SelectItem>
-          {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-        </SelectContent>
-      </Select>
-
-      {grouped.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {grouped.map(g => (
-            <Card key={g.conversationId || g.phone} className="bg-card border-border hover:border-primary/20 cursor-pointer transition-colors" onClick={async () => {
-              if (!g.conversationId) { toast.error("Esta mensagem não possui conversa vinculada."); return; }
-              const { data, error } = await supabase.from("imphq_wa_conversations").select("id, phone, project_id, provider_id").eq("id", g.conversationId).maybeSingle();
-              if (error || !data) { toast.error("Não foi possível abrir a conversa vinculada."); return; }
-              setSelectedConversation(data);
-            }}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <MessageSquare className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{g.phone}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{g.lastMsg}</p>
-                    <Badge variant="outline" className="text-[9px] mt-1">{g.count} msgs</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <p className="text-sm text-muted-foreground">Nenhuma conversa do Hub. Conecte via QR Code para começar.</p>
-        </div>
-      )}
     </div>
   );
 }

@@ -44,8 +44,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-const PIPELINE_KEYS = ["avatar", "funil", "copy", "prompts", "design", "trafego"];
-
 type TabDef = { value: string; label: string; emoji: string };
 const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = [
   {
@@ -158,10 +156,23 @@ export default function ProjetoDetalhe() {
 
   if (!project) return <div className="text-muted-foreground p-8">Carregando...</div>;
 
-  const pipeline = jsonFields(project.pipeline);
-  const pipelineAvg = Math.round(
-    PIPELINE_KEYS.reduce((sum, k) => sum + (jsonNumber(pipeline[k]) ?? 0), 0) / PIPELINE_KEYS.length
-  );
+  const projectData = jsonFields(project.data);
+  const avatarData = jsonFields(project.avatar);
+  const hasPesquisa = Boolean(projectData.pesquisa || projectData.dossie || projectData.concorrentes || projectData.problemas_avatar);
+  const hasAvatar = Boolean((avatarData.nome || avatarData.name) && (avatarData.dores || avatarData.pain_points) && (avatarData.desejos || avatarData.desejos_proibidos));
+  const hasMecanismo = Boolean(projectData.mecanismo || projectData.mecanismo_unico || projectData.mecanismo_problema || projectData.tese || (typeof project.description === "string" && project.description.toLowerCase().includes("mecanismo")));
+  const hasCheckouts = Boolean(Array.isArray(projectData.produtos) && projectData.produtos.length > 0) || Boolean(projectData.checkout_url || projectData.link_checkout);
+  const hasCriativos = Boolean(projectData.criativos || projectData.roteiros || projectData.anuncios || projectData.video_scripts);
+
+  const layerScores = [
+    hasPesquisa ? 90 : 25,
+    hasAvatar ? 95 : 30,
+    hasMecanismo ? 90 : 20,
+    hasCheckouts ? 100 : 25,
+    70,
+    hasCriativos ? 90 : 25,
+  ];
+  const readinessScore = Math.round(layerScores.reduce((a, b) => a + b, 0) / layerScores.length);
 
   return (
     <div className="space-y-8">
@@ -309,18 +320,23 @@ export default function ProjetoDetalhe() {
                 <Download className="h-3 w-3" /> Exportar JSON
               </Button>
             </div>
-            <div className="text-right">
+            <button
+              type="button"
+              onClick={() => goToTab("raiox")}
+              className="text-right group hover:opacity-85 transition-opacity cursor-pointer focus:outline-none"
+              title="Clique para abrir o Raio-X & Funil detalhado"
+            >
               <div className="flex items-baseline justify-end gap-2">
-                <span className="font-display text-4xl font-semibold text-gold leading-none">
-                  {pipelineAvg}
+                <span className="font-display text-4xl font-semibold text-gold leading-none group-hover:text-primary transition-colors">
+                  {readinessScore}
                 </span>
                 <span className="text-sm text-muted-foreground">%</span>
               </div>
-              <Progress value={pipelineAvg} className="h-1 w-40 mt-2" />
-              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground/70 mt-1.5">
-                Pipeline Geral
+              <Progress value={readinessScore} className="h-1 w-40 mt-2" />
+              <p className="text-[10px] uppercase tracking-editorial text-muted-foreground/70 mt-1.5 group-hover:text-primary transition-colors flex items-center justify-end gap-1">
+                Prontidão do Funil ⚡
               </p>
-            </div>
+            </button>
           </div>
         </div>
 

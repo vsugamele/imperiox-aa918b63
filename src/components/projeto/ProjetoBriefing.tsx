@@ -9,10 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Plus, Trash2, X, ChevronDown, ExternalLink, Copy, Check, Eye, EyeOff, BarChart3, Loader2, HelpCircle, Zap } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -23,15 +21,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ProductInsightDrawer } from "@/components/projeto/insights/ProductInsightDrawer";
 import { ProductLinksEditor } from "@/components/projeto/ProductLinksEditor";
 import { normalizeProductLinks, type ProductLink } from "@/lib/produto-links";
-
-const PIPELINE_KEYS = [
-  { key: "avatar", label: "Avatar", emoji: "👤" },
-  { key: "funil", label: "Funil", emoji: "🔻" },
-  { key: "copy", label: "Copy", emoji: "✍️" },
-  { key: "prompts", label: "Prompts", emoji: "🤖" },
-  { key: "design", label: "Design", emoji: "🎨" },
-  { key: "trafego", label: "Tráfego", emoji: "📡" },
-];
 
 const STATUS_OPTIONS = ["planejamento", "em andamento", "pausado", "concluído"];
 
@@ -231,14 +220,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
     onUpdateData({ ...data, produtos: updated });
   };
 
-  const updatePipelineVal = (key: string, val: number) => {
-    onUpdatePipeline({ ...pipeline, [key]: val });
-  };
-
-  const updatePipelineNote = (key: string, val: string) => {
-    onUpdateData({ ...data, pipeline_notes: { ...pipelineNotes, [key]: val } });
-  };
-
   const updateChecklist = (key: string, field: string, val: Json) => {
     const item = jsonFields(checklist[key]);
     onUpdateData({ ...data, integrations_checklist: { ...checklist, [key]: { ...item, [field]: val } } });
@@ -277,43 +258,6 @@ export function ProjetoBriefing({ project, onUpdateData, onUpdatePipeline }: Pro
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Pipeline Rápido */}
-      <Card className="bg-card border-border">
-        <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">⚡ Pipeline Rápido</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {PIPELINE_KEYS.map((p) => {
-            const val = jsonNumber(pipeline[p.key]) ?? 0;
-            return (
-              <Collapsible key={p.key}>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">{p.emoji}</span>
-                  <div className="flex-1">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-xs text-muted-foreground">{p.label}</span>
-                      <span className="text-xs font-mono text-primary">{val}%</span>
-                    </div>
-                    <Slider value={[val]} onValueChange={([v]) => updatePipelineVal(p.key, v)} max={100} step={5} />
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-                <CollapsibleContent className="pl-9 pt-2">
-                  <Textarea
-                    value={jsonText(pipelineNotes[p.key]) || ""}
-                    onChange={(e) => updatePipelineNote(p.key, e.target.value)}
-                    className="bg-secondary text-sm min-h-[40px]"
-                    placeholder="Notas desta etapa..."
-                  />
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
         </CardContent>
       </Card>
 
