@@ -134,7 +134,7 @@ const starterMessagesEn: Message[] = [
     sender: "ai",
     stage: "opening",
     text:
-      "Hi Sarah! Welcome to SlimSoda support. Before I share the formula and bundles, quick question so I don't waste your time:\n\nWhat is your biggest daily struggle right now?\n1. Food noise & non-stop cravings (thinking about food 24/7)\n2. Rebounded weight after stopping diets or injections\n3. Stuck metabolism after 40/50 with belly fat\n4. Fear of loose, saggy skin while losing weight\n\n(You can just reply with 1, 2, 3 or 4)",
+      "Hi Sarah, hope you're having a good day! Just saw your message...\n\nTell me: what are you looking to achieve or fix today?",
   },
 ];
 
@@ -144,23 +144,23 @@ const starterMessagesPt: Message[] = [
     sender: "ai",
     stage: "opening",
     text:
-      "Oi Sarah, seja muito bem-vinda ao atendimento SlimSoda! Antes de te passar a fórmula e as promoções de hoje, uma pergunta rápida pra eu te orientar certinho:\n\nQual tem sido sua maior dificuldade hoje?\n1. Pensamento constante em comida e ansiedade no fim da tarde\n2. Peso que voltou em dobro depois de parar dietas ou a caneta injetável\n3. Metabolismo travado depois dos 40/50 com gordura na barriga\n4. Medo de emagrecer e ficar com a pele solta e flácida\n\n(Pode só responder 1, 2, 3 ou 4)",
+      "Oi Sarah, tudo bem por aí? Vi sua mensagem...\n\nMe conta: o que você está buscando resolver hoje?",
   },
 ];
 
 const quickRepliesEn = [
-  "1 - Constant food noise and evening cravings.",
-  "2 - I stopped injections and regained 18 lbs.",
+  "I want to burn stubborn belly fat that got stuck after 45.",
+  "I stopped injections and regained 18 lbs in a few weeks.",
   "I am an 8, but does it really work without the rebound?",
-  "Can I just buy regular baking soda at Walmart for $2?",
+  "Are you a robot or a real person? Stop dodging!",
   "How much is the 6-jar kit and where do I order?",
 ];
 
 const quickRepliesPt = [
-  "1 - Pensamento constante em comida e ansiedade à noite.",
-  "2 - Parei a injeção e recuperei 8 quilos em semanas.",
+  "Quero perder a gordura da barriga que travou depois dos 45.",
+  "Parei a injeção e recuperei 8 quilos em semanas.",
   "Estou no nível 8, mas tenho medo de ser efeito sanfona.",
-  "Isso não é só bicarbonato de mercado que faço por 5 reais?",
+  "Você é um robô ou alguém de verdade? Parem de enrolar!",
   "Quanto custa o kit com 6 frascos e onde peço?",
 ];
 
@@ -169,7 +169,7 @@ function detectStage(input: string, current: StageId): StageId {
   if (lower.includes("order") || lower.includes("buy") || lower.includes("link") || lower.includes("price") || lower.includes("comprar") || lower.includes("valor") || lower.includes("preço") || lower.includes("onde peço")) {
     return "close";
   }
-  if (lower.includes("walmart") || lower.includes("amazon") || lower.includes("bicarbonato de mercado") || lower.includes("rebound") || lower.includes("rebote") || lower.includes("sanfona") || lower.includes("remédio") || lower.includes("medicine") || lower.includes("side effect") || lower.includes("efeito colateral")) {
+  if (lower.includes("robô") || lower.includes("robo") || lower.includes("bot") || lower.includes("humano") || lower.includes("atendente") || lower.includes("enrolar") || lower.includes("enrolação") || lower.includes("golpe") || lower.includes("walmart") || lower.includes("amazon") || lower.includes("bicarbonato de mercado") || lower.includes("rebound") || lower.includes("rebote") || lower.includes("sanfona") || lower.includes("remédio") || lower.includes("medicine") || lower.includes("side effect") || lower.includes("efeito colateral")) {
     return "objection";
   }
   if (/\b(0|1|2|3|4|5|6|7|8|9|10)\b/.test(lower) && current !== "opening") {
@@ -195,12 +195,22 @@ function responseFor(stage: StageId, lead: LeadState, lang: Lang): string {
       return `É exatamente isso, ${name}. Seu corpo já fabrica naturalmente os hormônios da saciedade (GLP-1 e GIP). Eles nascem nas células L do seu intestino.\n\nO problema é que após os 40 anos, com estresse e alimentos ultraprocessados, o ambiente do estômago fica ultra-ácido, fazendo as células L adormecerem. Pra piorar, uma enzima chamada DPP-4 destrói qualquer GLP-1 que seu corpo tenta produzir em questão de minutos.\n\nPor isso que as injeções caras pareciam milagre: elas injetavam uma versão sintética enquanto a sua fábrica biológica continuava desligada. Quando a agulha saía, vinha o rebote.`;
     }
     if (stage === "proof") {
-      return `É por isso que o SlimSoda Powder mudou o jogo:\n\nEle não é uma pílula e não é uma injeção. É um pó solúvel que você toma toda manhã em 1 copo de água fria em jejum com 4 ativos trabalhando em cadeia:\n\n1. Bicarbonato Medicinal: neutraliza a acidez gástrica e acorda as células L para produzir GLP-1 natural.\n2. Gingerol Concentrado: inibe em 93% a enzima DPP-4, impedindo a destruição do hormônio.\n3. Berberina Bioativa: ativa a AMPK, o interruptor que queima gordura 24/7.\n4. NAD+: regenerador celular que firma a pele, prevenindo flacidez e o famoso 'rosto caído de Ozempic'.\n\nTudo em um único shot que leva 10 segundos para tomar.`;
+      return `É por isso que essa rotina mudou o jogo:\n\nNão é uma pílula e não é uma injeção. É um shot matinal solúvel que você toma toda manhã em 1 copo de água fria em jejum com 4 ativos trabalhando em cadeia:\n\n1. Bicarbonato Medicinal: neutraliza a acidez gástrica e acorda as células L para produzir GLP-1 natural.\n2. Gingerol Concentrado: inibe em 93% a enzima DPP-4, impedindo a destruição do hormônio.\n3. Berberina Bioativa: ativa a AMPK, o interruptor que queima gordura 24/7.\n4. NAD+: regenerador celular que firma a pele, prevenindo flacidez e o famoso 'rosto caído de Ozempic'.\n\nTudo em um único shot que leva 10 segundos para tomar.`;
     }
     if (stage === "temperature") {
-      return `Antes de eu te passar os kits com envio prioritário, uma checagem rápida de temperatura:\n\nDe 0 a 10, o quanto faz sentido para você desintoxicar essa via hormonal e emagrecer com o próprio corpo trabalhando a seu favor?`;
+      return `Antes de eu te passar os lotes com envio prioritário, uma checagem rápida de temperatura:\n\nDe 0 a 10, o quanto faz sentido para você desintoxicar essa via hormonal e emagrecer com o próprio corpo trabalhando a seu favor?`;
     }
     if (stage === "objection") {
+      const objLower = (lead.objection || "").toLowerCase();
+      if (objLower.includes("robô") || objLower.includes("robo") || objLower.includes("bot")) {
+        return `Sou da equipe de consultoria aqui pelo WhatsApp, ${name}! Uso o teclado automático pra agilizar as mensagens porque são muitas pessoas chamando ao mesmo tempo, mas estou lendo tudo o que você me manda com atenção. Me conta direto: o que você precisa saber ou resolver agora?`;
+      }
+      if (objLower.includes("humano") || objLower.includes("atendente")) {
+        return `Pode falar comigo mesma, ${name}! Sou eu que cuido dessa parte aqui no WhatsApp e estou com o seu caso aberto agora. Me diz exatamente o que aconteceu ou qual é a sua dúvida que eu mesma resolvo com você sem rodeios.`;
+      }
+      if (objLower.includes("golpe") || objLower.includes("enrolar") || objLower.includes("enrolação")) {
+        return `Te entendo total, ${name}. Se você já teve problema com atendimento ruim ou promessas furadas na internet, tem toda razão em ficar com o pé atrás. Por isso mesmo que o envio é oficial com nota fiscal, código de rastreamento dos Correios e 60 dias de garantia incondicional blindada. Me fala o que você quer saber que eu vou direto ao ponto sem enrolação.`;
+      }
       return `Compreendo 100% o seu receio, ${name}. Sobre "${lead.objection}":\n\n• Não é só bicarbonato de mercado: o bicarbonato comum sozinho só mexe no pH temporário, mas sem o gingerol e a berberina concentrada na proporção clínica exata, não há ativação da AMPK.\n• Berberina de farmácia não absorve: a berberina comum tem menos de 1% de biodisponibilidade se não estiver em pó com o veículo tampão alcalino correto.\n• Risco ZERO: você tem 60 dias inteiros de garantia incondicional. Se não notar a fome sumir e as roupas afrouxarem, você recebe 100% do seu dinheiro de volta.`;
     }
     if (stage === "close") {
