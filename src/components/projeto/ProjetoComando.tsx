@@ -235,6 +235,32 @@ export function ProjetoComando({ projectId, project }: Props) {
 
       <PlanProgressBanner projectId={projectId} />
 
+      {/* ===== Raio-X & Buracos Quick Callout ===== */}
+      <div className="bg-gradient-to-r from-primary/10 via-black to-[#0E1013] border border-primary/25 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs font-mono uppercase tracking-wider text-primary font-bold">
+              RAIO-X DE CONSTRUÇÃO & OPERAÇÕES
+            </span>
+          </div>
+          <p className="text-sm font-semibold text-white">
+            Monitore o que está populado, onde o funil está travando e use o OpenRouter para preencher os buracos das 6 camadas.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => {
+            const el = document.getElementById("tab-raiox") || document.querySelector('button[value="raiox"]');
+            if (el) (el as HTMLElement).click();
+          }}
+          className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs whitespace-nowrap gap-1.5 shadow-lg shadow-primary/10"
+        >
+          <Zap className="h-3.5 w-3.5" />
+          Ver Raio-X & Funil Completo →
+        </Button>
+      </div>
+
       {/* ===== Foco do Dia (Imperius-ready) ===== */}
       {(() => {
         const receitaMes = vendasMes.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);

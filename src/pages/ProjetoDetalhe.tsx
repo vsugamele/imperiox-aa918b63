@@ -29,6 +29,7 @@ import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
 import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
 import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
 import { ProjetoComando } from "@/components/projeto/ProjetoComando";
+import { ProjetoRaioXFunil } from "@/components/projeto/ProjetoRaioXFunil";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
@@ -51,6 +52,7 @@ const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = 
     id: "comando", label: "Comando", emoji: "🎯",
     tabs: [
       { value: "comando", label: "Comando", emoji: "🎯" },
+      { value: "raiox", label: "Raio-X & Funil", emoji: "⚡" },
       { value: "identidade", label: "Identidade", emoji: "🎨" },
       { value: "expert_panel", label: "Painel", emoji: "🧭" },
     ],
@@ -390,6 +392,9 @@ export default function ProjetoDetalhe() {
 
         <TabsContent value="comando" className="mt-4">
           <ProjetoComando projectId={id!} project={project} />
+        </TabsContent>
+        <TabsContent value="raiox" className="mt-4">
+          <ProjetoRaioXFunil projectId={id!} project={project} onRefresh={refreshProject} onNavigateTab={handleTabChange} />
         </TabsContent>
         <TabsContent value="identidade" className="mt-4">
           <ProjetoIdentidade
