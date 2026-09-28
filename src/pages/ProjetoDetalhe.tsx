@@ -32,6 +32,7 @@ import { ProjetoComando } from "@/components/projeto/ProjetoComando";
 import { ProjetoRaioXFunil } from "@/components/projeto/ProjetoRaioXFunil";
 import { ProjetoMapaOperacional } from "@/components/projeto/ProjetoMapaOperacional";
 import { ProjetoEcossistema } from "@/components/projeto/ProjetoEcossistema";
+import { ProjetoOpenFlow } from "@/components/projeto/ProjetoOpenFlow";
 import { ProjetoMcpDialog } from "@/components/projeto/ProjetoMcpDialog";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
@@ -54,6 +55,7 @@ const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = 
     tabs: [
       { value: "mapa", label: "Mapa Operacional", emoji: "🗺️" },
       { value: "ecossistema", label: "Ecossistema & Produtos", emoji: "🌐" },
+      { value: "openflow", label: "OpenFlow & Automações", emoji: "⚡" },
       { value: "comando", label: "Comando", emoji: "🎯" },
       { value: "raiox", label: "Raio-X & Funil", emoji: "⚡" },
       { value: "identidade", label: "Identidade", emoji: "🎨" },
@@ -432,6 +434,13 @@ export default function ProjetoDetalhe() {
             projectId={id!}
             project={project}
             onUpdateData={onUpdateData}
+            onNavigateTab={goToTab}
+          />
+        </TabsContent>
+        <TabsContent value="openflow" className="mt-4 focus:outline-none">
+          <ProjetoOpenFlow
+            projectId={id!}
+            project={project}
             onNavigateTab={goToTab}
           />
         </TabsContent>
