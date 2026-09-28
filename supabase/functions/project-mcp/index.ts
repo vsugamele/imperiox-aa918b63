@@ -101,6 +101,9 @@ interface DraftNode {
   checklist?: string[];
   col?: number;
   row?: number;
+  executor?: string;
+  skill?: string;
+  prompt?: string;
 }
 
 interface DraftEdge {
@@ -128,6 +131,9 @@ function buildStrategyPreset(
           checklist: ["Roteiro de convite aprovado", "Gravar 3 variações de gancho", "Subir campanha de tráfego"],
           col: 0,
           row: 0,
+          executor: "ai_higgsfield",
+          skill: "skill-black-belt",
+          prompt: `Gerar 3 criativos em vídeo 9:16 chamando para o grupo VIP do produto ${prod}. Gancho de curiosidade, condição secreta e revelação exclusiva.`,
         },
         {
           key: "optin_page",
@@ -137,6 +143,9 @@ function buildStrategyPreset(
           checklist: ["Headline de curiosidade", "Botão de redirecionamento para o Grupo VIP", "Pixel de Lead ativo"],
           col: 1,
           row: 0,
+          executor: "ai_copywriter",
+          skill: "rebel-copy",
+          prompt: `Escrever headline de alta conversão para página de captura com redirecionamento direto para o Grupo VIP do WhatsApp para ${prod}.`,
         },
         {
           key: "wa_vip",
@@ -146,6 +155,9 @@ function buildStrategyPreset(
           checklist: ["Criar grupos 01 a 05", "Agendar mensagens de D-7 a D-1", "Áudios de bastidores do expert"],
           col: 2,
           row: 0,
+          executor: "openflow",
+          skill: "roteiros-virais-comment-to-dm",
+          prompt: `Montar cronograma de aquecimento D-7 a D0 nos Grupos VIP com áudios de bastidores, avisos de horário e antecipação da oferta.`,
         },
         {
           key: "live_pitch",
@@ -155,6 +167,9 @@ function buildStrategyPreset(
           checklist: ["Slides de apresentação finalizados", "Stack de bônus exclusivos", "Link da transmissão privado"],
           col: 3,
           row: 0,
+          executor: "ai_copywriter",
+          skill: "mecanismo-vsl",
+          prompt: `Estruturar roteiro de pitch ao vivo (Slide a Slide) com ancoragem, mecanismo único do produto e stack de bônus exclusivos.`,
         },
         {
           key: "checkout_abertura",
@@ -165,6 +180,9 @@ function buildStrategyPreset(
           checklist: ["Liberar link com cupom ou desconto exclusivo", "Timer de encerramento em 24h/48h", "Testar compra teste"],
           col: 4,
           row: 0,
+          executor: "human_traffic",
+          skill: "briefing-gestor-trafego",
+          prompt: `Configurar checkout com cupom especial de abertura, timer regressivo e disparo de evento de compra no pixel.`,
         },
         {
           key: "wa_suporte",
@@ -174,6 +192,9 @@ function buildStrategyPreset(
           checklist: ["IA ou operadores no WhatsApp", "Scripts para quebra de objeções de cartão/limite"],
           col: 4,
           row: 1,
+          executor: "openflow",
+          skill: "roteiros-virais-comment-to-dm",
+          prompt: `Plantão 1 a 1 de recuperação de Pix gerado e quebra de objeções de limite de cartão no WhatsApp.`,
         },
       ],
       edges: [
@@ -197,6 +218,9 @@ function buildStrategyPreset(
           checklist: ["Criativo de filtro de faturamento/perfil", "Link wa.me com mensagem inicial pronta"],
           col: 0,
           row: 0,
+          executor: "ai_higgsfield",
+          skill: "skill-black-belt",
+          prompt: `Criativo direto de filtro e qualificação para mentoria/consultoria de ${prod}. Foco em empresários/profissionais prontos para avançar.`,
         },
         {
           key: "wa_sdr",
@@ -206,6 +230,9 @@ function buildStrategyPreset(
           checklist: ["Configurar IA consultiva no OpenFlow", "Definir perguntas de qualificação", "Simular 3 testes"],
           col: 1,
           row: 0,
+          executor: "openflow",
+          skill: "roteiros-virais-comment-to-dm",
+          prompt: `Configurar fluxo de qualificação SPIN Selling com IA no OpenFlow: faturamento, gargalo atual, urgência e triagem de score > 70.`,
         },
         {
           key: "proposta",
@@ -215,6 +242,9 @@ function buildStrategyPreset(
           checklist: ["Script de ancoragem de valor", "Superação de objeções de garantia"],
           col: 2,
           row: 0,
+          executor: "ai_copywriter",
+          skill: "rebel-copy",
+          prompt: `Deck e roteiro de apresentação de proposta irresistível com garantia de resultado e ancoragem de investimento.`,
         },
         {
           key: "checkout_vip",
@@ -225,6 +255,9 @@ function buildStrategyPreset(
           checklist: ["Gerar link de pagamento único", "Termo de compromisso / onboarding"],
           col: 3,
           row: 0,
+          executor: "human_traffic",
+          skill: "briefing-gestor-trafego",
+          prompt: `Gerar link de pagamento exclusivo com condição negociada no X1 e ativação imediata.`,
         },
         {
           key: "onboarding",
@@ -234,6 +267,9 @@ function buildStrategyPreset(
           checklist: ["Formulário de diagnóstico inicial", "Agendamento da sessão individual"],
           col: 4,
           row: 0,
+          executor: "openflow",
+          skill: "openflow",
+          prompt: `Disparo imediato de formulário de diagnóstico e boas-vindas do expert após confirmação de pagamento.`,
         },
       ],
       edges: [
@@ -256,6 +292,9 @@ function buildStrategyPreset(
           checklist: ["Criativo focado em solução rápida de dor", "Subir tráfego para conversão de compra"],
           col: 0,
           row: 0,
+          executor: "ai_higgsfield",
+          skill: "skill-black-belt",
+          prompt: `Criativo de alta atração para produto de entrada de R$ 27 focado na solução rápida de uma dor aguda de ${prod}.`,
         },
         {
           key: "checkout_front",
@@ -265,6 +304,9 @@ function buildStrategyPreset(
           checklist: ["Página de checkout limpa com depoimentos", "Garantia incondicional de 7 dias"],
           col: 1,
           row: 0,
+          executor: "human_traffic",
+          skill: "briefing-gestor-trafego",
+          prompt: `Página de checkout de conversão com selos de segurança, garantia de 7 dias e depoimentos em carrossel.`,
         },
         {
           key: "bump_acelerador",
@@ -274,6 +316,9 @@ function buildStrategyPreset(
           checklist: ["Copy do bump", "Preço complementar R$ 17 - R$ 27"],
           col: 1,
           row: 1,
+          executor: "ai_copywriter",
+          skill: "tripwire-matador-v2",
+          prompt: `Copy do Orderbump de R$ 17 a R$ 27: Acelerador ou template que complementa o produto de entrada.`,
         },
         {
           key: "upsell_core",
@@ -283,6 +328,9 @@ function buildStrategyPreset(
           checklist: ["Vídeo de 90s do upsell", "Configurar 1-click automático na plataforma"],
           col: 2,
           row: 0,
+          executor: "ai_copywriter",
+          skill: "rebel-copy",
+          prompt: `Vídeo de 90 segundos de 1-Click Upsell apresentando o treinamento completo ou protocolo mestre de R$ 297.`,
         },
         {
           key: "downsell_core",
@@ -292,6 +340,9 @@ function buildStrategyPreset(
           checklist: ["Página alternativa de downsell"],
           col: 2,
           row: 1,
+          executor: "ai_copywriter",
+          skill: "rebel-copy",
+          prompt: `Copy de downsell facilitado com parcelamento estendido ou versão essencial para recuperar a recusa do upsell.`,
         },
         {
           key: "comunidade",
@@ -301,6 +352,9 @@ function buildStrategyPreset(
           checklist: ["Envio de acesso por e-mail e WhatsApp", "Vídeo de boas-vindas liberado"],
           col: 3,
           row: 0,
+          executor: "openflow",
+          skill: "openflow",
+          prompt: `Régua de entrega de acessos no WhatsApp e boas-vindas na área de membros.`,
         },
       ],
       edges: [
@@ -325,6 +379,9 @@ function buildStrategyPreset(
         checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"],
         col: 0,
         row: 0,
+        executor: "ai_higgsfield",
+        skill: "skill-black-belt",
+        prompt: `Vídeo 9:16 vertical atacando o sintoma mais doloroso e frustrante do avatar de ${prod}. Seedance 2.0 / Veo 3 com legendas de retenção.`,
       },
       {
         key: "ad_vilao",
@@ -334,6 +391,9 @@ function buildStrategyPreset(
         checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"],
         col: 0,
         row: 1,
+        executor: "ai_higgsfield",
+        skill: "skill-black-belt",
+        prompt: `Vídeo 9:16 revelando o Inimigo Oculto e explicando por que métodos convencionais falharam antes de ${prod}.`,
       },
       {
         key: "ad_ugc",
@@ -343,6 +403,9 @@ function buildStrategyPreset(
         checklist: ["Separar print/vídeo real", "Subir no Meta Ads"],
         col: 0,
         row: 2,
+        executor: "ai_google_flow",
+        skill: "pipeline-video-viral",
+        prompt: `Vídeo depoimento estilo UGC espontâneo com pessoa real mostrando a transformação após usar ${prod}.`,
       },
       {
         key: "page_vsl",
@@ -352,6 +415,9 @@ function buildStrategyPreset(
         checklist: ["Hospedar vídeo VSL", "Configurar delay do botão CTA", "Validar carregamento no mobile"],
         col: 1,
         row: 0,
+        executor: "ai_copywriter",
+        skill: "mecanismo-vsl",
+        prompt: `Página advertorial e roteiro de VSL com pitch irresistível, delay de botão CTA sincronizado e quebra de objeções.`,
       },
       {
         key: "checkout_main",
@@ -362,6 +428,9 @@ function buildStrategyPreset(
         checklist: ["Configurar pixel de conversão", "Garantia incondicional de 30 dias", "Fazer compra teste"],
         col: 2,
         row: 0,
+        executor: "human_traffic",
+        skill: "briefing-gestor-trafego",
+        prompt: `Configurar produto ${prod} na Kiwify/Hotmart, cadastrar pixel de compra e testar checkout no mobile.`,
       },
       {
         key: "bump_extra",
@@ -371,6 +440,9 @@ function buildStrategyPreset(
         checklist: ["Headline persuasiva do bump", "Preço R$ 27 - R$ 47"],
         col: 2,
         row: 1,
+        executor: "ai_copywriter",
+        skill: "tripwire-matador-v2",
+        prompt: `Copy de impulso do Orderbump: Oferta de 1 pote extra ou guia de receitas aceleradoras por R$ 27 a R$ 47.`,
       },
       {
         key: "upsell_anual",
@@ -380,6 +452,9 @@ function buildStrategyPreset(
         checklist: ["Vídeo de 60s do upsell", "Configurar 1-click na plataforma de pagamento"],
         col: 3,
         row: 0,
+        executor: "ai_copywriter",
+        skill: "rebel-copy",
+        prompt: `Página e roteiro de 1-Click Upsell imediato para kit anual com maior margem de lucro e ancoragem brutal.`,
       },
       {
         key: "downsell_leve",
@@ -389,6 +464,9 @@ function buildStrategyPreset(
         checklist: ["Página alternativa de downsell"],
         col: 3,
         row: 1,
+        executor: "ai_copywriter",
+        skill: "rebel-copy",
+        prompt: `Oferta alternativa de downsell com menor barreira de entrada para quem recusa o upsell anual.`,
       },
       {
         key: "wa_recuperacao",
@@ -398,6 +476,9 @@ function buildStrategyPreset(
         checklist: ["Conectar instância WhatsApp", "Ativar régua no OpenFlow", "Testar mensagem de 15min"],
         col: 2,
         row: 2,
+        executor: "openflow",
+        skill: "roteiros-virais-comment-to-dm",
+        prompt: `Automação no OpenFlow: Mensagem amigável de suporte 15min após abandono de carrinho e lembrete de Pix em 2h.`,
       },
     ],
     edges: [
@@ -553,6 +634,45 @@ const MCP_TOOLS = [
         },
       },
       required: ["project_id", "layer", "content"],
+    },
+  },
+  {
+    name: "get_executable_steps",
+    description: "Lista as etapas operacionais do funil do projeto que são executáveis por IA (ex: criativos no Higgsfield, copy VSL no Claude, automação OpenFlow, Google Flow) ou que aguardam ação humana (subir tráfego JP). Retorna o prompt exato, a skill vinculada e o status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID único do projeto" },
+        status: {
+          type: "string",
+          enum: ["pending", "in_progress", "ready_review", "done", "all"],
+          description: "Filtrar por status da etapa (padrão: 'pending')",
+        },
+        executor: {
+          type: "string",
+          description: "Filtrar por executor (ex: 'ai_higgsfield', 'ai_copywriter', 'openflow', 'human_traffic')",
+        },
+      },
+      required: ["project_id"],
+    },
+  },
+  {
+    name: "complete_step",
+    description: "Atualiza o status de execução de uma etapa do funil no mapa, anexa o entregável gerado (ex: URL do vídeo gerado no Higgsfield, link do Google Drive, doc da copy) e marca tarefas da checklist.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        node_id: { type: "string", description: "ID do nó no mapa" },
+        status: {
+          type: "string",
+          enum: ["pending", "in_progress", "ready_review", "done"],
+          description: "Novo status da etapa (padrão: 'done')",
+        },
+        output_url: { type: "string", description: "URL do entregável gerado (ex: link do vídeo no storage, link do YouTube, doc da copy)" },
+        notes_append: { type: "string", description: "Texto ou resumo adicional para anexar às notas do nó" },
+        mark_checklist_done: { type: "boolean", description: "Se true, marca todos os itens de checklist do nó como concluídos" },
+      },
+      required: ["node_id"],
     },
   },
 ];
@@ -720,6 +840,9 @@ Deno.serve(async (req) => {
               let finalNotes = "";
               const prodName = dn.product_name || (dn.kind === "checkout" ? primaryProdName : null);
               if (prodName) finalNotes += `[product_name:${prodName}]\n`;
+              if (dn.executor) finalNotes += `[agent_executor:${dn.executor}]\n`;
+              if (dn.skill) finalNotes += `[agent_skill:${dn.skill}]\n`;
+              if (dn.prompt) finalNotes += `[agent_prompt_start]\n${dn.prompt}\n[agent_prompt_end]\n`;
               if (dn.description) finalNotes += dn.description;
 
               const checklistPayload = (dn.checklist || []).map(text => ({
@@ -993,6 +1116,146 @@ Deno.serve(async (req) => {
             });
           }
 
+          if (name === "get_executable_steps") {
+            const { project_id, status = "pending", executor } = args || {};
+            if (!project_id) throw new Error("project_id é obrigatório");
+
+            const { data: proj } = await supabase.from("imphq_projects").select("id, name, data").eq("id", project_id).single();
+            if (!proj) throw new Error(`Projeto '${project_id}' não encontrado`);
+
+            const projData = parseJson(proj.data);
+            const prods = Array.isArray(projData.produtos) ? projData.produtos : [];
+            const primaryProd = prods[0]?.nome || prods[0]?.name || proj.name;
+
+            const expectedMapName = `Mapa · ${proj.name}`;
+            const { data: maps } = await supabase.from("imphq_company_maps").select("id, name");
+            const targetMap = (maps || []).find(m => m.name.toLowerCase() === expectedMapName.toLowerCase() || m.name.toLowerCase().includes(proj.name.toLowerCase()));
+
+            let q = supabase.from("imphq_company_map_nodes").select("*");
+            if (targetMap) {
+              q = q.or(`linked_project_id.eq.${project_id},map_id.eq.${targetMap.id}`);
+            } else {
+              q = q.eq("linked_project_id", project_id);
+            }
+
+            const { data: rawNodes, error: nodeErr } = await q;
+            if (nodeErr) throw nodeErr;
+
+            const parsedSteps = (rawNodes || []).map(n => {
+              const notes = n.notes || "";
+              const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] ||
+                (n.kind === "anuncio" ? "ai_higgsfield" :
+                 n.kind === "vsl" || n.kind === "pagina_vendas" ? "ai_copywriter" :
+                 n.kind === "whatsapp" ? "openflow" :
+                 n.kind === "checkout" ? "human_traffic" : "human_general");
+
+              const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] ||
+                (nExec === "ai_higgsfield" ? "skill-black-belt" :
+                 nExec === "ai_copywriter" ? "rebel-copy" :
+                 nExec === "openflow" ? "roteiros-virais-comment-to-dm" :
+                 nExec === "human_traffic" ? "briefing-gestor-trafego" : "none");
+
+              const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
+                (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c: any) => c.done) ? "done" : "pending");
+
+              const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
+              const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
+              const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() :
+                `Executar etapa '${n.label}' para o produto '${primaryProd}'. Objetivo: ${n.description || n.label}`;
+
+              const output_url = notes.match(/\[agent_output:([^\]]+)\]/)?.[1] || n.url || null;
+
+              return {
+                node_id: n.id,
+                label: n.label,
+                kind: n.kind,
+                executor: nExec,
+                skill: nSkill,
+                status: nStatus,
+                prompt,
+                checklist: n.checklist || [],
+                output_url,
+                product_context: primaryProd,
+              };
+            });
+
+            let filtered = parsedSteps;
+            if (status && status !== "all") {
+              filtered = filtered.filter(s => s.status === status);
+            }
+            if (executor) {
+              filtered = filtered.filter(s => s.executor.toLowerCase().includes(executor.toLowerCase()));
+            }
+
+            const responsePayload = {
+              projectId: project_id,
+              projectName: proj.name,
+              totalSteps: parsedSteps.length,
+              pendingCount: parsedSteps.filter(s => s.status === "pending").length,
+              steps: filtered,
+            };
+
+            return json({
+              jsonrpc: "2.0",
+              id,
+              result: { content: [{ type: "text", text: JSON.stringify(responsePayload, null, 2) }] },
+            });
+          }
+
+          if (name === "complete_step") {
+            const { node_id, status = "done", output_url, notes_append, mark_checklist_done = true } = args || {};
+            if (!node_id) throw new Error("node_id é obrigatório");
+
+            const { data: node, error: getErr } = await supabase.from("imphq_company_map_nodes").select("*").eq("id", node_id).single();
+            if (getErr || !node) throw new Error(`Nó '${node_id}' não encontrado`);
+
+            let notes = node.notes || "";
+            notes = notes.replace(/\[agent_status:[^\]]*\]/g, "").replace(/\[agent_output:[^\]]*\]/g, "").trim();
+            notes += `\n[agent_status:${status}]`;
+            if (output_url) notes += `\n[agent_output:${output_url}]`;
+            if (notes_append) notes += `\n\n${notes_append}`;
+
+            let updatedChecklist = node.checklist;
+            if (mark_checklist_done && Array.isArray(node.checklist)) {
+              updatedChecklist = node.checklist.map((c: any) => ({ ...c, done: true }));
+            }
+
+            const updatePayload: any = {
+              notes: notes.trim(),
+              checklist: updatedChecklist,
+            };
+            if (output_url && !node.url) {
+              updatePayload.url = output_url;
+            }
+
+            const { data: updatedNode, error: updateErr } = await supabase
+              .from("imphq_company_map_nodes")
+              .update(updatePayload)
+              .eq("id", node_id)
+              .select("id, label, kind, notes, checklist, url")
+              .single();
+
+            if (updateErr) throw updateErr;
+
+            return json({
+              jsonrpc: "2.0",
+              id,
+              result: {
+                content: [{
+                  type: "text",
+                  text: JSON.stringify({
+                    success: true,
+                    node_id,
+                    label: updatedNode.label,
+                    status,
+                    output_url: output_url || updatedNode.url,
+                    message: `Etapa '${updatedNode.label}' atualizada para status '${status}' com sucesso!`,
+                  }, null, 2),
+                }],
+              },
+            });
+          }
+
           throw new Error(`Ferramenta desconhecida: ${name}`);
         } catch (err: any) {
           return json({
@@ -1038,6 +1301,9 @@ Deno.serve(async (req) => {
         const y = row * 180 + 60;
 
         let notes = dn.product_name ? `[product_name:${dn.product_name}]\n` : "";
+        if (dn.executor) notes += `[agent_executor:${dn.executor}]\n`;
+        if (dn.skill) notes += `[agent_skill:${dn.skill}]\n`;
+        if (dn.prompt) notes += `[agent_prompt_start]\n${dn.prompt}\n[agent_prompt_end]\n`;
         if (dn.description) notes += dn.description;
 
         const { data: n } = await supabase.from("imphq_company_map_nodes").insert({
@@ -1093,6 +1359,90 @@ Deno.serve(async (req) => {
         await supabase.from("imphq_projects").update({ data: { ...parseJson(project.data), [layer]: content } }).eq("id", projectId);
       }
       return json({ success: true, message: `Camada ${layer} atualizada` });
+    }
+
+    if (action === "executable_steps" && projectId) {
+      const { status = "pending", executor } = body;
+      const { data: proj } = await supabase.from("imphq_projects").select("id, name").eq("id", projectId).single();
+      const expectedMapName = proj ? `Mapa · ${proj.name}` : "";
+      const { data: maps } = await supabase.from("imphq_company_maps").select("id, name");
+      const targetMap = (maps || []).find(m => m.name.toLowerCase() === expectedMapName.toLowerCase() || (proj && m.name.toLowerCase().includes(proj.name.toLowerCase())));
+
+      let q = supabase.from("imphq_company_map_nodes").select("*");
+      if (targetMap) {
+        q = q.or(`linked_project_id.eq.${projectId},map_id.eq.${targetMap.id}`);
+      } else {
+        q = q.eq("linked_project_id", projectId);
+      }
+
+      const { data: rawNodes } = await q;
+      const parsedSteps = (rawNodes || []).map(n => {
+        const notes = n.notes || "";
+        const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
+        const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
+        const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
+          (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c: any) => c.done) ? "done" : "pending");
+        const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
+        const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
+        const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
+        const output_url = notes.match(/\[agent_output:([^\]]+)\]/)?.[1] || n.url || null;
+
+        return {
+          node_id: n.id,
+          label: n.label,
+          kind: n.kind,
+          executor: nExec,
+          skill: nSkill,
+          status: nStatus,
+          prompt,
+          checklist: n.checklist || [],
+          output_url,
+        };
+      });
+
+      let filtered = parsedSteps;
+      if (status && status !== "all") filtered = filtered.filter(s => s.status === status);
+      if (executor) filtered = filtered.filter(s => s.executor.toLowerCase().includes(executor.toLowerCase()));
+
+      return json({
+        projectId,
+        totalSteps: parsedSteps.length,
+        pendingCount: parsedSteps.filter(s => s.status === "pending").length,
+        steps: filtered,
+      });
+    }
+
+    if (action === "complete_step") {
+      const { node_id, status = "done", output_url, notes_append, mark_checklist_done = true } = body;
+      if (!node_id) return json({ error: "node_id é obrigatório" }, 400);
+
+      const { data: node } = await supabase.from("imphq_company_map_nodes").select("*").eq("id", node_id).single();
+      if (!node) return json({ error: "Nó não encontrado" }, 404);
+
+      let notes = node.notes || "";
+      notes = notes.replace(/\[agent_status:[^\]]*\]/g, "").replace(/\[agent_output:[^\]]*\]/g, "").trim();
+      notes += `\n[agent_status:${status}]`;
+      if (output_url) notes += `\n[agent_output:${output_url}]`;
+      if (notes_append) notes += `\n\n${notes_append}`;
+
+      let updatedChecklist = node.checklist;
+      if (mark_checklist_done && Array.isArray(node.checklist)) {
+        updatedChecklist = node.checklist.map((c: any) => ({ ...c, done: true }));
+      }
+
+      const updatePayload: any = { notes: notes.trim(), checklist: updatedChecklist };
+      if (output_url && !node.url) updatePayload.url = output_url;
+
+      const { data: updatedNode, error: updateErr } = await supabase
+        .from("imphq_company_map_nodes")
+        .update(updatePayload)
+        .eq("id", node_id)
+        .select("*")
+        .single();
+
+      if (updateErr) return json({ error: updateErr.message }, 500);
+
+      return json({ success: true, node: updatedNode });
     }
 
     return json({ error: "Ação não suportada" }, 400);
@@ -1175,6 +1525,41 @@ Deno.serve(async (req) => {
       projectId,
       projectName: project.name,
       nodes: mapNodes || [],
+    });
+  }
+
+  // Retorna Etapas Executáveis por IA (Agentic SOP / Runbook)
+  if (action === "executable_steps") {
+    const { data: mapNodes } = await supabase.from("imphq_company_map_nodes").select("*").eq("linked_project_id", projectId);
+    const parsedSteps = (mapNodes || []).map(n => {
+      const notes = n.notes || "";
+      const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
+      const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
+      const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending";
+      const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
+      const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
+      const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
+      const output_url = notes.match(/\[agent_output:([^\]]+)\]/)?.[1] || n.url || null;
+
+      return {
+        node_id: n.id,
+        label: n.label,
+        kind: n.kind,
+        executor: nExec,
+        skill: nSkill,
+        status: nStatus,
+        prompt,
+        checklist: n.checklist || [],
+        output_url,
+      };
+    });
+
+    return json({
+      projectId,
+      projectName: project.name,
+      totalSteps: parsedSteps.length,
+      pendingCount: parsedSteps.filter(s => s.status === "pending").length,
+      steps: parsedSteps,
     });
   }
 

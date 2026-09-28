@@ -64,6 +64,59 @@ function setProductIdInNotes(notes: string | null | undefined, prodName: string 
   return current ? `${current}\n[product_name:${prodName}]` : `[product_name:${prodName}]`;
 }
 
+export interface AgentExecutionData {
+  executor: string;
+  skill: string;
+  status: "pending" | "in_progress" | "ready_review" | "done";
+  prompt: string;
+  output_url: string;
+}
+
+export function extractAgentData(notes?: string | null): AgentExecutionData {
+  if (!notes) {
+    return { executor: "human_general", skill: "none", status: "pending", prompt: "", output_url: "" };
+  }
+  const executor = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
+  const skill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
+  const status = (notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending") as any;
+  const output_url = notes.match(/\[agent_output:([^\]]+)\]/)?.[1] || "";
+
+  let prompt = "";
+  const multiMatch = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
+  if (multiMatch) {
+    prompt = multiMatch[1].trim();
+  } else {
+    const singleMatch = notes.match(/\[agent_prompt:([^\]]+)\]/);
+    if (singleMatch) prompt = singleMatch[1].trim();
+  }
+
+  return { executor, skill, status, prompt, output_url };
+}
+
+export function updateAgentDataInNotes(notes: string | null | undefined, data: Partial<AgentExecutionData>): string {
+  let text = notes || "";
+  text = text.replace(/\[agent_executor:[^\]]*\]/g, "")
+             .replace(/\[agent_skill:[^\]]*\]/g, "")
+             .replace(/\[agent_status:[^\]]*\]/g, "")
+             .replace(/\[agent_output:[^\]]*\]/g, "")
+             .replace(/\[agent_prompt:[^\]]*\]/g, "")
+             .replace(/\[agent_prompt_start\][\s\S]*?\[agent_prompt_end\]/g, "")
+             .trim();
+
+  const current = extractAgentData(notes);
+  const updated: AgentExecutionData = { ...current, ...data };
+
+  const tags: string[] = [];
+  if (updated.executor && updated.executor !== "human_general") tags.push(`[agent_executor:${updated.executor}]`);
+  if (updated.skill && updated.skill !== "none") tags.push(`[agent_skill:${updated.skill}]`);
+  if (updated.status && updated.status !== "pending") tags.push(`[agent_status:${updated.status}]`);
+  if (updated.output_url) tags.push(`[agent_output:${updated.output_url}]`);
+  if (updated.prompt) tags.push(`[agent_prompt_start]\n${updated.prompt.trim()}\n[agent_prompt_end]`);
+
+  if (tags.length === 0) return text;
+  return text ? `${text}\n\n${tags.join("\n")}` : tags.join("\n");
+}
+
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
   area:          { label: "Área / Time",         color: "#3b82f6", icon: Users },
@@ -226,6 +279,20 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
       {/* Quick actions on hover */}
       <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
         <button
+          className="p-1 rounded hover:bg-purple-500/20 text-muted-foreground hover:text-purple-400"
+          onClick={(e) => {
+            e.stopPropagation();
+            const ag = extractAgentData(data.notes);
+            const pName = (data.notes || "").match(/\[product_name:([^\]]+)\]/)?.[1] || "";
+            const textToCopy = ag.prompt || `Ação: ${data.label}\nDescrição: ${data.description || ""}${pName ? `\nProduto: ${pName}` : ""}`;
+            navigator.clipboard.writeText(textToCopy);
+            toast.success("Playbook do Agente copiado para área de transferência!");
+          }}
+          title="Copiar Playbook do Agente para Claude/Codex/Antigravity"
+        >
+          <Bot className="h-3 w-3" />
+        </button>
+        <button
           className="p-1 rounded hover:bg-pink-500/20 text-muted-foreground hover:text-pink-400"
           onClick={(e) => { e.stopPropagation(); data.onGenerateCopy?.(data.id); }}
           title="Gerar copy IA para este nó"
@@ -282,6 +349,57 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
           <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
         </a>
       )}
+
+      {/* Agent Execution Pill */}
+      {(() => {
+        const ag = extractAgentData(data.notes);
+        if (ag.executor === "human_general" && !ag.prompt && !ag.output_url) return null;
+
+        const execName =
+          ag.executor === "ai_higgsfield" ? "🤖 Higgsfield IA" :
+          ag.executor === "ai_google_flow" ? "🌐 Google Flow" :
+          ag.executor === "ai_copywriter" ? "✍️ Copywriter IA" :
+          ag.executor === "openflow" ? "⚡ OpenFlow WA" :
+          ag.executor === "human_traffic" ? "👤 JP / Tráfego" :
+          ag.executor === "human_design" ? "🎨 Design / Vídeo" : "👥 Time Humano";
+
+        return (
+          <div className="mt-2 pt-1.5 border-t border-border/30 flex items-center justify-between gap-1 text-[9px] font-mono">
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/25 truncate font-semibold"
+              title={ag.skill && ag.skill !== "none" ? `Skill: ${ag.skill}` : undefined}
+            >
+              <Bot className="h-2.5 w-2.5 shrink-0 text-purple-400" />
+              {execName}
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              {ag.output_url && (
+                <a
+                  href={ag.output_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:underline flex items-center gap-0.5 text-[8px]"
+                  title="Abrir entregável"
+                >
+                  <ExternalLink className="h-2 w-2" /> Output
+                </a>
+              )}
+              <span className={cn(
+                "px-1 py-0.5 rounded text-[8px] uppercase tracking-wider font-semibold",
+                ag.status === "done" ? "bg-emerald-500/20 text-emerald-300" :
+                ag.status === "in_progress" ? "bg-blue-500/20 text-blue-300 animate-pulse" :
+                ag.status === "ready_review" ? "bg-amber-500/20 text-amber-300" :
+                "bg-zinc-800 text-zinc-400"
+              )}>
+                {ag.status === "done" ? "✓ Pronto" :
+                 ag.status === "in_progress" ? "Executando" :
+                 ag.status === "ready_review" ? "Revisar" : "Pendente"}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* WhatsApp channel enrichment */}
       {waInfo && (
@@ -1455,17 +1573,65 @@ function InnerMap({
         await supabase.from("imphq_company_map_nodes").delete().eq("map_id", mapId);
       }
 
-      let draftNodes: { key: string; kind: string; label: string; description?: string; checklist: string[]; col: number; row: number; product_name?: string }[] = [];
+      let draftNodes: {
+        key: string;
+        kind: string;
+        label: string;
+        description?: string;
+        checklist: string[];
+        col: number;
+        row: number;
+        product_name?: string;
+        executor?: string;
+        skill?: string;
+        prompt?: string;
+      }[] = [];
       let draftEdges: { from: string; to: string; label?: string; style?: "solid" | "dashed" }[] = [];
 
       if (aiFlowPreset === "lancamento_whatsapp") {
         draftNodes = [
-          { key: "ad_convite", kind: "anuncio", label: "Meta Ads · Convite Grupo VIP", description: "Criativos de atração com foco no evento / condição secreta", checklist: ["Roteiro de convite aprovado", "Gravar 3 variações de gancho", "Subir campanha de tráfego"], col: 0, row: 0 },
-          { key: "optin_page", kind: "captura", label: "Página de Captura / Inscrição", description: "Redirecionamento automático com link do WhatsApp", checklist: ["Headline de curiosidade", "Botão de redirecionamento para o Grupo VIP", "Pixel de Lead ativo"], col: 1, row: 0 },
-          { key: "wa_vip", kind: "whatsapp", label: "Grupos VIP WhatsApp (D-7 a D0)", description: "Régua cronometrada de aquecimento e antecipação", checklist: ["Criar grupos 01 a 05", "Agendar mensagens de D-7 a D-1", "Áudios de bastidores do expert"], col: 2, row: 0 },
-          { key: "live_pitch", kind: "youtube", label: "Live no YouTube · Pitch de Vendas", description: "Apresentação da oportunidade, ancoragem e abertura", checklist: ["Slides de apresentação finalizados", "Stack de bônus exclusivos", "Link da transmissão privado"], col: 3, row: 0 },
-          { key: "checkout_abertura", kind: "checkout", label: `Abertura de Carrinho · ${chosenProd}`, product_name: chosenProd, description: "Link exclusivo liberado nos grupos com tempo limitado", checklist: ["Liberar link com cupom exclusivo", "Timer de encerramento em 24h", "Testar compra teste"], col: 4, row: 0 },
-          { key: "wa_suporte", kind: "whatsapp", label: "Plantão X1 · Dúvidas e Pix", description: "Recuperação no 1 a 1 para quem gerou Pix ou travou", checklist: ["IA ou operadores no WhatsApp", "Scripts para quebra de objeções de cartão/limite"], col: 4, row: 1 },
+          {
+            key: "ad_convite", kind: "anuncio", label: "Meta Ads · Convite Grupo VIP",
+            description: "Criativos de atração com foco no evento / condição secreta",
+            checklist: ["Roteiro de convite aprovado", "Gravar 3 variações de gancho", "Subir campanha de tráfego"],
+            col: 0, row: 0, executor: "ai_higgsfield", skill: "skill-black-belt",
+            prompt: `Gerar 3 criativos em vídeo 9:16 chamando para o grupo VIP do produto ${chosenProd}. Gancho de curiosidade, condição secreta e revelação exclusiva.`
+          },
+          {
+            key: "optin_page", kind: "captura", label: "Página de Captura / Inscrição",
+            description: "Redirecionamento automático com link do WhatsApp",
+            checklist: ["Headline de curiosidade", "Botão de redirecionamento para o Grupo VIP", "Pixel de Lead ativo"],
+            col: 1, row: 0, executor: "ai_copywriter", skill: "rebel-copy",
+            prompt: `Escrever headline de alta conversão para página de captura com redirecionamento direto para o Grupo VIP do WhatsApp para ${chosenProd}.`
+          },
+          {
+            key: "wa_vip", kind: "whatsapp", label: "Grupos VIP WhatsApp (D-7 a D0)",
+            description: "Régua cronometrada de aquecimento e antecipação",
+            checklist: ["Criar grupos 01 a 05", "Agendar mensagens de D-7 a D-1", "Áudios de bastidores do expert"],
+            col: 2, row: 0, executor: "openflow", skill: "roteiros-virais-comment-to-dm",
+            prompt: `Montar cronograma de aquecimento D-7 a D0 nos Grupos VIP com áudios de bastidores, avisos de horário e antecipação da oferta.`
+          },
+          {
+            key: "live_pitch", kind: "youtube", label: "Live no YouTube · Pitch de Vendas",
+            description: "Apresentação da oportunidade, ancoragem e abertura",
+            checklist: ["Slides de apresentação finalizados", "Stack de bônus exclusivos", "Link da transmissão privado"],
+            col: 3, row: 0, executor: "ai_copywriter", skill: "mecanismo-vsl",
+            prompt: `Estruturar roteiro de pitch ao vivo (Slide a Slide) com ancoragem, mecanismo único do produto e stack de bônus exclusivos.`
+          },
+          {
+            key: "checkout_abertura", kind: "checkout", label: `Abertura de Carrinho · ${chosenProd}`, product_name: chosenProd,
+            description: "Link exclusivo liberado nos grupos com tempo limitado",
+            checklist: ["Liberar link com cupom exclusivo", "Timer de encerramento em 24h", "Testar compra teste"],
+            col: 4, row: 0, executor: "human_traffic", skill: "briefing-gestor-trafego",
+            prompt: `Configurar checkout com cupom especial de abertura, timer regressivo e disparo de evento de compra no pixel.`
+          },
+          {
+            key: "wa_suporte", kind: "whatsapp", label: "Plantão X1 · Dúvidas e Pix",
+            description: "Recuperação no 1 a 1 para quem gerou Pix ou travou",
+            checklist: ["IA ou operadores no WhatsApp", "Scripts para quebra de objeções de cartão/limite"],
+            col: 4, row: 1, executor: "openflow", skill: "roteiros-virais-comment-to-dm",
+            prompt: `Plantão 1 a 1 de recuperação de Pix gerado e quebra de objeções de limite de cartão no WhatsApp.`
+          },
         ];
         draftEdges = [
           { from: "ad_convite", to: "optin_page", label: "Clique no Anúncio" },
@@ -1476,11 +1642,41 @@ function InnerMap({
         ];
       } else if (aiFlowPreset === "high_ticket_x1") {
         draftNodes = [
-          { key: "ad_direct", kind: "anuncio", label: "Meta / Reels · Direto para WhatsApp", description: "Anúncio focado em filtro de qualificação do cliente ideal", checklist: ["Criativo de filtro de faturamento/perfil", "Link wa.me com mensagem inicial pronta"], col: 0, row: 0 },
-          { key: "wa_sdr", kind: "whatsapp", label: "WhatsApp SDR IA · Triagem & SPIN", description: "Qualificação consultiva automática antes da proposta", checklist: ["Configurar IA consultiva no OpenFlow", "Definir perguntas de qualificação", "Simular 3 testes"], col: 1, row: 0 },
-          { key: "proposta", kind: "processo", label: "Apresentação de Proposta / Closer", description: "Sessão de diagnóstico ou chamada de fechamento", checklist: ["Script de ancoragem de valor", "Superação de objeções de garantia"], col: 2, row: 0 },
-          { key: "checkout_vip", kind: "checkout", label: `Link de Pagamento VIP · ${chosenProd}`, product_name: chosenProd, description: "Condição exclusiva de adesão imediata", checklist: ["Gerar link de pagamento único", "Termo de compromisso / onboarding"], col: 3, row: 0 },
-          { key: "onboarding", kind: "area_membros", label: "Onboarding VIP & Kick-off", description: "Acolhimento imediato e primeira entrega de valor", checklist: ["Formulário de diagnóstico inicial", "Agendamento da sessão individual"], col: 4, row: 0 },
+          {
+            key: "ad_direct", kind: "anuncio", label: "Meta / Reels · Direto para WhatsApp",
+            description: "Anúncio focado em filtro de qualificação do cliente ideal",
+            checklist: ["Criativo de filtro de faturamento/perfil", "Link wa.me com mensagem inicial pronta"],
+            col: 0, row: 0, executor: "ai_higgsfield", skill: "skill-black-belt",
+            prompt: `Criativo direto de filtro e qualificação para mentoria/consultoria de ${chosenProd}. Foco em empresários/profissionais prontos para avançar.`
+          },
+          {
+            key: "wa_sdr", kind: "whatsapp", label: "WhatsApp SDR IA · Triagem & SPIN",
+            description: "Qualificação consultiva automática antes da proposta",
+            checklist: ["Configurar IA consultiva no OpenFlow", "Definir perguntas de qualificação", "Simular 3 testes"],
+            col: 1, row: 0, executor: "openflow", skill: "roteiros-virais-comment-to-dm",
+            prompt: `Configurar fluxo de qualificação SPIN Selling com IA no OpenFlow: faturamento, gargalo atual, urgência e triagem de score > 70.`
+          },
+          {
+            key: "proposta", kind: "processo", label: "Apresentação de Proposta / Closer",
+            description: "Sessão de diagnóstico ou chamada de fechamento",
+            checklist: ["Script de ancoragem de valor", "Superação de objeções de garantia"],
+            col: 2, row: 0, executor: "ai_copywriter", skill: "rebel-copy",
+            prompt: `Deck e roteiro de apresentação de proposta irresistível com garantia de resultado e ancoragem de investimento.`
+          },
+          {
+            key: "checkout_vip", kind: "checkout", label: `Link de Pagamento VIP · ${chosenProd}`, product_name: chosenProd,
+            description: "Condição exclusiva de adesão imediata",
+            checklist: ["Gerar link de pagamento único", "Termo de compromisso / onboarding"],
+            col: 3, row: 0, executor: "human_traffic", skill: "briefing-gestor-trafego",
+            prompt: `Gerar link de pagamento exclusivo com condição negociada no X1 e ativação imediata.`
+          },
+          {
+            key: "onboarding", kind: "area_membros", label: "Onboarding VIP & Kick-off",
+            description: "Acolhimento imediato e primeira entrega de valor",
+            checklist: ["Formulário de diagnóstico inicial", "Agendamento da sessão individual"],
+            col: 4, row: 0, executor: "openflow", skill: "openflow",
+            prompt: `Disparo imediato de formulário de diagnóstico e boas-vindas do expert após confirmação de pagamento.`
+          },
         ];
         draftEdges = [
           { from: "ad_direct", to: "wa_sdr", label: "Iniciou conversa" },
@@ -1490,12 +1686,47 @@ function InnerMap({
         ];
       } else if (aiFlowPreset === "tripwire_ascensao") {
         draftNodes = [
-          { key: "ad_tripwire", kind: "anuncio", label: "Meta Ads · Isca / Oferta Irresistível", description: "Produto de entrada de R$ 19 a R$ 47 com baixo atrito", checklist: ["Criativo focado em solução rápida de dor", "Subir tráfego para conversão de compra"], col: 0, row: 0 },
-          { key: "checkout_front", kind: "checkout", label: `Checkout Front-End (R$ 27) · ${chosenProd}`, product_name: chosenProd, checklist: ["Página de checkout limpa com depoimentos", "Garantia incondicional de 7 dias"], col: 1, row: 0 },
-          { key: "bump_acelerador", kind: "orderbump", label: "Orderbump · Acelerador / Template", description: "Oferta complementar de R$ 17 para elevar o ticket médio", checklist: ["Copy do bump", "Preço complementar R$ 17 - R$ 27"], col: 1, row: 1 },
-          { key: "upsell_core", kind: "upsell", label: "1-Click Upsell · Treinamento Completo", description: "Oferta principal (Core Offer R$ 197 - R$ 497)", checklist: ["Vídeo de 90s do upsell", "Configurar 1-click automático na plataforma"], col: 2, row: 0 },
-          { key: "downsell_core", kind: "downsell", label: "Downsell · Versão Essencial", description: "Parcelamento estendido ou versão sem bônus", checklist: ["Página alternativa de downsell"], col: 2, row: 1 },
-          { key: "comunidade", kind: "area_membros", label: "Área de Membros & Boas-Vindas", description: "Entrega imediata dos acessos e nivelamento", checklist: ["Envio de acesso por e-mail e WhatsApp", "Vídeo de boas-vindas liberado"], col: 3, row: 0 },
+          {
+            key: "ad_tripwire", kind: "anuncio", label: "Meta Ads · Isca / Oferta Irresistível",
+            description: "Produto de entrada de R$ 19 a R$ 47 com baixo atrito",
+            checklist: ["Criativo focado em solução rápida de dor", "Subir tráfego para conversão de compra"],
+            col: 0, row: 0, executor: "ai_higgsfield", skill: "skill-black-belt",
+            prompt: `Criativo de alta atração para produto de entrada de R$ 27 focado na solução rápida de uma dor aguda de ${chosenProd}.`
+          },
+          {
+            key: "checkout_front", kind: "checkout", label: `Checkout Front-End (R$ 27) · ${chosenProd}`, product_name: chosenProd,
+            checklist: ["Página de checkout limpa com depoimentos", "Garantia incondicional de 7 dias"],
+            col: 1, row: 0, executor: "human_traffic", skill: "briefing-gestor-trafego",
+            prompt: `Página de checkout de conversão com selos de segurança, garantia de 7 dias e depoimentos em carrossel.`
+          },
+          {
+            key: "bump_acelerador", kind: "orderbump", label: "Orderbump · Acelerador / Template",
+            description: "Oferta complementar de R$ 17 para elevar o ticket médio",
+            checklist: ["Copy do bump", "Preço complementar R$ 17 - R$ 27"],
+            col: 1, row: 1, executor: "ai_copywriter", skill: "tripwire-matador-v2",
+            prompt: `Copy do Orderbump de R$ 17 a R$ 27: Acelerador ou template que complementa o produto de entrada.`
+          },
+          {
+            key: "upsell_core", kind: "upsell", label: "1-Click Upsell · Treinamento Completo",
+            description: "Oferta principal (Core Offer R$ 197 - R$ 497)",
+            checklist: ["Vídeo de 90s do upsell", "Configurar 1-click automático na plataforma"],
+            col: 2, row: 0, executor: "ai_copywriter", skill: "rebel-copy",
+            prompt: `Vídeo de 90 segundos de 1-Click Upsell apresentando o treinamento completo ou protocolo mestre de R$ 297.`
+          },
+          {
+            key: "downsell_core", kind: "downsell", label: "Downsell · Versão Essencial",
+            description: "Parcelamento estendido ou versão sem bônus",
+            checklist: ["Página alternativa de downsell"],
+            col: 2, row: 1, executor: "ai_copywriter", skill: "rebel-copy",
+            prompt: `Copy de downsell facilitado com parcelamento estendido ou versão essencial para recuperar a recusa do upsell.`
+          },
+          {
+            key: "comunidade", kind: "area_membros", label: "Área de Membros & Boas-Vindas",
+            description: "Entrega imediata dos acessos e nivelamento",
+            checklist: ["Envio de acesso por e-mail e WhatsApp", "Vídeo de boas-vindas liberado"],
+            col: 3, row: 0, executor: "openflow", skill: "openflow",
+            prompt: `Régua de entrega de acessos no WhatsApp e boas-vindas na área de membros.`
+          },
         ];
         draftEdges = [
           { from: "ad_tripwire", to: "checkout_front", label: "Clique" },
@@ -1508,15 +1739,69 @@ function InnerMap({
       } else {
         // vsl_perpetuo (padrão)
         draftNodes = [
-          { key: "ad_dor", kind: "anuncio", label: "Meta Ads · Gancho de Dor Aguda", description: "Criativo focado no sintoma e frustração imediata", checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"], col: 0, row: 0 },
-          { key: "ad_vilao", kind: "anuncio", label: "Meta Ads · Inimigo Oculto", description: "Ângulo do mecanismo único que desmascara métodos velhos", checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"], col: 0, row: 1 },
-          { key: "ad_ugc", kind: "anuncio", label: "Meta Ads · Depoimento UGC", description: "Prova social de quem já obteve o resultado desejado", checklist: ["Separar print/vídeo real", "Subir no Meta Ads"], col: 0, row: 2 },
-          { key: "page_vsl", kind: "vsl", label: "Página de Vendas / Advertorial VSL", description: "Página de alta conversão com narrativa e pitch", checklist: ["Hospedar vídeo VSL", "Configurar delay do botão CTA", "Validar carregamento no mobile"], col: 1, row: 0 },
-          { key: "checkout_main", kind: "checkout", label: `Checkout · ${chosenProd}`, product_name: chosenProd, description: "Página de pagamento segura com garantias", checklist: ["Configurar pixel de conversão", "Garantia incondicional de 30 dias", "Fazer compra teste"], col: 2, row: 0 },
-          { key: "bump_extra", kind: "orderbump", label: "Orderbump · Pote Extra / Guia Rápido", description: "Oferta complementar de impulso (R$ 27 - R$ 47)", checklist: ["Headline persuasiva do bump", "Preço R$ 27 - R$ 47"], col: 2, row: 1 },
-          { key: "upsell_anual", kind: "upsell", label: "1-Click Upsell · Kit Completo", description: "Alavanca imediata de ticket médio (AOV)", checklist: ["Vídeo de 60s do upsell", "Configurar 1-click na plataforma de pagamento"], col: 3, row: 0 },
-          { key: "downsell_leve", kind: "downsell", label: "Downsell · Condição Facilitada", description: "Opção parcelada ou quantidade reduzida", checklist: ["Página alternativa de downsell"], col: 3, row: 1 },
-          { key: "wa_recuperacao", kind: "whatsapp", label: "WhatsApp X1 · Resgate de Abandono", description: "Disparo automático após 15min / 2h de carrinho abandonado", checklist: ["Conectar instância WhatsApp", "Ativar régua no OpenFlow", "Testar mensagem de 15min"], col: 2, row: 2 },
+          {
+            key: "ad_dor", kind: "anuncio", label: "Meta Ads · Gancho de Dor Aguda",
+            description: "Criativo focado no sintoma e frustração imediata",
+            checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"],
+            col: 0, row: 0, executor: "ai_higgsfield", skill: "skill-black-belt",
+            prompt: `Vídeo 9:16 vertical atacando o sintoma mais doloroso e frustrante do avatar de ${chosenProd}. Seedance 2.0 / Veo 3 com legendas de retenção.`
+          },
+          {
+            key: "ad_vilao", kind: "anuncio", label: "Meta Ads · Inimigo Oculto",
+            description: "Ângulo do mecanismo único que desmascara métodos velhos",
+            checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"],
+            col: 0, row: 1, executor: "ai_higgsfield", skill: "skill-black-belt",
+            prompt: `Vídeo 9:16 revelando o Inimigo Oculto e explicando por que métodos convencionais falharam antes de ${chosenProd}.`
+          },
+          {
+            key: "ad_ugc", kind: "anuncio", label: "Meta Ads · Depoimento UGC",
+            description: "Prova social de quem já obteve o resultado desejado",
+            checklist: ["Separar print/vídeo real", "Subir no Meta Ads"],
+            col: 0, row: 2, executor: "ai_google_flow", skill: "pipeline-video-viral",
+            prompt: `Vídeo depoimento estilo UGC espontâneo com pessoa real mostrando a transformação após usar ${chosenProd}.`
+          },
+          {
+            key: "page_vsl", kind: "vsl", label: "Página de Vendas / Advertorial VSL",
+            description: "Página de alta conversão com narrativa e pitch",
+            checklist: ["Hospedar vídeo VSL", "Configurar delay do botão CTA", "Validar carregamento no mobile"],
+            col: 1, row: 0, executor: "ai_copywriter", skill: "mecanismo-vsl",
+            prompt: `Página advertorial e roteiro de VSL com pitch irresistível, delay de botão CTA sincronizado e quebra de objeções.`
+          },
+          {
+            key: "checkout_main", kind: "checkout", label: `Checkout · ${chosenProd}`, product_name: chosenProd,
+            description: "Página de pagamento segura com garantias",
+            checklist: ["Configurar pixel de conversão", "Garantia incondicional de 30 dias", "Fazer compra teste"],
+            col: 2, row: 0, executor: "human_traffic", skill: "briefing-gestor-trafego",
+            prompt: `Configurar produto ${chosenProd} na Kiwify/Hotmart, cadastrar pixel de compra e testar checkout no mobile.`
+          },
+          {
+            key: "bump_extra", kind: "orderbump", label: "Orderbump · Pote Extra / Guia Rápido",
+            description: "Oferta complementar de impulso (R$ 27 - R$ 47)",
+            checklist: ["Headline persuasiva do bump", "Preço R$ 27 - R$ 47"],
+            col: 2, row: 1, executor: "ai_copywriter", skill: "tripwire-matador-v2",
+            prompt: `Copy de impulso do Orderbump: Oferta de 1 pote extra ou guia de receitas aceleradoras por R$ 27 a R$ 47.`
+          },
+          {
+            key: "upsell_anual", kind: "upsell", label: "1-Click Upsell · Kit Completo",
+            description: "Alavanca imediata de ticket médio (AOV)",
+            checklist: ["Vídeo de 60s do upsell", "Configurar 1-click na plataforma de pagamento"],
+            col: 3, row: 0, executor: "ai_copywriter", skill: "rebel-copy",
+            prompt: `Página e roteiro de 1-Click Upsell imediato para kit anual com maior margem de lucro e ancoragem brutal.`
+          },
+          {
+            key: "downsell_leve", kind: "downsell", label: "Downsell · Condição Facilitada",
+            description: "Opção parcelada ou quantidade reduzida",
+            checklist: ["Página alternativa de downsell"],
+            col: 3, row: 1, executor: "ai_copywriter", skill: "rebel-copy",
+            prompt: `Oferta alternativa de downsell com menor barreira de entrada para quem recusa o upsell anual.`
+          },
+          {
+            key: "wa_recuperacao", kind: "whatsapp", label: "WhatsApp X1 · Resgate de Abandono",
+            description: "Disparo automático após 15min / 2h de carrinho abandonado",
+            checklist: ["Conectar instância WhatsApp", "Ativar régua no OpenFlow", "Testar mensagem de 15min"],
+            col: 2, row: 2, executor: "openflow", skill: "roteiros-virais-comment-to-dm",
+            prompt: `Automação no OpenFlow: Mensagem amigável de suporte 15min após abandono de carrinho e lembrete de Pix em 2h.`
+          },
         ];
         draftEdges = [
           { from: "ad_dor", to: "page_vsl", label: "Clique no Anúncio" },
@@ -1532,6 +1817,7 @@ function InnerMap({
 
       if (aiFlowPreset === "custom" && aiFlowCustomText.trim()) {
         draftNodes[0].label = `Anúncio · ${aiFlowCustomText.slice(0, 32)}`;
+        draftNodes[0].prompt = aiFlowCustomText;
       }
 
       const keyToId: Record<string, string> = {};
@@ -1540,6 +1826,9 @@ function InnerMap({
         const y = dn.row * 180 + 60;
 
         let notes = dn.product_name ? `[product_name:${dn.product_name}]\n` : "";
+        if (dn.executor) notes += `[agent_executor:${dn.executor}]\n`;
+        if (dn.skill) notes += `[agent_skill:${dn.skill}]\n`;
+        if (dn.prompt) notes += `[agent_prompt_start]\n${dn.prompt}\n[agent_prompt_end]\n`;
         if (dn.description) notes += dn.description;
 
         const { data: createdNode, error: nodeErr } = await supabase.from("imphq_company_map_nodes").insert({
@@ -2713,6 +3002,134 @@ function InnerMap({
                   </div>
                 </>
               )}
+
+              {/* ───────── CENTRAL DO AGENTE & EXECUÇÃO (SOP / RUNBOOK) ───────── */}
+              {(() => {
+                const agent = extractAgentData(selected.notes);
+                const handleUpdateAgent = (partial: Partial<AgentExecutionData>) => {
+                  const newNotes = updateAgentDataInNotes(selected.notes, partial);
+                  setSelected({ ...selected, notes: newNotes });
+                };
+
+                return (
+                  <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-purple-400 flex items-center gap-1.5 font-mono">
+                        <Bot className="h-4 w-4 text-purple-400" /> Agente & Execução (SOP)
+                      </span>
+                      <Select
+                        value={agent.status}
+                        onValueChange={(v) => handleUpdateAgent({ status: v as any })}
+                      >
+                        <SelectTrigger className="h-7 w-[125px] text-[10px] bg-secondary/80 font-mono">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                          <SelectItem value="pending" className="text-xs">🟡 Pendente</SelectItem>
+                          <SelectItem value="in_progress" className="text-xs">🔵 Em Execução</SelectItem>
+                          <SelectItem value="ready_review" className="text-xs">🟣 Para Revisão</SelectItem>
+                          <SelectItem value="done" className="text-xs">🟢 Concluído</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Quem Executa?</Label>
+                        <Select
+                          value={agent.executor}
+                          onValueChange={(v) => handleUpdateAgent({ executor: v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                            <SelectItem value="ai_higgsfield" className="text-xs">🤖 IA · Higgsfield (Vídeo 9:16)</SelectItem>
+                            <SelectItem value="ai_google_flow" className="text-xs">🌐 Navegador · Google Flow</SelectItem>
+                            <SelectItem value="ai_copywriter" className="text-xs">✍️ IA · Copywriter (VSL/Copy)</SelectItem>
+                            <SelectItem value="openflow" className="text-xs">⚡ Automação · OpenFlow WA</SelectItem>
+                            <SelectItem value="human_traffic" className="text-xs">👤 JP / Gestor de Tráfego</SelectItem>
+                            <SelectItem value="human_design" className="text-xs">🎨 Designer / Editor</SelectItem>
+                            <SelectItem value="human_general" className="text-xs">👥 Time Geral</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Skill / Ferramenta</Label>
+                        <Select
+                          value={agent.skill}
+                          onValueChange={(v) => handleUpdateAgent({ skill: v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                            <SelectItem value="skill-black-belt" className="text-xs">skill-black-belt (Higgsfield)</SelectItem>
+                            <SelectItem value="pipeline-video-viral" className="text-xs">pipeline-video-viral (Google Flow)</SelectItem>
+                            <SelectItem value="angulos-criativos" className="text-xs">angulos-criativos (Ganchos)</SelectItem>
+                            <SelectItem value="rebel-copy" className="text-xs">rebel-copy (Carlton VSL)</SelectItem>
+                            <SelectItem value="mecanismo-vsl" className="text-xs">mecanismo-vsl</SelectItem>
+                            <SelectItem value="roteiros-virais-comment-to-dm" className="text-xs">roteiros-virais-comment-to-dm</SelectItem>
+                            <SelectItem value="briefing-gestor-trafego" className="text-xs">briefing-gestor-trafego</SelectItem>
+                            <SelectItem value="openflow" className="text-xs">openflow (Regras WA)</SelectItem>
+                            <SelectItem value="none" className="text-xs">Nenhuma / Manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] text-muted-foreground">Prompt / Playbook do Nó</Label>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1.5 text-[10px] text-purple-300 hover:text-purple-200 gap-1"
+                          onClick={() => {
+                            const pName = (selected.notes || "").match(/\[product_name:([^\]]+)\]/)?.[1] || "";
+                            const promptText = agent.prompt || `Ação: ${selected.label}\nDescrição: ${selected.description || ""}${pName ? `\nProduto: ${pName}` : ""}`;
+                            navigator.clipboard.writeText(promptText);
+                            toast.success("Prompt do Agente copiado para a área de transferência!");
+                          }}
+                        >
+                          <Copy className="h-3 w-3" /> Copiar Prompt
+                        </Button>
+                      </div>
+                      <Textarea
+                        rows={3}
+                        value={agent.prompt}
+                        onChange={(e) => handleUpdateAgent({ prompt: e.target.value })}
+                        placeholder="Instrução exata para a IA (ex: Gerar criativo 9:16 com gancho de dor...)"
+                        className="bg-secondary/60 border-border/40 text-xs font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">URL do Entregável (Vídeo, Copy, Campanha)</Label>
+                      <div className="flex gap-1.5">
+                        <Input
+                          value={agent.output_url}
+                          onChange={(e) => handleUpdateAgent({ output_url: e.target.value })}
+                          placeholder="https://... (link do MP4, drive ou doc)"
+                          className="h-8 text-xs bg-secondary"
+                        />
+                        {agent.output_url && (
+                          <a
+                            href={agent.output_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center h-8 px-2.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-white shrink-0 text-xs"
+                            title="Abrir"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div>
                 <div className="flex items-center justify-between mb-2">
