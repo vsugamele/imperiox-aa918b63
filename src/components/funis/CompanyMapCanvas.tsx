@@ -445,7 +445,21 @@ function InnerMap({
   const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [waSubMode, setWaSubMode] = useState<"x1" | "grupo">("x1");
 
+  // Gerador de Fluxo por IA
+  const [aiFlowModalOpen, setAiFlowModalOpen] = useState(false);
+  const [aiFlowPreset, setAiFlowPreset] = useState<string>("vsl_perpetuo");
+  const [aiFlowCustomText, setAiFlowCustomText] = useState("");
+  const [aiFlowProduct, setAiFlowProduct] = useState("");
+  const [aiFlowReplace, setAiFlowReplace] = useState(true);
+  const [aiFlowGenerating, setAiFlowGenerating] = useState(false);
+
   const effectiveProjectId = selected?.linked_project_id || initialProjectId || null;
+  const currentProject = projects.find(p => p.id === (effectiveProjectId || projects[0]?.id));
+  const projectProductsList = useMemo(() => {
+    if (!currentProject) return [];
+    const data = parseProjectData(currentProject.data);
+    return data.produtos || [];
+  }, [currentProject]);
 
   useEffect(() => {
     if (!effectiveProjectId) {
@@ -498,7 +512,7 @@ function InnerMap({
     window.addEventListener("open-image-lightbox", h);
     return () => window.removeEventListener("open-image-lightbox", h);
   }, []);
-  const { setCenter, screenToFlowPosition } = useReactFlow();
+  const { setCenter, screenToFlowPosition, fitView } = useReactFlow();
   const navigate = useNavigate();
   useEffect(() => {
     localStorage.setItem("funis:palette-collapsed", String(paletteCollapsed));
@@ -1426,6 +1440,155 @@ function InnerMap({
     catch (e: unknown) { toast.error(errorMessage(e) || "Erro", { id: t }); }
   };
 
+  const handleGenerateAiFlow = async () => {
+    if (!mapId) return;
+    setAiFlowGenerating(true);
+    const toastId = toast.loading("Desenhando fluxo com IA...");
+
+    try {
+      const projId = effectiveProjectId || projects[0]?.id;
+      const curProj = projects.find(p => p.id === projId);
+      const chosenProd = aiFlowProduct || (projectProductsList[0]?.nome || projectProductsList[0]?.name) || "Produto Principal";
+
+      if (aiFlowReplace) {
+        await supabase.from("imphq_company_map_edges").delete().eq("map_id", mapId);
+        await supabase.from("imphq_company_map_nodes").delete().eq("map_id", mapId);
+      }
+
+      let draftNodes: { key: string; kind: string; label: string; description?: string; checklist: string[]; col: number; row: number; product_name?: string }[] = [];
+      let draftEdges: { from: string; to: string; label?: string; style?: "solid" | "dashed" }[] = [];
+
+      if (aiFlowPreset === "lancamento_whatsapp") {
+        draftNodes = [
+          { key: "ad_convite", kind: "anuncio", label: "Meta Ads · Convite Grupo VIP", description: "Criativos de atração com foco no evento / condição secreta", checklist: ["Roteiro de convite aprovado", "Gravar 3 variações de gancho", "Subir campanha de tráfego"], col: 0, row: 0 },
+          { key: "optin_page", kind: "captura", label: "Página de Captura / Inscrição", description: "Redirecionamento automático com link do WhatsApp", checklist: ["Headline de curiosidade", "Botão de redirecionamento para o Grupo VIP", "Pixel de Lead ativo"], col: 1, row: 0 },
+          { key: "wa_vip", kind: "whatsapp", label: "Grupos VIP WhatsApp (D-7 a D0)", description: "Régua cronometrada de aquecimento e antecipação", checklist: ["Criar grupos 01 a 05", "Agendar mensagens de D-7 a D-1", "Áudios de bastidores do expert"], col: 2, row: 0 },
+          { key: "live_pitch", kind: "youtube", label: "Live no YouTube · Pitch de Vendas", description: "Apresentação da oportunidade, ancoragem e abertura", checklist: ["Slides de apresentação finalizados", "Stack de bônus exclusivos", "Link da transmissão privado"], col: 3, row: 0 },
+          { key: "checkout_abertura", kind: "checkout", label: `Abertura de Carrinho · ${chosenProd}`, product_name: chosenProd, description: "Link exclusivo liberado nos grupos com tempo limitado", checklist: ["Liberar link com cupom exclusivo", "Timer de encerramento em 24h", "Testar compra teste"], col: 4, row: 0 },
+          { key: "wa_suporte", kind: "whatsapp", label: "Plantão X1 · Dúvidas e Pix", description: "Recuperação no 1 a 1 para quem gerou Pix ou travou", checklist: ["IA ou operadores no WhatsApp", "Scripts para quebra de objeções de cartão/limite"], col: 4, row: 1 },
+        ];
+        draftEdges = [
+          { from: "ad_convite", to: "optin_page", label: "Clique no Anúncio" },
+          { from: "optin_page", to: "wa_vip", label: "Entrou no Grupo VIP" },
+          { from: "wa_vip", to: "live_pitch", label: "Link da Live (D0)" },
+          { from: "live_pitch", to: "checkout_abertura", label: "Abertura de Carrinho" },
+          { from: "checkout_abertura", to: "wa_suporte", label: "Dúvida / Pix Gerado", style: "dashed" },
+        ];
+      } else if (aiFlowPreset === "high_ticket_x1") {
+        draftNodes = [
+          { key: "ad_direct", kind: "anuncio", label: "Meta / Reels · Direto para WhatsApp", description: "Anúncio focado em filtro de qualificação do cliente ideal", checklist: ["Criativo de filtro de faturamento/perfil", "Link wa.me com mensagem inicial pronta"], col: 0, row: 0 },
+          { key: "wa_sdr", kind: "whatsapp", label: "WhatsApp SDR IA · Triagem & SPIN", description: "Qualificação consultiva automática antes da proposta", checklist: ["Configurar IA consultiva no OpenFlow", "Definir perguntas de qualificação", "Simular 3 testes"], col: 1, row: 0 },
+          { key: "proposta", kind: "processo", label: "Apresentação de Proposta / Closer", description: "Sessão de diagnóstico ou chamada de fechamento", checklist: ["Script de ancoragem de valor", "Superação de objeções de garantia"], col: 2, row: 0 },
+          { key: "checkout_vip", kind: "checkout", label: `Link de Pagamento VIP · ${chosenProd}`, product_name: chosenProd, description: "Condição exclusiva de adesão imediata", checklist: ["Gerar link de pagamento único", "Termo de compromisso / onboarding"], col: 3, row: 0 },
+          { key: "onboarding", kind: "area_membros", label: "Onboarding VIP & Kick-off", description: "Acolhimento imediato e primeira entrega de valor", checklist: ["Formulário de diagnóstico inicial", "Agendamento da sessão individual"], col: 4, row: 0 },
+        ];
+        draftEdges = [
+          { from: "ad_direct", to: "wa_sdr", label: "Iniciou conversa" },
+          { from: "wa_sdr", to: "proposta", label: "Qualificado (Score > 70)" },
+          { from: "proposta", to: "checkout_vip", label: "Proposta Aceita" },
+          { from: "checkout_vip", to: "onboarding", label: "Pagamento Confirmado" },
+        ];
+      } else if (aiFlowPreset === "tripwire_ascensao") {
+        draftNodes = [
+          { key: "ad_tripwire", kind: "anuncio", label: "Meta Ads · Isca / Oferta Irresistível", description: "Produto de entrada de R$ 19 a R$ 47 com baixo atrito", checklist: ["Criativo focado em solução rápida de dor", "Subir tráfego para conversão de compra"], col: 0, row: 0 },
+          { key: "checkout_front", kind: "checkout", label: `Checkout Front-End (R$ 27) · ${chosenProd}`, product_name: chosenProd, checklist: ["Página de checkout limpa com depoimentos", "Garantia incondicional de 7 dias"], col: 1, row: 0 },
+          { key: "bump_acelerador", kind: "orderbump", label: "Orderbump · Acelerador / Template", description: "Oferta complementar de R$ 17 para elevar o ticket médio", checklist: ["Copy do bump", "Preço complementar R$ 17 - R$ 27"], col: 1, row: 1 },
+          { key: "upsell_core", kind: "upsell", label: "1-Click Upsell · Treinamento Completo", description: "Oferta principal (Core Offer R$ 197 - R$ 497)", checklist: ["Vídeo de 90s do upsell", "Configurar 1-click automático na plataforma"], col: 2, row: 0 },
+          { key: "downsell_core", kind: "downsell", label: "Downsell · Versão Essencial", description: "Parcelamento estendido ou versão sem bônus", checklist: ["Página alternativa de downsell"], col: 2, row: 1 },
+          { key: "comunidade", kind: "area_membros", label: "Área de Membros & Boas-Vindas", description: "Entrega imediata dos acessos e nivelamento", checklist: ["Envio de acesso por e-mail e WhatsApp", "Vídeo de boas-vindas liberado"], col: 3, row: 0 },
+        ];
+        draftEdges = [
+          { from: "ad_tripwire", to: "checkout_front", label: "Clique" },
+          { from: "checkout_front", to: "bump_acelerador", label: "Adicionou Bump" },
+          { from: "checkout_front", to: "upsell_core", label: "Compra Aprovada" },
+          { from: "upsell_core", to: "downsell_core", label: "Recusou Upsell", style: "dashed" },
+          { from: "upsell_core", to: "comunidade", label: "Aceitou Upsell" },
+          { from: "downsell_core", to: "comunidade", label: "Concluiu Compra" },
+        ];
+      } else {
+        // vsl_perpetuo (padrão)
+        draftNodes = [
+          { key: "ad_dor", kind: "anuncio", label: "Meta Ads · Gancho de Dor Aguda", description: "Criativo focado no sintoma e frustração imediata", checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"], col: 0, row: 0 },
+          { key: "ad_vilao", kind: "anuncio", label: "Meta Ads · Inimigo Oculto", description: "Ângulo do mecanismo único que desmascara métodos velhos", checklist: ["Roteiro aprovado", "Gravar criativo", "Subir no Meta Ads"], col: 0, row: 1 },
+          { key: "ad_ugc", kind: "anuncio", label: "Meta Ads · Depoimento UGC", description: "Prova social de quem já obteve o resultado desejado", checklist: ["Separar print/vídeo real", "Subir no Meta Ads"], col: 0, row: 2 },
+          { key: "page_vsl", kind: "vsl", label: "Página de Vendas / Advertorial VSL", description: "Página de alta conversão com narrativa e pitch", checklist: ["Hospedar vídeo VSL", "Configurar delay do botão CTA", "Validar carregamento no mobile"], col: 1, row: 0 },
+          { key: "checkout_main", kind: "checkout", label: `Checkout · ${chosenProd}`, product_name: chosenProd, description: "Página de pagamento segura com garantias", checklist: ["Configurar pixel de conversão", "Garantia incondicional de 30 dias", "Fazer compra teste"], col: 2, row: 0 },
+          { key: "bump_extra", kind: "orderbump", label: "Orderbump · Pote Extra / Guia Rápido", description: "Oferta complementar de impulso (R$ 27 - R$ 47)", checklist: ["Headline persuasiva do bump", "Preço R$ 27 - R$ 47"], col: 2, row: 1 },
+          { key: "upsell_anual", kind: "upsell", label: "1-Click Upsell · Kit Completo", description: "Alavanca imediata de ticket médio (AOV)", checklist: ["Vídeo de 60s do upsell", "Configurar 1-click na plataforma de pagamento"], col: 3, row: 0 },
+          { key: "downsell_leve", kind: "downsell", label: "Downsell · Condição Facilitada", description: "Opção parcelada ou quantidade reduzida", checklist: ["Página alternativa de downsell"], col: 3, row: 1 },
+          { key: "wa_recuperacao", kind: "whatsapp", label: "WhatsApp X1 · Resgate de Abandono", description: "Disparo automático após 15min / 2h de carrinho abandonado", checklist: ["Conectar instância WhatsApp", "Ativar régua no OpenFlow", "Testar mensagem de 15min"], col: 2, row: 2 },
+        ];
+        draftEdges = [
+          { from: "ad_dor", to: "page_vsl", label: "Clique no Anúncio" },
+          { from: "ad_vilao", to: "page_vsl", label: "Clique no Anúncio" },
+          { from: "ad_ugc", to: "page_vsl", label: "Clique no Anúncio" },
+          { from: "page_vsl", to: "checkout_main", label: "Clique no CTA" },
+          { from: "checkout_main", to: "bump_extra", label: "Adicionou Bump" },
+          { from: "checkout_main", to: "upsell_anual", label: "Compra Aprovada" },
+          { from: "upsell_anual", to: "downsell_leve", label: "Recusou Upsell", style: "dashed" },
+          { from: "checkout_main", to: "wa_recuperacao", label: "Abandono de Carrinho / Pix", style: "dashed" },
+        ];
+      }
+
+      if (aiFlowPreset === "custom" && aiFlowCustomText.trim()) {
+        draftNodes[0].label = `Anúncio · ${aiFlowCustomText.slice(0, 32)}`;
+      }
+
+      const keyToId: Record<string, string> = {};
+      for (const dn of draftNodes) {
+        const x = dn.col * 350 + 60;
+        const y = dn.row * 180 + 60;
+
+        let notes = dn.product_name ? `[product_name:${dn.product_name}]\n` : "";
+        if (dn.description) notes += dn.description;
+
+        const { data: createdNode, error: nodeErr } = await supabase.from("imphq_company_map_nodes").insert({
+          map_id: mapId,
+          label: dn.label,
+          kind: dn.kind,
+          color: KIND_PRESETS[dn.kind]?.color || "#c9922a",
+          description: dn.description || null,
+          notes: notes.trim() || null,
+          position: { x, y },
+          size: "M",
+          checklist: (dn.checklist || []).map(t => ({ id: crypto.randomUUID(), text: t, done: false })),
+          linked_project_id: projId,
+          show_live_kpis: true,
+        }).select("id").single();
+
+        if (nodeErr) throw nodeErr;
+        if (createdNode) {
+          keyToId[dn.key] = createdNode.id;
+        }
+      }
+
+      for (const de of draftEdges) {
+        const srcId = keyToId[de.from];
+        const tgtId = keyToId[de.to];
+        if (srcId && tgtId) {
+          await supabase.from("imphq_company_map_edges").insert({
+            map_id: mapId,
+            source_id: srcId,
+            target_id: tgtId,
+            label: de.label || null,
+            style: de.style || "solid",
+          });
+        }
+      }
+
+      await loadMap(mapId);
+      setAiFlowModalOpen(false);
+      toast.success("Fluxo operacional desenhado com sucesso!", { id: toastId });
+      setTimeout(() => fitView({ duration: 800 }), 300);
+
+    } catch (e: any) {
+      console.error("Erro ao desenhar fluxo com IA:", e);
+      toast.error(errorMessage(e) || "Erro ao desenhar com IA", { id: toastId });
+    } finally {
+      setAiFlowGenerating(false);
+    }
+  };
+
   const handleExport = async () => {
     try { await exportMapPng(); toast.success("PNG baixado"); }
     catch (e: unknown) { toast.error(errorMessage(e) || "Erro ao exportar"); }
@@ -1641,6 +1804,13 @@ function InnerMap({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        <Button
+          size="sm"
+          onClick={() => setAiFlowModalOpen(true)}
+          className="h-7 px-2.5 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold gap-1.5 shadow-sm transition-all"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Desenhar com IA
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
           <LayoutGrid className="h-3 w-3" /> Organizar
         </Button>
@@ -1648,6 +1818,17 @@ function InnerMap({
           <ListChecks className="h-3 w-3" /> Checklist
           {totalItems > 0 && <Badge variant="outline" className="h-4 px-1 text-[9px] ml-1">{totalDone}/{totalItems}</Badge>}
         </Button>
+        {totalItems > 0 && (
+          <div
+            onClick={() => setChecklistPanel(true)}
+            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono cursor-pointer transition-colors bg-secondary/70 hover:bg-secondary border border-border/40"
+            title="Ver tarefas pendentes hoje para rodar tráfego"
+          >
+            <span className={totalDone === totalItems ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+              {totalDone === totalItems ? "🟢 Pronto para Tráfego" : `🟡 ${totalItems - totalDone} tarefas hoje`}
+            </span>
+          </div>
+        )}
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
           <Download className="h-3 w-3" /> PNG
         </Button>
@@ -2686,6 +2867,174 @@ function InnerMap({
               groups={campaignGroups}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Desenhar com IA */}
+      <Dialog open={aiFlowModalOpen} onOpenChange={setAiFlowModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#0A0B0D] border-[#1B1E23] p-6 text-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display text-lg text-white">
+              <Sparkles className="h-5 w-5 text-amber-400" />
+              Desenhar Arquitetura de Funil com IA
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Escolha a estratégia do seu funil. A IA desenha os nós em colunas, conecta o fluxo visual e gera a checklist do que você e seu time precisam fazer hoje para colocar o tráfego no ar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Presets Grid */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground">Escolha o Modelo de Funil:</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  {
+                    id: "vsl_perpetuo",
+                    title: "🎬 Perpétuo VSL com Bump & Upsell",
+                    badge: "Recomendado",
+                    desc: "Meta Ads (3 ângulos) ➔ VSL Advertorial ➔ Checkout Kiwify com Bump ➔ 1-Click Upsell ➔ WhatsApp Recuperação",
+                    details: "Ideal para infoprodutos e encapsulados rodando tráfego direto frio todos os dias.",
+                  },
+                  {
+                    id: "lancamento_whatsapp",
+                    title: "🚀 Lançamento WhatsApp / Meteórico",
+                    badge: "Pico de Vendas",
+                    desc: "Meta Ads ➔ Captura Optin ➔ Grupos VIP WhatsApp (D-7 a D0) ➔ Live no YouTube ➔ Abertura ➔ Plantão X1",
+                    details: "Ideal para eventos de lançamento, workshops e ofertas com data marcada.",
+                  },
+                  {
+                    id: "high_ticket_x1",
+                    title: "💬 Funil High Ticket / Consultoria X1",
+                    badge: "Alto LTV",
+                    desc: "Tráfego direto WhatsApp ➔ Qualificação SDR / IA (Score > 70) ➔ Proposta ➔ Link VIP ➔ Onboarding",
+                    details: "Ideal para mentorias, serviços, consultorias e produtos acima de R$ 1.000.",
+                  },
+                  {
+                    id: "tripwire_ascensao",
+                    title: "🎁 Funil Tripwire com Ascensão",
+                    badge: "Baixo CAC",
+                    desc: "Isca R$ 27 ➔ Orderbump Acelerador ➔ 1-Click Upsell Core Offer R$ 297 ➔ Downsell ➔ Comunidade",
+                    details: "Ideal para monetizar tráfego com produto de entrada e lucrar no backend.",
+                  },
+                  {
+                    id: "custom",
+                    title: "✍️ Estratégia Personalizada",
+                    badge: "Prompt Livre",
+                    desc: "Descreva seu funil ou produto em texto livre.",
+                    details: "A IA adapta a estrutura e as checklists conforme sua necessidade.",
+                  },
+                ].map((opt) => {
+                  const isSelected = aiFlowPreset === opt.id;
+                  return (
+                    <div
+                      key={opt.id}
+                      onClick={() => setAiFlowPreset(opt.id)}
+                      className={cn(
+                        "p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1 text-left",
+                        isSelected
+                          ? "bg-amber-500/10 border-amber-500/60 ring-1 ring-amber-500/30"
+                          : "bg-[#0E1013] border-[#1B1E23] hover:border-zinc-700"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-white">{opt.title}</span>
+                        <Badge variant={isSelected ? "default" : "outline"} className={cn("text-[10px] h-5", isSelected && "bg-amber-500 text-black font-bold")}>
+                          {opt.badge}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{opt.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom text if custom selected */}
+            {aiFlowPreset === "custom" && (
+              <div className="space-y-1.5 pt-1">
+                <Label className="text-xs font-semibold text-muted-foreground">Descreva a estratégia do seu funil:</Label>
+                <Textarea
+                  value={aiFlowCustomText}
+                  onChange={(e) => setAiFlowCustomText(e.target.value)}
+                  placeholder="Ex: Funil de emagrecimento com quiz interativo de 5 perguntas, advertorial com médica especialista, checkout com bump de pote extra e upsell de protocolo acelerador..."
+                  className="bg-[#0E1013] border-[#1B1E23] text-xs min-h-[75px]"
+                />
+              </div>
+            )}
+
+            {/* Product selection */}
+            <div className="space-y-1.5 pt-1">
+              <Label className="text-xs font-semibold text-muted-foreground">Produto Vinculado ao Funil:</Label>
+              {projectProductsList.length > 0 ? (
+                <Select value={aiFlowProduct} onValueChange={setAiFlowProduct}>
+                  <SelectTrigger className="bg-[#0E1013] border-[#1B1E23] text-xs h-9">
+                    <SelectValue placeholder="Selecione o produto principal do projeto..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                    {projectProductsList.map((prod: any, idx: number) => {
+                      const name = prod.nome || prod.name || `Produto ${idx + 1}`;
+                      return (
+                        <SelectItem key={idx} value={name} className="text-xs">
+                          {name}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={aiFlowProduct}
+                  onChange={(e) => setAiFlowProduct(e.target.value)}
+                  placeholder="Ex: LinfaFlow Drenagem Líquida (ou deixe vazio para usar o padrão)"
+                  className="bg-[#0E1013] border-[#1B1E23] text-xs h-9"
+                />
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                O produto será associado aos nós de checkout, upsell e criativos, sincronizando métricas e checklists.
+              </p>
+            </div>
+
+            {/* Replace options */}
+            <div className="flex items-center space-x-2 pt-2 border-t border-[#1B1E23]">
+              <Checkbox
+                id="aiFlowReplace"
+                checked={aiFlowReplace}
+                onCheckedChange={(c) => setAiFlowReplace(!!c)}
+              />
+              <Label htmlFor="aiFlowReplace" className="text-xs text-muted-foreground cursor-pointer font-normal">
+                Substituir mapa atual (remover nós anteriores deste mapa para começar com layout limpo)
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2 gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAiFlowModalOpen(false)}
+              disabled={aiFlowGenerating}
+              className="text-xs text-muted-foreground"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleGenerateAiFlow}
+              disabled={aiFlowGenerating}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs gap-1.5 shadow-sm"
+            >
+              {aiFlowGenerating ? (
+                <>
+                  <Sparkles className="h-3.5 w-3.5 animate-spin" /> Desenhando fluxo...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" /> Desenhar Funil no Canvas
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
