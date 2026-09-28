@@ -173,6 +173,22 @@ Deno.serve(async (req) => {
               }))
             );
           }
+
+          // Alerta crítico instantâneo via WhatsApp no grupo Imperio X
+          try {
+            const healthyProv = providers.find((p) => !failures.some((f) => f.instance === p.instance_name));
+            if (healthyProv) {
+              const failLines = toAlert.map((f) => `⚠️ *${f.instance}*: ${f.reason}`).join("\n");
+              const alertMsg = `🚨 *ALERTA OPERACIONAL — IMPÉRIO HQ*\n\nInstância(s) de WhatsApp com instabilidade detectada:\n${failLines}\n\nAcesse o painel para reconectar via QR Code se necessário.`;
+              await fetch(`${healthyProv.api_url.replace(/\/$/, "")}/message/sendText/${healthyProv.instance_name}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", apikey: healthyProv.api_key },
+                body: JSON.stringify({ number: "120363409438175766@g.us", text: alertMsg }),
+              });
+            }
+          } catch (eWa) {
+            console.warn("[wa-health-monitor] Falha ao enviar alerta para grupo WhatsApp:", eWa);
+          }
         }
       }
     } else {

@@ -17,7 +17,9 @@ function brtHour() {
 }
 
 function normalizePhone(raw: string) {
-  let p = (raw || "").replace(/\D/g, "");
+  const trimmed = (raw || "").trim();
+  if (trimmed.endsWith("@g.us")) return trimmed;
+  let p = trimmed.replace(/\D/g, "");
   if (p.length === 10 || p.length === 11) p = "55" + p;
   return p;
 }
@@ -84,9 +86,9 @@ Deno.serve(async (req) => {
         // Provider global ativo
         const { data: provider } = await supabase
           .from("imphq_wa_providers")
-          .select("instance_name")
+          .select("*")
           .eq("is_active", true)
-          .order("created_at", { ascending: false })
+          .order("last_seen_at", { ascending: false, nullsFirst: false })
           .limit(1)
           .maybeSingle();
 
@@ -95,14 +97,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const sendRes = await fetch(
-          `${SUPABASE_URL}/functions/v1/whatsapp-api/${provider.instance_name}?action=send_message`,
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ number: phone, text: message }),
-          },
-        );
+        const sendUrl = `${provider.api_url.replace(/\/$/, "")}/message/sendText/${provider.instance_name}`;
+        const sendRes = await fetch(sendUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: provider.api_key },
+          body: JSON.stringify({ number: phone, text: message }),
+        });
         const sendJson = await sendRes.json().catch(() => ({}));
         results.push({ user_id: pref.user_id, status: sendRes.status, send: sendJson });
       } catch (err) {
