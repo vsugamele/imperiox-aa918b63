@@ -24,7 +24,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
-import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen, Activity } from "lucide-react";
+import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, AlertTriangle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen, Activity, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
@@ -47,6 +48,7 @@ import LeadPredictivePanel from "@/components/leads/LeadPredictivePanel";
 import { LeadNurtureTimeline } from "@/components/nurture/LeadNurtureTimeline";
 import LeadUtmsPanel from "@/components/leads/LeadUtmsPanel";
 import AttributionSummary from "@/components/leads/AttributionSummary";
+import { GroupedTimelineView } from "@/components/leads/GroupedTimelineView";
 import HotLeadsInbox from "@/components/leads/HotLeadsInbox";
 import { useLeadTimeline } from "@/hooks/useLeadTimeline";
 import LeadCostPanel from "@/components/leads/LeadCostPanel";
@@ -72,6 +74,47 @@ const STAGES = Object.keys(STAGE_LABELS);
 
 
 
+
+function formatLeadName(name?: string | null, email?: string | null): string {
+  if (!name && !email) return "Lead sem nome";
+  let str = (name || "").trim();
+  if (!str || (str.includes("@") && str === email)) {
+    str = (email || "").split("@")[0].replace(/[._\-+]/g, " ");
+  }
+  return str
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w, idx) => {
+      const lower = w.toLowerCase();
+      if (idx > 0 && ["de", "da", "do", "dos", "das", "e"].includes(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
+function formatPhoneNumber(phone?: string | null): string {
+  if (!phone) return "";
+  const cleaned = phone.replace(/\D/g, "");
+  let dddAndNumber = cleaned;
+  if (cleaned.startsWith("55") && cleaned.length >= 12) {
+    dddAndNumber = cleaned.slice(2);
+  }
+  if (dddAndNumber.length === 11) {
+    return `(${dddAndNumber.slice(0, 2)}) ${dddAndNumber.slice(2, 7)}-${dddAndNumber.slice(7)}`;
+  }
+  if (dddAndNumber.length === 10) {
+    return `(${dddAndNumber.slice(0, 2)}) ${dddAndNumber.slice(2, 6)}-${dddAndNumber.slice(6)}`;
+  }
+  return phone;
+}
+
+function getWhatsAppUrl(phone?: string | null): string | null {
+  if (!phone) return null;
+  const cleaned = phone.replace(/\D/g, "");
+  if (!cleaned) return null;
+  const fullNumber = cleaned.startsWith("55") ? cleaned : `55${cleaned}`;
+  return `https://wa.me/${fullNumber}`;
+}
 
 function jsonArray(value: Json | undefined): Json[] { return Array.isArray(value) ? value : []; }
 
@@ -910,25 +953,14 @@ function LeadsDesktop() {
                       </Avatar>
                       <div className="min-w-0 space-y-0.5">
                         <h3 className="font-bold text-lg text-slate-100 tracking-tight leading-none truncate">
-                          {(() => {
-                            const isEmail = editLead.nome?.includes("@");
-                            const rawName = editLead.nome || "";
-                            if (isEmail && editLead.nome === editLead.email) {
-                              return rawName.split("@")[0]
-                                .replace(/[._\-+]/g, " ")
-                                .split(" ")
-                                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-                                .join(" ");
-                            }
-                            return rawName;
-                          })()}
+                          {formatLeadName(editLead.nome, editLead.email)}
                         </h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
                           <span className="truncate">{editLead.email || "Sem email"}</span>
                           {editLead.phone && (
                             <>
                               <span className="text-slate-600">•</span>
-                              <span className="font-mono text-[11px] text-slate-400">{editLead.phone}</span>
+                              <span className="font-mono text-[11px] text-slate-300 font-medium">{formatPhoneNumber(editLead.phone)}</span>
                             </>
                           )}
                         </div>
@@ -999,6 +1031,64 @@ function LeadsDesktop() {
                     </div>
                   </div>
 
+                  {/* Instant Operator Action Bar */}
+                  <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {editLead.phone && (
+                        <Button
+                          size="sm"
+                          className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium gap-1.5 shadow-md shadow-emerald-950/40"
+                          onClick={() => {
+                            const url = getWhatsAppUrl(editLead.phone);
+                            if (url) window.open(url, "_blank");
+                          }}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Chamar no WhatsApp
+                        </Button>
+                      )}
+                      {editLead.phone && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2.5 text-[11px] border-slate-800 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800"
+                          onClick={() => {
+                            navigator.clipboard.writeText(editLead.phone || "");
+                            toast.success("Telefone copiado!");
+                          }}
+                          title="Copiar número"
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copiar Tel
+                        </Button>
+                      )}
+                      {editLead.email && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2.5 text-[11px] border-slate-800 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800"
+                          onClick={() => {
+                            navigator.clipboard.writeText(editLead.email || "");
+                            toast.success("E-mail copiado!");
+                          }}
+                          title="Copiar email"
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copiar E-mail
+                        </Button>
+                      )}
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-[11px] gap-1.5 border-pink-700/50 text-pink-300 hover:bg-pink-900/30"
+                      onClick={() => setJourneyLead(editLead)}
+                    >
+                      <Activity className="h-3 w-3" /> Replay Visual da Jornada
+                    </Button>
+                  </div>
+
                   {/* Funnel conversion alert inside header */}
                   {(() => {
                     const hours = getConversionHours(editLead);
@@ -1030,9 +1120,10 @@ function LeadsDesktop() {
                   {/* Recovery dispatch badge */}
                   {recoveryLogs && recoveryLogs.length > 0 && (() => {
                     const last = recoveryLogs[0];
+                    const isFailure = ["failed", "error", "falha"].includes((last.status || "").toLowerCase());
                     const statusColor =
                       last.status === "sent" || last.status === "success" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-                      last.status === "failed" || last.status === "error" ? "bg-red-500/10 text-red-400 border-red-500/30" :
+                      isFailure ? "bg-rose-500/10 text-rose-400 border-rose-500/30" :
                       "bg-amber-500/10 text-amber-400 border-amber-500/30";
                     let when = "";
                     try { const d = parseISO(last.created_at); if (isValid(d)) when = `há ${Math.max(1, differenceInDays(new Date(), d))}d`; } catch { /* Ignore malformed dates; keep this record out of the time-based calculation. */ }
@@ -1042,12 +1133,48 @@ function LeadsDesktop() {
                         <span className="truncate">
                           🔄 Recuperação <strong className="font-semibold">{last.bucket}</strong> · {last.canal || "?"} · {last.status}
                           {when && <span className="opacity-70"> · {when}</span>}
-                          {recoveryLogs.length > 1 && <span className="opacity-70"> · +{recoveryLogs.length - 1}</span>}
+                          {recoveryLogs.length > 1 && <span className="opacity-70"> · +{recoveryLogs.length - 1} ocorrências</span>}
                         </span>
                       </div>
                     );
                   })()}
                 </div>
+
+                {/* 1.1 Smart Operational Alert Banner when there are recovery failures */}
+                {(() => {
+                  const failures = (recoveryLogs || []).filter(r => 
+                    ["falha", "failed", "error"].includes((r.status || "").toLowerCase()) ||
+                    (r.observacao || "").toLowerCase().includes("no_provider")
+                  );
+                  if (failures.length === 0) return null;
+                  const isNoProvider = failures.some(r => (r.observacao || "").toLowerCase().includes("no_provider"));
+
+                  return (
+                    <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 backdrop-blur-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold text-rose-300">
+                            ⚠️ {failures.length} disparo(s) de recuperação falharam
+                          </span>
+                          <p className="text-[11px] text-rose-300/80 mt-0.5 leading-relaxed">
+                            {isNoProvider 
+                              ? "Causa detectada: 'no_provider' — Nenhuma instância de WhatsApp conectada para disparar as mensagens de recuperação deste lead."
+                              : "Falhas registradas nos disparos automáticos. Verifique os logs e a conexão dos fluxos."}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] border-rose-500/40 text-rose-200 hover:bg-rose-500/20 shrink-0 gap-1"
+                        asChild
+                      >
+                        <Link to="/openflow">Conectar Chip / OpenFlow →</Link>
+                      </Button>
+                    </div>
+                  );
+                })()}
 
                 {/* 2. Main Dialog Tabs */}
                 <Tabs value={editTab} onValueChange={setEditTab} className="space-y-3">
@@ -1379,10 +1506,17 @@ function LeadsDesktop() {
                   </TabsContent>
 
                   <TabsContent value="jornada">
-                    {timelineLoading ? (<p className="text-sm text-muted-foreground text-center py-8">Carregando jornada...</p>) : timeline.length === 0 ? (<div className="text-center py-8 space-y-2"><Globe className="h-8 w-8 text-muted-foreground/30 mx-auto" /><p className="text-sm text-muted-foreground">Nenhum evento registrado</p></div>) : (
+                    {timelineLoading ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">Carregando jornada...</p>
+                    ) : timeline.length === 0 ? (
+                      <div className="text-center py-8 space-y-2">
+                        <Globe className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                        <p className="text-sm text-muted-foreground">Nenhum evento registrado</p>
+                      </div>
+                    ) : (
                       <>
                         <AttributionSummary timeline={timeline} hasSale={!!(editLead?._vendas && editLead._vendas.length > 0)} />
-                        <div className="relative max-h-[400px] overflow-y-auto pr-2"><div className="absolute left-[15px] top-0 bottom-0 w-px bg-border" /><div className="space-y-3">{timeline.map((ev) => { const config = EVENT_CONFIG[ev.type] || { icon: <Zap className="h-3 w-3" />, color: "bg-muted-foreground", label: ev.type }; return (<div key={ev.id} className="flex gap-3 relative"><div className={`h-[30px] w-[30px] rounded-full ${config.color} flex items-center justify-center text-white shrink-0 z-10`}>{config.icon}</div><div className="flex-1 min-w-0 pb-1"><div className="flex items-center gap-2"><span className="text-xs font-medium">{config.label}</span><span className="text-[10px] text-muted-foreground">{(() => { try { const d = new Date(ev.timestamp); return isValid(d) ? format(d, "dd/MM HH:mm") : ""; } catch { return ""; } })()}</span></div>{ev.subtitle && <p className="text-[11px] text-muted-foreground truncate">{ev.subtitle}</p>}{ev.details && Object.keys(ev.details).filter(k => ev.details![k]).length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{Object.entries(ev.details).filter(([, v]) => v).slice(0, 4).map(([k, v]) => <Badge key={k} variant="outline" className="text-[9px] px-1.5 py-0 h-4">{k}: {String(v).substring(0, 30)}</Badge>)}</div>)}</div></div>); })}</div></div>
+                        <GroupedTimelineView timeline={timeline} eventConfig={EVENT_CONFIG} />
                       </>
                     )}
                   </TabsContent>
