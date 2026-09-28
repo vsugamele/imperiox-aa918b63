@@ -90,18 +90,20 @@ interface Provider { id: string; provider: string; api_url: string; api_key: str
 async function findActiveProvider(supabase: ReturnType<typeof makeClient>, projectId: string | null | undefined) {
   if (projectId) {
     const { data } = await supabase
-      .from("imphq_whatsapp_config")
+      .from("imphq_wa_providers")
       .select("*")
       .eq("project_id", projectId)
       .eq("is_active", true)
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
     if (data) return data;
   }
   const { data } = await supabase
-    .from("imphq_whatsapp_config")
+    .from("imphq_wa_providers")
     .select("*")
     .eq("is_active", true)
+    .order("last_seen_at", { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle();
   return data;
@@ -158,11 +160,22 @@ Deno.serve(async (req) => {
       const rawMeta: unknown = v.data;
       const meta: Record<string, unknown> = rawMeta && typeof rawMeta === "object" && !Array.isArray(rawMeta) ? { ...rawMeta } : {};
       const sentLevels: number[] = Array.isArray(meta.recovery_sent_levels) ? meta.recovery_sent_levels : [];
+      const failedLevels: number[] = Array.isArray(meta.recovery_failed_levels) ? meta.recovery_failed_levels : [];
 
       const targetLevel = RECOVERY_LEVELS.find(
-        (r) => ageMin >= r.minMin && ageMin <= r.maxMin && !sentLevels.includes(r.level)
+        (r) => ageMin >= r.minMin && ageMin <= r.maxMin && !sentLevels.includes(r.level) && !failedLevels.includes(r.level)
       );
       if (!targetLevel) { skipped++; continue; }
+
+      // Anti-loop retry throttling: don't retry same level within 90 minutes of a failure
+      const lastAttemptAt = meta[`recovery_attempt_L${targetLevel.level}_at`];
+      if (typeof lastAttemptAt === "string") {
+        const diffMs = now.getTime() - new Date(lastAttemptAt).getTime();
+        if (diffMs < 90 * 60 * 1000) {
+          skipped++;
+          continue;
+        }
+      }
 
       if (!v.lead_id) { skipped++; continue; }
       const { data: lead } = await supabase
@@ -195,8 +208,19 @@ Deno.serve(async (req) => {
 
       const result = await sendWhatsApp(provider, phone, message);
 
+      const currentFails = typeof meta[`recovery_fails_L${targetLevel.level}`] === "number"
+        ? (meta[`recovery_fails_L${targetLevel.level}`] as number)
+        : 0;
+      const nextFails = result.ok ? currentFails : currentFails + 1;
+      const updatedFailedLevels = (!result.ok && nextFails >= 3)
+        ? [...failedLevels, targetLevel.level]
+        : failedLevels;
+
       const newMeta = {
         ...meta,
+        [`recovery_fails_L${targetLevel.level}`]: nextFails,
+        [`recovery_attempt_L${targetLevel.level}_at`]: now.toISOString(),
+        recovery_failed_levels: updatedFailedLevels,
         recovery_sent_levels: result.ok ? [...sentLevels, targetLevel.level] : sentLevels,
         recovery_last: {
           level: targetLevel.level,

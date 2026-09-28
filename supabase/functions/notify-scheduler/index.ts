@@ -76,9 +76,10 @@ Deno.serve(async (req) => {
       try {
         // Get first active provider config
         const { data: config } = await supabase
-          .from("imphq_whatsapp_config")
+          .from("imphq_wa_providers")
           .select("*")
           .eq("is_active", true)
+          .order("last_seen_at", { ascending: false, nullsFirst: false })
           .limit(1)
           .maybeSingle();
         if (!config) return;
