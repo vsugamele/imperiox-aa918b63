@@ -24,9 +24,12 @@ import {
   Flame,
   Clock,
   ShieldCheck,
+  Network,
+  ListChecks,
 } from "lucide-react";
 import { jsonFields, jsonText } from "@/lib/json-fields";
 import { ProjetoMcpDialog } from "./ProjetoMcpDialog";
+import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 
 interface Props {
   projectId: string;
@@ -62,6 +65,9 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
   const [automacoes, setAutomacoes] = useState<any[]>([]);
   const [adsSpend, setAdsSpend] = useState<any[]>([]);
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"canvas" | "pipeline">(() => {
+    return (localStorage.getItem(`mapa_view_${projectId}`) as "canvas" | "pipeline") || "canvas";
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -289,6 +295,40 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
+            {/* Seletor de Modo: Canvas Interativo vs Checklist Operacional */}
+            <div className="inline-flex items-center rounded-lg border border-[#1B1E23] bg-[#0A0B0D] p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode("canvas");
+                  localStorage.setItem(`mapa_view_${projectId}`, "canvas");
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${
+                  viewMode === "canvas"
+                    ? "bg-primary text-black font-semibold shadow"
+                    : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                <Network className="h-3.5 w-3.5" />
+                Canvas Interativo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode("pipeline");
+                  localStorage.setItem(`mapa_view_${projectId}`, "pipeline");
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${
+                  viewMode === "pipeline"
+                    ? "bg-primary text-black font-semibold shadow"
+                    : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                <ListChecks className="h-3.5 w-3.5" />
+                Checklist 5 Passos
+              </button>
+            </div>
+
             <Button
               onClick={() => setMcpDialogOpen(true)}
               className="bg-primary hover:bg-primary/90 text-black font-semibold text-xs h-9 gap-1.5 shadow-lg shadow-primary/20"
@@ -356,8 +396,17 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
         </div>
       </div>
 
-      {/* ───────── O Mapa Visual dos 5 Nós Conectados ───────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 relative">
+      {/* ───────── Modo Canvas Interativo vs Checklist Operacional ───────── */}
+      {viewMode === "canvas" ? (
+        <div className="mt-4">
+          <CompanyMapCanvas
+            projects={[project]}
+            initialProjectId={projectId}
+            onNavigateTab={onNavigateTab}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 relative">
         {mapNodes.map((node, index) => {
           const isOperational = node.status === "operational";
           const isWarning = node.status === "warning";
@@ -475,6 +524,7 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
           );
         })}
       </div>
+      )}
 
       {/* ───────── Modal de Conexão MCP & IAs Externas ───────── */}
       <ProjetoMcpDialog

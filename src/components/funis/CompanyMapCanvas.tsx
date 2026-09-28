@@ -25,7 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, type LucideIcon } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
@@ -38,7 +38,31 @@ import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
 import { PresenceCursors } from "@/components/funis/PresenceCursors";
 import { MapCommentsPanel } from "@/components/funis/MapCommentsPanel";
+import CampaignStepEditor from "@/components/whatsapp/CampaignStepEditor";
 
+function extractWaCampaignId(notes?: string | null): string | null {
+  if (!notes) return null;
+  const match = notes.match(/\[wa_campaign:([a-zA-Z0-9_-]+)\]/);
+  return match ? match[1] : null;
+}
+
+function setWaCampaignInNotes(notes: string | null | undefined, campaignId: string | null): string {
+  const current = (notes || "").replace(/\[wa_campaign:[a-zA-Z0-9_-]+\]/g, "").trim();
+  if (!campaignId) return current;
+  return current ? `${current}\n[wa_campaign:${campaignId}]` : `[wa_campaign:${campaignId}]`;
+}
+
+function extractProductId(notes?: string | null): string | null {
+  if (!notes) return null;
+  const match = notes.match(/\[product_name:([^\]]+)\]/);
+  return match ? match[1] : null;
+}
+
+function setProductIdInNotes(notes: string | null | undefined, prodName: string | null): string {
+  const current = (notes || "").replace(/\[product_name:[^\]]+\]/g, "").trim();
+  if (!prodName) return current;
+  return current ? `${current}\n[product_name:${prodName}]` : `[product_name:${prodName}]`;
+}
 
 const KIND_PRESETS: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
@@ -387,7 +411,15 @@ interface WaProvider {
   is_active?: boolean | null;
 }
 
-function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[] }) {
+function InnerMap({
+  projects,
+  initialProjectId,
+  onNavigateTab,
+}: {
+  projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[];
+  initialProjectId?: string;
+  onNavigateTab?: (tab: string) => void;
+}) {
   const annotationsRef = useRef<MapAnnotation[]>([]);
   const [mapId, setMapId] = useState<string | null>(null);
   const [maps, setMaps] = useState<{ id: string; name: string }[]>([]);
@@ -404,6 +436,43 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
   const [waConvCounts, setWaConvCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [guides, setGuides] = useState<{ v: { x: number; y1: number; y2: number }[]; h: { y: number; x1: number; x2: number }[] }>({ v: [], h: [] });
+
+  // Hub Lançamento / WhatsApp Campaigns & Step Editor
+  const [waCampaigns, setWaCampaigns] = useState<Tables<"imphq_wa_campaigns">[]>([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [stepEditorOpen, setStepEditorOpen] = useState(false);
+  const [newCampaignName, setNewCampaignName] = useState("");
+  const [creatingCampaign, setCreatingCampaign] = useState(false);
+  const [waSubMode, setWaSubMode] = useState<"x1" | "grupo">("x1");
+
+  const effectiveProjectId = selected?.linked_project_id || initialProjectId || null;
+
+  useEffect(() => {
+    if (!effectiveProjectId) {
+      setWaCampaigns([]);
+      return;
+    }
+    supabase
+      .from("imphq_wa_campaigns")
+      .select("*")
+      .eq("project_id", effectiveProjectId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setWaCampaigns(data || []));
+  }, [effectiveProjectId]);
+
+  useEffect(() => {
+    if (!selected) {
+      setSelectedCampaignId(null);
+      return;
+    }
+    const campId = extractWaCampaignId(selected.notes);
+    if (campId) {
+      setSelectedCampaignId(campId);
+      setWaSubMode("grupo");
+    } else if (selected.linked_flow_id) {
+      setWaSubMode("x1");
+    }
+  }, [selected]);
 
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
@@ -435,25 +504,46 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
     localStorage.setItem("funis:palette-collapsed", String(paletteCollapsed));
   }, [paletteCollapsed]);
 
-
   // load maps list
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("imphq_company_maps").select("id,name").order("created_at");
       const list = data || [];
-      if (list.length === 0) {
-        const { data: created } = await supabase.from("imphq_company_maps").insert({ name: "Mapa Principal" }).select("id,name").single();
-        if (created) { setMaps([created]); setMapId(created.id); }
+      if (initialProjectId) {
+        const curProj = projects.find(p => p.id === initialProjectId);
+        const projMapName = curProj ? `Mapa · ${curProj.name}` : `Mapa · ${initialProjectId}`;
+        const existingMap = list.find(m =>
+          m.name.toLowerCase() === projMapName.toLowerCase() ||
+          (curProj && m.name.toLowerCase().includes(curProj.name.toLowerCase()))
+        );
+        if (existingMap) {
+          setMaps(list);
+          setMapId(existingMap.id);
+        } else {
+          const { data: created } = await supabase.from("imphq_company_maps").insert({ name: projMapName }).select("id,name").single();
+          if (created) {
+            setMaps([created, ...list]);
+            setMapId(created.id);
+          } else {
+            setMaps(list);
+            if (list.length > 0) setMapId(list[0].id);
+          }
+        }
       } else {
-        setMaps(list);
-        setMapId(list[0].id);
+        if (list.length === 0) {
+          const { data: created } = await supabase.from("imphq_company_maps").insert({ name: "Mapa Principal" }).select("id,name").single();
+          if (created) { setMaps([created]); setMapId(created.id); }
+        } else {
+          setMaps(list);
+          setMapId(list[0].id);
+        }
       }
     })();
     supabase.from("imphq_funis").select("id,nome").then(({ data }) => setFunis(data || []));
     supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows((data || []).map(d => ({ id: d.id, name: d.nome }))));
     supabase.from("imphq_wa_providers").select("id,project_id,provider,display_name,instance_name,phone_number_id,twilio_from,is_active")
       .then(({ data }) => setWaProviders((data || []) as WaProvider[]));
-  }, []);
+  }, [initialProjectId, projects]);
 
   // conversation counts per provider (best-effort — grouped by project)
   useEffect(() => {
@@ -1111,6 +1201,7 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
       label: customLabel || `Novo ${preset.label}`,
       image_url: null,
       position: nextDropPosition(),
+      linked_project_id: initialProjectId || null,
     }).select().single();
     if (data) { await loadMap(mapId); toast.success(`${preset.label} adicionado`); }
   };
@@ -2173,42 +2264,274 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
                   <span>Mostrar KPIs ao vivo (faturamento 30d + leads abertos)</span>
                 </label>
               )}
-              <div>
-                <Label className="text-xs">Fluxo (OpenFlow)</Label>
-                <Select value={selected.linked_flow_id || "none"}
-                  onValueChange={(v) => setSelected({ ...selected, linked_flow_id: v === "none" ? null : v })}>
-                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {flows.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* ───────── HUB OPERACIONAL DO NÓ ───────── */}
+              {isWaKind && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                      <MessageCircle className="h-4 w-4" /> Hub de Conversão
+                    </span>
+                    <div className="inline-flex rounded-md bg-secondary p-0.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setWaSubMode("x1")}
+                        className={`px-2 py-0.5 rounded transition-all font-medium ${
+                          waSubMode === "x1" ? "bg-primary text-black font-semibold" : "text-muted-foreground hover:text-white"
+                        }`}
+                      >
+                        🤖 X1 OpenFlow
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWaSubMode("grupo")}
+                        className={`px-2 py-0.5 rounded transition-all font-medium ${
+                          waSubMode === "grupo" ? "bg-primary text-black font-semibold" : "text-muted-foreground hover:text-white"
+                        }`}
+                      >
+                        🚀 Lançamento & Grupos
+                      </button>
+                    </div>
+                  </div>
 
-              <div>
-                <Label className="text-xs">Chip / Canal WhatsApp</Label>
-                <Select value={selected.linked_wa_provider_id || "none"}
-                  onValueChange={(v) => setSelected({ ...selected, linked_wa_provider_id: v === "none" ? null : v })}>
-                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {waProviders.map(w => {
-                      const proj = projects.find(p => p.id === w.project_id);
-                      const label = `${w.display_name || w.instance_name || w.provider}${proj ? ` · ${proj.name}` : ""}`;
-                      return <SelectItem key={w.id} value={w.id}>{label}</SelectItem>;
-                    })}
-                  </SelectContent>
-                </Select>
-                {selected.linked_wa_provider_id && (() => {
-                  const w = waProviders.find(p => p.id === selected.linked_wa_provider_id);
-                  if (!w) return null;
-                  return (
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {w.twilio_from || w.phone_number_id || "sem telefone"} · {waConvCounts[w.project_id] ?? 0} conversas
+                  {waSubMode === "x1" ? (
+                    <div className="space-y-2.5 pt-1">
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Fluxo de Conversação (OpenFlow)</Label>
+                        <Select
+                          value={selected.linked_flow_id || "none"}
+                          onValueChange={(v) => setSelected({ ...selected, linked_flow_id: v === "none" ? null : v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-secondary"><SelectValue placeholder="Selecione o fluxo..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhum fluxo vinculado</SelectItem>
+                            {flows.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Chip / Instância WhatsApp</Label>
+                        <Select
+                          value={selected.linked_wa_provider_id || "none"}
+                          onValueChange={(v) => setSelected({ ...selected, linked_wa_provider_id: v === "none" ? null : v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-secondary"><SelectValue placeholder="Selecione a instância..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhum chip selecionado</SelectItem>
+                            {waProviders.map(w => {
+                              const proj = projects.find(p => p.id === w.project_id);
+                              const label = `${w.display_name || w.instance_name || w.provider}${proj ? ` · ${proj.name}` : ""}`;
+                              return <SelectItem key={w.id} value={w.id}>{label}</SelectItem>;
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs h-8 gap-1.5"
+                          onClick={() => navigate("/openflow")}
+                        >
+                          <Workflow className="h-3.5 w-3.5 text-primary" />
+                          Abrir OpenFlow
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs h-8 gap-1.5"
+                          onClick={() => navigate("/inbox?tab=whatsapp")}
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+                          Ver no Inbox
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 pt-1">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label className="text-[11px] text-muted-foreground">Campanha de Lançamento (Grupos)</Label>
+                          <button
+                            type="button"
+                            onClick={() => setCreatingCampaign(!creatingCampaign)}
+                            className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                          >
+                            <Plus className="h-3 w-3" /> Nova Campanha
+                          </button>
+                        </div>
+
+                        {creatingCampaign ? (
+                          <div className="flex gap-1.5 mb-2">
+                            <Input
+                              placeholder="Nome do lançamento..."
+                              value={newCampaignName}
+                              onChange={e => setNewCampaignName(e.target.value)}
+                              className="h-8 text-xs bg-secondary"
+                            />
+                            <Button size="sm" className="h-8 text-xs px-2" onClick={handleCreateCampaign}>
+                              Salvar
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8 text-xs px-2" onClick={() => setCreatingCampaign(false)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select
+                            value={selectedCampaignId || "none"}
+                            onValueChange={handleSelectCampaign}
+                          >
+                            <SelectTrigger className="h-8 text-xs bg-secondary"><SelectValue placeholder="Selecione a campanha..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhuma campanha vinculada</SelectItem>
+                              {waCampaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+
+                      {currentCampaign && (
+                        <div className="p-2.5 rounded-lg bg-black/40 border border-border/40 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground font-mono">Status:</span>
+                            <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 font-mono uppercase">
+                              {currentCampaign.status || "Ativa"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground font-mono">Grupos Vinculados:</span>
+                            <span className="text-white font-mono font-semibold">{campaignGroups.length} grupo(s)</span>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            onClick={() => setStepEditorOpen(true)}
+                            className="w-full h-8 text-xs bg-gold hover:bg-gold/90 text-black font-semibold gap-1.5 shadow-md shadow-gold/10 mt-1"
+                          >
+                            <Calendar className="h-3.5 w-3.5" />
+                            📅 Abrir Régua de Mensagens Programadas
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Se for nó de Produto / Oferta */}
+              {isProductKind && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <ShoppingCart className="h-4 w-4" /> Hub do Produto & Escada
+                    </span>
+                    {onNavigateTab && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateTab("ecossistema")}
+                        className="text-[10px] text-emerald-400 hover:underline flex items-center gap-0.5"
+                      >
+                        Ver no Ecossistema ↗
+                      </button>
+                    )}
+                  </div>
+
+                  {projectProducts.length > 0 ? (
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground mb-1 block">Vincular a Produto do Projeto</Label>
+                      <Select
+                        value={extractProductId(selected.notes) || "none"}
+                        onValueChange={handleLinkProduct}
+                      >
+                        <SelectTrigger className="h-8 text-xs bg-secondary"><SelectValue placeholder="Selecione um produto..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Personalizado / Avulso</SelectItem>
+                          {projectProducts.map((p: any) => (
+                            <SelectItem key={p.nome} value={p.nome}>
+                              {p.nome} {p.preco ? `· R$ ${p.preco}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">
+                      Nenhum produto cadastrado no projeto. Você pode definir os dados da oferta abaixo.
                     </p>
-                  );
-                })()}
-              </div>
+                  )}
+
+                  {selected.url && (
+                    <div className="p-2 rounded bg-secondary/40 border border-border/40 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-mono truncate text-muted-foreground">{selected.url}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          title="Copiar Link"
+                          onClick={() => {
+                            navigator.clipboard.writeText(selected.url!);
+                            toast.success("Link copiado!");
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                        <a
+                          href={selected.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center h-6 w-6 rounded hover:bg-secondary text-muted-foreground hover:text-white"
+                          title="Testar Link"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!isWaKind && !isProductKind && (
+                <>
+                  <div>
+                    <Label className="text-xs">Fluxo (OpenFlow)</Label>
+                    <Select value={selected.linked_flow_id || "none"}
+                      onValueChange={(v) => setSelected({ ...selected, linked_flow_id: v === "none" ? null : v })}>
+                      <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {flows.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Chip / Canal WhatsApp</Label>
+                    <Select value={selected.linked_wa_provider_id || "none"}
+                      onValueChange={(v) => setSelected({ ...selected, linked_wa_provider_id: v === "none" ? null : v })}>
+                      <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {waProviders.map(w => {
+                          const proj = projects.find(p => p.id === w.project_id);
+                          const label = `${w.display_name || w.instance_name || w.provider}${proj ? ` · ${proj.name}` : ""}`;
+                          return <SelectItem key={w.id} value={w.id}>{label}</SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                    {selected.linked_wa_provider_id && (() => {
+                      const w = waProviders.find(p => p.id === selected.linked_wa_provider_id);
+                      if (!w) return null;
+                      return (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {w.twilio_from || w.phone_number_id || "sem telefone"} · {waConvCounts[w.project_id] ?? 0} conversas
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </>
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -2343,12 +2666,51 @@ function InnerMap({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" 
         />
       )}
 
+      {/* Dialog de Régua de Mensagens Programadas em Grupos de WhatsApp */}
+      <Dialog open={stepEditorOpen} onOpenChange={setStepEditorOpen}>
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto bg-[#0A0B0D] border-[#1B1E23] p-6 text-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display text-lg text-white">
+              <Rocket className="h-5 w-5 text-gold" />
+              Régua de Mensagens Programadas nos Grupos · {currentCampaign?.name || "Lançamento"}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Programe os textos, áudios simulados, vídeos, PDFs e links que serão disparados automaticamente nos grupos do WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCampaignId && (
+            <CampaignStepEditor
+              campaignId={selectedCampaignId}
+              projectId={effectiveProjectId || ""}
+              produto={currentCampaign?.produto || ""}
+              groups={campaignGroups}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
 
 
 
-export function CompanyMapCanvas({ projects }: { projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[] }) {
-  return <ReactFlowProvider><InnerMap projects={projects} /></ReactFlowProvider>;
+export function CompanyMapCanvas({
+  projects,
+  initialProjectId,
+  onNavigateTab,
+}: {
+  projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[];
+  initialProjectId?: string;
+  onNavigateTab?: (tab: string) => void;
+}) {
+  return (
+    <ReactFlowProvider>
+      <InnerMap
+        projects={projects}
+        initialProjectId={initialProjectId}
+        onNavigateTab={onNavigateTab}
+      />
+    </ReactFlowProvider>
+  );
 }
