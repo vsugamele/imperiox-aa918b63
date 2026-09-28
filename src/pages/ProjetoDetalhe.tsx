@@ -448,7 +448,7 @@ export default function ProjetoDetalhe() {
           <ProjetoComando projectId={id!} project={project} />
         </TabsContent>
         <TabsContent value="raiox" className="mt-4">
-          <ProjetoRaioXFunil projectId={id!} project={project} onRefresh={refreshProject} onNavigateTab={handleTabChange} />
+          <ProjetoRaioXFunil projectId={id!} project={project} onRefresh={refreshProject} onNavigateTab={goToTab} />
         </TabsContent>
         <TabsContent value="identidade" className="mt-4">
           <ProjetoIdentidade
