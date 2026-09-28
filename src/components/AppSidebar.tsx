@@ -1,10 +1,10 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Users, DollarSign,
-  Search, Brain, FileText, MessageSquare, Link2,
+  Search, Brain, FileText, Link2,
   Zap, UsersRound, Building2, Settings, LogOut, Crown,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow, Globe, Coins, Stethoscope, BarChart3,
+  Inbox, Pencil, Workflow, Globe, Coins,
   Palette,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -27,9 +27,6 @@ const hojeitems = [
 const venderItems = [
   { title: "Projetos",   url: "/projetos",  icon: FolderKanban },
   { title: "Campanhas",  url: "/campanhas", icon: Target },
-  { title: "LinfaFlow X1", url: "/funis/linfaflow-x1-ready", icon: Stethoscope },
-  { title: "LinfaFlow Care", url: "/funis/linfaflow-care", icon: MessageSquare },
-  { title: "Care Conversão", url: "/funis/linfaflow-care-dashboard", icon: BarChart3 },
   { title: "Sites",      url: "/sites",     icon: Globe },
   { title: "OpenFlow",   url: "/openflow",  icon: Workflow },
 ];
