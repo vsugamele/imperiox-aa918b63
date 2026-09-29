@@ -6,9 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2, Sparkles, LayoutGrid, Map as MapIcon } from "lucide-react";
+import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2, Sparkles, LayoutGrid, Map as MapIcon, Zap } from "lucide-react";
 import { AutopilotModal } from "@/components/projeto/AutopilotModal";
 import { MapaOperacionalGeral } from "@/components/projeto/MapaOperacionalGeral";
+import { SemaforoProjetos } from "@/components/projeto/SemaforoProjetos";
+import { GrowthCopilotModal } from "@/components/projeto/GrowthCopilotModal";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -127,6 +129,8 @@ export default function Projetos() {
   const [activeFolder, setActiveFolder] = useState("all");
   const [sortMode, setSortMode] = useState<"smart" | "name" | "recent">("smart");
   const [autopilotOpen, setAutopilotOpen] = useState(false);
+  const [growthCopilotOpen, setGrowthCopilotOpen] = useState(false);
+  const [growthCopilotProject, setGrowthCopilotProject] = useState<Tables<"imphq_projects"> | undefined>(undefined);
   const [viewMode, setViewMode] = useState<"mapa" | "grid">(() => {
     return (localStorage.getItem("projetos_view_mode") as "mapa" | "grid") || "mapa";
   });
@@ -322,6 +326,13 @@ export default function Projetos() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button 
+            size="sm" 
+            onClick={() => { setGrowthCopilotProject(undefined); setGrowthCopilotOpen(true); }}
+            className="bg-[#D6FF4B] hover:bg-[#D6FF4B]/90 text-[#0A0B0D] font-mono font-semibold text-xs shadow-md gap-1.5"
+          >
+            <Zap className="h-3.5 w-3.5 fill-[#0A0B0D]" /> <span className="hidden sm:inline">Growth Copilot</span>
+          </Button>
           <Button size="sm" variant="default" onClick={() => setAutopilotOpen(true)} className="bg-primary/90 hover:bg-primary">
             <Sparkles className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Autopilot</span>
           </Button>
@@ -365,6 +376,15 @@ export default function Projetos() {
           </Dialog>
         </div>
       </div>
+
+      {/* Semáforo Executivo dos Projetos (Visão Macro para Sócios e Equipe) */}
+      <SemaforoProjetos 
+        projects={projects}
+        onOpenGrowthCopilot={(proj) => {
+          setGrowthCopilotProject(proj);
+          setGrowthCopilotOpen(true);
+        }}
+      />
 
       {viewMode === "mapa" ? (
         <MapaOperacionalGeral projects={projects} onRefresh={load} />
@@ -635,6 +655,13 @@ export default function Projetos() {
       </Dialog>
 
       <AutopilotModal open={autopilotOpen} onOpenChange={setAutopilotOpen} onCreated={load} />
+
+      <GrowthCopilotModal
+        open={growthCopilotOpen}
+        onOpenChange={setGrowthCopilotOpen}
+        projects={projects}
+        initialProject={growthCopilotProject}
+      />
     </div>
   );
 }
