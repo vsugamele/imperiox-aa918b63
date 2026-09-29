@@ -5,7 +5,7 @@ import {
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
   Inbox, Pencil, Workflow, Globe, Coins,
-  Palette, Layers,
+  Palette, Layers, Map as MapIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/auth-context";
@@ -18,6 +18,7 @@ import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 // Reorganizado em 5 hubs para reduzir ruído e criar caminhos claros.
 const hojeitems = [
   { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
+  { title: "Mapa da Empresa",  url: "/mapa",       icon: MapIcon },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },

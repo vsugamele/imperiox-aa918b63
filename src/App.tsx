@@ -32,6 +32,7 @@ const Financas = lazyWithRetry(() => import("./pages/Financas"));
 const MarketIntel = lazyWithRetry(() => import("./pages/MarketIntel"));
 const Mentes = lazyWithRetry(() => import("./pages/Mentes"));
 const Funis = lazyWithRetry(() => import("./pages/Funis"));
+const MapaEmpresa = lazyWithRetry(() => import("./pages/MapaEmpresa"));
 const CinnaShieldX1 = lazyWithRetry(() => import("@/pages/CinnaShieldNative"));
 const OpenFlow = lazyWithRetry(() => import("./pages/OpenFlow"));
 const AgentesIA = lazyWithRetry(() => import("./pages/AgentesIA"));
@@ -148,6 +149,7 @@ const App = () => (
                 {/* Smart landing — Dashboard Operacional */}
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="mapa" element={<MapaEmpresa />} />
                 <Route path="dashboard-classic" element={<DashboardClassic />} />
                 <Route path="cockpit" element={<Cockpit />} />
                 <Route path="redesign" element={<RedesignPrototype />} />

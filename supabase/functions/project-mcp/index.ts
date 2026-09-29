@@ -3,6 +3,7 @@
 // Suporta Claude Desktop, Cursor, Agentes autônomos e scripts externos.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { buildProjectMap } from "../_shared/project-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -574,6 +575,17 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "get_project_map",
+    description: "Mapa da Empresa de um projeto (mesma regra da tela /mapa): status de cada área (produtos, avatar, mecanismo, concorrentes, funil, ativos, atendimento) como falta/desenhado/construído/rodando, com a evidência de cada status e as lacunas priorizadas (crítica/importante/sugestão) com a ação e a skill sugeridas. Use para decidir o que construir ou ajustar a seguir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID único do projeto" },
+      },
+      required: ["project_id"],
+    },
+  },
+  {
     name: "get_project_context",
     description: "Retorna o dossiê completo de um projeto: identidade, avatar, dores, desejos, mecanismo único, produtos, preços, links de checkout e esteira de criativos.",
     inputSchema: {
@@ -909,6 +921,61 @@ Deno.serve(async (req) => {
                   }, null, 2),
                 }],
               },
+            });
+          }
+
+          // TOOL: get_project_map
+          if (name === "get_project_map") {
+            const projectId = args?.project_id;
+            if (!projectId) throw new Error("project_id é obrigatório");
+            const since30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
+            const since7d = new Date(Date.now() - 7 * 86_400_000).toISOString();
+            const count = async (q: PromiseLike<{ count: number | null; error: unknown }>) => {
+              const { count: n, error } = await q;
+              if (error) throw error;
+              return n ?? 0;
+            };
+
+            const [projRes, compRes, nodesRes, salesRes, provRes, aiRes] = await Promise.all([
+              supabase.from("imphq_projects").select("id, name, data, avatar").eq("id", projectId).maybeSingle(),
+              supabase.from("imphq_competitors").select("name, url, oferta_principal, preco, mecanismo_unico, headline, paginas_funil").eq("project_id", projectId),
+              supabase.from("imphq_company_map_nodes").select("label, url").eq("linked_project_id", projectId),
+              supabase.from("imphq_vendas").select("produto_nome").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", since30d),
+              supabase.from("imphq_wa_providers").select("is_active").eq("project_id", projectId),
+              supabase.from("imphq_wa_ai_config").select("enabled, draft_mode").eq("project_id", projectId),
+            ]);
+            for (const res of [projRes, compRes, nodesRes, salesRes, provRes, aiRes]) if (res.error) throw res.error;
+            if (!projRes.data) throw new Error(`Projeto '${projectId}' não encontrado`);
+
+            const [waIncoming30d, waOutgoing30d, funnelEvents7d] = await Promise.all([
+              count(supabase.from("imphq_wa_messages").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("direction", "incoming").gte("created_at", since30d)),
+              count(supabase.from("imphq_wa_messages").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("direction", "outgoing").gte("created_at", since30d)),
+              count(supabase.from("imphq_funnel_events").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", since7d)),
+            ]);
+
+            const sales: Record<string, number> = {};
+            for (const s of salesRes.data || []) if (s.produto_nome) sales[s.produto_nome] = (sales[s.produto_nome] || 0) + 1;
+            const aiConfigs = aiRes.data || [];
+
+            const map = buildProjectMap({
+              project: projRes.data,
+              competitors: compRes.data || [],
+              mapNodes: nodesRes.data || [],
+              activity: {
+                approvedSales30dByProduct: sales,
+                waIncoming30d,
+                waOutgoing30d,
+                funnelEvents7d,
+                activeWaProviders: (provRes.data || []).filter((p) => p.is_active).length,
+                aiEnabled: aiConfigs.length ? aiConfigs.some((c) => c.enabled) : null,
+                aiDraftMode: aiConfigs.length ? aiConfigs.every((c) => c.draft_mode) : null,
+              },
+            });
+
+            return json({
+              jsonrpc: "2.0",
+              id,
+              result: { content: [{ type: "text", text: JSON.stringify(map, null, 2) }] },
             });
           }
 

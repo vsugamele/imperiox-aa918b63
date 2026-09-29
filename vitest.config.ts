@@ -13,6 +13,9 @@ export default defineConfig({
     testTimeout: 15_000,
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      "@shared": path.resolve(__dirname, "./supabase/functions/_shared"),
+    },
   },
 });

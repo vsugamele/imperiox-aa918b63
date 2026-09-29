@@ -48,6 +48,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Pure TS modules shared with the edge functions (no Deno/npm imports allowed there).
+      "@shared": path.resolve(__dirname, "./supabase/functions/_shared"),
     },
     dedupe: ["react", "react-dom"],
   },
