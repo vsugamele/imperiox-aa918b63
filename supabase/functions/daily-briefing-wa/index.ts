@@ -76,17 +76,33 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
     .from("imphq_wa_ai_config")
     .select("project_id, enabled, full_autonomy");
 
+  // 6. Conversas com mensagens paradas / não lidas
+  const { data: convsData } = await supabase
+    .from("imphq_wa_conversations")
+    .select("project_id, unread_count, last_message_at, status")
+    .gt("unread_count", 0);
+
+  // 7. Mensagens inbound recebidas nas últimas 24h
+  const { data: inboundMsgs24h } = await supabase
+    .from("imphq_wa_messages")
+    .select("project_id, id, direction, status")
+    .eq("direction", "incoming")
+    .gte("created_at", last24h);
+
   const vList = vendas24h || [];
   const lList = leads24h || [];
   const pList = providers || [];
   const aList = aiConfigs || [];
+  const cList = convsData || [];
+  const mList = inboundMsgs24h || [];
 
   // Filtra projetos prioritários + qualquer outro com atividade recente
   const targetProjects = (allProjects || []).filter((p: any) => {
     if (coreIds.includes(p.id)) return true;
     const hasSales = vList.some((v: any) => v.project_id === p.id);
     const hasLeads = lList.some((l: any) => l.project_id === p.id);
-    return hasSales || hasLeads;
+    const hasMsgs = mList.some((m: any) => m.project_id === p.id);
+    return hasSales || hasLeads || hasMsgs;
   }).sort((a: any, b: any) => {
     const aIdx = coreIds.indexOf(a.id);
     const bIdx = coreIds.indexOf(b.id);
@@ -106,6 +122,8 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
   let totalAbandonos = 0;
   let totalLeads = 0;
   let totalHotLeads = 0;
+  let totalPendingConvs = 0;
+  let totalInboundMsgs = 0;
   const actions: string[] = [];
 
   for (const proj of targetProjects) {
@@ -119,11 +137,20 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
     const projLeads = lList.filter((l: any) => l.project_id === pId);
     const hotLeads = projLeads.filter((l: any) => Number(l.score || 0) >= 70);
 
+    // Mensagens paradas do projeto
+    const projConvs = cList.filter((c: any) => c.project_id === pId);
+    const recentPendingConvs = projConvs.filter((c: any) =>
+      c.last_message_at && new Date(c.last_message_at).getTime() >= Date.now() - 48 * 3600000
+    );
+    const projInbound = mList.filter((m: any) => m.project_id === pId);
+
     totalReceitaAprovada += recAprovada;
     totalVendasAprovadas += aprovadas.length;
     totalAbandonos += abandonos.length;
     totalLeads += projLeads.length;
     totalHotLeads += hotLeads.length;
+    totalPendingConvs += recentPendingConvs.length;
+    totalInboundMsgs += projInbound.length;
 
     // Provider WA do projeto
     const prov = pList.find((pr: any) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas"));
@@ -150,6 +177,13 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
       if (!isOnline) actions.push(`[${proj.name}] Reconectar chip do WhatsApp (${prov.instance_name}).`);
     }
 
+    if (recentPendingConvs.length > 0 || projInbound.length > 0) {
+      lines.push(`• Fila de Atendimento: ⚠️ ${recentPendingConvs.length} conversas paradas (${projInbound.length} msgs em 24h)`);
+      actions.unshift(`[${proj.name}] Atender ${recentPendingConvs.length} conversas paradas no WhatsApp.`);
+    } else {
+      lines.push(`• Fila de Atendimento: 🟢 Fila zerada`);
+    }
+
     if (creatives.length > 0) {
       lines.push(`• Meta Ads: ${hasActiveAds ? "🟢 Anúncios rodando" : "🟡 Campanhas pausadas"}`);
       if (!hasActiveAds) actions.push(`[${proj.name}] Reativar tráfego pausado no Meta Ads.`);
@@ -164,6 +198,11 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
   lines.push(`💰 Receita Aprovada: R$ ${totalReceitaAprovada.toFixed(2)} (${totalVendasAprovadas} vendas)`);
   if (totalAbandonos > 0) {
     lines.push(`🛒 Em Recuperação: ${totalAbandonos} abandonos na mesa`);
+  }
+  if (totalPendingConvs > 0 || totalInboundMsgs > 0) {
+    lines.push(`💬 Fila WhatsApp: ⚠️ ${totalPendingConvs} conversas paradas (${totalInboundMsgs} msgs em 24h)`);
+  } else {
+    lines.push(`💬 Fila WhatsApp: 🟢 Fila zerada`);
   }
   lines.push(`🔥 Novos Leads: ${totalLeads} (${totalHotLeads} qualificados)`);
   lines.push(`📱 WhatsApp: ${pList.filter((p: any) => p.is_active).length} chip(s) ativos`);

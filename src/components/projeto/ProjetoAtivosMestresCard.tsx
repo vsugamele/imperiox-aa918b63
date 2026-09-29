@@ -55,6 +55,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
     enabled: boolean;
     full_autonomy: boolean;
   } | null>(null);
+  const [pendingConvsCount, setPendingConvsCount] = useState<number>(0);
 
   const projectData = useMemo(() => {
     return jsonFields(project.data);
@@ -93,6 +94,15 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
         .maybeSingle();
 
       if (ai) setAiConfig(ai);
+
+      // 3. Conversas paradas no WhatsApp
+      const { count } = await supabase
+        .from("imphq_wa_conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", project.id)
+        .gt("unread_count", 0);
+
+      setPendingConvsCount(count || 0);
     }
 
     fetchOpsStatus();
@@ -377,11 +387,15 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
                     <Zap className="h-2.5 w-2.5 inline" /> {aiConfig?.full_autonomy ? "100% IA" : "Co-piloto"}
                   </span>
                 </div>
-                <p className="text-xs font-mono font-medium text-zinc-200 truncate py-1">
+                <p className="text-xs font-mono font-medium text-zinc-200 truncate py-0.5">
                   Instância: <span className="text-primary">{waProvider?.instance_name || "Nenhuma"}</span>
                 </p>
                 <p className="text-[11px] text-muted-foreground truncate">
-                  Status do Chip: <span className="text-emerald-400">🟢 Conectado</span>
+                  Fila: {pendingConvsCount > 0 ? (
+                    <span className="text-amber-400 font-mono font-semibold">⚠️ {pendingConvsCount} conversas paradas</span>
+                  ) : (
+                    <span className="text-emerald-400 font-mono">🟢 Fila zerada</span>
+                  )}
                 </p>
               </div>
 
@@ -389,11 +403,11 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex-1 h-7 text-[11px] gap-1 border-white/10 hover:border-green-500/50"
+                  className={`flex-1 h-7 text-[11px] gap-1 border-white/10 ${pendingConvsCount > 0 ? "border-amber-500/30 text-amber-300 hover:border-amber-500/60 hover:bg-amber-500/10" : "hover:border-green-500/50"}`}
                   onClick={() => onNavigateTab ? onNavigateTab("openflow") : window.location.assign("/inbox?tab=whatsapp")}
                 >
                   <Bot className="h-3 w-3 text-green-400" />
-                  Ver Atendimentos
+                  {pendingConvsCount > 0 ? `Atender Fila (${pendingConvsCount})` : "Ver Atendimentos"}
                 </Button>
               </div>
             </div>
