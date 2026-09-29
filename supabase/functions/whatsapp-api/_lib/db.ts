@@ -127,7 +127,8 @@ export async function updateConversationAfterMessage(
     patch.unread_count = ((cur?.unread_count as number) || 0) + 1;
     patch.last_incoming_at = new Date().toISOString();
     // Se o lead respondeu, encerra o ciclo de recuperação de pitch pendente para não atropelar
-    if (cur && (cur as any).pitch_followup_stage !== undefined && (cur as any).pitch_followup_stage >= 0) {
+    const pitchStage = cur?.pitch_followup_stage;
+    if (cur && pitchStage !== undefined && Number(pitchStage) >= 0) {
       patch.pitch_followup_stage = -1;
     }
   } else {

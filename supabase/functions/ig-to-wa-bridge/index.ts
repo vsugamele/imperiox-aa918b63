@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
 
     const contextSummary = (recentMsgs || [])
       .reverse()
-      .filter((m: any) => m.content)
-      .map((m: any) => `${m.direction === "in" ? "Lead" : "Atendente"}: ${m.content}`)
+      .filter((m) => m.content)
+      .map((m) => `${m.direction === "in" ? "Lead" : "Atendente"}: ${m.content}`)
       .join("\n");
 
     // Upsert lead into imphq_leads

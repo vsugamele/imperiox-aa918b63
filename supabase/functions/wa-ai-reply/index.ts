@@ -531,7 +531,7 @@ Deno.serve(async (req) => {
       aiConfig?.full_autonomy ||
       aiConfig?.never_handoff ||
       aiConfig?.disable_handoff ||
-      (aiConfig as any)?.autonomous_mode ||
+      aiConfig?.autonomous_mode ||
       (aiConfig?.custom_instructions && /nunca pare no humano|autonomia total|sem handoff|nunca parar no humano/i.test(aiConfig.custom_instructions))
     );
 

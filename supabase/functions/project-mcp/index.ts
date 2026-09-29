@@ -687,6 +687,7 @@ Deno.serve(async (req) => {
 
   // ── 1. Tratamento MCP JSON-RPC ou REST via POST ──
   if (req.method === "POST") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-RPC/REST payload; each tool destructures and validates its own arguments
     let body: any;
     try {
       body = await req.json();
@@ -827,7 +828,7 @@ Deno.serve(async (req) => {
             // 4. Calcula coordenadas automáticas (Layout limpo em colunas)
             const colCounts: Record<number, number> = {};
             const keyToNodeId: Record<string, string> = {};
-            const insertedNodesList: any[] = [];
+            const insertedNodesList: unknown[] = [];
 
             for (const dn of draftNodes) {
               const col = dn.col ?? getColumnForKind(dn.kind);
@@ -875,7 +876,7 @@ Deno.serve(async (req) => {
             }
 
             // 5. Conecta arestas
-            const insertedEdgesList: any[] = [];
+            const insertedEdgesList: unknown[] = [];
             for (const de of draftEdges) {
               const srcId = keyToNodeId[de.from] || keyToNodeId[de.from.toLowerCase()];
               const tgtId = keyToNodeId[de.to] || keyToNodeId[de.to.toLowerCase()];
@@ -928,7 +929,7 @@ Deno.serve(async (req) => {
 
             const hasMap = (mapNodes || []).length > 0;
             const hasProducts = prods.length > 0;
-            const prodsWithCheckout = prods.filter((p: any) => p.checkout_url || p.link);
+            const prodsWithCheckout = prods.filter((p) => p.checkout_url || p.link);
             const activeAutos = (autos || []).filter(a => a.ativo);
 
             // Coleta checklist de tarefas pendentes nos nós
@@ -938,7 +939,7 @@ Deno.serve(async (req) => {
 
             (mapNodes || []).forEach(n => {
               const list = Array.isArray(n.checklist) ? n.checklist : [];
-              list.forEach((c: any) => {
+              list.forEach((c) => {
                 totalTasks++;
                 if (c.done) doneTasks++;
                 else pendingTasks.push({ node: n.label, task: c.text });
@@ -965,8 +966,8 @@ Deno.serve(async (req) => {
               status: score >= 80 ? "🟢 Pronto para Tráfego" : score >= 50 ? "🟡 Pendências Críticas" : "🔴 Em Estruturação",
               ativosProntos: {
                 funilMapeado: hasMap ? `Sim (${(mapNodes || []).length} etapas)` : "Não mapeado ainda",
-                produtosCadastrados: prods.map((p: any) => `${p.nome || p.name} (R$ ${p.preco || p.price || "—"})`),
-                checkoutsAtivos: prodsWithCheckout.map((p: any) => ({ produto: p.nome || p.name, url: p.checkout_url || p.link })),
+                produtosCadastrados: prods.map((p) => `${p.nome || p.name} (R$ ${p.preco || p.price || "—"})`),
+                checkoutsAtivos: prodsWithCheckout.map((p) => ({ produto: p.nome || p.name, url: p.checkout_url || p.link })),
                 automacoesWhatsAppAtivas: activeAutos.map(a => a.nome),
               },
               tarefasParaRodarTrafegoHoje: pendingTasks.length > 0 ? pendingTasks : [
@@ -1156,7 +1157,7 @@ Deno.serve(async (req) => {
                  nExec === "human_traffic" ? "briefing-gestor-trafego" : "none");
 
               const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
-                (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c: any) => c.done) ? "done" : "pending");
+                (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c) => c.done) ? "done" : "pending");
 
               const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
               const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
@@ -1217,10 +1218,10 @@ Deno.serve(async (req) => {
 
             let updatedChecklist = node.checklist;
             if (mark_checklist_done && Array.isArray(node.checklist)) {
-              updatedChecklist = node.checklist.map((c: any) => ({ ...c, done: true }));
+              updatedChecklist = node.checklist.map((c) => ({ ...c, done: true }));
             }
 
-            const updatePayload: any = {
+            const updatePayload: Record<string, unknown> = {
               notes: notes.trim(),
               checklist: updatedChecklist,
             };
@@ -1257,11 +1258,11 @@ Deno.serve(async (req) => {
           }
 
           throw new Error(`Ferramenta desconhecida: ${name}`);
-        } catch (err: any) {
+        } catch (err) {
           return json({
             jsonrpc: "2.0",
             id,
-            error: { code: -32603, message: err?.message || "Internal error" },
+            error: { code: -32603, message: (err instanceof Error ? err.message : "") || "Internal error" },
           });
         }
       }
@@ -1381,7 +1382,7 @@ Deno.serve(async (req) => {
         const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
         const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
         const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
-          (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c: any) => c.done) ? "done" : "pending");
+          (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c) => c.done) ? "done" : "pending");
         const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
         const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
         const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
@@ -1427,10 +1428,10 @@ Deno.serve(async (req) => {
 
       let updatedChecklist = node.checklist;
       if (mark_checklist_done && Array.isArray(node.checklist)) {
-        updatedChecklist = node.checklist.map((c: any) => ({ ...c, done: true }));
+        updatedChecklist = node.checklist.map((c) => ({ ...c, done: true }));
       }
 
-      const updatePayload: any = { notes: notes.trim(), checklist: updatedChecklist };
+      const updatePayload: Record<string, unknown> = { notes: notes.trim(), checklist: updatedChecklist };
       if (output_url && !node.url) updatePayload.url = output_url;
 
       const { data: updatedNode, error: updateErr } = await supabase
@@ -1479,7 +1480,7 @@ Deno.serve(async (req) => {
     const { data: autos } = await supabase.from("imphq_automacoes").select("id, nome, ativo, trigger_tipo").eq("project_id", projectId);
 
     const hasMap = (mapNodes || []).length > 0;
-    const prodsWithCheckout = prods.filter((p: any) => p.checkout_url || p.link);
+    const prodsWithCheckout = prods.filter((p) => p.checkout_url || p.link);
     const activeAutos = (autos || []).filter(a => a.ativo);
 
     const pendingTasks: { node: string; task: string }[] = [];
@@ -1488,7 +1489,7 @@ Deno.serve(async (req) => {
 
     (mapNodes || []).forEach(n => {
       const list = Array.isArray(n.checklist) ? n.checklist : [];
-      list.forEach((c: any) => {
+      list.forEach((c) => {
         totalTasks++;
         if (c.done) doneTasks++;
         else pendingTasks.push({ node: n.label, task: c.text });
@@ -1586,7 +1587,7 @@ ${projectData.mecanismo || projectData.mecanismo_unico || projectData.tese || "M
 
 ## 3. Oferta & Checkouts
 ${Array.isArray(projectData.produtos) && projectData.produtos.length > 0
-  ? projectData.produtos.map((p: any) => `- **${p.nome || p.name}**: R$ ${p.preco || p.price || "—"} (${p.tipo || "principal"}) | Link: ${p.checkout_url || p.link || "Sem link"}`).join("\n")
+  ? projectData.produtos.map((p) => `- **${p.nome || p.name}**: R$ ${p.preco || p.price || "—"} (${p.tipo || "principal"}) | Link: ${p.checkout_url || p.link || "Sem link"}`).join("\n")
   : "Nenhum produto cadastrado no briefing."}
 
 ---

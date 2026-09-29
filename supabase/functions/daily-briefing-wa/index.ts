@@ -43,7 +43,7 @@ const PROJECT_EMOJIS: Record<string, string> = {
   lipo: "💧",
 };
 
-async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
+async function buildOperationalBriefing(supabase: ReturnType<typeof createClient>, isOnDemand: boolean) {
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -97,13 +97,13 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
   const mList = inboundMsgs24h || [];
 
   // Filtra projetos prioritários + qualquer outro com atividade recente
-  const targetProjects = (allProjects || []).filter((p: any) => {
+  const targetProjects = (allProjects || []).filter((p) => {
     if (coreIds.includes(p.id)) return true;
-    const hasSales = vList.some((v: any) => v.project_id === p.id);
-    const hasLeads = lList.some((l: any) => l.project_id === p.id);
-    const hasMsgs = mList.some((m: any) => m.project_id === p.id);
+    const hasSales = vList.some((v) => v.project_id === p.id);
+    const hasLeads = lList.some((l) => l.project_id === p.id);
+    const hasMsgs = mList.some((m) => m.project_id === p.id);
     return hasSales || hasLeads || hasMsgs;
-  }).sort((a: any, b: any) => {
+  }).sort((a, b) => {
     const aIdx = coreIds.indexOf(a.id);
     const bIdx = coreIds.indexOf(b.id);
     if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
@@ -129,20 +129,20 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
   for (const proj of targetProjects) {
     const pId = proj.id;
     const emoji = PROJECT_EMOJIS[pId] || "🎯";
-    const projVendas = vList.filter((v: any) => v.project_id === pId);
-    const aprovadas = projVendas.filter((v: any) => v.status === "aprovado");
-    const abandonos = projVendas.filter((v: any) => v.status === "carrinho_abandonado" || v.status === "pix_gerado");
-    const recAprovada = aprovadas.reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+    const projVendas = vList.filter((v) => v.project_id === pId);
+    const aprovadas = projVendas.filter((v) => v.status === "aprovado");
+    const abandonos = projVendas.filter((v) => v.status === "carrinho_abandonado" || v.status === "pix_gerado");
+    const recAprovada = aprovadas.reduce((s: number, v) => s + Number(v.valor || 0), 0);
 
-    const projLeads = lList.filter((l: any) => l.project_id === pId);
-    const hotLeads = projLeads.filter((l: any) => Number(l.score || 0) >= 70);
+    const projLeads = lList.filter((l) => l.project_id === pId);
+    const hotLeads = projLeads.filter((l) => Number(l.score || 0) >= 70);
 
     // Mensagens paradas do projeto
-    const projConvs = cList.filter((c: any) => c.project_id === pId);
-    const recentPendingConvs = projConvs.filter((c: any) =>
+    const projConvs = cList.filter((c) => c.project_id === pId);
+    const recentPendingConvs = projConvs.filter((c) =>
       c.last_message_at && new Date(c.last_message_at).getTime() >= Date.now() - 48 * 3600000
     );
-    const projInbound = mList.filter((m: any) => m.project_id === pId);
+    const projInbound = mList.filter((m) => m.project_id === pId);
 
     totalReceitaAprovada += recAprovada;
     totalVendasAprovadas += aprovadas.length;
@@ -153,12 +153,12 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
     totalInboundMsgs += projInbound.length;
 
     // Provider WA do projeto
-    const prov = pList.find((pr: any) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas"));
-    const ai = aList.find((ai: any) => ai.project_id === pId);
+    const prov = pList.find((pr) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas"));
+    const ai = aList.find((ai) => ai.project_id === pId);
 
     // Meta Ads status
     const creatives = Array.isArray(proj.data?.facebook_creatives) ? proj.data.facebook_creatives : [];
-    const hasActiveAds = creatives.some((c: any) => c.status === "ACTIVE" || c.status === "ACTIVE_CAMPAIGN");
+    const hasActiveAds = creatives.some((c) => c.status === "ACTIVE" || c.status === "ACTIVE_CAMPAIGN");
 
     lines.push(`${emoji} *${proj.name}* (${proj.category || "Operação"})`);
     lines.push(`• Vendas 24h: R$ ${recAprovada.toFixed(2)} (${aprovadas.length} aprovadas)`);
@@ -205,7 +205,7 @@ async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
     lines.push(`💬 Fila WhatsApp: 🟢 Fila zerada`);
   }
   lines.push(`🔥 Novos Leads: ${totalLeads} (${totalHotLeads} qualificados)`);
-  lines.push(`📱 WhatsApp: ${pList.filter((p: any) => p.is_active).length} chip(s) ativos`);
+  lines.push(`📱 WhatsApp: ${pList.filter((p) => p.is_active).length} chip(s) ativos`);
 
   if (actions.length > 0) {
     lines.push("");

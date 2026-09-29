@@ -362,8 +362,8 @@ Deno.serve(async (req) => {
                   });
                   const bridgeData = await bridgeRes.json().catch(() => null);
                   console.log(`[ig-webhook] ig-to-wa-bridge auto-trigger result:`, bridgeData);
-                } catch (bErr: any) {
-                  console.warn(`[ig-webhook] Error auto-triggering ig-to-wa-bridge:`, bErr?.message);
+                } catch (bErr) {
+                  console.warn(`[ig-webhook] Error auto-triggering ig-to-wa-bridge:`, bErr instanceof Error ? bErr.message : bErr);
                 }
               })();
             }

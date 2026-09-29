@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     let action = url.searchParams.get("action");
 
-    let body: Record<string, any> = {};
+    let body: Record<string, string | undefined> = {};
     if (req.method === "POST") {
       try {
         body = await req.json();
@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
           const list = await fetchRes.json();
           if (Array.isArray(list)) {
             instanceExists = list.some(
-              (i: any) => i.name?.toLowerCase() === instanceName.toLowerCase()
+              (i) => i.name?.toLowerCase() === instanceName.toLowerCase()
             );
           }
         }
@@ -270,7 +270,7 @@ Deno.serve(async (req: Request) => {
             const list = await fetchRes.json();
             if (Array.isArray(list)) {
               const inst = list.find(
-                (i: any) => i.name?.toLowerCase() === instanceName.toLowerCase()
+                (i) => i.name?.toLowerCase() === instanceName.toLowerCase()
               );
               if (inst) {
                 const ownerJid = inst.ownerJid || inst.owner || "";
@@ -286,7 +286,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // Atualizar status no banco
-        const patch: Record<string, any> = {
+        const patch: Record<string, unknown> = {
           status: "connected",
           is_active: true,
           status_updated_at: new Date().toISOString(),
@@ -368,12 +368,12 @@ Deno.serve(async (req: Request) => {
       },
       400
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error("[whatsapp-evolution] Erro fatal:", err);
     return jsonResponse(
       {
         success: false,
-        error: err?.message || String(err),
+        error: err instanceof Error ? err.message : String(err),
       },
       500
     );
