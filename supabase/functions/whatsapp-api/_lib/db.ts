@@ -72,6 +72,8 @@ export async function findOrCreateConversation(
     return existing;
   }
 
+  const isGroup = suffix === "g.us" || suffix.includes("broadcast") || canonical.startsWith("120363") || canonical.length > 15;
+
   const { data: created, error } = await supabase
     .from("imphq_wa_conversations")
     .insert({
@@ -79,7 +81,8 @@ export async function findOrCreateConversation(
       contact_name: contactName || null,
       session: `session-${Date.now()}`,
       project_id: projectId,
-      status: "active",
+      status: isGroup ? "closed" : "active",
+      ia_ativa: !isGroup,
       provider_id: providerId,
       message_count: 0,
       jid_suffix: suffix,

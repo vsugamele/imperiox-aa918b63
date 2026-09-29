@@ -155,7 +155,8 @@ async function runWhatsAppAutoresponder(
   // AI autoresponder: delega para wa-ai-reply com DEBOUNCE de 8s
   // (evita responder com contexto obsoleto quando lead manda áudio + texto em sequência)
   try {
-    if (!matched && phone && content && projectId && providerId) {
+    const isGroupPhone = phone.startsWith("120363") || phone.includes("@g.us") || phone.replace(/\D/g, "").length > 15;
+    if (!isGroup && !isGroupPhone && !matched && phone && content && projectId && providerId) {
       const DEBOUNCE_MS = 8000;
       const debounceUntil = new Date(Date.now() + DEBOUNCE_MS).toISOString();
       await supabase
