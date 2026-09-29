@@ -6,8 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2, Sparkles } from "lucide-react";
+import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2, Sparkles, LayoutGrid, Map } from "lucide-react";
 import { AutopilotModal } from "@/components/projeto/AutopilotModal";
+import { MapaOperacionalGeral } from "@/components/projeto/MapaOperacionalGeral";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -126,6 +127,15 @@ export default function Projetos() {
   const [activeFolder, setActiveFolder] = useState("all");
   const [sortMode, setSortMode] = useState<"smart" | "name" | "recent">("smart");
   const [autopilotOpen, setAutopilotOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"mapa" | "grid">(() => {
+    return (localStorage.getItem("projetos_view_mode") as "mapa" | "grid") || "mapa";
+  });
+
+  const handleViewModeChange = (mode: "mapa" | "grid") => {
+    setViewMode(mode);
+    localStorage.setItem("projetos_view_mode", mode);
+  };
+
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -284,7 +294,33 @@ export default function Projetos() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="font-display text-2xl md:text-3xl font-bold text-primary">Projetos</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-primary">Projetos</h1>
+          <div className="flex items-center bg-secondary/80 border border-border/50 rounded-lg p-0.5">
+            <button
+              onClick={() => handleViewModeChange("mapa")}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                viewMode === "mapa"
+                  ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Map className="h-3.5 w-3.5" />
+              <span>Mapa Geral</span>
+            </button>
+            <button
+              onClick={() => handleViewModeChange("grid")}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                viewMode === "grid"
+                  ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Pastas</span>
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" variant="default" onClick={() => setAutopilotOpen(true)} className="bg-primary/90 hover:bg-primary">
             <Sparkles className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Autopilot</span>
@@ -330,8 +366,12 @@ export default function Projetos() {
         </div>
       </div>
 
-      {/* Search + Folder Filter */}
-      <div className="space-y-3">
+      {viewMode === "mapa" ? (
+        <MapaOperacionalGeral projects={projects} onRefresh={load} />
+      ) : (
+        <>
+          {/* Search + Folder Filter */}
+          <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative max-w-sm flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -548,6 +588,8 @@ export default function Projetos() {
           </div>
         </div>
       ))}
+        </>
+      )}
 
       {/* Template Selection Dialog */}
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
