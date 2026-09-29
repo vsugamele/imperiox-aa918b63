@@ -1,6 +1,8 @@
 // Mapa da Empresa — regra única de leitura de um projeto.
 // TS puro e sem dependências: usado pelo frontend (@shared/project-map) e pelas edge functions.
 // Nunca inventa valores: o que não está no banco vira lacuna, nunca um default.
+import { FUNNEL_PHASES, phaseOf } from "./map-elements.ts";
+import { analyzeGaps } from "./funnel-gaps.ts";
 
 export type MapStatus = "falta" | "desenhado" | "construido" | "rodando";
 export type ItemStatus = MapStatus | "pausado";
@@ -43,7 +45,7 @@ export interface ProjectMap {
 export interface ProjectMapInput {
   project: { id: string; name: string; data: unknown; avatar: unknown };
   competitors: ReadonlyArray<Record<string, unknown>>;
-  mapNodes: ReadonlyArray<{ label?: string | null; url?: string | null }>;
+  mapNodes: ReadonlyArray<{ label?: string | null; url?: string | null; kind?: string | null }>;
   activity: {
     /** Vendas aprovadas nos últimos 30 dias, por `produto_nome`. */
     approvedSales30dByProduct: Record<string, number>;
@@ -378,7 +380,27 @@ function funilSection(input: ProjectMapInput, gaps: MapGap[]): MapSection {
     gaps.push({ area: "funil", severity: "importante", message: `Só ${withUrl} de ${nodes.length} etapas do funil têm link.`, action: "Vincular os links reais a cada etapa do funil." });
   }
   if (events === 0 && nodes.length > 0) gaps.push({ area: "funil", severity: "sugestao", message: "Nenhum evento de funil registrado nos últimos 7 dias.", action: "Conferir se o rastreamento do funil está instalado." });
-  return { area: "funil", label: "Funil", status, items: [{ key: "funil", label: "Funil", status, evidence }] };
+
+  const items: MapItem[] = [{ key: "funil", label: "Funil", status, evidence }];
+  if (nodes.length > 0) {
+    // Etapas por fase do cliente, pelo tipo de cada elemento desenhado.
+    for (const phase of FUNNEL_PHASES.filter((p) => p.key !== "operacao")) {
+      const inPhase = nodes.filter((n) => phaseOf(n.kind) === phase.key);
+      const linked = inPhase.filter((n) => /^https?:\/\//i.test(text(n.url)));
+      items.push({
+        key: `funil:${phase.key}`,
+        label: phase.label,
+        status: inPhase.length === 0 ? "falta" : linked.length > 0 ? "construido" : "desenhado",
+        evidence: inPhase.map((n) => text(n.label) || text(n.kind)).filter(Boolean),
+      });
+    }
+    // Lacunas estruturais (mesma regra do painel do canvas); sem dados de conexão aqui, então sem órfãos.
+    const structural = analyzeGaps(nodes.map((n) => ({ kind: text(n.kind), label: text(n.label) })));
+    for (const g of structural) {
+      gaps.push({ area: "funil", item: g.title, severity: g.impact === "alto" ? "importante" : "sugestao", message: `${g.title}: ${g.desc}`, action: `Adicionar "${g.suggest.label}" ao mapa do funil.` });
+    }
+  }
+  return { area: "funil", label: "Funil", status, items };
 }
 
 // ── ativos ──────────────────────────────────────────────────────────────

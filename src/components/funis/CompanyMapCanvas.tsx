@@ -35,6 +35,7 @@ import { NodeCopyDialog } from "@/components/funis/NodeCopyDialog";
 import { annotationNodeTypes } from "@/components/funis/map-annotation-registry";
 import { ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "@/components/funis/map-annotation-data";
 import { StrategicGapsPanel } from "@/components/funis/StrategicGapsPanel";
+import { KIND_CATEGORIES, KIND_PRESETS } from "@/components/funis/map-element-presets";
 import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
 import { PresenceCursors } from "@/components/funis/PresenceCursors";
@@ -118,48 +119,6 @@ function updateAgentDataInNotes(notes: string | null | undefined, data: Partial<
   return text ? `${text}\n\n${tags.join("\n")}` : tags.join("\n");
 }
 
-const KIND_PRESETS: Record<string, { label: string; color: string; icon: LucideIcon }> = {
-  vertical:      { label: "Vertical / Unidade",  color: "#c9922a", icon: Building2 },
-  area:          { label: "Área / Time",         color: "#3b82f6", icon: Users },
-  oferta:        { label: "Oferta / Produto",    color: "#10b981", icon: ShoppingCart },
-  processo:      { label: "Processo",            color: "#8b5cf6", icon: Wrench },
-  meta:          { label: "Meta / KPI",          color: "#ef4444", icon: Target },
-  doc:           { label: "Documento",           color: "#64748b", icon: FileText },
-  // Estratégia de vendas
-  vsl:           { label: "VSL",                 color: "#ec4899", icon: Film },
-  pagina_vendas: { label: "Página de Vendas",    color: "#f97316", icon: Globe },
-  captura:       { label: "Captura / Optin",     color: "#06b6d4", icon: MousePointerClick },
-  checkout:      { label: "Checkout",            color: "#84cc16", icon: CreditCard },
-  orderbump:     { label: "Orderbump",           color: "#fbbf24", icon: PackagePlus },
-  upsell:        { label: "Upsell",              color: "#22c55e", icon: TrendingUp },
-  downsell:      { label: "Downsell",            color: "#f43f5e", icon: TrendingDown },
-  email:         { label: "E-mail / Nurture",    color: "#818cf8", icon: Mail },
-  anuncio:       { label: "Anúncio / Tráfego",   color: "#eab308", icon: Target },
-  // Produtos digitais
-  area_membros:  { label: "Área de Membros",     color: "#a855f7", icon: GraduationCap },
-  app:           { label: "APP / Produto",       color: "#0ea5e9", icon: Smartphone },
-  // Canais
-  canal:         { label: "Canal (genérico)",    color: "#f59e0b", icon: Megaphone },
-  whatsapp:      { label: "WhatsApp",            color: "#25d366", icon: MessageCircle },
-  // Redes sociais
-  instagram:     { label: "Instagram",           color: "#e1306c", icon: Instagram },
-  facebook:      { label: "Facebook",            color: "#1877f2", icon: Facebook },
-  youtube:       { label: "YouTube",             color: "#ff0000", icon: Youtube },
-  tiktok:        { label: "TikTok",              color: "#000000", icon: Music2 },
-  linkedin:      { label: "LinkedIn",            color: "#0a66c2", icon: Linkedin },
-  twitter:       { label: "X / Twitter",         color: "#1da1f2", icon: Twitter },
-  // Mídia
-  imagem:        { label: "Imagem",               color: "#c9922a", icon: ImageIcon },
-};
-
-const KIND_CATEGORIES: { label: string; keys: string[] }[] = [
-  { label: "Estrutura",         keys: ["vertical", "area", "processo", "meta", "doc"] },
-  { label: "Estratégia de Vendas", keys: ["captura", "vsl", "pagina_vendas", "checkout", "orderbump", "upsell", "downsell", "email", "anuncio"] },
-  { label: "Ofertas & Produto", keys: ["oferta", "area_membros", "app"] },
-  { label: "Canais",            keys: ["whatsapp", "canal"] },
-  { label: "Redes Sociais",     keys: ["instagram", "facebook", "youtube", "tiktok", "linkedin", "twitter"] },
-  { label: "Mídia",             keys: ["imagem"] },
-];
 
 const SIZE_PRESETS: Record<string, { min: number; max: number; label: string }> = {
   S: { min: 160, max: 200, label: "Pequeno" },
@@ -700,6 +659,13 @@ function InnerMap({
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [commentsTarget, setCommentsTarget] = useState<{ id: string; label?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const paletteGroups = useMemo(() => {
+    const q = paletteQuery.trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    if (!q) return KIND_CATEGORIES;
+    const match = (key: string) => `${KIND_PRESETS[key]?.label ?? ""} ${key}`.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q);
+    return KIND_CATEGORIES.map((cat) => ({ ...cat, keys: cat.keys.filter(match) })).filter((cat) => cat.keys.length > 0);
+  }, [paletteQuery]);
   const [libPickerOpen, setLibPickerOpen] = useState(false);
   const [libPickerMode, setLibPickerMode] = useState<"edit" | "new-image">("edit");
   const [imageSourceOpen, setImageSourceOpen] = useState(false);
@@ -2284,7 +2250,27 @@ function InnerMap({
                 <ChevronsRight className="h-3 w-3" />
               </Button>
             </div>
-            {KIND_CATEGORIES.map(cat => (
+            <Input
+              value={paletteQuery}
+              onChange={(e) => setPaletteQuery(e.target.value)}
+              placeholder="Buscar elemento (ex.: pix, ticto, reels)"
+              className="h-7 text-xs"
+            />
+            {!paletteQuery && (
+              <Button size="sm" variant="ghost" className="h-7 w-full text-xs justify-start gap-2"
+                title="Caixa que agrupa etapas de uma fase (Aquisição, Conversão...). Arrastar a caixa move tudo que está dentro."
+                onClick={() => {
+                  const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+                  addAnnotation("frame", c.x, c.y);
+                }}>
+                <div className="p-0.5 rounded bg-primary/15 text-primary">
+                  <Square className="h-3 w-3" />
+                </div>
+                <span className="truncate">Seção / fase</span>
+              </Button>
+            )}
+            {paletteGroups.length === 0 && <p className="px-1 text-[11px] text-muted-foreground">Nenhum elemento encontrado.</p>}
+            {paletteGroups.map(cat => (
               <div key={cat.label} className="space-y-0.5">
                 <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70 px-1 pt-1 border-t border-border/30">{cat.label}</p>
                 {cat.keys.map(key => {
@@ -2309,7 +2295,7 @@ function InnerMap({
                 { kind: "script" as AnnotationKind, label: "Script / Roteiro", color: "#ec4899", Icon: FileText },
                 { kind: "copy" as AnnotationKind, label: "Copy de anúncio", color: "#f97316", Icon: MessageSquare },
                 { kind: "ad_asset" as AnnotationKind, label: "Ativo de anúncio", color: "#eab308", Icon: Megaphone },
-              ]).map(({ kind, label, color, Icon }) => (
+              ]).filter(({ label }) => !paletteQuery.trim() || label.toLowerCase().includes(paletteQuery.trim().toLowerCase())).map(({ kind, label, color, Icon }) => (
                 <Button key={kind} size="sm" variant="ghost" className="h-7 w-full text-xs justify-start gap-2"
                   onClick={() => {
                     const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -2343,9 +2329,14 @@ function InnerMap({
                 <Wrench className="h-3 w-3" /> Mudar tipo
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {Object.entries(KIND_PRESETS).map(([k, p]) => (
-                <DropdownMenuItem key={k} onClick={() => bulkChangeKind(k)}>{p.label}</DropdownMenuItem>
+            <DropdownMenuContent className="max-h-80 overflow-y-auto">
+              {KIND_CATEGORIES.map((cat) => (
+                <div key={cat.label}>
+                  <p className="px-2 pt-2 pb-1 text-[9px] uppercase tracking-wider text-muted-foreground">{cat.label}</p>
+                  {cat.keys.map((k) => (
+                    <DropdownMenuItem key={k} onClick={() => bulkChangeKind(k)}>{KIND_PRESETS[k].label}</DropdownMenuItem>
+                  ))}
+                </div>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -2485,7 +2476,7 @@ function InnerMap({
               <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Adicionar anotação</div>
               <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
                 onClick={() => { addAnnotation("frame", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>
-                <Square className="h-3.5 w-3.5" /> Caixa tracejada
+                <Square className="h-3.5 w-3.5" /> Seção / fase (caixa)
               </button>
               <button className="w-full text-left px-3 py-1.5 hover:bg-secondary/60 flex items-center gap-2"
                 onClick={() => { addAnnotation("note", ctxMenu.flowX, ctxMenu.flowY); setCtxMenu(null); }}>

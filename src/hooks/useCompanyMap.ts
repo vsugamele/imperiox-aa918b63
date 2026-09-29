@@ -17,7 +17,7 @@ async function loadCompanyMap(): Promise<ProjectMap[]> {
   const [projectsRes, competitorsRes, nodesRes, salesRes, providersRes, aiRes] = await Promise.all([
     supabase.from("imphq_projects").select("id, name, data, avatar").or("is_archived.eq.false,is_archived.is.null").order("name"),
     supabase.from("imphq_competitors").select("project_id, name, url, oferta_principal, preco, mecanismo_unico, headline, paginas_funil"),
-    supabase.from("imphq_company_map_nodes").select("linked_project_id, label, url").not("linked_project_id", "is", null),
+    supabase.from("imphq_company_map_nodes").select("linked_project_id, label, url, kind").not("linked_project_id", "is", null),
     supabase.from("imphq_vendas").select("project_id, produto_nome").eq("status", "aprovado").gte("created_at", since30d),
     supabase.from("imphq_wa_providers").select("project_id, is_active"),
     supabase.from("imphq_wa_ai_config").select("project_id, enabled, draft_mode"),

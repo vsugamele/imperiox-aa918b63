@@ -939,7 +939,7 @@ Deno.serve(async (req) => {
             const [projRes, compRes, nodesRes, salesRes, provRes, aiRes] = await Promise.all([
               supabase.from("imphq_projects").select("id, name, data, avatar").eq("id", projectId).maybeSingle(),
               supabase.from("imphq_competitors").select("name, url, oferta_principal, preco, mecanismo_unico, headline, paginas_funil").eq("project_id", projectId),
-              supabase.from("imphq_company_map_nodes").select("label, url").eq("linked_project_id", projectId),
+              supabase.from("imphq_company_map_nodes").select("label, url, kind").eq("linked_project_id", projectId),
               supabase.from("imphq_vendas").select("produto_nome").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", since30d),
               supabase.from("imphq_wa_providers").select("is_active").eq("project_id", projectId),
               supabase.from("imphq_wa_ai_config").select("enabled, draft_mode").eq("project_id", projectId),
