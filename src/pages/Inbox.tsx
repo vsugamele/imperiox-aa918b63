@@ -84,8 +84,8 @@ function priorityClasses(p: Priority): { pill: string; dot: string } {
       dot: "bg-orange-400",
     };
   return {
-    pill: "bg-[#D6FF4B]/10 text-[#D6FF4B] border-[#D6FF4B]/30",
-    dot: "bg-[#D6FF4B]",
+    pill: "bg-primary/10 text-primary border-primary/30",
+    dot: "bg-primary",
   };
 }
 
@@ -207,7 +207,7 @@ function FilaUnificadaTab() {
         )}
         {(urgentCount > 0 || waitingCount > 0) && oppCount > 0 && <span>·</span>}
         {oppCount > 0 && (
-          <span className="text-[#D6FF4B] font-semibold">{oppCount} oportunidades</span>
+          <span className="text-primary font-semibold">{oppCount} oportunidades</span>
         )}
       </div>
 
@@ -216,7 +216,7 @@ function FilaUnificadaTab() {
         return (
           <div
             key={item.key}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[#1B1E23] bg-[#0A0B0D]/60 hover:border-border/60 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-background/60 hover:border-border/60 transition-colors"
           >
             {/* SLA pill */}
             <span
@@ -252,7 +252,7 @@ function FilaUnificadaTab() {
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 text-xs h-7 border-[#1B1E23] hover:border-[#D6FF4B]/40 hover:text-[#D6FF4B]"
+              className="shrink-0 text-xs h-7 border-border hover:border-primary/40 hover:text-primary"
               onClick={() => (window.location.href = item.href)}
             >
               Atender →

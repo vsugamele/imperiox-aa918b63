@@ -424,10 +424,10 @@ export default function OpenFlow() {
 
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Execuções</p><p className="text-2xl font-bold">{kpis.total}</p></CardContent></Card>
-        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Sucessos (7d)</p><p className="text-2xl font-bold text-emerald-400">{kpis.success}</p></CardContent></Card>
-        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Falhas</p><p className="text-2xl font-bold text-rose-400">{kpis.errors}</p></CardContent></Card>
-        <Card className="bg-[#0E1013] border-[#1B1E23]"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Taxa Global</p><p className="text-2xl font-bold text-primary">{kpis.rate}%</p></CardContent></Card>
+        <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Execuções</p><p className="text-2xl font-bold">{kpis.total}</p></CardContent></Card>
+        <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Sucessos (7d)</p><p className="text-2xl font-bold text-emerald-400">{kpis.success}</p></CardContent></Card>
+        <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Falhas</p><p className="text-2xl font-bold text-rose-400">{kpis.errors}</p></CardContent></Card>
+        <Card className="bg-card border-border"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Taxa Global</p><p className="text-2xl font-bold text-primary">{kpis.rate}%</p></CardContent></Card>
       </div>
 
       {kpis.errors > 0 && !alertDismissed && (

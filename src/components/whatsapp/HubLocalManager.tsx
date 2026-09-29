@@ -75,7 +75,7 @@ const statusConfig: Record<UiStatus, { label: string; color: string; icon: typeo
   idle: { label: "Inativo", color: "bg-muted text-muted-foreground border-border", icon: WifiOff },
   pending: { label: "Enviando comando...", color: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: Loader2 },
   awaiting_qr: { label: "Gerando QR Code...", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: Loader2 },
-  qr_ready: { label: "QR Pronto para Escanear", color: "bg-[#D6FF4B]/15 text-[#D6FF4B] border-[#D6FF4B]/30", icon: QrCode },
+  qr_ready: { label: "QR Pronto para Escanear", color: "bg-primary/15 text-primary border-primary/30", icon: QrCode },
   connected: { label: "Conectado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: Wifi },
   stale: { label: "Sessão Travada", color: "bg-orange-500/15 text-orange-400 border-orange-500/30", icon: AlertCircle },
   error: { label: "Falha de Conexão", color: "bg-destructive/15 text-destructive border-destructive/30", icon: AlertCircle },
@@ -274,12 +274,12 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
   if (selectedConversation) {
     return (
       <div className="h-full flex flex-col p-4 space-y-4">
-        <div className="flex items-center justify-between border-b border-[#1B1E23] pb-3">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <Button variant="ghost" size="sm" onClick={() => setSelectedConversation(null)} className="text-xs text-muted-foreground hover:text-foreground">
             ← Voltar para o Hub Local
           </Button>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="font-mono text-xs border-[#1B1E23] text-[#D6FF4B]">
+            <Badge variant="outline" className="font-mono text-xs border-border text-primary">
               📱 {selectedConversation.phone}
             </Badge>
             <Badge variant="secondary" className="text-xs">
@@ -287,7 +287,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
             </Badge>
           </div>
         </div>
-        <div className="flex-1 bg-[#0E1013] border border-[#1B1E23] rounded-xl overflow-hidden shadow-xl">
+        <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden shadow-xl">
           <ChatView
             conversationId={selectedConversation.id}
             phone={selectedConversation.phone}
@@ -302,12 +302,12 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
   return (
     <div className="space-y-4 p-4 max-w-7xl mx-auto">
       {/* ── TOP EXECUTIVE BANNER & KPIS ── */}
-      <div className="bg-[#0E1013] border border-[#1B1E23] rounded-xl p-4 shadow-sm space-y-3">
+      <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#D6FF4B]/10 border border-[#D6FF4B]/20 flex items-center justify-center">
-                <Radio className="h-4 w-4 text-[#D6FF4B]" />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Radio className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -316,7 +316,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                     Command Bus ISO
                   </Badge>
                 </div>
-                <p className="text-xs text-[#8A8F98]">
+                <p className="text-xs text-muted-foreground">
                   Gateway de conexão direta via Baileys. Opera com instâncias locais isoladas com controle de QR Code, automação e mensageria.
                 </p>
               </div>
@@ -330,7 +330,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
               variant="outline"
               onClick={loadData}
               disabled={loadingSessions}
-              className="h-8 text-xs border-[#1B1E23] bg-background hover:bg-secondary/40 text-muted-foreground"
+              className="h-8 text-xs border-border bg-background hover:bg-secondary/40 text-muted-foreground"
             >
               <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingSessions ? "animate-spin" : ""}`} />
               Atualizar
@@ -355,7 +355,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                 handleSuggestKey(pairingProjectId);
                 setHubTab("qr");
               }}
-              className="h-8 text-xs bg-[#D6FF4B] text-black font-semibold hover:bg-[#c2eb3d] shadow-sm"
+              className="h-8 text-xs bg-primary text-black font-semibold hover:bg-[#c2eb3d] shadow-sm"
             >
               <QrCode className="h-3.5 w-3.5 mr-1.5" />
               + Nova Conexão QR
@@ -365,9 +365,9 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
         {/* 4 Metric Pill Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-          <div className="bg-[#0A0B0D] border border-[#1B1E23] rounded-lg p-3 flex items-center justify-between">
+          <div className="bg-background border border-border rounded-lg p-3 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-mono uppercase text-[#8A8F98] tracking-wider">Conectadas</p>
+              <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Conectadas</p>
               <p className="text-lg font-bold font-mono text-emerald-400 mt-0.5">{connectedCount}</p>
             </div>
             <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
@@ -378,9 +378,9 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
             </div>
           </div>
 
-          <div className="bg-[#0A0B0D] border border-[#1B1E23] rounded-lg p-3 flex items-center justify-between">
+          <div className="bg-background border border-border rounded-lg p-3 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-mono uppercase text-[#8A8F98] tracking-wider">Total Instâncias</p>
+              <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Total Instâncias</p>
               <p className="text-lg font-bold font-mono text-foreground mt-0.5">{sessions.length}</p>
             </div>
             <div className="w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
@@ -388,9 +388,9 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
             </div>
           </div>
 
-          <div className="bg-[#0A0B0D] border border-[#1B1E23] rounded-lg p-3 flex items-center justify-between">
+          <div className="bg-background border border-border rounded-lg p-3 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-mono uppercase text-[#8A8F98] tracking-wider">Desconectadas</p>
+              <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Desconectadas</p>
               <p className="text-lg font-bold font-mono text-amber-400 mt-0.5">{offlineCount}</p>
             </div>
             <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
@@ -398,9 +398,9 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
             </div>
           </div>
 
-          <div className="bg-[#0A0B0D] border border-[#1B1E23] rounded-lg p-3 flex items-center justify-between">
+          <div className="bg-background border border-border rounded-lg p-3 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-mono uppercase text-[#8A8F98] tracking-wider">Fila de Comandos</p>
+              <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Fila de Comandos</p>
               <p className="text-lg font-bold font-mono text-muted-foreground mt-0.5">
                 {pendingCommandsCount > 0 ? (
                   <span className="text-amber-400">{pendingCommandsCount} pendente(s)</span>
@@ -417,11 +417,11 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
       </div>
 
       {/* ── WORKSPACE TABS ── */}
-      <div className="flex border-b border-[#1B1E23] bg-[#0E1013] rounded-t-xl px-2">
+      <div className="flex border-b border-border bg-card rounded-t-xl px-2">
         <button
           onClick={() => setHubTab("qr")}
           className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            hubTab === "qr" ? "border-[#D6FF4B] text-[#D6FF4B]" : "border-transparent text-[#8A8F98] hover:text-foreground"
+            hubTab === "qr" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <QrCode className="h-3.5 w-3.5" />
@@ -431,7 +431,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
         <button
           onClick={() => setHubTab("sessoes")}
           className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            hubTab === "sessoes" ? "border-[#D6FF4B] text-[#D6FF4B]" : "border-transparent text-[#8A8F98] hover:text-foreground"
+            hubTab === "sessoes" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Cpu className="h-3.5 w-3.5" />
@@ -441,7 +441,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
         <button
           onClick={() => setHubTab("mensagens")}
           className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            hubTab === "mensagens" ? "border-[#D6FF4B] text-[#D6FF4B]" : "border-transparent text-[#8A8F98] hover:text-foreground"
+            hubTab === "mensagens" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <MessageSquare className="h-3.5 w-3.5" />
@@ -451,7 +451,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
         <button
           onClick={() => setHubTab("worker")}
           className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            hubTab === "worker" ? "border-[#D6FF4B] text-[#D6FF4B]" : "border-transparent text-[#8A8F98] hover:text-foreground"
+            hubTab === "worker" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Terminal className="h-3.5 w-3.5" />
@@ -464,13 +464,13 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left: Configuration Form */}
           <div className="lg:col-span-5 space-y-4">
-            <Card className="bg-[#0E1013] border-[#1B1E23]">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-[#D6FF4B]" />
+                  <Smartphone className="h-4 w-4 text-primary" />
                   1. Configurar Instância Baileys
                 </CardTitle>
-                <CardDescription className="text-xs text-[#8A8F98]">
+                <CardDescription className="text-xs text-muted-foreground">
                   Selecione o projeto e identifique o chip para iniciar o pareamento.
                 </CardDescription>
               </CardHeader>
@@ -485,7 +485,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                       handleSuggestKey(val);
                     }}
                   >
-                    <SelectTrigger className="h-9 text-xs bg-[#0A0B0D] border-[#1B1E23]">
+                    <SelectTrigger className="h-9 text-xs bg-background border-border">
                       <SelectValue placeholder="Selecione o Projeto" />
                     </SelectTrigger>
                     <SelectContent>
@@ -505,7 +505,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                     <Label className="text-xs text-muted-foreground">Nome da Instância (Session Key)</Label>
                     <button
                       onClick={() => handleSuggestKey(pairingProjectId)}
-                      className="text-[11px] text-[#D6FF4B] hover:underline flex items-center gap-1"
+                      className="text-[11px] text-primary hover:underline flex items-center gap-1"
                     >
                       <RotateCcw className="h-2.5 w-2.5" />
                       Gerar Novo
@@ -515,7 +515,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                     value={pairingSessionKey}
                     onChange={(e) => setPairingSessionKey(e.target.value.toLowerCase().replace(/[^a-z0-9-_.]/g, ""))}
                     placeholder="ex: chip-slimsoda-01"
-                    className="h-9 text-xs font-mono bg-[#0A0B0D] border-[#1B1E23]"
+                    className="h-9 text-xs font-mono bg-background border-border"
                   />
                   <p className="text-[10px] text-muted-foreground">
                     Identificador único gravado no isolamento do Baileys e no banco de dados.
@@ -523,7 +523,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                 </div>
 
                 {/* Status da Sessão no Form */}
-                <div className="bg-[#0A0B0D] border border-[#1B1E23] rounded-lg p-3 flex items-center justify-between">
+                <div className="bg-background border border-border rounded-lg p-3 flex items-center justify-between">
                   <div>
                     <p className="text-[10px] uppercase font-mono text-muted-foreground">Status Atual</p>
                     <p className="text-xs font-medium text-foreground mt-0.5">{cfg.label}</p>
@@ -543,14 +543,14 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-2 space-y-2">
-                    <div className="p-3 bg-[#0A0B0D] border border-[#1B1E23] rounded-lg space-y-2">
+                    <div className="p-3 bg-background border border-border rounded-lg space-y-2">
                       <div>
                         <Label className="text-[11px] text-muted-foreground">Tenant ID</Label>
                         <Input
                           value={pairingTenantId}
                           onChange={(e) => setPairingTenantId(e.target.value)}
                           placeholder="default"
-                          className="h-8 text-xs font-mono bg-[#0E1013] border-[#1B1E23] mt-1"
+                          className="h-8 text-xs font-mono bg-card border-border mt-1"
                         />
                       </div>
                       <p className="text-[10px] text-muted-foreground">
@@ -565,7 +565,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                   <Button
                     onClick={startGetQr}
                     disabled={!canGenerateQr || !pairingSessionKey.trim()}
-                    className="w-full h-9 text-xs bg-[#D6FF4B] text-black font-semibold hover:bg-[#c2eb3d] transition-all"
+                    className="w-full h-9 text-xs bg-primary text-black font-semibold hover:bg-[#c2eb3d] transition-all"
                   >
                     {uiStatus === "pending" || uiStatus === "awaiting_qr" ? (
                       <>
@@ -598,9 +598,9 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
             </Card>
 
             {/* Guia Rápido Mobile */}
-            <div className="bg-[#0E1013] border border-[#1B1E23] rounded-xl p-4 space-y-2 text-xs text-muted-foreground">
+            <div className="bg-card border border-border rounded-xl p-4 space-y-2 text-xs text-muted-foreground">
               <p className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
-                <ShieldCheck className="h-4 w-4 text-[#D6FF4B]" />
+                <ShieldCheck className="h-4 w-4 text-primary" />
                 Instruções de Conexão no Celular:
               </p>
               <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed">
@@ -614,11 +614,11 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
           {/* Right: The High-Tech QR Terminal */}
           <div className="lg:col-span-7 flex flex-col">
-            <Card className="bg-[#0E1013] border-[#1B1E23] flex-1 flex flex-col">
-              <CardHeader className="pb-3 border-b border-[#1B1E23]">
+            <Card className="bg-card border-border flex-1 flex flex-col">
+              <CardHeader className="pb-3 border-b border-border">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-                    <QrCode className="h-4 w-4 text-[#D6FF4B]" />
+                    <QrCode className="h-4 w-4 text-primary" />
                     2. Terminal de Leitura do QR Code
                   </CardTitle>
                   <Badge variant="outline" className={`font-mono text-[10px] ${cfg.color}`}>
@@ -666,7 +666,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                 {/* 3. QR READY (IMAGE) */}
                 {uiStatus === "qr_ready" && qrImageUrl && (
                   <div className="flex flex-col items-center space-y-3">
-                    <div className="relative p-3 bg-white rounded-2xl border-2 border-[#D6FF4B] shadow-[0_0_25px_rgba(214,255,75,0.25)]">
+                    <div className="relative p-3 bg-white rounded-2xl border-2 border-primary shadow-[0_0_25px_rgba(214,255,75,0.25)]">
                       <img
                         src={
                           qrImageUrl.startsWith("data:")
@@ -680,10 +680,10 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                       />
                     </div>
                     <div className="text-center space-y-1">
-                      <p className="text-xs font-semibold text-[#D6FF4B] flex items-center justify-center gap-1">
+                      <p className="text-xs font-semibold text-primary flex items-center justify-center gap-1">
                         <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D6FF4B] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D6FF4B]"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                         </span>
                         Aguardando leitura pelo WhatsApp no celular...
                       </p>
@@ -696,15 +696,15 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
                 {/* 4. QR READY (TEXT ONLY FALLBACK) */}
                 {uiStatus === "qr_ready" && !qrImageUrl && qrText && (
-                  <div className="w-[300px] p-5 bg-[#0A0B0D] rounded-2xl border border-[#1B1E23] space-y-3 text-center">
+                  <div className="w-[300px] p-5 bg-background rounded-2xl border border-border space-y-3 text-center">
                     <p className="text-xs font-semibold text-foreground">Código de Pareamento Textual:</p>
-                    <div className="p-3 bg-[#0E1013] rounded border border-[#1B1E23] font-mono text-[11px] break-all select-all text-[#D6FF4B]">
+                    <div className="p-3 bg-card rounded border border-border font-mono text-[11px] break-all select-all text-primary">
                       {qrText}
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 text-xs border-[#1B1E23]"
+                      className="h-8 text-xs border-border"
                       onClick={() => {
                         navigator.clipboard.writeText(qrText);
                         toast.success("Código copiado!");
@@ -727,7 +727,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                         Sessão <strong className="text-foreground">{pairingSessionKey}</strong> ativa e autenticada no Baileys.
                       </p>
                     </div>
-                    <div className="p-2.5 bg-[#0A0B0D] rounded-lg border border-[#1B1E23] text-left text-[11px] space-y-1 font-mono">
+                    <div className="p-2.5 bg-background rounded-lg border border-border text-left text-[11px] space-y-1 font-mono">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Projeto:</span>
                         <span className="text-foreground">{getProjectName(pairingProjectId)}</span>
@@ -791,7 +791,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                         size="sm"
                         variant="outline"
                         onClick={() => handleSuggestKey(pairingProjectId)}
-                        className="h-8 text-xs border-[#1B1E23]"
+                        className="h-8 text-xs border-border"
                       >
                         Nova Session Key
                       </Button>
@@ -824,7 +824,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
                 {/* 8. IDLE */}
                 {uiStatus === "idle" && (
-                  <div className="w-[300px] h-[300px] flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#1B1E23] p-6 text-center space-y-3 bg-[#0A0B0D]/50">
+                  <div className="w-[300px] h-[300px] flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border p-6 text-center space-y-3 bg-background/50">
                     <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center text-muted-foreground">
                       <QrCode className="h-6 w-6" />
                     </div>
@@ -848,8 +848,8 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <div className="mt-2 p-3 bg-[#0A0B0D] rounded-lg border border-[#1B1E23] text-[10px] font-mono space-y-1">
-                        {sessionRawStatus && <div>session.status: <span className="text-[#D6FF4B]">{sessionRawStatus}</span></div>}
+                      <div className="mt-2 p-3 bg-background rounded-lg border border-border text-[10px] font-mono space-y-1">
+                        {sessionRawStatus && <div>session.status: <span className="text-primary">{sessionRawStatus}</span></div>}
                         {diagnostics.commandStatus && <div>command.status: <span className="text-blue-400">{diagnostics.commandStatus}</span></div>}
                         {diagnostics.hasSession !== undefined && <div>hasSession: <span className={diagnostics.hasSession ? "text-emerald-400" : "text-destructive"}>{String(diagnostics.hasSession)}</span></div>}
                         {diagnostics.qrAvailable !== undefined && <div>qrAvailable: <span className="text-primary">{String(diagnostics.qrAvailable)}</span></div>}
@@ -867,15 +867,15 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
       {/* ── TAB 2: INSTÂNCIAS & CHIPS ── */}
       {hubTab === "sessoes" && (
-        <Card className="bg-[#0E1013] border-[#1B1E23]">
-          <CardHeader className="pb-3 border-b border-[#1B1E23]">
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3 border-b border-border">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Cpu className="h-4 w-4 text-[#D6FF4B]" />
+                  <Cpu className="h-4 w-4 text-primary" />
                   Instâncias Cadastradas no Hub
                 </CardTitle>
-                <CardDescription className="text-xs text-[#8A8F98]">
+                <CardDescription className="text-xs text-muted-foreground">
                   Todas as instâncias locais Baileys persistidas no Supabase.
                 </CardDescription>
               </div>
@@ -888,12 +888,12 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                     value={searchSession}
                     onChange={(e) => setSearchSession(e.target.value)}
                     placeholder="Buscar sessão..."
-                    className="h-8 pl-8 text-xs bg-[#0A0B0D] border-[#1B1E23]"
+                    className="h-8 pl-8 text-xs bg-background border-border"
                   />
                 </div>
 
                 <Select value={filterSessionStatus} onValueChange={(v) => setFilterSessionStatus(v as typeof filterSessionStatus)}>
-                  <SelectTrigger className="w-32 h-8 text-xs bg-[#0A0B0D] border-[#1B1E23]">
+                  <SelectTrigger className="w-32 h-8 text-xs bg-background border-border">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -920,20 +920,20 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
           <CardContent className="p-0">
             {filteredSessions.length > 0 ? (
-              <div className="divide-y divide-[#1B1E23]">
+              <div className="divide-y divide-border">
                 {filteredSessions.map((s) => {
                   const isConnected = s.status === "connected";
                   return (
                     <div
                       key={s.id}
-                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#0A0B0D]/50 transition-colors"
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-background/50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${
                             isConnected
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                              : "bg-muted/30 border-[#1B1E23] text-muted-foreground"
+                              : "bg-muted/30 border-border text-muted-foreground"
                           }`}
                         >
                           {isConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
@@ -947,7 +947,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                               className={`text-[10px] font-mono ${
                                 isConnected
                                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                                  : "bg-muted text-muted-foreground border-[#1B1E23]"
+                                  : "bg-muted text-muted-foreground border-border"
                               }`}
                             >
                               {isConnected ? "● Conectada" : "○ Offline"}
@@ -966,7 +966,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                           size="sm"
                           variant="outline"
                           onClick={() => handleSelectToPair(s)}
-                          className="h-7 text-xs border-[#1B1E23] hover:border-[#D6FF4B]/40 hover:text-[#D6FF4B]"
+                          className="h-7 text-xs border-border hover:border-primary/40 hover:text-primary"
                         >
                           <QrCode className="h-3 w-3 mr-1" />
                           {isConnected ? "Gerenciar / QR" : "Parear Novamente"}
@@ -995,7 +995,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                     handleSuggestKey(pairingProjectId);
                     setHubTab("qr");
                   }}
-                  className="h-8 text-xs bg-[#D6FF4B] text-black font-semibold hover:bg-[#c2eb3d]"
+                  className="h-8 text-xs bg-primary text-black font-semibold hover:bg-[#c2eb3d]"
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" /> Criar Primeira Instância
                 </Button>
@@ -1007,22 +1007,22 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
       {/* ── TAB 3: MENSAGENS & CONVERSAS DO HUB ── */}
       {hubTab === "mensagens" && (
-        <Card className="bg-[#0E1013] border-[#1B1E23]">
-          <CardHeader className="pb-3 border-b border-[#1B1E23]">
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3 border-b border-border">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-[#D6FF4B]" />
+                  <MessageSquare className="h-4 w-4 text-primary" />
                   Mensagens Roteadas pelo Hub
                 </CardTitle>
-                <CardDescription className="text-xs text-[#8A8F98]">
+                <CardDescription className="text-xs text-muted-foreground">
                   Histórico de mensagens sincronizadas via instâncias locais Baileys.
                 </CardDescription>
               </div>
 
               <div className="flex items-center gap-2">
                 <Select value={hubFilterProject} onValueChange={setHubFilterProject}>
-                  <SelectTrigger className="w-[180px] h-8 text-xs bg-[#0A0B0D] border-[#1B1E23]">
+                  <SelectTrigger className="w-[180px] h-8 text-xs bg-background border-border">
                     <SelectValue placeholder="Filtrar por projeto" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1044,7 +1044,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                 {groupedMessages.map((g) => (
                   <Card
                     key={g.conversationId || g.phone}
-                    className="bg-[#0A0B0D] border-[#1B1E23] hover:border-[#D6FF4B]/30 cursor-pointer transition-all hover:scale-[1.01]"
+                    className="bg-background border-border hover:border-primary/30 cursor-pointer transition-all hover:scale-[1.01]"
                     onClick={async () => {
                       if (!g.conversationId) {
                         toast.error("Esta mensagem não possui conversa vinculada.");
@@ -1066,17 +1066,17 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                     <CardContent className="p-3.5 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-[#D6FF4B]/10 border border-[#D6FF4B]/20 flex items-center justify-center text-[#D6FF4B]">
+                          <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                             <Phone className="h-3.5 w-3.5" />
                           </div>
                           <span className="text-xs font-semibold font-mono text-foreground">{g.phone}</span>
                         </div>
-                        <Badge variant="outline" className="text-[9px] font-mono border-[#1B1E23]">
+                        <Badge variant="outline" className="text-[9px] font-mono border-border">
                           {g.count} msgs
                         </Badge>
                       </div>
 
-                      <p className="text-[11px] text-muted-foreground line-clamp-2 bg-[#0E1013] p-2 rounded border border-[#1B1E23]/60">
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 bg-card p-2 rounded border border-border/60">
                         {g.lastMsg || "Sem texto..."}
                       </p>
 
@@ -1105,20 +1105,20 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
       {hubTab === "worker" && (
         <div className="space-y-4">
           {/* Quickstart Box */}
-          <Card className="bg-[#0E1013] border-[#1B1E23]">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-[#D6FF4B]" />
+                <Terminal className="h-4 w-4 text-primary" />
                 Como Executar o Worker Local Baileys
               </CardTitle>
-              <CardDescription className="text-xs text-[#8A8F98]">
+              <CardDescription className="text-xs text-muted-foreground">
                 O worker é o processo Node.js que escuta a fila de comandos e mantém os WebSockets do WhatsApp ativos.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <p className="text-xs text-foreground font-medium">1. Comando para iniciar o Worker:</p>
-                <div className="p-3 bg-[#0A0B0D] rounded-lg border border-[#1B1E23] flex items-center justify-between font-mono text-xs text-[#D6FF4B]">
+                <div className="p-3 bg-background rounded-lg border border-border flex items-center justify-between font-mono text-xs text-primary">
                   <code>node scripts/wa-worker.js</code>
                   <Button
                     size="sm"
@@ -1135,7 +1135,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                <div className="p-3 bg-[#0A0B0D] rounded-lg border border-[#1B1E23] space-y-1">
+                <div className="p-3 bg-background rounded-lg border border-border space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
                     <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center text-[10px]">1</span>
                     Fila de Comandos
@@ -1145,7 +1145,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                   </p>
                 </div>
 
-                <div className="p-3 bg-[#0A0B0D] rounded-lg border border-[#1B1E23] space-y-1">
+                <div className="p-3 bg-background rounded-lg border border-border space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
                     <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-[10px]">2</span>
                     Execução Baileys
@@ -1155,7 +1155,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                   </p>
                 </div>
 
-                <div className="p-3 bg-[#0A0B0D] rounded-lg border border-[#1B1E23] space-y-1">
+                <div className="p-3 bg-background rounded-lg border border-border space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
                     <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center text-[10px]">3</span>
                     Eventos & Status
@@ -1169,18 +1169,18 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
           </Card>
 
           {/* Live Command Feed */}
-          <Card className="bg-[#0E1013] border-[#1B1E23]">
-            <CardHeader className="pb-3 border-b border-[#1B1E23]">
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3 border-b border-border">
               <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-                <Layers className="h-4 w-4 text-[#D6FF4B]" />
+                <Layers className="h-4 w-4 text-primary" />
                 Fila de Comandos Recentes (wa_hub_iso_commands)
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {recentCommands.length > 0 ? (
-                <div className="divide-y divide-[#1B1E23] text-xs font-mono">
+                <div className="divide-y divide-border text-xs font-mono">
                   {recentCommands.map((c) => (
-                    <div key={c.id} className="p-3 flex items-center justify-between hover:bg-[#0A0B0D]/50">
+                    <div key={c.id} className="p-3 flex items-center justify-between hover:bg-background/50">
                       <div className="flex items-center gap-3">
                         <Badge
                           variant="outline"
@@ -1213,7 +1213,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
       {/* ── MODAL: CONFIRMAR EXCLUSÃO INDIVIDUAL ── */}
       <AlertDialog open={Boolean(sessionToDelete)} onOpenChange={(open) => !open && setSessionToDelete(null)}>
-        <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23]">
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm font-semibold text-white">
               Remover Instância {sessionToDelete?.session_key}?
@@ -1223,7 +1223,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="text-xs border-[#1B1E23]">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="text-xs border-border">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => sessionToDelete && executeDeleteSession(sessionToDelete)}
               className="text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -1236,7 +1236,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
 
       {/* ── MODAL: CONFIRMAR LIMPEZA DE TODAS AS OFFLINE ── */}
       <AlertDialog open={confirmCleanOpen} onOpenChange={setConfirmCleanOpen}>
-        <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23]">
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm font-semibold text-white">
               Limpar todas as {offlineCount} instâncias offline?
@@ -1246,7 +1246,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="text-xs border-[#1B1E23]">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="text-xs border-border">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={cleanOfflineSessions}
               className="text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold"

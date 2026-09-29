@@ -21,19 +21,20 @@
     --popover-foreground: 216 12% 92%;
 
     /* Primary Accent: Acid / Citric Lime #D6FF4B */
-    --primary: 74 100% 65%;          /* #D6FF4B */
+    --primary: 73.7 100% 64.7%;          /* #D6FF4B */
     --primary-foreground: 220 14% 4.5%;
 
     --secondary: 214 15% 9%;         /* #14171B */
     --secondary-foreground: 216 12% 92%;
 
     --muted: 214 15% 9%;             /* #14171B */
-    --muted-foreground: 221 8% 57%;  /* #8A8F98 */
+    --muted-foreground: 218.6 6.4% 56.9%;  /* #8A8F98 */
+    --subtle-foreground: 218.6 6.9% 40%;   /* #5F646D — labels, metadados */
 
-    --accent: 74 100% 65%;           /* #D6FF4B */
+    --accent: 73.7 100% 64.7%;           /* #D6FF4B */
     --accent-foreground: 220 14% 4.5%;
 
-    --destructive: 351 95% 71%;      /* #FB7185 */
+    --destructive: 351.3 94.5% 71.4%;      /* #FB7185 */
     --destructive-foreground: 220 14% 4.5%;
 
     --success: 142 69% 58%;          /* #4ADE80 */
@@ -45,24 +46,24 @@
     /* Hairlines #1B1E23 */
     --border: 218 13% 12.2%;         /* #1B1E23 */
     --input: 220 11% 15.5%;          /* #23262C */
-    --ring: 74 100% 65%;             /* #D6FF4B */
+    --ring: 73.7 100% 64.7%;             /* #D6FF4B */
 
     --radius: 0.375rem;
 
     /* Sidebar Graphite #0C0D10 */
     --sidebar-background: 225 14% 5.5%; /* #0C0D10 */
     --sidebar-foreground: 221 8% 65%;
-    --sidebar-primary: 74 100% 65%;
+    --sidebar-primary: 73.7 100% 64.7%;
     --sidebar-primary-foreground: 220 14% 4.5%;
     --sidebar-accent: 220 14% 9%;
     --sidebar-accent-foreground: 216 12% 92%;
     --sidebar-border: 218 13% 12.2%;    /* #1B1E23 */
-    --sidebar-ring: 74 100% 65%;
+    --sidebar-ring: 73.7 100% 64.7%;
 
     /* Map legacy gold tokens to citric accent for instant compatibility */
-    --gold: 74 100% 65%;             /* #D6FF4B */
+    --gold: 73.7 100% 64.7%;             /* #D6FF4B */
     --gold-light: 74 100% 78%;
-    --gold-glow: 74 100% 65%;
+    --gold-glow: 73.7 100% 64.7%;
   }
 
   * {

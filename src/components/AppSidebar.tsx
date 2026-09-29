@@ -116,7 +116,7 @@ function NavItemRow({
             <>
               <span className="flex-1 truncate text-[13px]">{item.title}</span>
               {badgeCount > 0 && (
-                <span className="font-mono text-[10px] text-[#0A0B0D] bg-[#D6FF4B] rounded-full px-1.5 py-0.5 font-semibold">
+                <span className="font-mono text-[10px] text-primary-foreground bg-primary rounded-full px-1.5 py-0.5 font-semibold">
                   {badgeCount > 99 ? "99+" : badgeCount}
                 </span>
               )}
@@ -131,7 +131,7 @@ function NavItemRow({
                 className="ml-1 opacity-0 group-hover/navitem:opacity-60 hover:!opacity-100 transition-opacity text-muted-foreground"
               >
                 {isFavorite ? (
-                  <StarOff className="h-3 w-3 text-[#D6FF4B]" />
+                  <StarOff className="h-3 w-3 text-primary" />
                 ) : (
                   <Star className="h-3 w-3" />
                 )}
@@ -164,9 +164,9 @@ function NavGroup({
   const collapsed = state === "collapsed";
 
   return (
-    <SidebarGroup className={!isLast ? "pb-3 mb-2 border-b border-[#1B1E23]/60" : "pb-3"}>
+    <SidebarGroup className={!isLast ? "pb-3 mb-2 border-b border-border/60" : "pb-3"}>
       {!collapsed && (
-        <SidebarGroupLabel className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] uppercase px-3 pb-1 pt-1 font-medium">
+        <SidebarGroupLabel className="font-mono text-[9px] tracking-[0.2em] text-subtle uppercase px-3 pb-1 pt-1 font-medium">
           · {label}
         </SidebarGroupLabel>
       )}
@@ -217,23 +217,23 @@ export function AppSidebar() {
   const sharedProps = { badges, favorites, toggleFavorite };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-[#1B1E23] bg-[#0C0D10]">
+    <Sidebar collapsible="icon" className="border-r border-border bg-[#0C0D10]">
       {/* Brand Header */}
-      <div className={`relative ${collapsed ? "py-4 flex justify-center" : "px-4 py-4"} border-b border-[#1B1E23]`}>
+      <div className={`relative ${collapsed ? "py-4 flex justify-center" : "px-4 py-4"} border-b border-border`}>
         {collapsed ? (
-          <div className="w-[22px] h-[22px] rounded-[3px] bg-[#D6FF4B] flex items-center justify-center font-mono text-[12px] font-bold text-[#0A0B0D]">
+          <div className="w-[22px] h-[22px] rounded-[3px] bg-primary flex items-center justify-center font-mono text-[12px] font-bold text-primary-foreground">
             i
           </div>
         ) : (
           <div className="flex items-center gap-2.5">
-            <div className="w-[22px] h-[22px] rounded-[3px] bg-[#D6FF4B] flex items-center justify-center font-mono text-[12px] font-bold text-[#0A0B0D] shrink-0">
+            <div className="w-[22px] h-[22px] rounded-[3px] bg-primary flex items-center justify-center font-mono text-[12px] font-bold text-primary-foreground shrink-0">
               i
             </div>
             <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-[14px] font-semibold tracking-[-0.01em] leading-tight text-[#E8EAED]">
-                IMPERIO<span className="text-[#8A8F98]">HQ</span>
+              <span className="text-[14px] font-semibold tracking-[-0.01em] leading-tight text-foreground">
+                IMPERIO<span className="text-muted-foreground">HQ</span>
               </span>
-              <span className="font-mono text-[9px] tracking-[0.14em] text-[#5F646D] leading-none">
+              <span className="font-mono text-[9px] tracking-[0.14em] text-subtle leading-none">
                 OPERAÇÃO ÚNICA
               </span>
             </div>
@@ -244,8 +244,8 @@ export function AppSidebar() {
       <SidebarContent className="mt-2">
         {/* ⭐ Favourites section — only shown when there are pinned items */}
         {!collapsed && favItems.length > 0 && (
-          <SidebarGroup className="pb-2 mb-2 border-b border-[#1B1E23]">
-            <SidebarGroupLabel className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] uppercase px-3 pb-1 pt-1 font-medium">
+          <SidebarGroup className="pb-2 mb-2 border-b border-border">
+            <SidebarGroupLabel className="font-mono text-[9px] tracking-[0.2em] text-subtle uppercase px-3 pb-1 pt-1 font-medium">
               · Favoritos
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -274,21 +274,21 @@ export function AppSidebar() {
 
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-[#1B1E23] p-3 bg-[#0C0D10]">
+      <SidebarFooter className="border-t border-border p-3 bg-[#0C0D10]">
         <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-full bg-[#1B1E23] border border-[#2A2E35] flex items-center justify-center font-mono text-[10px] text-[#8A8F98] shrink-0">
+          <div className="w-6 h-6 rounded-full bg-border border border-[#2A2E35] flex items-center justify-center font-mono text-[10px] text-muted-foreground shrink-0">
             VS
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-medium leading-tight text-[#E8EAED] truncate">Vinicius</div>
-              <div className="font-mono text-[9px] text-[#5F646D] leading-none">OWNER</div>
+              <div className="text-[12px] font-medium leading-tight text-foreground truncate">Vinicius</div>
+              <div className="font-mono text-[9px] text-subtle leading-none">OWNER</div>
             </div>
           )}
           <button
             onClick={signOut}
             title="Sair"
-            className="text-[#5F646D] hover:text-[#FB7185] hover:bg-[#FB7185]/10 p-1.5 rounded transition-colors"
+            className="text-subtle hover:text-destructive hover:bg-destructive/10 p-1.5 rounded transition-colors"
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>

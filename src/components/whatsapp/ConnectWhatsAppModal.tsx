@@ -230,8 +230,8 @@ export default function ConnectWhatsAppModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-[#0A0B0D] border border-[#1B1E23] text-foreground p-6 shadow-2xl rounded-xl">
-        <DialogHeader className="space-y-1.5 pb-2 border-b border-[#1B1E23]">
+      <DialogContent className="max-w-md bg-background border border-border text-foreground p-6 shadow-2xl rounded-xl">
+        <DialogHeader className="space-y-1.5 pb-2 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -241,7 +241,7 @@ export default function ConnectWhatsAppModal({
                 <DialogTitle className="text-base font-semibold text-white tracking-tight">
                   Conectar WhatsApp
                 </DialogTitle>
-                <DialogDescription className="text-xs text-[#8A8F98]">
+                <DialogDescription className="text-xs text-muted-foreground">
                   Evolution API · Multi-instância isolada
                 </DialogDescription>
               </div>
@@ -264,7 +264,7 @@ export default function ConnectWhatsAppModal({
         {!provider && status !== "connected" && (
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="space-y-1">
-              <Label className="text-[11px] text-[#8A8F98] uppercase tracking-wider font-mono">
+              <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-mono">
                 Projeto
               </Label>
               <Select
@@ -275,10 +275,10 @@ export default function ConnectWhatsAppModal({
                   setInstanceName(`imp_${clean}`);
                 }}
               >
-                <SelectTrigger className="h-8 text-xs bg-[#111317] border-[#1B1E23] text-white">
+                <SelectTrigger className="h-8 text-xs bg-[#111317] border-border text-white">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#111317] border-[#1B1E23]">
+                <SelectContent className="bg-[#111317] border-border">
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id} className="text-xs text-white">
                       {p.name}
@@ -289,7 +289,7 @@ export default function ConnectWhatsAppModal({
             </div>
 
             <div className="space-y-1">
-              <Label className="text-[11px] text-[#8A8F98] uppercase tracking-wider font-mono">
+              <Label className="text-[11px] text-muted-foreground uppercase tracking-wider font-mono">
                 Nome da Instância
               </Label>
               <Input
@@ -299,7 +299,7 @@ export default function ConnectWhatsAppModal({
                   if (!val.startsWith("imp_")) val = `imp_${val.replace(/^imp_*/, "")}`;
                   setInstanceName(val);
                 }}
-                className="h-8 text-xs font-mono bg-[#111317] border-[#1B1E23] text-white"
+                className="h-8 text-xs font-mono bg-[#111317] border-border text-white"
                 placeholder="imp_vendas"
               />
             </div>
@@ -312,7 +312,7 @@ export default function ConnectWhatsAppModal({
             <div className="flex flex-col items-center justify-center gap-3 text-center py-10">
               <Loader2 className="h-10 w-10 text-emerald-400 animate-spin" />
               <p className="text-sm font-medium text-white">Criando instância e gerando QR Code...</p>
-              <p className="text-xs text-[#8A8F98]">Conectando com o servidor Evolution API</p>
+              <p className="text-xs text-muted-foreground">Conectando com o servidor Evolution API</p>
             </div>
           )}
 
@@ -327,13 +327,13 @@ export default function ConnectWhatsAppModal({
               </div>
 
               {/* Status de Polling a cada 2.5s */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#111317] border border-[#1B1E23] text-[11px] font-mono text-[#8A8F98]">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#111317] border border-border text-[11px] font-mono text-muted-foreground">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 <span>Verificando conexão a cada 2.5s ({pollCount})</span>
               </div>
 
               {/* Instruções de conexão */}
-              <div className="w-full bg-[#111317] border border-[#1B1E23] rounded-lg p-3 text-xs text-[#8A8F98] space-y-1.5">
+              <div className="w-full bg-[#111317] border border-border rounded-lg p-3 text-xs text-muted-foreground space-y-1.5">
                 <div className="flex items-start gap-2">
                   <Smartphone className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
@@ -355,7 +355,7 @@ export default function ConnectWhatsAppModal({
                 <CheckCircle2 className="h-9 w-9" />
               </div>
               <h4 className="text-base font-semibold text-white">WhatsApp Conectado!</h4>
-              <p className="text-xs text-[#8A8F98] max-w-xs">
+              <p className="text-xs text-muted-foreground max-w-xs">
                 Sua instância <strong className="text-white font-mono">{instanceName}</strong> está pronta para enviar e receber mensagens com automação IA.
               </p>
               {connectedPhone && (
@@ -373,12 +373,12 @@ export default function ConnectWhatsAppModal({
                 <AlertTriangle className="h-6 w-6" />
               </div>
               <p className="text-sm font-medium text-rose-300">Falha ao carregar QR Code</p>
-              <p className="text-xs text-[#8A8F98] max-w-xs">{errorMessage || "Tente novamente."}</p>
+              <p className="text-xs text-muted-foreground max-w-xs">{errorMessage || "Tente novamente."}</p>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => gerarQrCode()}
-                className="mt-2 text-xs border-[#1B1E23] text-white"
+                className="mt-2 text-xs border-border text-white"
               >
                 <RefreshCw className="h-3 w-3 mr-1.5" /> Tentar Novamente
               </Button>
@@ -387,11 +387,11 @@ export default function ConnectWhatsAppModal({
 
           {status === "idle" && (
             <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-[#8A8F98]">
+              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-muted-foreground">
                 <QrCode className="h-6 w-6" />
               </div>
               <p className="text-sm font-medium text-white">Pronto para gerar conexão</p>
-              <p className="text-xs text-[#8A8F98] max-w-xs">
+              <p className="text-xs text-muted-foreground max-w-xs">
                 Clique no botão abaixo para gerar o QR Code oficial da Evolution API.
               </p>
               <Button
@@ -406,7 +406,7 @@ export default function ConnectWhatsAppModal({
         </div>
 
         {/* Rodapé de Ações */}
-        <DialogFooter className="flex items-center justify-between border-t border-[#1B1E23] pt-3 sm:justify-between">
+        <DialogFooter className="flex items-center justify-between border-t border-border pt-3 sm:justify-between">
           <div className="flex items-center gap-2">
             {status === "connected" && (
               <Button
@@ -423,7 +423,7 @@ export default function ConnectWhatsAppModal({
                 size="sm"
                 variant="ghost"
                 onClick={() => gerarQrCode()}
-                className="h-8 text-xs text-[#8A8F98] hover:text-white"
+                className="h-8 text-xs text-muted-foreground hover:text-white"
               >
                 <RefreshCw className="h-3 w-3 mr-1.5" /> Novo QR Code
               </Button>
@@ -435,7 +435,7 @@ export default function ConnectWhatsAppModal({
               size="sm"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="h-8 text-xs border-[#1B1E23] text-white hover:bg-[#111317]"
+              className="h-8 text-xs border-border text-white hover:bg-[#111317]"
             >
               {status === "connected" ? "Concluir" : "Fechar"}
             </Button>

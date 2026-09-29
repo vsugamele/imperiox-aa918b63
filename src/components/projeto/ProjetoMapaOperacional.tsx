@@ -275,7 +275,7 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ───────── Topo: Visão Executiva de Saúde ───────── */}
-      <div className="bg-gradient-to-r from-[#0E1013] via-[#121418] to-primary/10 border border-[#1B1E23] rounded-2xl p-6 relative overflow-hidden shadow-2xl">
+      <div className="bg-gradient-to-r from-card via-[#121418] to-primary/10 border border-border rounded-2xl p-6 relative overflow-hidden shadow-2xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2">
             <div className="flex items-center gap-2.5">
@@ -297,7 +297,7 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
 
           <div className="flex items-center gap-3 flex-wrap">
             {/* Seletor de Modo: Canvas Interativo vs Checklist Operacional */}
-            <div className="inline-flex items-center rounded-lg border border-[#1B1E23] bg-[#0A0B0D] p-1 text-xs">
+            <div className="inline-flex items-center rounded-lg border border-border bg-background p-1 text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -359,7 +359,7 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
         </div>
 
         {/* Barra de Score da Operação */}
-        <div className="mt-6 pt-5 border-t border-[#1B1E23] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mt-6 pt-5 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="text-center sm:text-left">
               <span className="font-display text-3xl font-semibold text-gold leading-none">
@@ -433,15 +433,15 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
           return (
             <Card
               key={node.id}
-              className={`bg-[#0E1013] border transition-all duration-300 flex flex-col justify-between relative group ${
+              className={`bg-card border transition-all duration-300 flex flex-col justify-between relative group ${
                 isOperational
-                  ? "border-[#1B1E23] hover:border-emerald-500/40"
+                  ? "border-border hover:border-emerald-500/40"
                   : isWarning
                   ? "border-amber-500/30 hover:border-amber-500/60"
                   : "border-rose-500/30 hover:border-rose-500/60"
               }`}
             >
-              <CardHeader className="p-4 pb-3 space-y-2 border-b border-[#1B1E23]">
+              <CardHeader className="p-4 pb-3 space-y-2 border-b border-border">
                 <div className="flex items-center justify-between">
                   <div className={`p-2 rounded-xl border ${
                     isOperational
@@ -509,7 +509,7 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
                 </div>
 
                 {/* Botão de Ação Direta */}
-                <div className="pt-3 border-t border-[#1B1E23] mt-2">
+                <div className="pt-3 border-t border-border mt-2">
                   <Button
                     size="sm"
                     variant="outline"

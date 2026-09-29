@@ -343,12 +343,12 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
   return (
     <div className="space-y-6">
       {/* ── HEADER & TOP ACTIONS ── */}
-      <div className="bg-[#0E1013] border border-[#1B1E23] rounded-xl p-4 shadow-sm space-y-4">
+      <div className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#D6FF4B]/10 border border-[#D6FF4B]/20 flex items-center justify-center">
-                <Package className="h-4 w-4 text-[#D6FF4B]" />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Package className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <h2 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
@@ -357,7 +357,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                     {project.name}
                   </Badge>
                 </h2>
-                <p className="text-xs text-[#8A8F98]">
+                <p className="text-xs text-muted-foreground">
                   Arquitetura de monetização deste projeto: produtos, ofertas, checkouts e esteira de valor da aquisição ao LTV.
                 </p>
               </div>
@@ -368,7 +368,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
             <Button
               size="sm"
               onClick={handleOpenAdd}
-              className="h-8 text-xs bg-[#D6FF4B] text-black font-semibold hover:bg-[#c2eb3d] shadow-sm"
+              className="h-8 text-xs bg-primary text-black font-semibold hover:bg-[#c2eb3d] shadow-sm"
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               + Novo Produto
@@ -383,10 +383,10 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
             return (
               <div
                 key={tier.key}
-                className={`bg-[#0A0B0D] border ${tier.borderColor} rounded-lg p-3 flex items-center justify-between transition-all`}
+                className={`bg-background border ${tier.borderColor} rounded-lg p-3 flex items-center justify-between transition-all`}
               >
                 <div>
-                  <p className="text-[10px] font-mono uppercase text-[#8A8F98] tracking-wider">{tier.badge}</p>
+                  <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">{tier.badge}</p>
                   <p className={`text-lg font-bold font-mono mt-0.5 ${tier.color}`}>{count}</p>
                   <p className="text-[9px] text-muted-foreground">{tier.priceRange}</p>
                 </div>
@@ -399,21 +399,21 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
         </div>
 
         {/* Filter bar */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 pt-2 border-t border-[#1B1E23]/60">
+        <div className="flex flex-col sm:flex-row items-center gap-2 pt-2 border-t border-border/60">
           <div className="relative flex-1 w-full">
             <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por nome, tipo ou descrição do produto..."
-              className="h-8 pl-8 text-xs bg-[#0A0B0D] border-[#1B1E23]"
+              className="h-8 pl-8 text-xs bg-background border-border"
             />
           </div>
 
           <Select value={selectedProductFilter} onValueChange={setSelectedProductFilter}>
-            <SelectTrigger className="w-full sm:w-[260px] h-8 text-xs bg-[#0A0B0D] border-[#1B1E23]">
+            <SelectTrigger className="w-full sm:w-[260px] h-8 text-xs bg-background border-border">
               <div className="flex items-center gap-1.5 truncate">
-                <Tag className="h-3.5 w-3.5 text-[#D6FF4B] shrink-0" />
+                <Tag className="h-3.5 w-3.5 text-primary shrink-0" />
                 <SelectValue placeholder="Filtrar por produto" />
               </div>
             </SelectTrigger>
@@ -455,21 +455,21 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
               className={`rounded-xl border ${tier.borderColor} ${tier.bg} p-4 space-y-3 transition-all`}
             >
               {/* Tier Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-[#1B1E23]/60 pb-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-border/60 pb-2.5">
                 <div className="flex items-center gap-2">
                   <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${tier.color}`}>
                     {tier.label}
                   </h3>
-                  <Badge variant="outline" className={`text-[10px] font-mono border-[#1B1E23] ${tier.color}`}>
+                  <Badge variant="outline" className={`text-[10px] font-mono border-border ${tier.color}`}>
                     {tierProducts.length} produto(s)
                   </Badge>
                 </div>
-                <span className="text-[11px] text-[#8A8F98]">{tier.desc}</span>
+                <span className="text-[11px] text-muted-foreground">{tier.desc}</span>
               </div>
 
               {/* Products in this tier */}
               {tierProducts.length === 0 ? (
-                <div className="py-6 text-center rounded-lg border border-dashed border-[#1B1E23] bg-[#0A0B0D]/30 space-y-1">
+                <div className="py-6 text-center rounded-lg border border-dashed border-border bg-background/30 space-y-1">
                   <p className="text-xs text-muted-foreground italic">Nenhum produto cadastrado neste nível de escada.</p>
                   <Button
                     size="sm"
@@ -487,7 +487,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                       });
                       setProductModalOpen(true);
                     }}
-                    className="h-7 text-xs text-[#D6FF4B] hover:bg-[#D6FF4B]/10"
+                    className="h-7 text-xs text-primary hover:bg-primary/10"
                   >
                     <Plus className="h-3 w-3 mr-1" /> Adicionar em {tier.badge}
                   </Button>
@@ -511,7 +511,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                     return (
                       <Card
                         key={prod.originalIndex}
-                        className="bg-[#0A0B0D] border-[#1B1E23] hover:border-primary/30 transition-all flex flex-col justify-between"
+                        className="bg-background border-border hover:border-primary/30 transition-all flex flex-col justify-between"
                       >
                         <CardContent className="p-4 space-y-3">
                           {/* Title & Price */}
@@ -533,7 +533,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                             </div>
 
                             {prod.preco && (
-                              <span className="text-sm font-mono font-bold text-[#D6FF4B] shrink-0">
+                              <span className="text-sm font-mono font-bold text-primary shrink-0">
                                 R$ {prod.preco}
                               </span>
                             )}
@@ -541,14 +541,14 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
 
                           {/* Description */}
                           {prod.descricao && (
-                            <p className="text-[11px] text-muted-foreground line-clamp-2 bg-[#0E1013] p-2 rounded border border-[#1B1E23]/60">
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 bg-card p-2 rounded border border-border/60">
                               {prod.descricao}
                             </p>
                           )}
 
                           {/* Checkout Link */}
                           {checkoutLink ? (
-                            <div className="flex items-center justify-between bg-[#0E1013] border border-[#1B1E23] rounded p-2 text-xs">
+                            <div className="flex items-center justify-between bg-card border border-border rounded p-2 text-xs">
                               <div className="flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
                                 <ShoppingCart className="h-3 w-3 text-emerald-400 shrink-0" />
                                 <span className="truncate">{checkoutLink}</span>
@@ -593,7 +593,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
 
                           {/* Offers / Bumps */}
                           {prod.ofertas.length > 0 && (
-                            <div className="space-y-1 pt-1 border-t border-[#1B1E23]/60">
+                            <div className="space-y-1 pt-1 border-t border-border/60">
                               <p className="text-[9px] font-mono uppercase text-muted-foreground">
                                 Ofertas Vinculadas ({prod.ofertas.length}):
                               </p>
@@ -601,13 +601,13 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                                 {prod.ofertas.map((of, oi) => (
                                   <div
                                     key={oi}
-                                    className="flex items-center justify-between text-[10px] bg-[#0E1013] px-2 py-1 rounded border border-[#1B1E23]/40"
+                                    className="flex items-center justify-between text-[10px] bg-card px-2 py-1 rounded border border-border/40"
                                   >
                                     <span className="truncate flex-1 text-muted-foreground">
                                       {of.nome || `Oferta ${oi + 1}`}
                                     </span>
                                     {of.preco_por && (
-                                      <span className="font-mono text-[#D6FF4B] ml-2">R$ {of.preco_por}</span>
+                                      <span className="font-mono text-primary ml-2">R$ {of.preco_por}</span>
                                     )}
                                   </div>
                                 ))}
@@ -616,13 +616,13 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                           )}
 
                           {/* OpenFlow automations */}
-                          <div className="space-y-1 pt-1 border-t border-[#1B1E23]/60">
+                          <div className="space-y-1 pt-1 border-t border-border/60">
                             <div className="flex items-center justify-between text-[9px] font-mono uppercase text-muted-foreground">
                               <span>Fluxos OpenFlow:</span>
                               {onNavigateTab && (
                                 <button
                                   onClick={() => onNavigateTab("raiox")}
-                                  className="text-[9px] text-[#D6FF4B] hover:underline flex items-center gap-0.5"
+                                  className="text-[9px] text-primary hover:underline flex items-center gap-0.5"
                                 >
                                   Ver no Raio-X <ArrowRight className="h-2.5 w-2.5" />
                                 </button>
@@ -653,14 +653,14 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                           </div>
 
                           {/* Tier Switcher Dropdown */}
-                          <div className="pt-2 border-t border-[#1B1E23] flex items-center justify-between gap-2">
+                          <div className="pt-2 border-t border-border flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
                               <span className="text-[10px] text-muted-foreground">Nível:</span>
                               <Select
                                 value={prod.tipo_oferta}
                                 onValueChange={(val: ValueTier) => handleUpdateProductTier(prod.originalIndex, val)}
                               >
-                                <SelectTrigger className="h-6 text-[10px] font-mono bg-[#0E1013] border-[#1B1E23] flex-1">
+                                <SelectTrigger className="h-6 text-[10px] font-mono bg-card border-border flex-1">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -708,13 +708,13 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
 
       {/* ── MODAL: ADICIONAR / EDITAR PRODUTO ── */}
       <Dialog open={productModalOpen} onOpenChange={setProductModalOpen}>
-        <DialogContent className="bg-[#0E1013] border-[#1B1E23] max-w-lg">
+        <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-white flex items-center gap-2">
-              <Package className="h-4 w-4 text-[#D6FF4B]" />
+              <Package className="h-4 w-4 text-primary" />
               {editingIndex !== null ? "Editar Produto do Ecossistema" : "Novo Produto para o Projeto"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-[#8A8F98]">
+            <DialogDescription className="text-xs text-muted-foreground">
               Cadastre o produto na escada de valor deste projeto com preços, plataforma e links de checkout.
             </DialogDescription>
           </DialogHeader>
@@ -726,7 +726,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                 value={productForm.nome}
                 onChange={(e) => setProductForm({ ...productForm, nome: e.target.value })}
                 placeholder="Ex: O Código dos Cortes Perfeitos"
-                className="h-8 text-xs bg-[#0A0B0D] border-[#1B1E23] mt-1"
+                className="h-8 text-xs bg-background border-border mt-1"
               />
             </div>
 
@@ -737,7 +737,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                   value={productForm.preco}
                   onChange={(e) => setProductForm({ ...productForm, preco: e.target.value })}
                   placeholder="Ex: 47,00"
-                  className="h-8 text-xs font-mono bg-[#0A0B0D] border-[#1B1E23] mt-1"
+                  className="h-8 text-xs font-mono bg-background border-border mt-1"
                 />
               </div>
 
@@ -747,7 +747,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                   value={productForm.tipo_oferta}
                   onValueChange={(val: ValueTier) => setProductForm({ ...productForm, tipo_oferta: val })}
                 >
-                  <SelectTrigger className="h-8 text-xs bg-[#0A0B0D] border-[#1B1E23] mt-1">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -768,7 +768,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                   value={productForm.plataforma}
                   onValueChange={(val) => setProductForm({ ...productForm, plataforma: val })}
                 >
-                  <SelectTrigger className="h-8 text-xs bg-[#0A0B0D] border-[#1B1E23] mt-1">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -791,7 +791,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                   value={productForm.tipo}
                   onValueChange={(val) => setProductForm({ ...productForm, tipo: val })}
                 >
-                  <SelectTrigger className="h-8 text-xs bg-[#0A0B0D] border-[#1B1E23] mt-1">
+                  <SelectTrigger className="h-8 text-xs bg-background border-border mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -812,7 +812,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                 value={productForm.checkout_url}
                 onChange={(e) => setProductForm({ ...productForm, checkout_url: e.target.value })}
                 placeholder="https://pay.kiwify.com.br/..."
-                className="h-8 text-xs font-mono bg-[#0A0B0D] border-[#1B1E23] mt-1"
+                className="h-8 text-xs font-mono bg-background border-border mt-1"
               />
             </div>
 
@@ -822,20 +822,20 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                 value={productForm.descricao}
                 onChange={(e) => setProductForm({ ...productForm, descricao: e.target.value })}
                 placeholder="Breve resumo da transformação, entregáveis ou mecanismo..."
-                className="text-xs bg-[#0A0B0D] border-[#1B1E23] mt-1"
+                className="text-xs bg-background border-border mt-1"
                 rows={2}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setProductModalOpen(false)} className="text-xs border-[#1B1E23]">
+            <Button variant="outline" size="sm" onClick={() => setProductModalOpen(false)} className="text-xs border-border">
               Cancelar
             </Button>
             <Button
               size="sm"
               onClick={handleSaveProduct}
-              className="text-xs bg-[#D6FF4B] text-black font-semibold hover:bg-[#c2eb3d]"
+              className="text-xs bg-primary text-black font-semibold hover:bg-[#c2eb3d]"
             >
               Salvar Produto
             </Button>
@@ -845,7 +845,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
 
       {/* ── MODAL: CONFIRMAR EXCLUSÃO DE PRODUTO ── */}
       <AlertDialog open={deleteIndex !== null} onOpenChange={(open) => !open && setDeleteIndex(null)}>
-        <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23]">
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm font-semibold text-white">
               Remover este produto do projeto?
@@ -855,7 +855,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="text-xs border-[#1B1E23]">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="text-xs border-border">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteProduct}
               className="text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"

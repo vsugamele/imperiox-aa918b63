@@ -557,7 +557,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
   return (
     <div className="space-y-6">
       {/* Header bar */}
-      <div className="bg-[#0E1013] border border-[#1B1E23] rounded-xl p-5 shadow-sm">
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -595,7 +595,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
             <Button
               variant="outline"
               onClick={() => setShowNewManual(true)}
-              className="border-[#1B1E23] hover:bg-secondary/40 text-xs h-9"
+              className="border-border hover:bg-secondary/40 text-xs h-9"
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Novo Manual
@@ -615,29 +615,29 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
         </div>
 
         {/* Live Project KPIs Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-[#1B1E23]">
-          <div className="bg-[#0A0B0D] p-3 rounded-lg border border-[#1B1E23]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-border">
+          <div className="bg-background p-3 rounded-lg border border-border">
             <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">Total Fluxos</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-xl font-bold font-mono text-foreground">{kpis.total}</span>
               <span className="text-[11px] text-emerald-400 font-mono">({kpis.activeCount} ativos)</span>
             </div>
           </div>
-          <div className="bg-[#0A0B0D] p-3 rounded-lg border border-[#1B1E23]">
+          <div className="bg-background p-3 rounded-lg border border-border">
             <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">Execuções (7d)</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-xl font-bold font-mono text-foreground">{kpis.executions7d}</span>
               <span className="text-[11px] text-muted-foreground font-mono">disparos</span>
             </div>
           </div>
-          <div className="bg-[#0A0B0D] p-3 rounded-lg border border-[#1B1E23]">
+          <div className="bg-background p-3 rounded-lg border border-border">
             <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">Taxa de Sucesso</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-xl font-bold font-mono text-emerald-400">{kpis.rate7d}%</span>
               <span className="text-[11px] text-muted-foreground font-mono">{kpis.success7d} ok</span>
             </div>
           </div>
-          <div className="bg-[#0A0B0D] p-3 rounded-lg border border-[#1B1E23]">
+          <div className="bg-background p-3 rounded-lg border border-border">
             <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">Falhas (7d)</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-bold font-mono ${kpis.errors7d > 0 ? "text-rose-400" : "text-muted-foreground"}`}>
@@ -688,7 +688,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
       </div>
 
       {/* Sub Tabs Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1B1E23] pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         <div className="flex items-center gap-1.5 flex-wrap">
           <Button
             size="sm"
@@ -737,12 +737,12 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                 placeholder="Buscar fluxo…"
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                className="h-8 pl-8 text-xs bg-[#0E1013] border-[#1B1E23]"
+                className="h-8 pl-8 text-xs bg-card border-border"
               />
             </div>
 
             <Select value={filterProduct} onValueChange={setFilterProduct}>
-              <SelectTrigger className="h-8 w-48 text-xs bg-[#0E1013] border-[#1B1E23]">
+              <SelectTrigger className="h-8 w-48 text-xs bg-card border-border">
                 <Package className="h-3 w-3 text-amber-400 mr-1.5 shrink-0" />
                 <SelectValue placeholder="Filtrar por produto" />
               </SelectTrigger>
@@ -786,7 +786,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
               Carregando automações do projeto...
             </div>
           ) : filtered.length === 0 ? (
-            <Card className="bg-[#0E1013] border-[#1B1E23]">
+            <Card className="bg-card border-border">
               <CardContent className="p-8 text-center space-y-4">
                 <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
                   <Zap className="h-6 w-6" />
@@ -815,7 +815,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                     <Button
                       variant="outline"
                       onClick={() => setShowX1Wizard(true)}
-                      className="text-xs border-[#1B1E23]"
+                      className="text-xs border-border"
                     >
                       <Bot className="h-3.5 w-3.5 mr-1.5 text-amber-400" />
                       Criar com Wizard X1
@@ -833,7 +833,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                 return (
                   <Card
                     key={a.id}
-                    className="bg-[#0E1013] border-[#1B1E23] hover:border-primary/30 transition-all group overflow-hidden flex flex-col justify-between"
+                    className="bg-card border-border hover:border-primary/30 transition-all group overflow-hidden flex flex-col justify-between"
                   >
                     <CardContent className={`p-4 border-l-4 ${meta.color} flex flex-col h-full justify-between gap-3`}>
                       <div className="space-y-2">
@@ -871,7 +871,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                         </div>
 
                         {/* Pipeline sequence visualizer */}
-                        <div className="bg-[#0A0B0D] p-2.5 rounded-lg border border-[#1B1E23]/60 space-y-1">
+                        <div className="bg-background p-2.5 rounded-lg border border-border/60 space-y-1">
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
                             <span>Pipeline ({stepCount} {stepCount === 1 ? "ação" : "ações"})</span>
                             {a.tag_filtro && (
@@ -883,7 +883,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                       </div>
 
                       {/* Footer action buttons */}
-                      <div className="flex items-center justify-between gap-1 pt-2 border-t border-[#1B1E23]/80">
+                      <div className="flex items-center justify-between gap-1 pt-2 border-t border-border/80">
                         <div className="flex items-center gap-1">
                           <Button
                             size="sm"
@@ -941,7 +941,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
       {/* SUB-TAB 2: TEMPLATES PRONTOS */}
       {subTab === "templates" && (
         <div className="space-y-5">
-          <div className="bg-[#0E1013] border border-[#1B1E23] rounded-xl p-5">
+          <div className="bg-card border border-border rounded-xl p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -955,7 +955,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Vincular ao produto:</span>
                 <Select value={filterProduct} onValueChange={setFilterProduct}>
-                  <SelectTrigger className="h-8 w-44 text-xs bg-[#0A0B0D] border-[#1B1E23]">
+                  <SelectTrigger className="h-8 w-44 text-xs bg-background border-border">
                     <SelectValue placeholder="Escolher produto" />
                   </SelectTrigger>
                   <SelectContent>
@@ -976,7 +976,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
               return (
                 <Card
                   key={tmpl.id}
-                  className="bg-[#0E1013] border-[#1B1E23] hover:border-amber-500/30 transition-all flex flex-col justify-between"
+                  className="bg-card border-border hover:border-amber-500/30 transition-all flex flex-col justify-between"
                 >
                   <CardContent className="p-5 space-y-4 flex flex-col justify-between h-full">
                     <div className="space-y-2">
@@ -1001,7 +1001,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                         {tmpl.descricao}
                       </p>
 
-                      <div className="bg-[#0A0B0D] p-2.5 rounded-lg border border-[#1B1E23] text-xs">
+                      <div className="bg-background p-2.5 rounded-lg border border-border text-xs">
                         <span className="text-[10px] text-muted-foreground font-mono uppercase block mb-1">
                           Passos ({tmpl.acoes.length})
                         </span>
@@ -1027,7 +1027,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
       {/* SUB-TAB 3: LOGS & AUDITORIA */}
       {subTab === "logs" && (
         <div className="space-y-4">
-          <div className="bg-[#0E1013] border border-[#1B1E23] rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Activity className="h-4 w-4 text-blue-400" />
@@ -1041,7 +1041,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
               size="sm"
               variant="outline"
               onClick={loadData}
-              className="h-8 text-xs border-[#1B1E23]"
+              className="h-8 text-xs border-border"
             >
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
               Atualizar
@@ -1067,7 +1067,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
 
       {/* DIALOG: NOVO FLUXO MANUAL */}
       <Dialog open={showNewManual} onOpenChange={setShowNewManual}>
-        <DialogContent className="max-w-lg bg-[#0E1013] border-[#1B1E23] text-foreground">
+        <DialogContent className="max-w-lg bg-card border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Zap className="h-4 w-4 text-primary" />
@@ -1085,7 +1085,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                 placeholder="Ex: Carrinho Abandonado · WhatsApp"
                 value={manualForm.nome}
                 onChange={(e) => setManualForm(prev => ({ ...prev, nome: e.target.value }))}
-                className="bg-[#0A0B0D] border-[#1B1E23] text-xs h-9"
+                className="bg-background border-border text-xs h-9"
               />
             </div>
 
@@ -1095,7 +1095,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                 value={manualForm.trigger_tipo}
                 onValueChange={(val) => setManualForm(prev => ({ ...prev, trigger_tipo: val }))}
               >
-                <SelectTrigger className="bg-[#0A0B0D] border-[#1B1E23] text-xs h-9">
+                <SelectTrigger className="bg-background border-border text-xs h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -1111,7 +1111,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                   value={manualForm.produto}
                   onValueChange={(val) => setManualForm(prev => ({ ...prev, produto: val }))}
                 >
-                  <SelectTrigger className="bg-[#0A0B0D] border-[#1B1E23] text-xs h-9">
+                  <SelectTrigger className="bg-background border-border text-xs h-9">
                     <SelectValue placeholder="Opcional" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1129,7 +1129,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                   value={manualForm.canal}
                   onValueChange={(val) => setManualForm(prev => ({ ...prev, canal: val }))}
                 >
-                  <SelectTrigger className="bg-[#0A0B0D] border-[#1B1E23] text-xs h-9">
+                  <SelectTrigger className="bg-background border-border text-xs h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1147,7 +1147,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
                 value={manualForm.tag_filtro || "__none__"}
                 onValueChange={(val) => setManualForm(prev => ({ ...prev, tag_filtro: val === "__none__" ? "" : val }))}
               >
-                <SelectTrigger className="bg-[#0A0B0D] border-[#1B1E23] text-xs h-9">
+                <SelectTrigger className="bg-background border-border text-xs h-9">
                   <SelectValue placeholder="Nenhuma tag obrigatória" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1186,7 +1186,7 @@ export function ProjetoOpenFlow({ projectId, project, onNavigateTab }: Props) {
 
       {/* SIMULATOR DIALOG */}
       <Dialog open={showSimulator} onOpenChange={setShowSimulator}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#0E1013] border-[#1B1E23] text-foreground p-6">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-card border-border text-foreground p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Play className="h-4 w-4 text-emerald-400" />

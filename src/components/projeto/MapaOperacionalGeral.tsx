@@ -377,7 +377,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       {/* ======================================================== */}
       {/* 1. HERO COCKPIT & PULSO DA OPERAÇÃO                      */}
       {/* ======================================================== */}
-      <Card className="bg-[#0E1013] border-[#1B1E23] overflow-hidden relative shadow-2xl">
+      <Card className="bg-card border-border overflow-hidden relative shadow-2xl">
         <div className="absolute top-0 right-0 w-96 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
         <CardContent className="p-5 sm:p-6 space-y-5">
@@ -434,7 +434,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
           </div>
 
           {/* 4 CARDS DE KPI MACRO */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-[#1B1E23]">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border">
             {/* KPI 1 */}
             <div className="rounded-lg bg-[#121418] border border-white/5 p-3.5">
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -493,7 +493,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       {/* ======================================================== */}
       {/* 2. BARRA DE FILTROS & BUSCA RÁPIDA                       */}
       {/* ======================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0E1013] border border-[#1B1E23] p-3 rounded-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border p-3 rounded-lg">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -544,12 +544,12 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
           return (
             <Card
               key={p.id}
-              className={`bg-[#0E1013] border transition-all duration-200 overflow-hidden ${
-                c.bottlenecksCount > 0 ? "border-amber-500/30 hover:border-amber-500/60" : "border-[#1B1E23] hover:border-primary/40"
+              className={`bg-card border transition-all duration-200 overflow-hidden ${
+                c.bottlenecksCount > 0 ? "border-amber-500/30 hover:border-amber-500/60" : "border-border hover:border-primary/40"
               }`}
             >
               {/* Header do Card do Projeto */}
-              <div className="p-4 sm:p-5 bg-gradient-to-r from-black/60 to-transparent border-b border-[#1B1E23] flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="p-4 sm:p-5 bg-gradient-to-r from-black/60 to-transparent border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-black/50 border border-white/10 flex items-center justify-center text-xl shrink-0">
                     {emoji}
@@ -879,7 +879,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       </div>
       {/* Dialog de Confirmação de Exclusão de Projeto */}
       <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
-        <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23] text-foreground">
+        <AlertDialogContent className="bg-card border-border text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white flex items-center gap-2">
               <Trash2 className="h-5 w-5 text-destructive" />

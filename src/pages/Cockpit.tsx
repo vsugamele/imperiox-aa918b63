@@ -55,7 +55,7 @@ export default function Cockpit() {
           onClick={() => setTheme("grafite")}
           className={`px-3 py-1.5 text-xs font-mono rounded transition-all ${
             theme === "grafite" 
-              ? "bg-[#D6FF4B] text-[#0A0B0D] font-bold shadow" 
+              ? "bg-primary text-primary-foreground font-bold shadow" 
               : "opacity-70 hover:opacity-100"
           }`}
         >
@@ -184,19 +184,19 @@ function CockpitGrafiteWithSidebar({
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[236px_minmax(0,1fr)] min-h-screen bg-[#0A0B0D] text-[#E8EAED] font-['Archivo',sans-serif]">
+    <div className="grid grid-cols-1 md:grid-cols-[236px_minmax(0,1fr)] min-h-screen bg-background text-foreground font-['Archivo',sans-serif]">
       {/* SIDEBAR NATIVA REDESIGN */}
-      <aside className="border-r border-[#1B1E23] bg-[#0C0D10] flex flex-col md:sticky md:top-0 md:h-screen overflow-hidden">
-        <div className="p-5 border-b border-[#1B1E23]">
+      <aside className="border-r border-border bg-[#0C0D10] flex flex-col md:sticky md:top-0 md:h-screen overflow-hidden">
+        <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-5 h-5 rounded bg-[#D6FF4B] flex items-center justify-center font-mono text-[11px] font-bold text-[#0A0B0D]">
+            <div className="w-5 h-5 rounded bg-primary flex items-center justify-center font-mono text-[11px] font-bold text-primary-foreground">
               i
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-tight leading-none">
-                IMPERIO<span className="text-[#8A8F98]">HQ</span>
+                IMPERIO<span className="text-muted-foreground">HQ</span>
               </span>
-              <span className="font-mono text-[9px] tracking-widest text-[#5F646D] mt-0.5">
+              <span className="font-mono text-[9px] tracking-widest text-subtle mt-0.5">
                 OPERAÇÃO ÚNICA
               </span>
             </div>
@@ -205,102 +205,102 @@ function CockpitGrafiteWithSidebar({
 
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
           <div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] px-2 mb-1.5 uppercase">HOJE</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-subtle px-2 mb-1.5 uppercase">HOJE</div>
             <div className="space-y-0.5">
-              <Link to="/cockpit" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs bg-[#14161A] text-[#E8EAED] border-l-2 border-[#D6FF4B] font-medium">
-                <span className="font-mono text-[9px] text-[#5F646D]">01</span>
+              <Link to="/cockpit" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs bg-[#14161A] text-foreground border-l-2 border-primary font-medium">
+                <span className="font-mono text-[9px] text-subtle">01</span>
                 <span>Cockpit</span>
               </Link>
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">02</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">02</span>
                 <span className="flex-1">Caixa de Entrada</span>
-                <span className="font-mono text-[10px] font-bold text-[#0A0B0D] bg-[#D6FF4B] rounded-full px-1.5">6</span>
+                <span className="font-mono text-[10px] font-bold text-primary-foreground bg-primary rounded-full px-1.5">6</span>
               </Link>
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">03</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">03</span>
                 <span>Leads</span>
               </Link>
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">04</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">04</span>
                 <span>Recuperação</span>
               </Link>
             </div>
           </div>
 
           <div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] px-2 mb-1.5 uppercase">VENDER</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-subtle px-2 mb-1.5 uppercase">VENDER</div>
             <div className="space-y-0.5">
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">05</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">05</span>
                 <span>Funis / OpenFlow</span>
               </Link>
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">06</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">06</span>
                 <span>Criativos · 21 Ângulos</span>
               </Link>
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">07</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">07</span>
                 <span>Campanhas / Testes A/B</span>
               </Link>
             </div>
           </div>
 
           <div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] px-2 mb-1.5 uppercase">CAPITAL</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-subtle px-2 mb-1.5 uppercase">CAPITAL</div>
             <div className="space-y-0.5">
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">08</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">08</span>
                 <span>Gerenciador Ads</span>
               </Link>
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">09</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">09</span>
                 <span>Finanças</span>
               </Link>
             </div>
           </div>
 
           <div>
-            <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] px-2 mb-1.5 uppercase">SISTEMA</div>
+            <div className="font-mono text-[9px] tracking-[0.2em] text-subtle px-2 mb-1.5 uppercase">SISTEMA</div>
             <div className="space-y-0.5">
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">10</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">10</span>
                 <span>Design System</span>
               </Link>
-              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]">
-                <span className="font-mono text-[9px] text-[#5F646D]">11</span>
+              <Link to="/redesign" className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground">
+                <span className="font-mono text-[9px] text-subtle">11</span>
                 <span>Mapa do Sistema</span>
               </Link>
             </div>
           </div>
         </div>
 
-        <div className="p-3.5 border-t border-[#1B1E23] flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-full bg-[#1B1E23] flex items-center justify-center font-mono text-[10px] text-[#8A8F98]">
+        <div className="p-3.5 border-t border-border flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-full bg-border flex items-center justify-center font-mono text-[10px] text-muted-foreground">
             VS
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium truncate">Vinicius Sugamele</div>
-            <div className="font-mono text-[9px] text-[#5F646D]">OWNER</div>
+            <div className="font-mono text-[9px] text-subtle">OWNER</div>
           </div>
         </div>
       </aside>
 
       {/* MAIN CONTAINER */}
       <div className="flex flex-col min-w-0">
-        <header className="h-14 flex items-center justify-between px-6 border-b border-[#1B1E23] bg-[#0A0B0D]/85 backdrop-blur sticky top-0 z-30">
+        <header className="h-14 flex items-center justify-between px-6 border-b border-border bg-background/85 backdrop-blur sticky top-0 z-30">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D]">OVERVIEW</span>
+            <span className="font-mono text-[9px] tracking-[0.2em] text-subtle">OVERVIEW</span>
             <span className="text-[#33373F]">/</span>
-            <span className="text-sm font-semibold tracking-tight text-[#E8EAED]">Cockpit Executivo</span>
+            <span className="text-sm font-semibold tracking-tight text-foreground">Cockpit Executivo</span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-[#101215] border border-[#1B1E23] font-mono text-[10px] text-[#8A8F98]">
+            <div className="flex items-center gap-2 px-3 py-1 rounded bg-[#101215] border border-border font-mono text-[10px] text-muted-foreground">
               <span className="w-2 h-2 rounded-full bg-[#4ADE80] animate-pulse" />
               AO VIVO · 14 LEADS/H
             </div>
             <button
               onClick={onToggleZen}
-              className="font-mono text-[10px] px-3 py-1 rounded border border-[#23262C] text-[#8A8F98] hover:text-[#D6FF4B] hover:border-[#D6FF4B] transition-colors"
+              className="font-mono text-[10px] px-3 py-1 rounded border border-input text-muted-foreground hover:text-primary hover:border-primary transition-colors"
             >
               {zenMode ? "SAIR FOCO" : "MODO FOCO"}
             </button>
@@ -310,17 +310,17 @@ function CockpitGrafiteWithSidebar({
         <main className="flex-1 p-6 md:p-8 max-w-[1340px] mx-auto w-full space-y-6 animate-in fade-in duration-300">
           {/* A DECISÃO DE HOJE */}
           <section className="relative border border-[#2A2E35] rounded-lg bg-gradient-to-b from-[#14171B] to-[#101215] p-6 overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#D6FF4B]" />
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
             <div className="flex flex-wrap lg:flex-nowrap gap-8 items-start">
               <div className="flex-1 min-w-[280px]">
-                <div className="font-mono text-[9px] tracking-[0.22em] text-[#D6FF4B] mb-2 uppercase font-semibold">
+                <div className="font-mono text-[9px] tracking-[0.22em] text-primary mb-2 uppercase font-semibold">
                   A DECISÃO DE HOJE
                 </div>
                 <h2 className="text-2xl md:text-3xl font-semibold tracking-tight leading-tight mb-2.5">
                   LinfaFlow ADV03 queima{" "}
-                  <span className="font-mono text-[#FB7185]">R$ 1.240/dia</span> com ROAS 0,74 há 3 dias.
+                  <span className="font-mono text-destructive">R$ 1.240/dia</span> com ROAS 0,74 há 3 dias.
                 </h2>
-                <p className="text-sm text-[#8A8F98] leading-relaxed max-w-2xl mb-6">
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl mb-6">
                   Pausar libera R$ 8.680 no orçamento da semana. O criativo ADV01 rodando no mesmo público está em 3,42x — capacidade comprovada de absorver a verba hoje.
                 </p>
                 <div className="flex flex-wrap items-center gap-3">
@@ -329,32 +329,32 @@ function CockpitGrafiteWithSidebar({
                     disabled={pausedAdv}
                     className={`h-9 px-5 rounded font-semibold text-xs transition-all ${
                       pausedAdv
-                        ? "bg-[#1F232A] text-[#8A8F98] cursor-not-allowed border border-[#2A2E35]"
-                        : "bg-[#D6FF4B] text-[#0A0B0D] hover:bg-[#E9FF8E] active:scale-95 shadow-sm"
+                        ? "bg-[#1F232A] text-muted-foreground cursor-not-allowed border border-[#2A2E35]"
+                        : "bg-primary text-primary-foreground hover:bg-[#E9FF8E] active:scale-95 shadow-sm"
                     }`}
                   >
                     {pausedAdv ? "✓ ADV03 Pausado e Realocado" : "Pausar e Realocar"}
                   </button>
                   <Link
                     to="/redesign"
-                    className="h-9 px-4 rounded border border-[#2A2E35] text-xs font-medium text-[#E8EAED] hover:border-[#3D424A] flex items-center gap-1.5 transition-colors"
+                    className="h-9 px-4 rounded border border-[#2A2E35] text-xs font-medium text-foreground hover:border-[#3D424A] flex items-center gap-1.5 transition-colors"
                   >
                     Ver Criativo
                   </Link>
                   <button 
                     onClick={() => toast.info("Decisão adiada por 24 horas.")}
-                    className="h-9 px-3 font-mono text-[10.5px] tracking-wider text-[#5F646D] hover:text-[#8A8F98] transition-colors"
+                    className="h-9 px-3 font-mono text-[10.5px] tracking-wider text-subtle hover:text-muted-foreground transition-colors"
                   >
                     IGNORAR HOJE
                   </button>
                 </div>
               </div>
 
-              <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-[#23262C] pt-4 lg:pt-0 lg:pl-6 shrink-0">
-                <div className="font-mono text-[9px] tracking-[0.18em] text-[#5F646D] mb-3 uppercase">
+              <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-input pt-4 lg:pt-0 lg:pl-6 shrink-0">
+                <div className="font-mono text-[9px] tracking-[0.18em] text-subtle mb-3 uppercase">
                   NA FILA · 4 PENDÊNCIAS
                 </div>
-                <div className="flex flex-col divide-y divide-[#1B1E23]">
+                <div className="flex flex-col divide-y divide-border">
                   {queue.map((q, idx) => (
                     <Link
                       key={idx}
@@ -377,14 +377,14 @@ function CockpitGrafiteWithSidebar({
 
           {/* KPIS 30D */}
           <section className="space-y-3">
-            <div className="flex items-baseline justify-between font-mono text-[9px] tracking-[0.2em] text-[#5F646D]">
+            <div className="flex items-baseline justify-between font-mono text-[9px] tracking-[0.2em] text-subtle">
               <span>CAIXA · ÚLTIMOS 30 DIAS</span>
-              <span className="hover:text-[#D6FF4B] cursor-pointer">EXPORTAR AUDITORIA</span>
+              <span className="hover:text-primary cursor-pointer">EXPORTAR AUDITORIA</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 border-y border-[#23262C] divide-x divide-[#1B1E23]">
+            <div className="grid grid-cols-2 md:grid-cols-5 border-y border-input divide-x divide-border">
               {kpis.map((k, i) => (
                 <div key={i} className="p-4 min-w-0">
-                  <div className="font-mono text-[9px] tracking-wider text-[#5F646D] mb-2 truncate">
+                  <div className="font-mono text-[9px] tracking-wider text-subtle mb-2 truncate">
                     {k.label}
                   </div>
                   <div
@@ -406,20 +406,20 @@ function CockpitGrafiteWithSidebar({
 
           {/* BARRAS 14D E PROJETOS */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] p-5">
+            <div className="border border-border rounded-lg bg-card p-5">
               <div className="flex items-baseline justify-between mb-4">
                 <div>
-                  <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] mb-1">
+                  <div className="font-mono text-[9px] tracking-[0.2em] text-subtle mb-1">
                     RECEITA VS. ADS
                   </div>
-                  <div className="text-base font-semibold text-[#E8EAED]">
+                  <div className="text-base font-semibold text-foreground">
                     Onde o capital vira caixa
                   </div>
                 </div>
-                <span className="font-mono text-[10px] text-[#8A8F98]">14D</span>
+                <span className="font-mono text-[10px] text-muted-foreground">14D</span>
               </div>
 
-              <div className="flex items-end gap-1.5 h-36 border-b border-[#1B1E23] pb-2">
+              <div className="flex items-end gap-1.5 h-36 border-b border-border pb-2">
                 {barData.map((v, i) => {
                   const rev = Math.round(v * 0.72);
                   const ads = Math.round(v * 0.3);
@@ -434,7 +434,7 @@ function CockpitGrafiteWithSidebar({
                         }}
                       />
                       <div
-                        className="w-full bg-[#23262C] rounded-b-sm"
+                        className="w-full bg-input rounded-b-sm"
                         style={{ height: `${ads}%` }}
                       />
                     </div>
@@ -442,41 +442,41 @@ function CockpitGrafiteWithSidebar({
                 })}
               </div>
 
-              <div className="flex gap-6 mt-4 pt-2 border-t border-[#1B1E23]">
+              <div className="flex gap-6 mt-4 pt-2 border-t border-border">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-sm bg-[#D6FF4B]" />
-                  <span className="font-mono text-[10px] text-[#8A8F98]">RECEITA BRUTA</span>
+                  <span className="w-2 h-2 rounded-sm bg-primary" />
+                  <span className="font-mono text-[10px] text-muted-foreground">RECEITA BRUTA</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-sm bg-[#23262C]" />
-                  <span className="font-mono text-[10px] text-[#8A8F98]">ADS INVESTIDO</span>
+                  <span className="w-2 h-2 rounded-sm bg-input" />
+                  <span className="font-mono text-[10px] text-muted-foreground">ADS INVESTIDO</span>
                 </div>
               </div>
             </div>
 
-            <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] p-5">
-              <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] mb-1">
+            <div className="border border-border rounded-lg bg-card p-5">
+              <div className="font-mono text-[9px] tracking-[0.2em] text-subtle mb-1">
                 PROJETOS
               </div>
-              <div className="text-base font-semibold text-[#E8EAED] mb-4">
+              <div className="text-base font-semibold text-foreground mb-4">
                 Quem paga a conta
               </div>
 
-              <div className="divide-y divide-[#1B1E23]">
+              <div className="divide-y divide-border">
                 {projects.map((p, idx) => (
                   <div key={idx} className="grid grid-cols-[1fr_100px_60px] items-center gap-3 py-2.5">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-[#E8EAED] truncate">
+                      <div className="text-sm font-medium text-foreground truncate">
                         {p.name}
                       </div>
-                      <div className="h-1 rounded-full bg-[#1B1E23] mt-1.5 overflow-hidden">
+                      <div className="h-1 rounded-full bg-border mt-1.5 overflow-hidden">
                         <div
                           className="h-1 rounded-full"
                           style={{ width: `${p.share}%`, background: p.fill }}
                         />
                       </div>
                     </div>
-                    <div className="font-mono text-xs text-right text-[#E8EAED]">
+                    <div className="font-mono text-xs text-right text-foreground">
                       {p.revenue}
                     </div>
                     <div
@@ -494,13 +494,13 @@ function CockpitGrafiteWithSidebar({
           {/* SEGUNDO PLANO */}
           {!zenMode && (
             <section className="space-y-3 pt-2">
-              <div className="font-mono text-[9px] tracking-[0.22em] text-[#5F646D]">
+              <div className="font-mono text-[9px] tracking-[0.22em] text-subtle">
                 SEGUNDO PLANO · SÓ CONSULTA
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-[#1B1E23] border border-[#1B1E23] rounded-lg overflow-hidden">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border border border-border rounded-lg overflow-hidden">
                 {minor.map((m, i) => (
                   <div key={i} className="bg-[#0C0D10] p-4 hover:bg-[#101215] transition-colors">
-                    <div className="font-mono text-[9px] tracking-wider text-[#5F646D] mb-1.5 truncate">
+                    <div className="font-mono text-[9px] tracking-wider text-subtle mb-1.5 truncate">
                       {m.label}
                     </div>
                     <div className="font-mono text-sm text-[#B7BCC4] font-medium truncate">

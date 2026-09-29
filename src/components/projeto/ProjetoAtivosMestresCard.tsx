@@ -259,12 +259,12 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
 
   return (
     <>
-      <Card className="bg-[#0E1013] border-[#1B1E23] rounded-xl overflow-hidden mb-6 shadow-xl relative">
+      <Card className="bg-card border-border rounded-xl overflow-hidden mb-6 shadow-xl relative">
         <div className="absolute top-0 right-0 w-80 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
         <CardContent className="p-4 sm:p-5">
           {/* Header Superior */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1B1E23]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
             <div className="flex items-center gap-2.5">
               <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
               <span className="font-mono text-[11px] uppercase tracking-wider font-bold text-primary">
@@ -472,7 +472,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
 
       {/* MODAL 1: VISUALIZAÇÃO DO CRIATIVO CONTROLE (WINNER) */}
       <Dialog open={creativeModalOpen} onOpenChange={setCreativeModalOpen}>
-        <DialogContent className="bg-[#0E1013] border-[#1B1E23] text-white max-w-lg">
+        <DialogContent className="bg-card border-border text-white max-w-lg">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <Flame className="h-5 w-5 text-amber-400" />
@@ -521,7 +521,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
 
       {/* MODAL 2: 3 VARIAÇÕES DE GANCHO GERADAS PELA IA (SPIN DO CONTROLE) */}
       <Dialog open={variationsModalOpen} onOpenChange={setVariationsModalOpen}>
-        <DialogContent className="bg-[#0E1013] border-[#1B1E23] text-white max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border text-white max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />

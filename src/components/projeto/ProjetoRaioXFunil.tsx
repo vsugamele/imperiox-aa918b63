@@ -462,7 +462,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       {/* ======================================================== */}
       {/* HEADER DE PRONTIDÃO DO PROJETO                           */}
       {/* ======================================================== */}
-      <Card className="bg-[#0E1013] border-[#1B1E23] overflow-hidden relative">
+      <Card className="bg-card border-border overflow-hidden relative">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
         <CardContent className="p-6 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -503,14 +503,14 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
           </div>
 
           {/* BARRA DE PROGRESSO GLOBAL */}
-          <div className="space-y-2 pt-2 border-t border-[#1B1E23]">
+          <div className="space-y-2 pt-2 border-t border-border">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-foreground flex items-center gap-1.5">
                 <Layers className="h-4 w-4 text-primary" /> Índice de Prontidão da Operação:
               </span>
               <span className="font-mono font-bold text-primary">{overallReadiness}% PRONTO</span>
             </div>
-            <Progress value={overallReadiness} className="h-2 bg-[#1B1E23]" />
+            <Progress value={overallReadiness} className="h-2 bg-border" />
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
               <span>
                 {layersAudit.filter((l) => l.ready).length} de {layersAudit.length} camadas validadas
@@ -533,7 +533,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       {/* NAVEGAÇÃO INTERNA DO COCKPIT                            */}
       {/* ======================================================== */}
       <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as typeof activeSubTab)} className="w-full">
-        <TabsList className="bg-[#0E1013] border border-[#1B1E23] p-1 h-auto flex flex-wrap gap-1">
+        <TabsList className="bg-card border border-border p-1 h-auto flex flex-wrap gap-1">
           <TabsTrigger value="raiox" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary gap-1.5 text-xs py-2 px-3">
             <Layers className="h-3.5 w-3.5" /> Raio-X & Buracos (6 Camadas)
           </TabsTrigger>
@@ -554,7 +554,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
         <TabsContent value="raiox" className="mt-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {layersAudit.map((layer) => (
-              <Card key={layer.key} className={`bg-[#0E1013] border ${layer.ready ? "border-[#1B1E23]" : "border-amber-500/30"} flex flex-col justify-between`}>
+              <Card key={layer.key} className={`bg-card border ${layer.ready ? "border-border" : "border-amber-500/30"} flex flex-col justify-between`}>
                 <CardHeader className="p-4 pb-2 space-y-1">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="text-[10px] font-mono border-white/10 text-muted-foreground">
@@ -604,7 +604,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                   </div>
 
                   {/* Botão de Resolução com OpenRouter / IA */}
-                  <div className="pt-2 border-t border-[#1B1E23] flex items-center justify-between">
+                  <div className="pt-2 border-t border-border flex items-center justify-between">
                     <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[140px]">
                       {layer.recommendedSkill}
                     </span>
@@ -615,7 +615,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                       className={`text-xs h-7 gap-1 ${
                         !layer.ready
                           ? "bg-amber-500 hover:bg-amber-600 text-black font-semibold"
-                          : "border-[#1B1E23] hover:bg-white/5 text-muted-foreground hover:text-white"
+                          : "border-border hover:bg-white/5 text-muted-foreground hover:text-white"
                       }`}
                     >
                       <Sparkles className="h-3 w-3" />
@@ -632,7 +632,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
         {/* ABA 2: FUNIL & ONDE ESTÁ TRAVANDO                        */}
         {/* ======================================================== */}
         <TabsContent value="funil" className="mt-4 space-y-4">
-          <Card className="bg-[#0E1013] border-[#1B1E23]">
+          <Card className="bg-card border-border">
             <CardHeader className="p-4 pb-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -673,7 +673,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                         <span className="font-mono font-bold text-primary w-12 text-right">{stage.pct}%</span>
                       </div>
                     </div>
-                    <Progress value={stage.pct} className="h-2 bg-[#1B1E23]" />
+                    <Progress value={stage.pct} className="h-2 bg-border" />
                   </div>
                 ))}
               </div>
@@ -685,7 +685,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
         {/* ABA 3: CRM DE LEADS DO PROJETO                           */}
         {/* ======================================================== */}
         <TabsContent value="crm" className="mt-4 space-y-4">
-          <Card className="bg-[#0E1013] border-[#1B1E23]">
+          <Card className="bg-card border-border">
             <CardHeader className="p-4 pb-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
@@ -702,7 +702,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                     placeholder="Buscar lead, fone, dor..."
                     value={crmSearch}
                     onChange={(e) => setCrmSearch(e.target.value)}
-                    className="h-8 pl-8 text-xs bg-black/40 border-[#1B1E23]"
+                    className="h-8 pl-8 text-xs bg-black/40 border-border"
                   />
                 </div>
               </div>
@@ -716,7 +716,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-[#1B1E23] text-muted-foreground text-left">
+                      <tr className="border-b border-border text-muted-foreground text-left">
                         <th className="p-3 font-medium">Nome / Contato</th>
                         <th className="p-3 font-medium">Score</th>
                         <th className="p-3 font-medium">Status / Estágio</th>
@@ -729,7 +729,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                       {filteredLeads.map((lead) => {
                         const cleanPhone = lead.phone?.replace(/\D/g, "");
                         return (
-                          <tr key={lead.id} className="border-b border-[#1B1E23]/50 hover:bg-white/[0.02]">
+                          <tr key={lead.id} className="border-b border-border/50 hover:bg-white/[0.02]">
                             <td className="p-3">
                               <p className="font-semibold text-white">{lead.nome || (lead as { name?: string }).name || "Lead Sem Nome"}</p>
                               {cleanPhone && (
@@ -788,7 +788,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
         {/* ABA 4: CAIXA DE ENTRADA DO PROJETO                       */}
         {/* ======================================================== */}
         <TabsContent value="inbox" className="mt-4 space-y-4">
-          <Card className="bg-[#0E1013] border-[#1B1E23]">
+          <Card className="bg-card border-border">
             <CardHeader className="p-4 pb-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -814,7 +814,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                   {waConvs.map((conv) => (
                     <div
                       key={conv.id}
-                      className="p-3 rounded-lg border border-[#1B1E23] bg-black/30 hover:bg-white/[0.02] flex items-center justify-between gap-4"
+                      className="p-3 rounded-lg border border-border bg-black/30 hover:bg-white/[0.02] flex items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -840,7 +840,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                           size="sm"
                           variant="outline"
                           onClick={() => navigate(`/inbox?tab=whatsapp&conv=${conv.id}`)}
-                          className="h-7 text-xs border-[#1B1E23] hover:bg-white/5"
+                          className="h-7 text-xs border-border hover:bg-white/5"
                         >
                           Ver no Inbox →
                         </Button>
@@ -858,7 +858,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       {/* MODAL OPENROUTER: RESOLVER BURACO COM IA                 */}
       {/* ======================================================== */}
       <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
-        <DialogContent className="max-w-2xl bg-[#0E1013] border-[#1B1E23] text-white">
+        <DialogContent className="max-w-2xl bg-card border-border text-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
@@ -876,7 +876,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                 rows={5}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                className="bg-black/50 border-[#1B1E23] text-xs font-mono text-white resize-none"
+                className="bg-black/50 border-border text-xs font-mono text-white resize-none"
               />
             </div>
 
@@ -898,14 +898,14 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                     <Copy className="h-3 w-3 mr-1" /> Copiar
                   </Button>
                 </div>
-                <div className="max-h-64 overflow-y-auto p-3 rounded-lg border border-[#1B1E23] bg-black/60 text-xs font-mono text-zinc-300 whitespace-pre-wrap">
+                <div className="max-h-64 overflow-y-auto p-3 rounded-lg border border-border bg-black/60 text-xs font-mono text-zinc-300 whitespace-pre-wrap">
                   {aiResult}
                 </div>
               </div>
             )}
           </div>
 
-          <DialogFooter className="flex items-center justify-between gap-2 border-t border-[#1B1E23] pt-3">
+          <DialogFooter className="flex items-center justify-between gap-2 border-t border-border pt-3">
             <Button variant="ghost" size="sm" onClick={() => setAiModalOpen(false)}>
               Fechar
             </Button>

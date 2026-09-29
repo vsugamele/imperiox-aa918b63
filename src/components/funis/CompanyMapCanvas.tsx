@@ -3116,7 +3116,7 @@ function InnerMap({
                         <SelectTrigger className="h-7 w-[125px] text-[10px] bg-secondary/80 font-mono">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                        <SelectContent className="bg-background border-border">
                           <SelectItem value="pending" className="text-xs">🟡 Pendente</SelectItem>
                           <SelectItem value="in_progress" className="text-xs">🔵 Em Execução</SelectItem>
                           <SelectItem value="ready_review" className="text-xs">🟣 Para Revisão</SelectItem>
@@ -3135,7 +3135,7 @@ function InnerMap({
                           <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                          <SelectContent className="bg-background border-border">
                             <SelectItem value="ai_higgsfield" className="text-xs">🤖 IA · Higgsfield (Vídeo 9:16)</SelectItem>
                             <SelectItem value="ai_google_flow" className="text-xs">🌐 Navegador · Google Flow</SelectItem>
                             <SelectItem value="ai_copywriter" className="text-xs">✍️ IA · Copywriter (VSL/Copy)</SelectItem>
@@ -3156,7 +3156,7 @@ function InnerMap({
                           <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                          <SelectContent className="bg-background border-border">
                             <SelectItem value="skill-black-belt" className="text-xs">skill-black-belt (Higgsfield)</SelectItem>
                             <SelectItem value="pipeline-video-viral" className="text-xs">pipeline-video-viral (Google Flow)</SelectItem>
                             <SelectItem value="angulos-criativos" className="text-xs">angulos-criativos (Ganchos)</SelectItem>
@@ -3182,7 +3182,7 @@ function InnerMap({
                           <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                          <SelectContent className="bg-background border-border">
                             <SelectItem value="trafego_anuncio" className="text-xs">🎯 Anúncio / Tráfego</SelectItem>
                             <SelectItem value="captura_vsl" className="text-xs">📄 Captura / VSL / LP</SelectItem>
                             <SelectItem value="obrigado_grupo" className="text-xs">🤝 Obrigado / Grupo VIP</SelectItem>
@@ -3204,7 +3204,7 @@ function InnerMap({
                           <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                          <SelectContent className="bg-background border-border">
                             <SelectItem value="HUMAN_OPERATOR" className="text-xs">👤 Operador Humano</SelectItem>
                             <SelectItem value="AI_SKILL" className="text-xs">🧠 IA Skill (152 skills)</SelectItem>
                             <SelectItem value="API_AUTONOMOUS" className="text-xs">🤖 API Autônoma</SelectItem>
@@ -3411,7 +3411,7 @@ function InnerMap({
 
       {/* Dialog de Régua de Mensagens Programadas em Grupos de WhatsApp */}
       <Dialog open={stepEditorOpen} onOpenChange={setStepEditorOpen}>
-        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto bg-[#0A0B0D] border-[#1B1E23] p-6 text-foreground">
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto bg-background border-border p-6 text-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-display text-lg text-white">
               <Rocket className="h-5 w-5 text-gold" />
@@ -3434,7 +3434,7 @@ function InnerMap({
 
       {/* Dialog: Desenhar com IA */}
       <Dialog open={aiFlowModalOpen} onOpenChange={setAiFlowModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#0A0B0D] border-[#1B1E23] p-6 text-foreground">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background border-border p-6 text-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-display text-lg text-white">
               <Sparkles className="h-5 w-5 text-amber-400" />
@@ -3496,7 +3496,7 @@ function InnerMap({
                         "p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1 text-left",
                         isSelected
                           ? "bg-amber-500/10 border-amber-500/60 ring-1 ring-amber-500/30"
-                          : "bg-[#0E1013] border-[#1B1E23] hover:border-zinc-700"
+                          : "bg-card border-border hover:border-zinc-700"
                       )}
                     >
                       <div className="flex items-center justify-between">
@@ -3520,7 +3520,7 @@ function InnerMap({
                   value={aiFlowCustomText}
                   onChange={(e) => setAiFlowCustomText(e.target.value)}
                   placeholder="Ex: Funil de emagrecimento com quiz interativo de 5 perguntas, advertorial com médica especialista, checkout com bump de pote extra e upsell de protocolo acelerador..."
-                  className="bg-[#0E1013] border-[#1B1E23] text-xs min-h-[75px]"
+                  className="bg-card border-border text-xs min-h-[75px]"
                 />
               </div>
             )}
@@ -3530,10 +3530,10 @@ function InnerMap({
               <Label className="text-xs font-semibold text-muted-foreground">Produto Vinculado ao Funil:</Label>
               {projectProductsList.length > 0 ? (
                 <Select value={aiFlowProduct} onValueChange={setAiFlowProduct}>
-                  <SelectTrigger className="bg-[#0E1013] border-[#1B1E23] text-xs h-9">
+                  <SelectTrigger className="bg-card border-border text-xs h-9">
                     <SelectValue placeholder="Selecione o produto principal do projeto..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                  <SelectContent className="bg-background border-border">
                     {projectProductsList.map((prod, idx) => {
                       const name = prod.nome || prod.name || `Produto ${idx + 1}`;
                       return (
@@ -3549,7 +3549,7 @@ function InnerMap({
                   value={aiFlowProduct}
                   onChange={(e) => setAiFlowProduct(e.target.value)}
                   placeholder="Ex: LinfaFlow Drenagem Líquida (ou deixe vazio para usar o padrão)"
-                  className="bg-[#0E1013] border-[#1B1E23] text-xs h-9"
+                  className="bg-card border-border text-xs h-9"
                 />
               )}
               <p className="text-[10px] text-muted-foreground">
@@ -3558,7 +3558,7 @@ function InnerMap({
             </div>
 
             {/* Replace options */}
-            <div className="flex items-center space-x-2 pt-2 border-t border-[#1B1E23]">
+            <div className="flex items-center space-x-2 pt-2 border-t border-border">
               <Checkbox
                 id="aiFlowReplace"
                 checked={aiFlowReplace}

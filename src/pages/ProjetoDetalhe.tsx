@@ -403,7 +403,7 @@ export default function ProjetoDetalhe() {
         </div>
 
         <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-          <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23] text-foreground">
+          <AlertDialogContent className="bg-card border-border text-foreground">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-white flex items-center gap-2">
                 <Trash2 className="h-5 w-5 text-destructive" />

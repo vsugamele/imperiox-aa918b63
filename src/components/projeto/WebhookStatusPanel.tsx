@@ -124,9 +124,9 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
   const { dot, label: statusLabel } = statusInfo(lastVenda);
 
   return (
-    <Card className="bg-[#0A0B0D] border-[#1B1E23]">
+    <Card className="bg-background border-border">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm uppercase tracking-wider text-[#D6FF4B] font-sans">
+        <CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">
           🔗 Status dos Webhooks de Pagamento
         </CardTitle>
         <p className="text-[10px] text-muted-foreground">
@@ -141,7 +141,7 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
           {webhookUrls.map((p) => (
             <div
               key={p.key}
-              className="flex items-center gap-2 p-2.5 rounded-md bg-[#0F1114] border border-[#1B1E23] group"
+              className="flex items-center gap-2 p-2.5 rounded-md bg-[#0F1114] border border-border group"
             >
               <span className="text-base shrink-0">{p.emoji}</span>
               <div className="flex-1 min-w-0">
@@ -153,7 +153,7 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
               <button
                 type="button"
                 onClick={() => copyUrl(p.url, p.key)}
-                className="shrink-0 p-1.5 rounded hover:bg-[#1B1E23] text-muted-foreground hover:text-[#D6FF4B] transition-colors"
+                className="shrink-0 p-1.5 rounded hover:bg-border text-muted-foreground hover:text-primary transition-colors"
                 title="Copiar URL"
               >
                 {copied === p.key ? (
@@ -167,7 +167,7 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
         </div>
 
         {/* ── Section 2: Live Status ── */}
-        <div className="border-t border-[#1B1E23] pt-4 space-y-3">
+        <div className="border-t border-border pt-4 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-xs font-medium text-foreground/80">Status ao vivo</p>
             <div className="flex items-center gap-2">
@@ -200,17 +200,17 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
           {loadingVendas ? (
             <p className="text-[10px] text-muted-foreground animate-pulse">Carregando vendas...</p>
           ) : vendas.length === 0 ? (
-            <div className="flex items-center gap-2 p-3 rounded-md bg-[#0F1114] border border-[#1B1E23]">
+            <div className="flex items-center gap-2 p-3 rounded-md bg-[#0F1114] border border-border">
               <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
               <p className="text-[11px] text-muted-foreground">
                 Nenhuma venda registrada ainda. Configure os webhooks nas plataformas e clique em "Enviar Webhook de Teste" abaixo.
               </p>
             </div>
           ) : (
-            <div className="rounded-md border border-[#1B1E23] overflow-hidden">
+            <div className="rounded-md border border-border overflow-hidden">
               <table className="w-full text-[10px]">
                 <thead>
-                  <tr className="bg-[#0F1114] border-b border-[#1B1E23]">
+                  <tr className="bg-[#0F1114] border-b border-border">
                     <th className="text-left px-3 py-2 text-muted-foreground font-medium">Nome</th>
                     <th className="text-left px-3 py-2 text-muted-foreground font-medium">Valor</th>
                     <th className="text-left px-3 py-2 text-muted-foreground font-medium">Status</th>
@@ -221,12 +221,12 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
                   {vendas.map((v, i) => (
                     <tr
                       key={v.id}
-                      className={`border-b border-[#1B1E23] last:border-0 ${i % 2 === 0 ? "bg-[#0A0B0D]" : "bg-[#0D0E11]"}`}
+                      className={`border-b border-border last:border-0 ${i % 2 === 0 ? "bg-background" : "bg-[#0D0E11]"}`}
                     >
                       <td className="px-3 py-2 font-medium text-foreground truncate max-w-[120px]">
                         {v.nome ?? "—"}
                       </td>
-                      <td className="px-3 py-2 text-[#D6FF4B] font-mono">
+                      <td className="px-3 py-2 text-primary font-mono">
                         {v.valor != null
                           ? `R$ ${(v.valor / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                           : "—"}
@@ -256,18 +256,18 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
         </div>
 
         {/* ── Section 3: Test Button ── */}
-        <div className="border-t border-[#1B1E23] pt-4 flex items-center gap-3 flex-wrap">
+        <div className="border-t border-border pt-4 flex items-center gap-3 flex-wrap">
           <Button
             size="sm"
             onClick={sendTest}
             disabled={testing}
-            className="gap-1.5 text-xs bg-[#D6FF4B] hover:bg-[#c8f040] text-black font-semibold shadow-lg shadow-[#D6FF4B]/10 disabled:opacity-60"
+            className="gap-1.5 text-xs bg-primary hover:bg-[#c8f040] text-black font-semibold shadow-lg shadow-primary/10 disabled:opacity-60"
           >
             <Send className="h-3.5 w-3.5" />
             {testing ? "Enviando..." : "Enviar Webhook de Teste"}
           </Button>
           <p className="text-[10px] text-muted-foreground">
-            Simula uma compra aprovada de R\$47,00 com plataforma <code className="bg-[#1B1E23] px-1 rounded">test</code>
+            Simula uma compra aprovada de R\$47,00 com plataforma <code className="bg-border px-1 rounded">test</code>
           </p>
         </div>
       </CardContent>

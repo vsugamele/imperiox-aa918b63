@@ -222,19 +222,19 @@ export default function RedesignPrototype() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[236px_minmax(0,1fr)] min-h-screen bg-[#0A0B0D] text-[#E8EAED] font-['Archivo',sans-serif]">
+    <div className="grid grid-cols-1 md:grid-cols-[236px_minmax(0,1fr)] min-h-screen bg-background text-foreground font-['Archivo',sans-serif]">
       {/* ── SIDEBAR DO REDESIGN ───────────────────────────────────────────── */}
-      <aside className="border-r border-[#1B1E23] bg-[#0C0D10] flex flex-col md:sticky md:top-0 md:h-screen overflow-hidden">
-        <div className="p-5 border-b border-[#1B1E23]">
+      <aside className="border-r border-border bg-[#0C0D10] flex flex-col md:sticky md:top-0 md:h-screen overflow-hidden">
+        <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded bg-[#D6FF4B] flex items-center justify-center font-mono text-xs font-bold text-[#0A0B0D]">
+            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center font-mono text-xs font-bold text-primary-foreground">
               i
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-tight leading-none">
-                IMPERIO<span className="text-[#8A8F98]">HQ</span>
+                IMPERIO<span className="text-muted-foreground">HQ</span>
               </span>
-              <span className="font-mono text-[9px] tracking-widest text-[#5F646D] mt-0.5">
+              <span className="font-mono text-[9px] tracking-widest text-subtle mt-0.5">
                 MASTER REDESIGN
               </span>
             </div>
@@ -244,7 +244,7 @@ export default function RedesignPrototype() {
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {navGroups.map((g, gIdx) => (
             <div key={gIdx}>
-              <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] px-2 mb-1.5 uppercase">
+              <div className="font-mono text-[9px] tracking-[0.2em] text-subtle px-2 mb-1.5 uppercase">
                 {g.label}
               </div>
               <div className="space-y-0.5">
@@ -256,18 +256,18 @@ export default function RedesignPrototype() {
                       onClick={() => setScreen(item.key as typeof screen)}
                       className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded text-left transition-all ${
                         active
-                          ? "bg-[#14161A] text-[#E8EAED] border-l-2 border-[#D6FF4B]"
-                          : "text-[#9BA1AA] hover:bg-[#121418] hover:text-[#E8EAED]"
+                          ? "bg-[#14161A] text-foreground border-l-2 border-primary"
+                          : "text-[#9BA1AA] hover:bg-[#121418] hover:text-foreground"
                       }`}
                     >
-                      <span className="font-mono text-[9px] text-[#5F646D] w-3.5">
+                      <span className="font-mono text-[9px] text-subtle w-3.5">
                         {item.n}
                       </span>
                       <span className="text-xs font-medium truncate flex-1">
                         {item.label}
                       </span>
                       {item.badge && (
-                        <span className="font-mono text-[10px] font-bold text-[#0A0B0D] bg-[#D6FF4B] rounded-full px-1.5 py-0.2">
+                        <span className="font-mono text-[10px] font-bold text-primary-foreground bg-primary rounded-full px-1.5 py-0.2">
                           {item.badge}
                         </span>
                       )}
@@ -279,13 +279,13 @@ export default function RedesignPrototype() {
           ))}
         </div>
 
-        <div className="p-3 border-t border-[#1B1E23] flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-full bg-[#1B1E23] flex items-center justify-center font-mono text-[10px] text-[#8A8F98]">
+        <div className="p-3 border-t border-border flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-full bg-border flex items-center justify-center font-mono text-[10px] text-muted-foreground">
             VS
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium truncate">Vinicius Sugamele</div>
-            <div className="font-mono text-[9px] text-[#5F646D]">OWNER · OPERAÇÃO DTC</div>
+            <div className="font-mono text-[9px] text-subtle">OWNER · OPERAÇÃO DTC</div>
           </div>
         </div>
       </aside>
@@ -293,9 +293,9 @@ export default function RedesignPrototype() {
       {/* ── CONTEÚDO PRINCIPAL ────────────────────────────────────────────── */}
       <div className="flex flex-col min-w-0">
         {/* HEADER FLUTUANTE BLUR */}
-        <header className="h-14 flex items-center gap-3.5 px-5 border-b border-[#1B1E23] bg-[#0A0B0D]/85 backdrop-blur sticky top-0 z-30">
+        <header className="h-14 flex items-center gap-3.5 px-5 border-b border-border bg-background/85 backdrop-blur sticky top-0 z-30">
           <div className="flex items-baseline gap-2 min-w-0 flex-1">
-            <span className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] uppercase">
+            <span className="font-mono text-[9px] tracking-[0.2em] text-subtle uppercase">
               {screen.toUpperCase()}
             </span>
             <span className="text-[#33373F]">/</span>
@@ -316,7 +316,7 @@ export default function RedesignPrototype() {
           <div className="flex items-center gap-2">
             <Link
               to="/cockpit"
-              className="font-mono text-[10.5px] px-3 py-1 rounded bg-[#101215] border border-[#23262C] text-[#D6FF4B] hover:border-[#D6FF4B] transition-colors"
+              className="font-mono text-[10.5px] px-3 py-1 rounded bg-[#101215] border border-input text-primary hover:border-primary transition-colors"
             >
               ABRIR COCKPIT TRI-MODO ↗
             </Link>
@@ -324,8 +324,8 @@ export default function RedesignPrototype() {
               onClick={() => setZen(!zen)}
               className={`font-mono text-[10.5px] px-3 py-1 rounded border transition-colors ${
                 zen
-                  ? "bg-[#D6FF4B] text-[#0A0B0D] border-[#D6FF4B] font-bold"
-                  : "bg-[#101215] border-[#1B1E23] text-[#8A8F98] hover:text-[#E8EAED]"
+                  ? "bg-primary text-primary-foreground border-primary font-bold"
+                  : "bg-[#101215] border-border text-muted-foreground hover:text-foreground"
               }`}
             >
               {zen ? "FOCO ON" : "FOCO"}
@@ -339,20 +339,20 @@ export default function RedesignPrototype() {
           {screen === "cockpit" && (
             <div className="space-y-6">
               <div className="border border-[#2A2E35] rounded-lg bg-gradient-to-b from-[#14171B] to-[#101215] p-6 relative overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#D6FF4B]" />
-                <div className="font-mono text-[9px] tracking-[0.22em] text-[#D6FF4B] mb-2 uppercase font-semibold">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+                <div className="font-mono text-[9px] tracking-[0.22em] text-primary mb-2 uppercase font-semibold">
                   A DECISÃO DE HOJE
                 </div>
                 <h1 className="text-2xl md:text-3xl font-semibold mb-2">
-                  LinfaFlow ADV03 queima <span className="font-mono text-[#FB7185]">R$ 1.240/dia</span> com ROAS 0,74 há 3 dias.
+                  LinfaFlow ADV03 queima <span className="font-mono text-destructive">R$ 1.240/dia</span> com ROAS 0,74 há 3 dias.
                 </h1>
-                <p className="text-sm text-[#8A8F98] max-w-2xl mb-4 leading-relaxed">
+                <p className="text-sm text-muted-foreground max-w-2xl mb-4 leading-relaxed">
                   Pausar libera R$ 8.680 no orçamento da semana. O criativo ADV01 rodando no mesmo público está em 3,42x — dá pra realocar agora.
                 </p>
                 <div className="flex gap-3">
                   <button
                     onClick={() => toast.success("ADV03 pausado e verba realocada para ADV01!")}
-                    className="h-9 px-4 rounded bg-[#D6FF4B] text-[#0A0B0D] text-xs font-bold hover:bg-[#E9FF8E]"
+                    className="h-9 px-4 rounded bg-primary text-primary-foreground text-xs font-bold hover:bg-[#E9FF8E]"
                   >
                     Pausar e Realocar
                   </button>
@@ -365,7 +365,7 @@ export default function RedesignPrototype() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 border-y border-[#23262C] divide-x divide-[#1B1E23]">
+              <div className="grid grid-cols-2 md:grid-cols-5 border-y border-input divide-x divide-border">
                 {[
                   { label: "FATURAMENTO 30D", val: "R$ 284.320", delta: "+12,4%", good: true },
                   { label: "ADS INVESTIDO", val: "R$ 96.140", delta: "+21,0%", good: false },
@@ -374,9 +374,9 @@ export default function RedesignPrototype() {
                   { label: "CPA MÉDIO", val: "R$ 52,20", delta: "−R$ 3,40", good: true },
                 ].map((k, i) => (
                   <div key={i} className="p-4">
-                    <div className="font-mono text-[9px] tracking-wider text-[#5F646D] mb-1">{k.label}</div>
+                    <div className="font-mono text-[9px] tracking-wider text-subtle mb-1">{k.label}</div>
                     <div className="font-mono text-xl font-medium">{k.val}</div>
-                    <div className={`font-mono text-[11px] mt-1 ${k.good ? "text-[#4ADE80]" : "text-[#FB7185]"}`}>{k.delta}</div>
+                    <div className={`font-mono text-[11px] mt-1 ${k.good ? "text-[#4ADE80]" : "text-destructive"}`}>{k.delta}</div>
                   </div>
                 ))}
               </div>
@@ -387,13 +387,13 @@ export default function RedesignPrototype() {
           {screen === "leads" && (
             <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_300px] gap-4 items-start">
               {/* FILA QUENTE */}
-              <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] overflow-hidden">
-                <div className="p-3.5 border-b border-[#1B1E23] flex items-center justify-between">
+              <div className="border border-border rounded-lg bg-card overflow-hidden">
+                <div className="p-3.5 border-b border-border flex items-center justify-between">
                   <div>
-                    <div className="font-mono text-[9px] tracking-[0.2em] text-[#D6FF4B]">RESPONDER AGORA · 6</div>
+                    <div className="font-mono text-[9px] tracking-[0.2em] text-primary">RESPONDER AGORA · 6</div>
                     <div className="text-sm font-semibold">Fila Quente</div>
                   </div>
-                  <span className="font-mono text-[10px] text-[#5F646D]">SLA 4M</span>
+                  <span className="font-mono text-[10px] text-subtle">SLA 4M</span>
                 </div>
                 <div className="divide-y divide-[#14161A]">
                   {[
@@ -401,15 +401,15 @@ export default function RedesignPrototype() {
                     { name: "Carlos Eduardo", phone: "+55 21 9•••-1109", time: "há 5m", snippet: "O frete é grátis pro Rio?", tag: "NOVO", channel: "DIRECT" },
                     { name: "Luciana Silva", phone: "+55 31 9•••-8843", time: "há 12m", snippet: "Gerei o PIX mas deu erro no banco", tag: "PIX", channel: "WHATSAPP" },
                   ].map((l, i) => (
-                    <div key={i} className="p-3 hover:bg-[#121419] cursor-pointer transition-colors border-l-2 border-[#D6FF4B]">
+                    <div key={i} className="p-3 hover:bg-[#121419] cursor-pointer transition-colors border-l-2 border-primary">
                       <div className="flex justify-between items-baseline">
                         <span className="text-xs font-semibold">{l.name}</span>
-                        <span className="font-mono text-[9px] text-[#5F646D]">{l.time}</span>
+                        <span className="font-mono text-[9px] text-subtle">{l.time}</span>
                       </div>
-                      <div className="text-[11px] text-[#8A8F98] truncate mt-1">{l.snippet}</div>
+                      <div className="text-[11px] text-muted-foreground truncate mt-1">{l.snippet}</div>
                       <div className="flex gap-1.5 mt-2">
-                        <span className="font-mono text-[8.5px] px-1.5 py-0.5 rounded bg-[#D6FF4B]/10 text-[#D6FF4B]">{l.tag}</span>
-                        <span className="font-mono text-[8.5px] px-1.5 py-0.5 rounded border border-[#23262C] text-[#5F646D]">{l.channel}</span>
+                        <span className="font-mono text-[8.5px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{l.tag}</span>
+                        <span className="font-mono text-[8.5px] px-1.5 py-0.5 rounded border border-input text-subtle">{l.channel}</span>
                       </div>
                     </div>
                   ))}
@@ -417,15 +417,15 @@ export default function RedesignPrototype() {
               </div>
 
               {/* CHAT CENTRAL */}
-              <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] flex flex-col h-[580px]">
-                <div className="p-3.5 border-b border-[#1B1E23] flex items-center justify-between">
+              <div className="border border-border rounded-lg bg-card flex flex-col h-[580px]">
+                <div className="p-3.5 border-b border-border flex items-center justify-between">
                   <div>
                     <div className="text-sm font-semibold">Marina Rocha</div>
-                    <div className="font-mono text-[9.5px] text-[#5F646D]">+55 11 9•••-4482 · LINFAFLOW CARE</div>
+                    <div className="font-mono text-[9.5px] text-subtle">+55 11 9•••-4482 · LINFAFLOW CARE</div>
                   </div>
                   <button 
                     onClick={() => toast.success("Você assumiu a conversa da IA.")}
-                    className="font-mono text-[10px] px-2.5 py-1 rounded border border-[#2A2E35] text-[#B7BCC4] hover:border-[#D6FF4B] hover:text-[#D6FF4B] transition-colors"
+                    className="font-mono text-[10px] px-2.5 py-1 rounded border border-[#2A2E35] text-[#B7BCC4] hover:border-primary hover:text-primary transition-colors"
                   >
                     ASSUMIR DA IA
                   </button>
@@ -435,7 +435,7 @@ export default function RedesignPrototype() {
                   {chatThread.map((m, i) => (
                     <div key={i} className={`flex ${m.align}`}>
                       <div className="max-w-[80%]">
-                        <div className="font-mono text-[9px] text-[#5F646D] mb-1">{m.who} · {m.time}</div>
+                        <div className="font-mono text-[9px] text-subtle mb-1">{m.who} · {m.time}</div>
                         <div 
                           className="p-3 rounded-lg text-xs leading-relaxed"
                           style={{ background: m.bg, border: `1px solid ${m.border}`, color: m.fg }}
@@ -447,7 +447,7 @@ export default function RedesignPrototype() {
                   ))}
                 </div>
 
-                <div className="p-3 border-t border-[#1B1E23] space-y-2">
+                <div className="p-3 border-t border-border space-y-2">
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -455,11 +455,11 @@ export default function RedesignPrototype() {
                       onChange={(e) => setChatMessage(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                       placeholder="Responder para Marina no WhatsApp..."
-                      className="flex-1 bg-[#0A0B0D] border border-[#23262C] rounded px-3 py-2 text-xs focus:outline-none focus:border-[#D6FF4B]"
+                      className="flex-1 bg-background border border-input rounded px-3 py-2 text-xs focus:outline-none focus:border-primary"
                     />
                     <button
                       onClick={handleSendMessage}
-                      className="px-4 py-2 rounded bg-[#D6FF4B] text-[#0A0B0D] font-bold text-xs hover:bg-[#E9FF8E]"
+                      className="px-4 py-2 rounded bg-primary text-primary-foreground font-bold text-xs hover:bg-[#E9FF8E]"
                     >
                       ENVIAR
                     </button>
@@ -469,27 +469,27 @@ export default function RedesignPrototype() {
 
               {/* SCORE & TIMELINE */}
               <div className="space-y-4">
-                <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] p-4">
-                  <div className="font-mono text-[9px] tracking-[0.2em] text-[#5F646D] mb-2 uppercase">SCORE DO LEAD</div>
+                <div className="border border-border rounded-lg bg-card p-4">
+                  <div className="font-mono text-[9px] tracking-[0.2em] text-subtle mb-2 uppercase">SCORE DO LEAD</div>
                   <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-4xl font-bold text-[#D6FF4B]">87</span>
-                    <span className="font-mono text-xs text-[#8A8F98]">/100 · ALTA INTENÇÃO</span>
+                    <span className="font-mono text-4xl font-bold text-primary">87</span>
+                    <span className="font-mono text-xs text-muted-foreground">/100 · ALTA INTENÇÃO</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-[#1B1E23] mt-3 overflow-hidden">
-                    <div className="h-1.5 bg-[#D6FF4B] w-[87%]" />
+                  <div className="h-1.5 rounded-full bg-border mt-3 overflow-hidden">
+                    <div className="h-1.5 bg-primary w-[87%]" />
                   </div>
-                  <div className="mt-4 space-y-2 text-xs divide-y divide-[#1B1E23]">
-                    <div className="flex justify-between pt-2 text-[#8A8F98]">
+                  <div className="mt-4 space-y-2 text-xs divide-y divide-border">
+                    <div className="flex justify-between pt-2 text-muted-foreground">
                       <span>Interação com ADV01</span>
-                      <span className="font-mono text-[#D6FF4B]">+35 pts</span>
+                      <span className="font-mono text-primary">+35 pts</span>
                     </div>
-                    <div className="flex justify-between pt-2 text-[#8A8F98]">
+                    <div className="flex justify-between pt-2 text-muted-foreground">
                       <span>Tempo de retenção 3m</span>
-                      <span className="font-mono text-[#D6FF4B]">+25 pts</span>
+                      <span className="font-mono text-primary">+25 pts</span>
                     </div>
-                    <div className="flex justify-between pt-2 text-[#8A8F98]">
+                    <div className="flex justify-between pt-2 text-muted-foreground">
                       <span>Iniciou checkout</span>
-                      <span className="font-mono text-[#D6FF4B]">+27 pts</span>
+                      <span className="font-mono text-primary">+27 pts</span>
                     </div>
                   </div>
                 </div>
@@ -501,22 +501,22 @@ export default function RedesignPrototype() {
           {screen === "recuperacao" && (
             <div className="space-y-6">
               <div className="border border-[#2A2E35] rounded-lg bg-[#101215] p-5 relative overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#FB7185]" />
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-destructive" />
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <div className="font-mono text-[9px] tracking-[0.2em] text-[#FB7185] uppercase mb-1 font-semibold">
+                    <div className="font-mono text-[9px] tracking-[0.2em] text-destructive uppercase mb-1 font-semibold">
                       RESGATE DE HOJE
                     </div>
                     <h2 className="text-xl font-bold">
-                      74 PIX esfriando somam <span className="font-mono text-[#FB7185]">R$ 38.400</span> e ninguém tocou neles
+                      74 PIX esfriando somam <span className="font-mono text-destructive">R$ 38.400</span> e ninguém tocou neles
                     </h2>
-                    <p className="text-xs text-[#8A8F98] mt-1 max-w-xl">
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xl">
                       A janela útil fecha em 24h. Disparar a IA nos 25 mais recentes com o template de PIX 2–24h recupera em média 22% do volume.
                     </p>
                   </div>
                   <button
                     onClick={() => toast.success("Disparo de IA iniciado para os 25 leads do bucket!")}
-                    className="h-9 px-5 rounded bg-[#D6FF4B] text-[#0A0B0D] font-bold text-xs hover:bg-[#E9FF8E]"
+                    className="h-9 px-5 rounded bg-primary text-primary-foreground font-bold text-xs hover:bg-[#E9FF8E]"
                   >
                     Disparar IA · 25 leads
                   </button>
@@ -533,34 +533,34 @@ export default function RedesignPrototype() {
                       onClick={() => setBucketIdx(idx)}
                       className={`border rounded-lg p-3.5 cursor-pointer transition-all ${
                         active
-                          ? "border-[#D6FF4B] bg-[#14171A]"
-                          : "border-[#1B1E23] bg-[#0E1013] hover:border-[#2A2E35]"
+                          ? "border-primary bg-[#14171A]"
+                          : "border-border bg-card hover:border-[#2A2E35]"
                       }`}
                     >
                       <div className="flex justify-between items-baseline font-mono text-[9.5px]">
-                        <span className={active ? "text-[#D6FF4B] font-bold" : "text-[#5F646D]"}>{b.short}</span>
-                        <span className="text-[#8A8F98]">{b.count}</span>
+                        <span className={active ? "text-primary font-bold" : "text-subtle"}>{b.short}</span>
+                        <span className="text-muted-foreground">{b.count}</span>
                       </div>
-                      <div className="font-mono text-lg font-bold mt-2 text-[#E8EAED]">{b.value}</div>
-                      <div className="text-[11px] text-[#5F646D] mt-1">Recup: {b.rate}</div>
+                      <div className="font-mono text-lg font-bold mt-2 text-foreground">{b.value}</div>
+                      <div className="text-[11px] text-subtle mt-1">Recup: {b.rate}</div>
                     </div>
                   );
                 })}
               </div>
 
               {/* TABELA DE LEADS DO BUCKET */}
-              <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] overflow-hidden">
-                <div className="p-4 border-b border-[#1B1E23] flex justify-between items-center">
+              <div className="border border-border rounded-lg bg-card overflow-hidden">
+                <div className="p-4 border-b border-border flex justify-between items-center">
                   <div>
-                    <div className="font-mono text-[9px] text-[#5F646D] uppercase">FILA DE RECUPERAÇÃO</div>
+                    <div className="font-mono text-[9px] text-subtle uppercase">FILA DE RECUPERAÇÃO</div>
                     <div className="text-sm font-semibold">{activeBucket.title}</div>
                   </div>
-                  <span className="font-mono text-xs text-[#D6FF4B] font-bold">{activeBucket.value} EM JOGO</span>
+                  <span className="font-mono text-xs text-primary font-bold">{activeBucket.value} EM JOGO</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-[#23262C] font-mono text-[9px] text-[#5F646D]">
+                      <tr className="border-b border-input font-mono text-[9px] text-subtle">
                         <th className="p-3">LEAD</th>
                         <th className="p-3">PRODUTO</th>
                         <th className="p-3 text-right">VALOR</th>
@@ -568,15 +568,15 @@ export default function RedesignPrototype() {
                         <th className="p-3 text-right">AÇÃO</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#1B1E23]">
+                    <tbody className="divide-y divide-border">
                       {activeBucket.rows.map((r, i) => (
                         <tr key={i} className="hover:bg-[#111317]">
                           <td className="p-3">
                             <div className="font-semibold">{r.name}</div>
-                            <div className="font-mono text-[9.5px] text-[#5F646D]">{r.contact}</div>
+                            <div className="font-mono text-[9.5px] text-subtle">{r.contact}</div>
                           </td>
                           <td className="p-3 text-[#B7BCC4]">{r.product}</td>
-                          <td className="p-3 text-right font-mono font-bold text-[#E8EAED]">{r.value}</td>
+                          <td className="p-3 text-right font-mono font-bold text-foreground">{r.value}</td>
                           <td className="p-3">
                             <span className="font-mono text-[10px]" style={{ color: r.ageColor }}>
                               {r.age}
@@ -585,7 +585,7 @@ export default function RedesignPrototype() {
                           <td className="p-3 text-right">
                             <button
                               onClick={() => toast.success(`Mensagem de recuperação enviada para ${r.name}`)}
-                              className="font-mono text-[10px] text-[#D6FF4B] hover:underline"
+                              className="font-mono text-[10px] text-primary hover:underline"
                             >
                               WHATSAPP →
                             </button>
@@ -602,31 +602,31 @@ export default function RedesignPrototype() {
           {/* TELA 4: CRIATIVOS · FÁBRICA DE 21 ÂNGULOS */}
           {screen === "criativos" && (
             <div className="space-y-6">
-              <div className="flex gap-2 border-b border-[#23262C] pb-2 font-mono text-xs">
+              <div className="flex gap-2 border-b border-input pb-2 font-mono text-xs">
                 <button
                   onClick={() => setCTab("lotes")}
-                  className={`px-3 py-1 rounded ${cTab === "lotes" ? "bg-[#D6FF4B] text-[#0A0B0D] font-bold" : "text-[#8A8F98]"}`}
+                  className={`px-3 py-1 rounded ${cTab === "lotes" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground"}`}
                 >
                   LOTES DE GERAÇÃO
                 </button>
                 <button
                   onClick={() => setCTab("lote")}
-                  className={`px-3 py-1 rounded ${cTab === "lote" ? "bg-[#D6FF4B] text-[#0A0B0D] font-bold" : "text-[#8A8F98]"}`}
+                  className={`px-3 py-1 rounded ${cTab === "lote" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground"}`}
                 >
                   LOTE ABERTO (MEMOFLOW)
                 </button>
                 <button
                   onClick={() => setCTab("novo")}
-                  className={`px-3 py-1 rounded ${cTab === "novo" ? "bg-[#D6FF4B] text-[#0A0B0D] font-bold" : "text-[#8A8F98]"}`}
+                  className={`px-3 py-1 rounded ${cTab === "novo" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground"}`}
                 >
                   + NOVO LOTE (21 ÂNGULOS)
                 </button>
               </div>
 
               {cTab === "lotes" && (
-                <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] p-4 space-y-4">
+                <div className="border border-border rounded-lg bg-card p-4 space-y-4">
                   <div className="text-sm font-semibold">Lotes Recentes na Fábrica</div>
-                  <div className="divide-y divide-[#1B1E23]">
+                  <div className="divide-y divide-border">
                     {[
                       { nome: "MemoFlow — 18/09/2026", angulos: "6 ângulos × 4 variações", progresso: "24/24", pct: 100, status: "COMPLETED" },
                       { nome: "LinfaFlow — Esteira P3", angulos: "4 ângulos × 4 variações", progresso: "16/16", pct: 100, status: "COMPLETED" },
@@ -634,13 +634,13 @@ export default function RedesignPrototype() {
                     ].map((b, i) => (
                       <div key={i} className="py-3 flex justify-between items-center text-xs">
                         <div>
-                          <div className="font-semibold text-[#E8EAED]">{b.nome}</div>
-                          <div className="font-mono text-[10px] text-[#5F646D]">{b.angulos}</div>
+                          <div className="font-semibold text-foreground">{b.nome}</div>
+                          <div className="font-mono text-[10px] text-subtle">{b.angulos}</div>
                         </div>
                         <div className="w-48 text-right">
                           <div className="font-mono text-xs">{b.progresso}</div>
-                          <div className="h-1 rounded-full bg-[#1B1E23] mt-1 overflow-hidden">
-                            <div className="h-1 bg-[#D6FF4B]" style={{ width: `${b.pct}%` }} />
+                          <div className="h-1 rounded-full bg-border mt-1 overflow-hidden">
+                            <div className="h-1 bg-primary" style={{ width: `${b.pct}%` }} />
                           </div>
                         </div>
                       </div>
@@ -654,11 +654,11 @@ export default function RedesignPrototype() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h2 className="text-lg font-bold">MemoFlow — 24 Criativos Gerados</h2>
-                      <p className="text-xs text-[#8A8F98]">Formato 4:5 · 6 ângulos × 4 variações · 14 aprovados</p>
+                      <p className="text-xs text-muted-foreground">Formato 4:5 · 6 ângulos × 4 variações · 14 aprovados</p>
                     </div>
                     <button 
                       onClick={() => toast.success("14 criativos enviados para Mídias!")}
-                      className="px-4 py-2 rounded bg-[#D6FF4B] text-[#0A0B0D] font-bold text-xs"
+                      className="px-4 py-2 rounded bg-primary text-primary-foreground font-bold text-xs"
                     >
                       Enviar Aprovados pra Mídias
                     </button>
@@ -666,20 +666,20 @@ export default function RedesignPrototype() {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                      <div key={n} className="border border-[#1B1E23] rounded-lg bg-[#0E1013] overflow-hidden">
+                      <div key={n} className="border border-border rounded-lg bg-card overflow-hidden">
                         <div className="aspect-[4/5] bg-[#14161A] flex flex-col justify-end p-3 relative">
-                          <span className="absolute top-2 left-2 font-mono text-[9px] bg-[#0A0B0D]/80 px-2 py-0.5 rounded text-[#D6FF4B]">
+                          <span className="absolute top-2 left-2 font-mono text-[9px] bg-background/80 px-2 py-0.5 rounded text-primary">
                             4:5 · MEMOFLOW
                           </span>
                           <span className="text-xs font-bold text-white drop-shadow">
                             "Depois dos 40, sua memória não falha por idade, mas por toxina."
                           </span>
                         </div>
-                        <div className="p-3 flex justify-between items-center border-t border-[#1B1E23]">
-                          <span className="font-mono text-[9px] text-[#5F646D]">ÂNGULO CURIOSIDADE</span>
+                        <div className="p-3 flex justify-between items-center border-t border-border">
+                          <span className="font-mono text-[9px] text-subtle">ÂNGULO CURIOSIDADE</span>
                           <button
                             onClick={() => toast.success("Criativo aprovado!")}
-                            className="font-mono text-[10px] text-[#D6FF4B] hover:underline font-bold"
+                            className="font-mono text-[10px] text-primary hover:underline font-bold"
                           >
                             APROVAR ✓
                           </button>
@@ -691,9 +691,9 @@ export default function RedesignPrototype() {
               )}
 
               {cTab === "novo" && (
-                <div className="space-y-6 border border-[#1B1E23] rounded-lg bg-[#0E1013] p-6">
+                <div className="space-y-6 border border-border rounded-lg bg-card p-6">
                   <div>
-                    <div className="font-mono text-[9px] text-[#D6FF4B] uppercase mb-1">CATÁLOGO DE 21 ÂNGULOS PERSUASIVOS</div>
+                    <div className="font-mono text-[9px] text-primary uppercase mb-1">CATÁLOGO DE 21 ÂNGULOS PERSUASIVOS</div>
                     <h2 className="text-lg font-bold">Selecione os ângulos para disparar o lote</h2>
                   </div>
 
@@ -706,13 +706,13 @@ export default function RedesignPrototype() {
                           onClick={() => toggleAngulo(a.slug)}
                           className={`p-3 rounded border cursor-pointer transition-all ${
                             selected
-                              ? "border-[#D6FF4B] bg-[#161B12]"
-                              : "border-[#1B1E23] bg-[#0A0B0D] hover:border-[#2A2E35]"
+                              ? "border-primary bg-[#161B12]"
+                              : "border-border bg-background hover:border-[#2A2E35]"
                           }`}
                         >
                           <div className="flex justify-between items-center mb-1">
-                            <span className="font-mono text-[8.5px] text-[#5F646D]">{a.cat}</span>
-                            <span className={`w-2.5 h-2.5 rounded-sm border ${selected ? "bg-[#D6FF4B] border-[#D6FF4B]" : "border-[#3D424A]"}`} />
+                            <span className="font-mono text-[8.5px] text-subtle">{a.cat}</span>
+                            <span className={`w-2.5 h-2.5 rounded-sm border ${selected ? "bg-primary border-primary" : "border-[#3D424A]"}`} />
                           </div>
                           <div className="text-xs font-semibold">{a.nome}</div>
                         </div>
@@ -720,8 +720,8 @@ export default function RedesignPrototype() {
                     })}
                   </div>
 
-                  <div className="pt-4 border-t border-[#1B1E23] flex justify-between items-center">
-                    <span className="font-mono text-xs text-[#8A8F98]">
+                  <div className="pt-4 border-t border-border flex justify-between items-center">
+                    <span className="font-mono text-xs text-muted-foreground">
                       {selectedAngulos.length} ângulos selecionados × 4 variações = {selectedAngulos.length * 4} criativos
                     </span>
                     <button
@@ -729,7 +729,7 @@ export default function RedesignPrototype() {
                         toast.success(`Lote de ${selectedAngulos.length * 4} criativos iniciado na fábrica!`);
                         setCTab("lotes");
                       }}
-                      className="px-5 py-2.5 rounded bg-[#D6FF4B] text-[#0A0B0D] font-bold text-xs"
+                      className="px-5 py-2.5 rounded bg-primary text-primary-foreground font-bold text-xs"
                     >
                       Disparar Lote na Fábrica →
                     </button>
@@ -743,20 +743,20 @@ export default function RedesignPrototype() {
           {screen === "campanhas" && (
             <div className="space-y-6">
               <div className="border border-[#2A2E35] rounded-lg bg-[#101215] p-5 relative overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#FB7185]" />
-                <div className="font-mono text-[9px] text-[#FB7185] uppercase mb-1">VAZAMENTO DE NUTRIÇÃO</div>
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-destructive" />
+                <div className="font-mono text-[9px] text-destructive uppercase mb-1">VAZAMENTO DE NUTRIÇÃO</div>
                 <h2 className="text-lg font-bold">3 campanhas ativas sem sequência padrão associada</h2>
-                <p className="text-xs text-[#8A8F98] mt-1 max-w-xl">
+                <p className="text-xs text-muted-foreground mt-1 max-w-xl">
                   Lead capturado nessas campanhas não entra em nenhuma automação. São 924 leads nos últimos 30 dias que não receberam nutrição.
                 </p>
               </div>
 
-              <div className="border border-[#1B1E23] rounded-lg bg-[#0E1013] overflow-hidden">
-                <div className="p-4 border-b border-[#1B1E23]">
+              <div className="border border-border rounded-lg bg-card overflow-hidden">
+                <div className="p-4 border-b border-border">
                   <h3 className="text-sm font-semibold">Testes A/B de Copy no WhatsApp (Avaliador Qui-Quadrado)</h3>
                 </div>
                 <div className="p-4 space-y-4">
-                  <div className="border border-[#23262C] rounded p-4 bg-[#101215] space-y-3">
+                  <div className="border border-input rounded p-4 bg-[#101215] space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-xs">Teste 01 · Abertura X1 LinfaFlow</span>
                       <span className="font-mono text-[9.5px] bg-[#4ADE80]/10 text-[#4ADE80] px-2 py-0.5 rounded">
@@ -764,13 +764,13 @@ export default function RedesignPrototype() {
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                      <div className="p-3 border border-[#2A2E35] rounded bg-[#0A0B0D]">
-                        <div className="font-bold text-[#D6FF4B] mb-1">Variante B (Vencedora · 42.1% conv)</div>
-                        <p className="text-[#8A8F98] italic">"Oi, vi que você quer desinchar sem cortar comida. É isso mesmo?"</p>
+                      <div className="p-3 border border-[#2A2E35] rounded bg-background">
+                        <div className="font-bold text-primary mb-1">Variante B (Vencedora · 42.1% conv)</div>
+                        <p className="text-muted-foreground italic">"Oi, vi que você quer desinchar sem cortar comida. É isso mesmo?"</p>
                       </div>
-                      <div className="p-3 border border-[#1B1E23] rounded bg-[#0A0B0D] opacity-60">
-                        <div className="font-bold text-[#5F646D] mb-1">Variante A (Controle · 26.4% conv)</div>
-                        <p className="text-[#8A8F98] italic">"Olá, tudo bem? Você gostaria de conhecer o LinfaFlow?"</p>
+                      <div className="p-3 border border-border rounded bg-background opacity-60">
+                        <div className="font-bold text-subtle mb-1">Variante A (Controle · 26.4% conv)</div>
+                        <p className="text-muted-foreground italic">"Olá, tudo bem? Você gostaria de conhecer o LinfaFlow?"</p>
                       </div>
                     </div>
                   </div>
@@ -783,9 +783,9 @@ export default function RedesignPrototype() {
           {screen === "system" && (
             <div className="space-y-6 max-w-3xl">
               <div>
-                <div className="font-mono text-[9px] text-[#D6FF4B] uppercase mb-1">DIREÇÃO VISUAL</div>
+                <div className="font-mono text-[9px] text-primary uppercase mb-1">DIREÇÃO VISUAL</div>
                 <h2 className="text-2xl font-bold">Painel de instrumentos, não revista.</h2>
-                <p className="text-sm text-[#8A8F98] mt-2 leading-relaxed">
+                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                   Grafite frio (`#0A0B0D`), hairlines em vez de caixas pesadas (`#1B1E23`), números em monoespaçado (`IBM Plex Mono`) e um único acento funcional cítrico (`#D6FF4B`). O acento nunca decora: ele marca a coisa que exige decisão.
                 </p>
               </div>
@@ -797,11 +797,11 @@ export default function RedesignPrototype() {
                   { name: "Acento Decisão", hex: "#D6FF4B" },
                   { name: "Alerta Crítico", hex: "#FB7185" },
                 ].map((s, i) => (
-                  <div key={i} className="border border-[#1B1E23] rounded overflow-hidden">
+                  <div key={i} className="border border-border rounded overflow-hidden">
                     <div className="h-12" style={{ background: s.hex }} />
                     <div className="p-2.5 bg-[#0C0D10] text-xs">
                       <div className="font-medium">{s.name}</div>
-                      <div className="font-mono text-[10px] text-[#5F646D]">{s.hex}</div>
+                      <div className="font-mono text-[10px] text-subtle">{s.hex}</div>
                     </div>
                   </div>
                 ))}
@@ -813,25 +813,25 @@ export default function RedesignPrototype() {
           {screen === "mapa" && (
             <div className="space-y-4">
               <div>
-                <div className="font-mono text-[9px] text-[#D6FF4B] uppercase mb-1">INVENTÁRIO COMPLETO</div>
+                <div className="font-mono text-[9px] text-primary uppercase mb-1">INVENTÁRIO COMPLETO</div>
                 <h2 className="text-xl font-bold">74 Rotas do ImperioHQ Mapeadas por Onda</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 font-mono text-xs">
-                <div className="p-3 border border-[#1B1E23] bg-[#0E1013] rounded">
-                  <span className="text-[#D6FF4B] font-bold">REDESENHADO</span>
-                  <p className="text-[11px] text-[#8A8F98] mt-1">Cockpit, Leads, Recuperação, Fábrica e Testes A/B já possuem a casca nova.</p>
+                <div className="p-3 border border-border bg-card rounded">
+                  <span className="text-primary font-bold">REDESENHADO</span>
+                  <p className="text-[11px] text-muted-foreground mt-1">Cockpit, Leads, Recuperação, Fábrica e Testes A/B já possuem a casca nova.</p>
                 </div>
-                <div className="p-3 border border-[#1B1E23] bg-[#0E1013] rounded">
+                <div className="p-3 border border-border bg-card rounded">
                   <span className="text-[#60A5FA] font-bold">ESPELHO · ONDA 2</span>
-                  <p className="text-[11px] text-[#8A8F98] mt-1">Herda a casca das telas prontas sem decisão nova de arquitetura.</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Herda a casca das telas prontas sem decisão nova de arquitetura.</p>
                 </div>
-                <div className="p-3 border border-[#1B1E23] bg-[#0E1013] rounded">
-                  <span className="text-[#8A8F98] font-bold">ONDA 3 · PROFUNDA</span>
-                  <p className="text-[11px] text-[#8A8F98] mt-1">Uma por vez, com leitura prévia do código para não quebrar regras de negócio.</p>
+                <div className="p-3 border border-border bg-card rounded">
+                  <span className="text-muted-foreground font-bold">ONDA 3 · PROFUNDA</span>
+                  <p className="text-[11px] text-muted-foreground mt-1">Uma por vez, com leitura prévia do código para não quebrar regras de negócio.</p>
                 </div>
-                <div className="p-3 border border-[#1B1E23] bg-[#0E1013] rounded">
-                  <span className="text-[#FB7185] font-bold">NÃO MEXER</span>
-                  <p className="text-[11px] text-[#8A8F98] mt-1">Funis públicos ao vivo com faturamento e conversão em jogo.</p>
+                <div className="p-3 border border-border bg-card rounded">
+                  <span className="text-destructive font-bold">NÃO MEXER</span>
+                  <p className="text-[11px] text-muted-foreground mt-1">Funis públicos ao vivo com faturamento e conversão em jogo.</p>
                 </div>
               </div>
             </div>

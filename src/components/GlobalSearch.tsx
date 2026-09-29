@@ -87,12 +87,12 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 h-[30px] px-3 border border-[#1B1E23] rounded-full bg-[#101215] hover:border-[#2A2E35] text-[#5F646D] hover:text-[#8A8F98] transition-colors w-full max-w-[220px]"
+        className="flex items-center gap-2 h-[30px] px-3 border border-border rounded-full bg-[#101215] hover:border-[#2A2E35] text-subtle hover:text-muted-foreground transition-colors w-full max-w-[220px]"
       >
-        <Search className="h-3.5 w-3.5 text-[#5F646D]" />
+        <Search className="h-3.5 w-3.5 text-subtle" />
         <span className="font-mono text-[11px]">buscar</span>
         <span className="flex-1" />
-        <kbd className="hidden sm:inline-flex items-center border border-[#23262C] rounded px-1.5 py-0.5 text-[9px] font-mono text-[#5F646D]">
+        <kbd className="hidden sm:inline-flex items-center border border-input rounded px-1.5 py-0.5 text-[9px] font-mono text-subtle">
           ⌘K
         </kbd>
       </button>

@@ -452,8 +452,8 @@ export default function WhatsApp() {
         <button onClick={() => setActiveTab("conversao")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "conversao" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
           📊 Conversão
         </button>
-        <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-[#D6FF4B] text-[#D6FF4B]" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <Radio className="h-3 w-3 inline mr-1 text-[#D6FF4B]" />📡 Hub Local (Baileys)
+        <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <Radio className="h-3 w-3 inline mr-1 text-primary" />📡 Hub Local (Baileys)
         </button>
       </div>
 

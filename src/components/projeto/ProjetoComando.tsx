@@ -240,7 +240,7 @@ export function ProjetoComando({ projectId, project }: Props) {
       <PlanProgressBanner projectId={projectId} />
 
       {/* ===== Raio-X & Buracos Quick Callout ===== */}
-      <div className="bg-gradient-to-r from-primary/10 via-black to-[#0E1013] border border-primary/25 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-primary/10 via-black to-card border border-primary/25 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />

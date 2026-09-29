@@ -116,8 +116,8 @@ curl -X POST "${supabaseUrl}/functions/v1/project-mcp" \\
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl bg-[#0E1013] border-[#1B1E23] text-foreground p-0 overflow-hidden shadow-2xl">
-        <DialogHeader className="p-6 pb-4 border-b border-[#1B1E23] bg-gradient-to-r from-primary/10 via-transparent to-transparent">
+      <DialogContent className="max-w-3xl bg-card border-border text-foreground p-0 overflow-hidden shadow-2xl">
+        <DialogHeader className="p-6 pb-4 border-b border-border bg-gradient-to-r from-primary/10 via-transparent to-transparent">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary">
               <Bot className="h-5 w-5" />
@@ -137,7 +137,7 @@ curl -X POST "${supabaseUrl}/functions/v1/project-mcp" \\
         </DialogHeader>
 
         <Tabs defaultValue="mcp" className="w-full">
-          <div className="px-6 pt-3 border-b border-[#1B1E23] bg-[#0A0B0D]">
+          <div className="px-6 pt-3 border-b border-border bg-background">
             <TabsList className="bg-secondary/40 border border-border/50 h-9 p-0.5">
               <TabsTrigger value="mcp" className="text-xs gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-black">
                 <Zap className="h-3.5 w-3.5" /> MCP (Claude & Cursor)

@@ -297,9 +297,9 @@ export function FlowBrainDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl bg-[#0A0B0D] border-l border-[#1B1E23] p-0 flex flex-col">
+      <SheetContent side="right" className="w-full sm:max-w-xl bg-background border-l border-border p-0 flex flex-col">
         {/* Header */}
-        <SheetHeader className="p-6 border-b border-[#1B1E23] bg-[#0E1013]">
+        <SheetHeader className="p-6 border-b border-border bg-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-lime-400/10 text-lime-400 border border-lime-400/20">
@@ -320,7 +320,7 @@ export function FlowBrainDrawer({
           </div>
 
           {/* Quick Actions Bar */}
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-[#1B1E23]">
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
             <Button
               size="sm"
               onClick={handleAutoClassifyAll}
@@ -334,7 +334,7 @@ export function FlowBrainDrawer({
               size="sm"
               variant="outline"
               onClick={handleCopyPlaybook}
-              className="text-xs h-8 border-[#1B1E23] hover:bg-white/5"
+              className="text-xs h-8 border-border hover:bg-white/5"
             >
               {copiedPlaybook ? <Check className="h-3.5 w-3.5 mr-1 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
               {copiedPlaybook ? "Copiado!" : "Copiar Playbook"}
@@ -396,7 +396,7 @@ export function FlowBrainDrawer({
                 return (
                   <div
                     key={node.id}
-                    className="p-3 rounded-xl border border-[#1B1E23] bg-[#0E1013] hover:border-[#2A2E35] transition-all"
+                    className="p-3 rounded-xl border border-border bg-card hover:border-[#2A2E35] transition-all"
                   >
                     {/* Top Row: Title + Role */}
                     <div className="flex items-center justify-between gap-2">
