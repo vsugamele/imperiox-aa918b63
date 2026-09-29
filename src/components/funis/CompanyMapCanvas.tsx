@@ -25,8 +25,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, type LucideIcon } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FlowBrainDrawer } from "@/components/funis/FlowBrainDrawer";
 import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
 import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
@@ -185,6 +186,11 @@ interface MapNode {
   show_live_kpis?: boolean;
   linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
   linked_wa_provider_id?: string | null;
+  stage_role?: string | null;
+  executor_type?: string | null;
+  linked_skill_id?: string | null;
+  api_binding?: any;
+  metrics_target?: any;
 }
 
 // Helpers for image nodes
@@ -401,6 +407,41 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
         );
       })()}
 
+      {/* Flow Brain Semantic Badges */}
+      {(data.stage_role || data.linked_skill_id || (data.executor_type && data.executor_type !== "HUMAN_OPERATOR")) && (
+        <div className="mt-2 pt-1.5 border-t border-border/30 flex flex-wrap items-center gap-1 text-[9px] font-mono">
+          {data.stage_role && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-lime-400/10 text-lime-400 border border-lime-400/25 font-semibold truncate max-w-[130px]"
+              title={`Papel Semântico: ${data.stage_role}`}
+            >
+              <Target className="h-2.5 w-2.5 shrink-0 text-lime-400" />
+              {data.stage_role}
+            </span>
+          )}
+          {data.linked_skill_id && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/25 font-semibold truncate max-w-[140px]"
+              title={`Skill Vinculada: ${data.linked_skill_id}`}
+            >
+              <Sparkles className="h-2.5 w-2.5 shrink-0 text-purple-400" />
+              {data.linked_skill_id}
+            </span>
+          )}
+          {data.executor_type && data.executor_type !== "HUMAN_OPERATOR" && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/25 font-semibold"
+              title={`Executor: ${data.executor_type}`}
+            >
+              <Bot className="h-2.5 w-2.5 shrink-0 text-blue-400" />
+              {data.executor_type === "API_AUTONOMOUS" ? "API Autônoma" :
+               data.executor_type === "AI_SKILL" ? "IA Skill" :
+               data.executor_type === "EXTERNAL_TOOL" ? "Tool Externa" : data.executor_type}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* WhatsApp channel enrichment */}
       {waInfo && (
         <div className="mt-2 pt-2 border-t border-border/40 space-y-0.5">
@@ -570,6 +611,7 @@ function InnerMap({
 
   // Gerador de Fluxo por IA
   const [aiFlowModalOpen, setAiFlowModalOpen] = useState(false);
+  const [showFlowBrain, setShowFlowBrain] = useState(false);
   const [aiFlowPreset, setAiFlowPreset] = useState<string>("vsl_perpetuo");
   const [aiFlowCustomText, setAiFlowCustomText] = useState("");
   const [aiFlowProduct, setAiFlowProduct] = useState("");
@@ -1502,6 +1544,11 @@ function InnerMap({
       linked_project_id: node.linked_project_id || null,
       linked_flow_id: node.linked_flow_id || null,
       linked_wa_provider_id: node.linked_wa_provider_id || null,
+      stage_role: node.stage_role || null,
+      executor_type: node.executor_type || "HUMAN_OPERATOR",
+      linked_skill_id: node.linked_skill_id || null,
+      api_binding: toJson(node.api_binding || {}),
+      metrics_target: toJson(node.metrics_target || {}),
     }).eq("id", node.id);
     if (error) {
       if (!opts?.silent) toast.error("Erro ao salvar");
@@ -2137,6 +2184,14 @@ function InnerMap({
           className="h-7 px-2.5 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold gap-1.5 shadow-sm transition-all"
         >
           <Sparkles className="h-3.5 w-3.5" /> Desenhar com IA
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => setShowFlowBrain(true)}
+          className="h-7 px-2.5 text-xs bg-lime-400 hover:bg-lime-500 text-black font-semibold gap-1.5 shadow-sm transition-all border border-lime-400/30"
+          title="Auditar integridade, atribuir executores e skills ao fluxo"
+        >
+          <Brain className="h-3.5 w-3.5" /> Flow Brain (Auditar com IA)
         </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
           <LayoutGrid className="h-3 w-3" /> Organizar
@@ -3117,6 +3172,59 @@ function InnerMap({
                       </div>
                     </div>
 
+                    {/* Flow Brain Semantics */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-purple-500/20">
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Papel no Funil (Stage)</Label>
+                        <Select
+                          value={selected.stage_role || "geral"}
+                          onValueChange={(v) => setSelected({ ...selected, stage_role: v === "geral" ? null : v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                            <SelectItem value="trafego_anuncio" className="text-xs">🎯 Anúncio / Tráfego</SelectItem>
+                            <SelectItem value="captura_vsl" className="text-xs">📄 Captura / VSL / LP</SelectItem>
+                            <SelectItem value="obrigado_grupo" className="text-xs">🤝 Obrigado / Grupo VIP</SelectItem>
+                            <SelectItem value="whatsapp_x1" className="text-xs">💬 WhatsApp X1 / Mesa</SelectItem>
+                            <SelectItem value="checkout" className="text-xs">💳 Checkout / Recuperação Pix</SelectItem>
+                            <SelectItem value="upsell_orderbump" className="text-xs">📦 Upsell / Orderbump</SelectItem>
+                            <SelectItem value="retencao_membros" className="text-xs">🎓 Membros & Retenção</SelectItem>
+                            <SelectItem value="geral" className="text-xs">Etapa Geral</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Tipo de Executor</Label>
+                        <Select
+                          value={selected.executor_type || "HUMAN_OPERATOR"}
+                          onValueChange={(v) => setSelected({ ...selected, executor_type: v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-secondary mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
+                            <SelectItem value="HUMAN_OPERATOR" className="text-xs">👤 Operador Humano</SelectItem>
+                            <SelectItem value="AI_SKILL" className="text-xs">🧠 IA Skill (152 skills)</SelectItem>
+                            <SelectItem value="API_AUTONOMOUS" className="text-xs">🤖 API Autônoma</SelectItem>
+                            <SelectItem value="EXTERNAL_TOOL" className="text-xs">🌐 Ferramenta Externa</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground">Skill Vinculada (Flow Brain)</Label>
+                      <Input
+                        value={selected.linked_skill_id || ""}
+                        onChange={(e) => setSelected({ ...selected, linked_skill_id: e.target.value || null })}
+                        placeholder="Ex: angulos-criativos, rebel-copy, devastador-v4..."
+                        className="h-8 text-xs bg-secondary mt-1 font-mono"
+                      />
+                    </div>
+
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <Label className="text-[11px] text-muted-foreground">Prompt / Playbook do Nó</Label>
@@ -3492,6 +3600,28 @@ function InnerMap({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Flow Brain Drawer */}
+      <FlowBrainDrawer
+        open={showFlowBrain}
+        onOpenChange={setShowFlowBrain}
+        nodes={rawNodes}
+        edges={edges.map(e => ({
+          id: e.id,
+          source_id: e.source.startsWith(ANN_PREFIX) ? e.source.slice(ANN_PREFIX.length) : e.source,
+          target_id: e.target.startsWith(ANN_PREFIX) ? e.target.slice(ANN_PREFIX.length) : e.target,
+          label: typeof e.label === "string" ? e.label : null,
+        }))}
+        mapName={maps.find(m => m.id === mapId)?.name || "Mapa Principal"}
+        mapId={mapId || ""}
+        onRefresh={() => {
+          if (mapId) loadMap(mapId);
+        }}
+        onExecuteSkill={(skillId) => {
+          navigate("/skills");
+          toast.info(`Navegando para o arsenal de skills (${skillId})`);
+        }}
+      />
 
     </div>
   );
