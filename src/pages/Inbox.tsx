@@ -130,7 +130,8 @@ function FilaUnificadaTab() {
       } else if (c.last_message_at && c.last_message_at < thirtyMinAgo) {
         priority = "warning";
       } else {
-        priority = "warning";
+        // Fresh conversation (within 30min), not yet urgent — still in queue as opportunity
+        priority = "opportunity";
       }
       queue.push({
         key: `conv-${c.id}`,
@@ -188,7 +189,7 @@ function FilaUnificadaTab() {
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
         <CheckCircle2 className="h-12 w-12 text-emerald-400/60" />
         <p className="font-display text-lg text-foreground/70">
-          Fila limpa \u2014 tudo respondido
+          Fila limpa — tudo respondido
         </p>
       </div>
     );
@@ -201,11 +202,11 @@ function FilaUnificadaTab() {
         {urgentCount > 0 && (
           <span className="text-red-400 font-semibold">{urgentCount} urgentes</span>
         )}
-        {urgentCount > 0 && waitingCount > 0 && <span>\u00b7</span>}
+        {urgentCount > 0 && waitingCount > 0 && <span>·</span>}
         {waitingCount > 0 && (
           <span className="text-orange-400 font-semibold">{waitingCount} aguardando</span>
         )}
-        {(urgentCount > 0 || waitingCount > 0) && oppCount > 0 && <span>\u00b7</span>}
+        {(urgentCount > 0 || waitingCount > 0) && oppCount > 0 && <span>·</span>}
         {oppCount > 0 && (
           <span className="text-[#D6FF4B] font-semibold">{oppCount} oportunidades</span>
         )}
@@ -255,7 +256,7 @@ function FilaUnificadaTab() {
               className="shrink-0 text-xs h-7 border-[#1B1E23] hover:border-[#D6FF4B]/40 hover:text-[#D6FF4B]"
               onClick={() => (window.location.href = item.href)}
             >
-              Atender \u2192
+              Atender →
             </Button>
           </div>
         );
