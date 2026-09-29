@@ -123,6 +123,21 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ── 3. Log each provider check result to imphq_automacao_logs ──
+      const isHealthy = instanceResult.ok === true;
+      const failureReason = failures.find((f) => f.instance === p.instance_name)?.reason || null;
+      try {
+        await supabase.from("imphq_automacao_logs").insert({
+          flow_id: "wa-health-monitor",
+          project_id: p.project_id,
+          status: isHealthy ? "success" : "error",
+          input_data: { instance: p.instance_name },
+          output_data: { status: instanceResult.status, reason: failureReason },
+        });
+      } catch (eLog) {
+        console.warn(`[wa-health-monitor] Erro ao gravar log para ${p.instance_name}:`, eLog);
+      }
+
       results.push(instanceResult);
     }
 
@@ -174,20 +189,86 @@ Deno.serve(async (req) => {
             );
           }
 
-          // Alerta crítico instantâneo via WhatsApp no grupo Imperio X
-          try {
-            const healthyProv = providers.find((p) => !failures.some((f) => f.instance === p.instance_name));
-            if (healthyProv) {
-              const failLines = toAlert.map((f) => `⚠️ *${f.instance}*: ${f.reason}`).join("\n");
-              const alertMsg = `🚨 *ALERTA OPERACIONAL — IMPÉRIO HQ*\n\nInstância(s) de WhatsApp com instabilidade detectada:\n${failLines}\n\nAcesse o painel para reconectar via QR Code se necessário.`;
-              await fetch(`${healthyProv.api_url.replace(/\/$/, "")}/message/sendText/${healthyProv.instance_name}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", apikey: healthyProv.api_key },
-                body: JSON.stringify({ number: "120363409438175766@g.us", text: alertMsg }),
-              });
+          // ── 1. Alerta crítico individual por chip via WhatsApp no grupo Imperio X ──
+          const IMPERIO_GROUP = "120363409438175766@g.us";
+          const FIXED_EVOLUTION_URL = "https://darkadvanced-evolution-api.llxtug.easypanel.host";
+          const FIXED_EVOLUTION_INSTANCE = "jpfreitas";
+          const FIXED_EVOLUTION_KEY = "B500C35BE341-4CCB-B108-34384641D7D7";
+
+          for (const f of toAlert) {
+            try {
+              const brtTime = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+              let projectSlug = f.project_id || "—";
+              if (f.project_id) {
+                try {
+                  const { data: proj } = await supabase
+                    .from("imphq_projects")
+                    .select("slug")
+                    .eq("id", f.project_id)
+                    .maybeSingle();
+                  if (proj?.slug) projectSlug = proj.slug;
+                } catch (_) { /* use project_id as fallback */ }
+              }
+
+              const alertMsg =
+                `🚨 *ALERTA CRÍTICO — Imperio HQ*\n\n` +
+                `Chip WhatsApp *${f.instance}* está DESCONECTADO.\n\n` +
+                `Projeto: ${projectSlug}\n` +
+                `Motivo: ${f.reason}\n` +
+                `Horário: ${brtTime}\n\n` +
+                `_Reconexão automática tentada. Acesse o painel para verificar._`;
+
+              const waRes = await fetch(
+                `${FIXED_EVOLUTION_URL}/message/sendText/${FIXED_EVOLUTION_INSTANCE}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", apikey: FIXED_EVOLUTION_KEY },
+                  body: JSON.stringify({ number: IMPERIO_GROUP, text: alertMsg }),
+                }
+              );
+              console.log(`[wa-health-monitor] WA group alert for ${f.instance}: ${waRes.status}`);
+            } catch (eWa) {
+              console.warn(`[wa-health-monitor] Falha ao enviar alerta WA para ${f.instance}:`, eWa);
             }
-          } catch (eWa) {
-            console.warn("[wa-health-monitor] Falha ao enviar alerta para grupo WhatsApp:", eWa);
+
+            // ── 2. Kanban card se 3+ falhas consecutivas nos últimos 35min ──
+            try {
+              const windowStart = new Date(Date.now() - 35 * 60_000).toISOString();
+              const { count: failCount } = await supabase
+                .from("imphq_automacao_logs")
+                .select("id", { count: "exact", head: true })
+                .eq("flow_id", "wa-health-monitor")
+                .like("input_data->>instance", `%${f.instance}%`)
+                .eq("status", "error")
+                .gte("created_at", windowStart);
+
+              if ((failCount ?? 0) >= 3) {
+                const cardTitle = `🚨 Chip WA desconectado: ${f.instance}`;
+                const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000).toISOString();
+                const { data: existingCard } = await supabase
+                  .from("imphq_kanban_cards")
+                  .select("id")
+                  .eq("title", cardTitle)
+                  .gte("created_at", twoHoursAgo)
+                  .limit(1)
+                  .maybeSingle();
+
+                if (!existingCard) {
+                  await supabase.from("imphq_kanban_cards").insert({
+                    title: cardTitle,
+                    description: "Chip desconectado por 30+ minutos. Verificar e reconectar manualmente.",
+                    priority: "urgent",
+                    project_id: f.project_id,
+                    created_by: "system",
+                  });
+                  console.log(`[wa-health-monitor] Kanban card criado para ${f.instance}`);
+                } else {
+                  console.log(`[wa-health-monitor] Kanban card já existe para ${f.instance} (últimas 2h), pulando`);
+                }
+              }
+            } catch (eKanban) {
+              console.warn(`[wa-health-monitor] Erro ao criar Kanban card para ${f.instance}:`, eKanban);
+            }
           }
         }
       }

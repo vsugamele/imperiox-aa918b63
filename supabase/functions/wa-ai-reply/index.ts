@@ -30,6 +30,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ── Retry helper for transient failures (e.g. OpenRouter) ──
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 1000): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, delayMs * attempt));
+      }
+    }
+  }
+  throw lastError;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -1824,11 +1840,11 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       }
       console.log(`[wa-ai-reply] Chamando OpenRouter model=${model} msgs=${msgs.length} lastRole=${msgs[msgs.length - 1]?.role}`);
 
-      // 9. Chama OpenRouter
+      // 9. Chama OpenRouter (com retry automático — 3 tentativas)
       const startTime = Date.now();
       let orRes: Response;
       try {
-        orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        orRes = await withRetry(() => fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${OPENROUTER_API_KEY}`,
@@ -1842,11 +1858,11 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             max_tokens: aiConfig.max_tokens || 350,
             temperature: Number(aiConfig.ai_temperature ?? 0.7),
           }),
-        });
+        }), 3, 1000);
       } catch (fetchErr) {
-        console.error(`[wa-ai-reply] OpenRouter fetch error: ${errorMessage(fetchErr)}`);
+        console.error(`[wa-ai-reply] OpenRouter fetch error após 3 tentativas: ${errorMessage(fetchErr)}`);
 
-        // Log failure to database
+        // Log failure to imphq_wa_ai_logs
         const latencySeconds = (Date.now() - startTime) / 1000;
         await Promise.resolve(supabase.from("imphq_wa_ai_logs").insert({
           project_id,
@@ -1855,8 +1871,35 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
           model,
           latency_seconds: latencySeconds,
           success: false,
-          error_message: `Fetch error: ${errorMessage(fetchErr)}`
+          error_message: `Fetch error (3 retries): ${errorMessage(fetchErr)}`
         })).catch((err) => console.error("[wa-ai-reply] DB log error:", errorMessage(err)));
+
+        // Log to imphq_automacao_logs
+        await supabase.from("imphq_automacao_logs").insert({
+          flow_id: "wa-ai-reply",
+          project_id,
+          status: "error",
+          input_data: { conversation_id, phone, model },
+          output_data: { error: `OpenRouter unreachable after 3 retries: ${errorMessage(fetchErr)}` },
+        }).catch((err) => console.error("[wa-ai-reply] automacao_logs error:", errorMessage(err)));
+
+        // Escalate conversation to human
+        await supabase.from("imphq_wa_conversations")
+          .update({ status: "escalated", needs_human: true })
+          .eq("id", conversation_id)
+          .catch((err) => console.error("[wa-ai-reply] escalate conversation error:", errorMessage(err)));
+
+        // Send fallback message to lead via Evolution API
+        try {
+          const provBase = (provider.api_url || "").replace(/\/+$/, "");
+          await fetch(`${provBase}/message/sendText/${provider.instance_name}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: provider.api_key },
+            body: JSON.stringify({ number: phone, text: "Olá! Vou te conectar com um especialista em instantes. 😊" }),
+          });
+        } catch (eWa) {
+          console.warn("[wa-ai-reply] Falha ao enviar mensagem de fallback ao lead:", errorMessage(eWa));
+        }
 
         await clearLock();
         return new Response(JSON.stringify({ error: `OpenRouter unreachable: ${errorMessage(fetchErr)}` }), {
