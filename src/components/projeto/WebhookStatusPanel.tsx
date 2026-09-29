@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-type Venda = Tables<"imphq_vendas">;
+type Venda = Pick<Tables<"imphq_vendas">, "id" | "nome" | "valor" | "status" | "created_at" | "plataforma">;
 
 const SUPABASE_PROJECT = "tkbivipqiewkfnhktmqq";
 const BASE_URL = `https://${SUPABASE_PROJECT}.supabase.co/functions/v1/webhook-pagamento`;
@@ -61,7 +61,7 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
   const [loadingVendas, setLoadingVendas] = useState(true);
   const [testing, setTesting] = useState(false);
 
-  const slug = project.slug ?? project.id;
+  const slug = (project as { slug?: string | null }).slug ?? project.id;
 
   const webhookUrls = PLATFORMS.map((p) => ({
     ...p,

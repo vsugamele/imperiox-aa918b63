@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2, Sparkles, LayoutGrid, Map } from "lucide-react";
+import { Plus, Search, BookTemplate, Loader2, FolderOpen, Trash2, Sparkles, LayoutGrid, Map as MapIcon } from "lucide-react";
 import { AutopilotModal } from "@/components/projeto/AutopilotModal";
 import { MapaOperacionalGeral } from "@/components/projeto/MapaOperacionalGeral";
 import { useNavigate } from "react-router-dom";
@@ -305,7 +305,7 @@ export default function Projetos() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Map className="h-3.5 w-3.5" />
+              <MapIcon className="h-3.5 w-3.5" />
               <span>Mapa Geral</span>
             </button>
             <button

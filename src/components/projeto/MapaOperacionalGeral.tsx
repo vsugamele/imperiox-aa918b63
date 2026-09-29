@@ -134,7 +134,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       // 6. IA config
       const { data: aiConfigData } = await supabase
         .from("imphq_wa_ai_config")
-        .select("project_id, enabled, full_autonomy");
+        .select("project_id, enabled, draft_mode");
 
       // 7. Kanban cards / Demandas
       const { data: kanbanData } = await supabase
@@ -151,9 +151,9 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       const kList = kanbanData || [];
 
       // Mapeia para cada projeto
-      const mapped: ProjectCardData[] = projects.map((proj) => {
+      const mapped = projects.map((proj): ProjectCardData => {
         const pId = proj.id;
-        const pData = jsonFields(proj.data);
+        const pData = jsonFields(proj.data) as Record<string, any>;
 
         // Vendas 24h
         const pVendas24h = vList.filter((v: any) => v.project_id === pId && v.created_at >= last24h);
@@ -247,7 +247,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
           pendingConvsCount: recentPendingConvs.length,
           inboundMsgs24hCount: pInbound.length,
           waProvider: prov,
-          aiConfig: ai,
+          aiConfig: ai ? { enabled: !!ai.enabled, full_autonomy: !ai.draft_mode } : null,
           tasks: pTasks,
           vslUrl,
           checkoutUrl,
@@ -872,6 +872,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
             </Card>
           );
         })}
+      </div>
       {/* Dialog de Confirmação de Exclusão de Projeto */}
       <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
         <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23] text-foreground">

@@ -188,6 +188,7 @@ export type Database = {
         Row: {
           cliente_id: string | null
           cliente_nome: string | null
+          comprovante_pix_url: string | null
           confirmacao_enviada_em: string | null
           confirmado_em: string | null
           created_at: string
@@ -195,19 +196,27 @@ export type Database = {
           horario: string
           id: string
           observacoes: string | null
+          origem_trafego: string | null
           profissional_id: string | null
           profissional_nome: string | null
           servico_id: string | null
           servico_nome: string | null
+          sinal_obrigatorio: boolean
+          sinal_pago: boolean
           status: string
           token_confirmacao: string | null
           updated_at: string
           user_id: string
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
           valor: number | null
+          valor_sinal: number
         }
         Insert: {
           cliente_id?: string | null
           cliente_nome?: string | null
+          comprovante_pix_url?: string | null
           confirmacao_enviada_em?: string | null
           confirmado_em?: string | null
           created_at?: string
@@ -215,19 +224,27 @@ export type Database = {
           horario: string
           id?: string
           observacoes?: string | null
+          origem_trafego?: string | null
           profissional_id?: string | null
           profissional_nome?: string | null
           servico_id?: string | null
           servico_nome?: string | null
+          sinal_obrigatorio?: boolean
+          sinal_pago?: boolean
           status?: string
           token_confirmacao?: string | null
           updated_at?: string
           user_id: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           valor?: number | null
+          valor_sinal?: number
         }
         Update: {
           cliente_id?: string | null
           cliente_nome?: string | null
+          comprovante_pix_url?: string | null
           confirmacao_enviada_em?: string | null
           confirmado_em?: string | null
           created_at?: string
@@ -235,15 +252,22 @@ export type Database = {
           horario?: string
           id?: string
           observacoes?: string | null
+          origem_trafego?: string | null
           profissional_id?: string | null
           profissional_nome?: string | null
           servico_id?: string | null
           servico_nome?: string | null
+          sinal_obrigatorio?: boolean
+          sinal_pago?: boolean
           status?: string
           token_confirmacao?: string | null
           updated_at?: string
           user_id?: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           valor?: number | null
+          valor_sinal?: number
         }
         Relationships: [
           {
@@ -292,6 +316,100 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      appbrabas_ai_transactions: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          quantidade: number
+          salao_id: string
+          saldo_apos: number
+          servico: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          quantidade: number
+          salao_id: string
+          saldo_apos: number
+          servico: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          quantidade?: number
+          salao_id?: string
+          saldo_apos?: number
+          servico?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_ai_transactions_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_alunos_hair_education: {
+        Row: {
+          comprado_em: string | null
+          created_at: string | null
+          email: string
+          expira_em: string | null
+          id: string
+          nome: string | null
+          resgatado: boolean | null
+          resgatado_em: string | null
+          resgatado_por_salao_id: string | null
+          telefone: string | null
+          ticto_order_id: string | null
+          ticto_transaction_id: string | null
+        }
+        Insert: {
+          comprado_em?: string | null
+          created_at?: string | null
+          email: string
+          expira_em?: string | null
+          id?: string
+          nome?: string | null
+          resgatado?: boolean | null
+          resgatado_em?: string | null
+          resgatado_por_salao_id?: string | null
+          telefone?: string | null
+          ticto_order_id?: string | null
+          ticto_transaction_id?: string | null
+        }
+        Update: {
+          comprado_em?: string | null
+          created_at?: string | null
+          email?: string
+          expira_em?: string | null
+          id?: string
+          nome?: string | null
+          resgatado?: boolean | null
+          resgatado_em?: string | null
+          resgatado_por_salao_id?: string | null
+          telefone?: string | null
+          ticto_order_id?: string | null
+          ticto_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_alunos_hair_education_resgatado_por_salao_id_fkey"
+            columns: ["resgatado_por_salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appbrabas_anamnese_campos: {
         Row: {
@@ -507,6 +625,65 @@ export type Database = {
           },
           {
             foreignKeyName: "appbrabas_atendimentos_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_bloqueios_agenda: {
+        Row: {
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string
+          dias_semana: number[] | null
+          horario_fim: string | null
+          horario_inicio: string | null
+          id: string
+          motivo: string | null
+          profissional_id: string | null
+          recorrente_semanal: boolean | null
+          tipo: string
+          titulo: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio: string
+          dias_semana?: number[] | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
+          id?: string
+          motivo?: string | null
+          profissional_id?: string | null
+          recorrente_semanal?: boolean | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string
+          dias_semana?: number[] | null
+          horario_fim?: string | null
+          horario_inicio?: string | null
+          id?: string
+          motivo?: string | null
+          profissional_id?: string | null
+          recorrente_semanal?: boolean | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_bloqueios_agenda_profissional_id_fkey"
             columns: ["profissional_id"]
             isOneToOne: false
             referencedRelation: "appbrabas_profissionais"
@@ -981,6 +1158,8 @@ export type Database = {
           nome_avulso: string | null
           observacao: string | null
           ordem: number
+          pausar_ia: boolean | null
+          solicitou_humano: boolean | null
           telefone_avulso: string | null
           ultima_interacao_em: string
           updated_at: string
@@ -994,6 +1173,8 @@ export type Database = {
           nome_avulso?: string | null
           observacao?: string | null
           ordem?: number
+          pausar_ia?: boolean | null
+          solicitou_humano?: boolean | null
           telefone_avulso?: string | null
           ultima_interacao_em?: string
           updated_at?: string
@@ -1007,6 +1188,8 @@ export type Database = {
           nome_avulso?: string | null
           observacao?: string | null
           ordem?: number
+          pausar_ia?: boolean | null
+          solicitou_humano?: boolean | null
           telefone_avulso?: string | null
           ultima_interacao_em?: string
           updated_at?: string
@@ -1035,6 +1218,8 @@ export type Database = {
           created_at: string
           id: string
           nome: string
+          permissoes: Json | null
+          profissional_id: string | null
           role: string
           salao_id: string
           user_id: string
@@ -1044,6 +1229,8 @@ export type Database = {
           created_at?: string
           id?: string
           nome: string
+          permissoes?: Json | null
+          profissional_id?: string | null
           role?: string
           salao_id: string
           user_id: string
@@ -1053,11 +1240,20 @@ export type Database = {
           created_at?: string
           id?: string
           nome?: string
+          permissoes?: Json | null
+          profissional_id?: string | null
           role?: string
           salao_id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appbrabas_equipe_membros_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appbrabas_equipe_membros_salao_id_fkey"
             columns: ["salao_id"]
@@ -1405,6 +1601,100 @@ export type Database = {
           },
         ]
       }
+      appbrabas_links_rastreados: {
+        Row: {
+          canal: string
+          cliques: number | null
+          created_at: string | null
+          destino: string
+          id: string
+          nome_campanha: string
+          salao_id: string | null
+          servico_nome: string | null
+          url_final: string
+          user_id: string | null
+          utm_campaign: string
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string
+        }
+        Insert: {
+          canal: string
+          cliques?: number | null
+          created_at?: string | null
+          destino?: string
+          id?: string
+          nome_campanha: string
+          salao_id?: string | null
+          servico_nome?: string | null
+          url_final: string
+          user_id?: string | null
+          utm_campaign: string
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source: string
+        }
+        Update: {
+          canal?: string
+          cliques?: number | null
+          created_at?: string | null
+          destino?: string
+          id?: string
+          nome_campanha?: string
+          salao_id?: string | null
+          servico_nome?: string | null
+          url_final?: string
+          user_id?: string | null
+          utm_campaign?: string
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_links_rastreados_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_links_rastreados_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_links_rastreados_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_links_rastreados_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_nutrition_profile"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appbrabas_links_rastreados_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_links_rastreados_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users_pix_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_notas_fiscais: {
         Row: {
           cliente_nome: string | null
@@ -1589,6 +1879,27 @@ export type Database = {
           },
         ]
       }
+      appbrabas_platform_settings: {
+        Row: {
+          description: string | null
+          id: string
+          updated_at: string | null
+          value: string | null
+        }
+        Insert: {
+          description?: string | null
+          id: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       appbrabas_produtos: {
         Row: {
           ativo: boolean | null
@@ -1601,6 +1912,7 @@ export type Database = {
           marca: string | null
           nome: string
           preco_custo: number
+          preco_profissional: number | null
           preco_venda: number
           tipo: string
           unidade: string | null
@@ -1618,6 +1930,7 @@ export type Database = {
           marca?: string | null
           nome: string
           preco_custo?: number
+          preco_profissional?: number | null
           preco_venda?: number
           tipo?: string
           unidade?: string | null
@@ -1635,6 +1948,7 @@ export type Database = {
           marca?: string | null
           nome?: string
           preco_custo?: number
+          preco_profissional?: number | null
           preco_venda?: number
           tipo?: string
           unidade?: string | null
@@ -1736,6 +2050,59 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_recarga_tickets: {
+        Row: {
+          admin_notes: string | null
+          aprovado_em: string | null
+          aprovado_por: string | null
+          comprovante_info: string | null
+          created_at: string | null
+          id: string
+          quantidade_creditos: number
+          salao_id: string | null
+          status: string
+          updated_at: string | null
+          user_id: string | null
+          valor_reais: number
+        }
+        Insert: {
+          admin_notes?: string | null
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          comprovante_info?: string | null
+          created_at?: string | null
+          id?: string
+          quantidade_creditos: number
+          salao_id?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+          valor_reais: number
+        }
+        Update: {
+          admin_notes?: string | null
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          comprovante_info?: string | null
+          created_at?: string | null
+          id?: string
+          quantidade_creditos?: number
+          salao_id?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string | null
+          valor_reais?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_recarga_tickets_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_referencias_fotos: {
         Row: {
           categoria: string | null
@@ -1769,51 +2136,143 @@ export type Database = {
         }
         Relationships: []
       }
-      appbrabas_saloes: {
+      appbrabas_salao_ai_wallets: {
         Row: {
           created_at: string
-          email_owner: string | null
-          endereco: string | null
           id: string
-          logo_url: string | null
-          nome: string
-          observacoes_admin: string | null
-          owner_id: string
-          status: string
-          telefone: string | null
-          ticto_subscription_id: string | null
-          trial_expires_at: string | null
+          limite_alerta_baixo: number
+          salao_id: string
+          saldo_creditos: number
+          total_comprado: number
+          total_consumido: number
           updated_at: string
         }
         Insert: {
           created_at?: string
-          email_owner?: string | null
-          endereco?: string | null
           id?: string
-          logo_url?: string | null
-          nome: string
-          observacoes_admin?: string | null
-          owner_id: string
-          status?: string
-          telefone?: string | null
-          ticto_subscription_id?: string | null
-          trial_expires_at?: string | null
+          limite_alerta_baixo?: number
+          salao_id: string
+          saldo_creditos?: number
+          total_comprado?: number
+          total_consumido?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
+          id?: string
+          limite_alerta_baixo?: number
+          salao_id?: string
+          saldo_creditos?: number
+          total_comprado?: number
+          total_consumido?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_salao_ai_wallets_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: true
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appbrabas_saloes: {
+        Row: {
+          banner_url: string | null
+          bio: string | null
+          chave_pix: string | null
+          created_at: string
+          email_owner: string | null
+          endereco: string | null
+          exigir_sinal: boolean
+          google_tag_id: string | null
+          id: string
+          instagram: string | null
+          instrucoes_pix: string | null
+          logo_url: string | null
+          meta_pixel_id: string | null
+          nome: string
+          observacoes_admin: string | null
+          origem_aquisicao: string | null
+          owner_id: string
+          plano: string | null
+          slug: string | null
+          status: string
+          subscription_expires_at: string | null
+          telefone: string | null
+          ticto_subscription_id: string | null
+          tiktok_pixel_id: string | null
+          tipo_chave_pix: string | null
+          tipo_sinal: string
+          titular_pix: string | null
+          trial_expires_at: string | null
+          updated_at: string
+          valor_sinal: number
+        }
+        Insert: {
+          banner_url?: string | null
+          bio?: string | null
+          chave_pix?: string | null
+          created_at?: string
           email_owner?: string | null
           endereco?: string | null
+          exigir_sinal?: boolean
+          google_tag_id?: string | null
           id?: string
+          instagram?: string | null
+          instrucoes_pix?: string | null
           logo_url?: string | null
-          nome?: string
+          meta_pixel_id?: string | null
+          nome: string
           observacoes_admin?: string | null
-          owner_id?: string
+          origem_aquisicao?: string | null
+          owner_id: string
+          plano?: string | null
+          slug?: string | null
           status?: string
+          subscription_expires_at?: string | null
           telefone?: string | null
           ticto_subscription_id?: string | null
+          tiktok_pixel_id?: string | null
+          tipo_chave_pix?: string | null
+          tipo_sinal?: string
+          titular_pix?: string | null
           trial_expires_at?: string | null
           updated_at?: string
+          valor_sinal?: number
+        }
+        Update: {
+          banner_url?: string | null
+          bio?: string | null
+          chave_pix?: string | null
+          created_at?: string
+          email_owner?: string | null
+          endereco?: string | null
+          exigir_sinal?: boolean
+          google_tag_id?: string | null
+          id?: string
+          instagram?: string | null
+          instrucoes_pix?: string | null
+          logo_url?: string | null
+          meta_pixel_id?: string | null
+          nome?: string
+          observacoes_admin?: string | null
+          origem_aquisicao?: string | null
+          owner_id?: string
+          plano?: string | null
+          slug?: string | null
+          status?: string
+          subscription_expires_at?: string | null
+          telefone?: string | null
+          ticto_subscription_id?: string | null
+          tiktok_pixel_id?: string | null
+          tipo_chave_pix?: string | null
+          tipo_sinal?: string
+          titular_pix?: string | null
+          trial_expires_at?: string | null
+          updated_at?: string
+          valor_sinal?: number
         }
         Relationships: [
           {
@@ -2137,40 +2596,97 @@ export type Database = {
       }
       appbrabas_whatsapp_config: {
         Row: {
-          access_token: string
+          access_token: string | null
           ativo: boolean | null
+          auto_anamnese: boolean | null
+          auto_confirmacao: boolean | null
+          auto_reativacao: boolean | null
           created_at: string | null
           enviar_aniversariantes_auto: boolean | null
+          evolution_apikey: string | null
+          evolution_instance: string | null
+          evolution_url: string | null
+          ia_base_conhecimento: string | null
+          ia_horario_modo: string | null
+          ia_instrucoes_extras: string | null
+          ia_nome: string | null
+          ia_pausar_humano: boolean | null
+          ia_permitir_agendamento: boolean | null
+          ia_secretaria_ativa: boolean | null
+          ia_tom_voz: string | null
           id: string
-          phone_number_id: string
+          numero_conectado: string | null
+          phone_number_id: string | null
+          provedor: string | null
+          status_conexao: string | null
           template_aniversario: string | null
           updated_at: string | null
           user_id: string
           waba_id: string | null
+          zapi_instance: string | null
+          zapi_token: string | null
         }
         Insert: {
-          access_token: string
+          access_token?: string | null
           ativo?: boolean | null
+          auto_anamnese?: boolean | null
+          auto_confirmacao?: boolean | null
+          auto_reativacao?: boolean | null
           created_at?: string | null
           enviar_aniversariantes_auto?: boolean | null
+          evolution_apikey?: string | null
+          evolution_instance?: string | null
+          evolution_url?: string | null
+          ia_base_conhecimento?: string | null
+          ia_horario_modo?: string | null
+          ia_instrucoes_extras?: string | null
+          ia_nome?: string | null
+          ia_pausar_humano?: boolean | null
+          ia_permitir_agendamento?: boolean | null
+          ia_secretaria_ativa?: boolean | null
+          ia_tom_voz?: string | null
           id?: string
-          phone_number_id: string
+          numero_conectado?: string | null
+          phone_number_id?: string | null
+          provedor?: string | null
+          status_conexao?: string | null
           template_aniversario?: string | null
           updated_at?: string | null
           user_id: string
           waba_id?: string | null
+          zapi_instance?: string | null
+          zapi_token?: string | null
         }
         Update: {
-          access_token?: string
+          access_token?: string | null
           ativo?: boolean | null
+          auto_anamnese?: boolean | null
+          auto_confirmacao?: boolean | null
+          auto_reativacao?: boolean | null
           created_at?: string | null
           enviar_aniversariantes_auto?: boolean | null
+          evolution_apikey?: string | null
+          evolution_instance?: string | null
+          evolution_url?: string | null
+          ia_base_conhecimento?: string | null
+          ia_horario_modo?: string | null
+          ia_instrucoes_extras?: string | null
+          ia_nome?: string | null
+          ia_pausar_humano?: boolean | null
+          ia_permitir_agendamento?: boolean | null
+          ia_secretaria_ativa?: boolean | null
+          ia_tom_voz?: string | null
           id?: string
-          phone_number_id?: string
+          numero_conectado?: string | null
+          phone_number_id?: string | null
+          provedor?: string | null
+          status_conexao?: string | null
           template_aniversario?: string | null
           updated_at?: string | null
           user_id?: string
           waba_id?: string | null
+          zapi_instance?: string | null
+          zapi_token?: string | null
         }
         Relationships: []
       }
@@ -2215,6 +2731,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      appbrabas_whatsapp_mensagens: {
+        Row: {
+          cliente_nome: string | null
+          conteudo: string
+          created_at: string | null
+          id: string
+          role: string
+          salao_id: string | null
+          telefone: string
+          tokens_usados: number | null
+        }
+        Insert: {
+          cliente_nome?: string | null
+          conteudo: string
+          created_at?: string | null
+          id?: string
+          role: string
+          salao_id?: string | null
+          telefone: string
+          tokens_usados?: number | null
+        }
+        Update: {
+          cliente_nome?: string | null
+          conteudo?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          salao_id?: string | null
+          telefone?: string
+          tokens_usados?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_whatsapp_mensagens_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       areamembrojp_ai_artifacts: {
         Row: {
@@ -20281,6 +20838,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "imphq_company_map_nodes_linked_wa_provider_id_fkey"
+            columns: ["linked_wa_provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_whatsapp_config"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "imphq_company_map_nodes_map_id_fkey"
             columns: ["map_id"]
             isOneToOne: false
@@ -20824,6 +21388,42 @@ export type Database = {
           total_planejado?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_cron_jobs: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_enabled: boolean
+          job_key: string
+          last_error: string | null
+          last_run_at: string | null
+          last_status: string | null
+          run_count: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          job_key: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          run_count?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          job_key?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          run_count?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -22856,8 +23456,11 @@ export type Database = {
           is_hidden: boolean
           media_id: string | null
           parent_comment_id: string | null
+          platform: string | null
+          post_id: string | null
           replied: boolean
           reply_text: string | null
+          sentiment: string | null
           text: string | null
         }
         Insert: {
@@ -22871,8 +23474,11 @@ export type Database = {
           is_hidden?: boolean
           media_id?: string | null
           parent_comment_id?: string | null
+          platform?: string | null
+          post_id?: string | null
           replied?: boolean
           reply_text?: string | null
+          sentiment?: string | null
           text?: string | null
         }
         Update: {
@@ -22886,8 +23492,11 @@ export type Database = {
           is_hidden?: boolean
           media_id?: string | null
           parent_comment_id?: string | null
+          platform?: string | null
+          post_id?: string | null
           replied?: boolean
           reply_text?: string | null
+          sentiment?: string | null
           text?: string | null
         }
         Relationships: [
@@ -22920,8 +23529,11 @@ export type Database = {
           participant_avatar: string | null
           participant_id: string
           participant_name: string | null
+          participant_phone: string | null
           participant_username: string | null
+          platform: string | null
           reengagement_sent_at: string | null
+          triage_fit_score: number | null
           unread_count: number
           updated_at: string
         }
@@ -22944,8 +23556,11 @@ export type Database = {
           participant_avatar?: string | null
           participant_id: string
           participant_name?: string | null
+          participant_phone?: string | null
           participant_username?: string | null
+          platform?: string | null
           reengagement_sent_at?: string | null
+          triage_fit_score?: number | null
           unread_count?: number
           updated_at?: string
         }
@@ -22968,8 +23583,11 @@ export type Database = {
           participant_avatar?: string | null
           participant_id?: string
           participant_name?: string | null
+          participant_phone?: string | null
           participant_username?: string | null
+          platform?: string | null
           reengagement_sent_at?: string | null
+          triage_fit_score?: number | null
           unread_count?: number
           updated_at?: string
         }
@@ -28389,6 +29007,13 @@ export type Database = {
             referencedRelation: "imphq_wa_providers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_wa_ai_config_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_whatsapp_config"
+            referencedColumns: ["id"]
+          },
         ]
       }
       imphq_wa_ai_drafts: {
@@ -28891,10 +29516,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "imphq_wa_campaigns_fallback_provider_id_fkey"
+            columns: ["fallback_provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_whatsapp_config"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "imphq_wa_campaigns_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_campaigns_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_whatsapp_config"
             referencedColumns: ["id"]
           },
         ]
@@ -29221,6 +29860,13 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "imphq_wa_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_conversations_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_whatsapp_config"
             referencedColumns: ["id"]
           },
         ]
@@ -54582,6 +55228,75 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_whatsapp_config: {
+        Row: {
+          access_token: string | null
+          ai_enabled: boolean | null
+          api_key: string | null
+          api_url: string | null
+          created_at: string | null
+          display_name: string | null
+          health_alerts_enabled: boolean | null
+          health_alerts_muted_until: string | null
+          id: string | null
+          instance_name: string | null
+          is_active: boolean | null
+          last_seen_at: string | null
+          phone_number_id: string | null
+          project_id: string | null
+          provider: string | null
+          status: string | null
+          status_updated_at: string | null
+          twilio_from: string | null
+          waba_id: string | null
+          webhook_verify_token: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          ai_enabled?: boolean | null
+          api_key?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          health_alerts_enabled?: boolean | null
+          health_alerts_muted_until?: string | null
+          id?: string | null
+          instance_name?: string | null
+          is_active?: boolean | null
+          last_seen_at?: string | null
+          phone_number_id?: string | null
+          project_id?: string | null
+          provider?: string | null
+          status?: string | null
+          status_updated_at?: string | null
+          twilio_from?: string | null
+          waba_id?: string | null
+          webhook_verify_token?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          ai_enabled?: boolean | null
+          api_key?: string | null
+          api_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          health_alerts_enabled?: boolean | null
+          health_alerts_muted_until?: string | null
+          id?: string | null
+          instance_name?: string | null
+          is_active?: boolean | null
+          last_seen_at?: string | null
+          phone_number_id?: string | null
+          project_id?: string | null
+          provider?: string | null
+          status?: string | null
+          status_updated_at?: string | null
+          twilio_from?: string | null
+          waba_id?: string | null
+          webhook_verify_token?: string | null
+        }
+        Relationships: []
+      }
       nutrition_progress_metrics: {
         Row: {
           adherence_rate: number | null
@@ -54799,6 +55514,16 @@ export type Database = {
       }
     }
     Functions: {
+      adicionar_creditos_ia: {
+        Args: {
+          p_descricao: string
+          p_qtd: number
+          p_salao_id: string
+          p_servico?: string
+          p_tipo: string
+        }
+        Returns: Json
+      }
       admin_update_mission: {
         Args: { mission_id: string; new_status: string }
         Returns: boolean
@@ -54823,6 +55548,10 @@ export type Database = {
       amjp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
       amjp_program_quiz_stats: { Args: { _program_id: string }; Returns: Json }
       amjp_user_belongs_here: { Args: { _uid: string }; Returns: boolean }
+      aprovar_recarga_ticket: {
+        Args: { p_admin_id?: string; p_ticket_id: string }
+        Returns: Json
+      }
       archive_old_deposits: { Args: never; Returns: undefined }
       areamembrojp_has_mini_app_access: {
         Args: { _app_id: string; _user_id: string }
@@ -54977,6 +55706,15 @@ export type Database = {
         Returns: Record<string, unknown>[]
       }
       dblink_is_busy: { Args: { "": string }; Returns: number }
+      debitar_creditos_ia: {
+        Args: {
+          p_descricao: string
+          p_qtd: number
+          p_salao_id: string
+          p_servico: string
+        }
+        Returns: Json
+      }
       deduct_points_from_deposits: {
         Args: { p_points_to_deduct: number; p_user_id: string }
         Returns: boolean
@@ -55570,6 +56308,10 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      recusar_recarga_ticket: {
+        Args: { p_motivo?: string; p_ticket_id: string }
+        Returns: Json
+      }
       register_lead: {
         Args: {
           p_email: string
@@ -55604,6 +56346,10 @@ export type Database = {
       reset_daily_water_intake: { Args: never; Returns: undefined }
       reset_weekly_exercise_data: { Args: never; Returns: undefined }
       run_cleanup_job: { Args: never; Returns: undefined }
+      run_cron_job: {
+        Args: { p_body?: Json; p_function_name: string; p_job_key: string }
+        Returns: undefined
+      }
       seed_crm_colunas_padrao: {
         Args: { _user_id: string }
         Returns: undefined
@@ -55631,6 +56377,7 @@ export type Database = {
         Returns: undefined
       }
       users_pix_view_security: { Args: { jwt_claims: Json }; Returns: boolean }
+      validar_aluno_hair_education: { Args: { p_email: string }; Returns: Json }
       verify_data_integrity: {
         Args: { deposit_ids: string[] }
         Returns: boolean
