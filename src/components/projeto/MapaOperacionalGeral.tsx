@@ -134,7 +134,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       // 6. IA config
       const { data: aiConfigData } = await supabase
         .from("imphq_wa_ai_config")
-        .select("project_id, enabled, full_autonomy");
+        .select("project_id, enabled, draft_mode");
 
       // 7. Kanban cards / Demandas
       const { data: kanbanData } = await supabase
@@ -247,7 +247,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
           pendingConvsCount: recentPendingConvs.length,
           inboundMsgs24hCount: pInbound.length,
           waProvider: prov,
-          aiConfig: ai,
+          aiConfig: ai ? { enabled: !!ai.enabled, full_autonomy: !ai.draft_mode } : null,
           tasks: pTasks,
           vslUrl,
           checkoutUrl,

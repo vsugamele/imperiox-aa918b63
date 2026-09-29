@@ -89,11 +89,11 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
       // 2. IA Config
       const { data: ai } = await supabase
         .from("imphq_wa_ai_config")
-        .select("enabled, full_autonomy")
+        .select("enabled, draft_mode")
         .eq("project_id", project.id)
         .maybeSingle();
 
-      if (ai) setAiConfig(ai);
+      if (ai) setAiConfig({ enabled: !!ai.enabled, full_autonomy: !ai.draft_mode });
 
       // 3. Conversas paradas no WhatsApp
       const { count } = await supabase
