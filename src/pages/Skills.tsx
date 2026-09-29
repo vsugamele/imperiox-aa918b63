@@ -134,6 +134,8 @@ export default function Skills() {
   const [editing, setEditing] = useState<Skill | null>(null);
   const [form, setForm] = useState({ nome: "", descricao: "", categoria: "Outro" as Categoria, status: "Ativo" as Status, icone: "Zap", system_prompt: "", versao: "", gatilho: "", cor: "#3b82f6" });
   const importRef = useRef<HTMLInputElement>(null);
+  const batchImportRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
   const [activeTab, setActiveTab] = useState("marketing");
 
   // Execute skill states
@@ -149,20 +151,39 @@ export default function Skills() {
   const [showResult, setShowResult] = useState(false);
   const [execProdutos, setExecProdutos] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase.from("imphq_skills").select("*").order("created_at").then(({ data }) => {
-      setCustomSkills((data || []).map((s) => ({
-        id: s.id, nome: s.nome, descricao: s.descricao,
-        categoria: s.categoria as Categoria, status: s.status as Status,
-        icone: s.icone || "Zap",
-        system_prompt: s.system_prompt || "", versao: s.versao || "",
-        gatilho: s.gatilho || "", cor: s.cor || "",
-      })));
+  const fetchSkills = () => {
+    supabase.from("imphq_skills").select("*").order("nome").then(({ data, error }) => {
+      if (!error && data) {
+        setCustomSkills(data.map((s) => ({
+          id: s.id || s.slug,
+          nome: s.nome,
+          descricao: s.descricao || "",
+          categoria: s.categoria as Categoria,
+          status: (s.status || "Ativo") as Status,
+          icone: s.icone || "Zap",
+          system_prompt: s.system_prompt || "",
+          versao: s.versao || "",
+          gatilho: s.gatilho || "",
+          cor: s.cor || "",
+        })));
+      }
     });
+  };
+
+  useEffect(() => {
+    fetchSkills();
   }, [user]);
 
-  const allSkills = useMemo(() => [...DEFAULT_SKILLS, ...customSkills], [customSkills]);
+  const allSkills = useMemo(() => {
+    const map = new Map<string, Skill>();
+    for (const s of DEFAULT_SKILLS) {
+      map.set(s.id.toLowerCase(), s);
+    }
+    for (const s of customSkills) {
+      map.set((s.id || s.nome || "").toLowerCase(), s);
+    }
+    return Array.from(map.values());
+  }, [customSkills]);
 
   const tabSkills = useMemo(() => {
     const cats = activeTab === "marketing" ? MARKETING_CATS : TECH_CATS;
@@ -235,6 +256,52 @@ export default function Skills() {
       toast.success(`Importado: ${mdParts.length} arquivo(s) .md`);
     } catch (err) { toast.error("Erro ao importar arquivo"); }
     if (importRef.current) importRef.current.value = "";
+  };
+
+  const handleBatchPackageImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setImporting(true);
+    try {
+      let importedCount = 0;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.name.endsWith(".zip")) {
+          const zip = await JSZip.loadAsync(file);
+          const mdFiles = Object.keys(zip.files).filter(f => f.endsWith(".md") && !zip.files[f].dir);
+          const payload: any[] = [];
+          for (const mf of mdFiles) {
+            const content = await zip.files[mf].async("string");
+            const slug = mf.replace(/\/SKILL\.md$/, "").replace(/^.*[\\\/]/, "").replace(/\.md$/, "");
+            const nameMatch = content.match(/^name:\s*(.+)$/m);
+            const descMatch = content.match(/^description:\s*(.+)$/m);
+            const nome = nameMatch ? nameMatch[1].trim().replace(/^['"]|['"]$/g, '') : slug.replace(/[-_]/g, ' ');
+            const descricao = descMatch ? descMatch[1].trim().replace(/^['"]|['"]$/g, '') : `Skill ${nome}`;
+            payload.push({
+              slug,
+              nome,
+              descricao,
+              categoria: "Copy & Persuasão",
+              status: "Ativo",
+              icone: "Zap",
+              system_prompt: content,
+              versao: "v2.0"
+            });
+          }
+          if (payload.length > 0) {
+            await supabase.from("imphq_skills").upsert(payload, { onConflict: "slug" });
+            importedCount += payload.length;
+          }
+        }
+      }
+      toast.success(`${importedCount} skills sincronizadas do pacote!`);
+      fetchSkills();
+    } catch (err) {
+      toast.error("Erro ao importar pacote do Claude");
+    } finally {
+      setImporting(false);
+      if (batchImportRef.current) batchImportRef.current.value = "";
+    }
   };
 
   const saveSkill = async () => {
@@ -430,6 +497,23 @@ export default function Skills() {
           <p className="text-sm text-muted-foreground mt-1">{allSkills.filter(s => s.status === "Ativo").length} ativas · {allSkills.length} no arsenal</p>
         </div>
         <div className="flex items-center gap-2">
+          <input
+            ref={batchImportRef}
+            type="file"
+            accept=".zip"
+            onChange={handleBatchPackageImport}
+            className="hidden"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={importing}
+            onClick={() => batchImportRef.current?.click()}
+            className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+          >
+            {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
+            Importar do Claude (.zip)
+          </Button>
           <Button
             size="sm"
             variant="outline"
