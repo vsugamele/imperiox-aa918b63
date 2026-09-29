@@ -51,30 +51,59 @@ export function GrowthCopilotModal({ open, onOpenChange, projects, initialProjec
 
   const budgetNum = parseFloat(budgetStr.replace(/[^\d.,]/g, "").replace(",", ".")) || 200;
 
+function parsePrice(raw: any, fallback = 47): number {
+  if (typeof raw === "number" && !isNaN(raw) && raw > 0) return raw;
+  if (!raw) return fallback;
+  if (typeof raw === "string") {
+    const cleaned = raw.replace(/[^\d.,]/g, "");
+    if (!cleaned) return fallback;
+    if (cleaned.includes(",") && cleaned.includes(".")) {
+      const num = parseFloat(cleaned.replace(/\./g, "").replace(",", "."));
+      if (!isNaN(num) && num > 0) return num;
+    } else if (cleaned.includes(",")) {
+      const num = parseFloat(cleaned.replace(/,+/g, "."));
+      if (!isNaN(num) && num > 0) return num;
+    } else if (cleaned.includes(".")) {
+      if (/\.\d{3}$/.test(cleaned)) {
+        const num = parseFloat(cleaned.replace(/\./g, ""));
+        if (!isNaN(num) && num > 0) return num;
+      } else {
+        const num = parseFloat(cleaned);
+        if (!isNaN(num) && num > 0) return num;
+      }
+    } else {
+      const num = parseFloat(cleaned);
+      if (!isNaN(num) && num > 0) return num;
+    }
+  }
+  return fallback;
+}
+
   // Análise Inteligente de Funil & Matemática da Verba
   const strategy = useMemo(() => {
     const isJP = selectedProjectId === "jp_freitas";
     const pData = jsonFields(selectedProject?.data) as Record<string, any>;
     const avatar = jsonFields(selectedProject?.avatar) as Record<string, any>;
 
-    let frontTicket = 47;
-    let bumpTicket = 27;
-    let currency = "R$";
+    let frontTicket = isJP ? 47 : (selectedProject?.category === "DTC Nutra" ? 69 : 47);
+    let bumpTicket = isJP ? 27 : 29;
+    let currency = selectedProject?.category === "DTC Nutra" ? "$" : "R$";
 
     if (pData.produtos && Array.isArray(pData.produtos) && pData.produtos.length > 0) {
-      frontTicket = pData.produtos[0].preco || 47;
-      if (selectedProject?.category === "DTC Nutra") {
-        currency = "$";
-        frontTicket = pData.produtos[0].preco || 69;
-        bumpTicket = 29;
-      }
+      const targetProd = pData.produtos.find((p: any) => 
+        p.nome?.toLowerCase().includes("código") || 
+        p.nome?.toLowerCase().includes("cortes") || 
+        p.tipo_oferta === "aquisicao"
+      ) || pData.produtos[0];
+
+      frontTicket = parsePrice(targetProd?.preco ?? targetProd?.valor ?? targetProd?.ticket, frontTicket);
     }
 
-    const estimatedAOV = frontTicket + bumpTicket * 0.45; // 45% bump rate
+    const estimatedAOV = Number(frontTicket) + Number(bumpTicket) * 0.45; // 45% bump rate
     const dailyBudget = Math.max(25, Math.floor(budgetNum / 4)); // 4 dias de teste
-    const days = Math.round(budgetNum / dailyBudget);
+    const days = Math.max(1, Math.round(budgetNum / dailyBudget));
     const maxCPA = Math.round(estimatedAOV * 0.55); // CPA alvo para 1.8x ROAS
-    const breakEvenSales = Math.ceil(budgetNum / estimatedAOV);
+    const breakEvenSales = Math.max(1, Math.ceil(budgetNum / Math.max(1, estimatedAOV)));
 
     const angulos = isJP ? [
       {
@@ -161,10 +190,10 @@ export function GrowthCopilotModal({ open, onOpenChange, projects, initialProjec
     const text = `
 🎯 *BRIEFING EXECUTIVO DE TRÁFEGO — ALOCAÇÃO DE VERBA*
 Projeto: ${selectedProject?.name}
-Orçamento Total: ${strategy.currency} ${budgetNum.toFixed(2)}
-Estrutura: ${strategy.days} dias de teste a ${strategy.currency} ${strategy.dailyBudget.toFixed(2)}/dia (4 Conjuntos de Anúncios)
-Ticket Médio Estimado: ${strategy.currency} ${strategy.estimatedAOV.toFixed(2)}
-CPA Alvo Máximo: ${strategy.currency} ${strategy.maxCPA.toFixed(2)}
+Orçamento Total: ${strategy.currency} ${Number(budgetNum || 0).toFixed(2)}
+Estrutura: ${strategy.days} dias de teste a ${strategy.currency} ${Number(strategy.dailyBudget || 0).toFixed(2)}/dia (4 Conjuntos de Anúncios)
+Ticket Médio Estimado: ${strategy.currency} ${Number(strategy.estimatedAOV || 0).toFixed(2)}
+CPA Alvo Máximo: ${strategy.currency} ${Number(strategy.maxCPA || 0).toFixed(2)}
 Ponto de Equilíbrio (Break-even): ${strategy.breakEvenSales} vendas
 
 ---
@@ -294,7 +323,7 @@ ${strategy.angulos.map((a, i) => `
             <div className="p-3 rounded-lg bg-[#0E1013] border border-[#1B1E23]">
               <span className="text-[10px] font-mono text-[#8A8F98] uppercase">Ticket Médio (AOV)</span>
               <div className="text-base font-mono font-bold text-emerald-400 mt-0.5">
-                {strategy.currency} {strategy.estimatedAOV.toFixed(2)}
+                {strategy.currency} {Number(strategy.estimatedAOV || 0).toFixed(2)}
               </div>
               <span className="text-[10px] text-[#8A8F98]">Com bumps ~45%</span>
             </div>
