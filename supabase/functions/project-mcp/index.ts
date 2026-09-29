@@ -953,8 +953,8 @@ Deno.serve(async (req) => {
             if (!projRes.data) throw new Error(`Projeto '${projectId}' não encontrado`);
 
             const [waIncoming30d, waOutgoing30d, funnelEvents7d] = await Promise.all([
-              count(supabase.from("imphq_wa_messages").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("direction", "incoming").gte("created_at", since30d)),
-              count(supabase.from("imphq_wa_messages").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("direction", "outgoing").gte("created_at", since30d)),
+              count(supabase.from("imphq_wa_messages").select("id, imphq_wa_conversations!inner(jid_suffix)", { count: "exact", head: true }).eq("project_id", projectId).eq("direction", "incoming").gte("created_at", since30d).or("jid_suffix.is.null,jid_suffix.neq.g.us", { referencedTable: "imphq_wa_conversations" })),
+              count(supabase.from("imphq_wa_messages").select("id, imphq_wa_conversations!inner(jid_suffix)", { count: "exact", head: true }).eq("project_id", projectId).eq("direction", "outgoing").gte("created_at", since30d).or("jid_suffix.is.null,jid_suffix.neq.g.us", { referencedTable: "imphq_wa_conversations" })),
               count(supabase.from("imphq_funnel_events").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", since7d)),
             ]);
 

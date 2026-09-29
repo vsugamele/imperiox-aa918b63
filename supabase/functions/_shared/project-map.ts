@@ -49,6 +49,7 @@ export interface ProjectMapInput {
   activity: {
     /** Vendas aprovadas nos últimos 30 dias, por `produto_nome`. */
     approvedSales30dByProduct: Record<string, number>;
+    /** Mensagens em conversas individuais (grupos de WhatsApp não contam). */
     waIncoming30d: number;
     waOutgoing30d: number;
     funnelEvents7d: number;
@@ -445,7 +446,7 @@ function atendimentoSection(data: Record<string, unknown>, input: ProjectMapInpu
   if (activeWaProviders) evidence.push(`${activeWaProviders} chip(s) de WhatsApp ativo(s)`);
   if (aiEnabled !== null) evidence.push(aiEnabled ? (aiDraftMode ? "IA ligada em modo rascunho" : "IA ligada respondendo") : "IA configurada, mas desligada");
   if (hasTree) evidence.push("Árvore de atendimento documentada");
-  if (traffic) evidence.push(`${waIncoming30d} mensagem(ns) recebida(s) e ${waOutgoing30d} enviada(s) em 30 dias`);
+  if (traffic) evidence.push(`${waIncoming30d} mensagem(ns) recebida(s) e ${waOutgoing30d} enviada(s) em conversas individuais (30 dias)`);
 
   // Mensagens trafegando provam que existe um canal, mesmo com o chip marcado como inativo.
   const built = (activeWaProviders > 0 || traffic > 0) && aiEnabled === true;
@@ -462,7 +463,7 @@ function atendimentoSection(data: Record<string, unknown>, input: ProjectMapInpu
   }
   if (waIncoming30d >= 20 && waOutgoing30d < waIncoming30d * 0.3) {
     const rate = Math.round((waOutgoing30d / waIncoming30d) * 100);
-    gaps.push({ area: "atendimento", severity: "importante", message: `Só ${waOutgoing30d} resposta(s) registrada(s) para ${waIncoming30d} mensagem(ns) recebida(s) em 30 dias (${rate}%).`, action: "Verificar se a IA está respondendo e se as respostas são registradas." });
+    gaps.push({ area: "atendimento", severity: "importante", message: `Só ${waOutgoing30d} resposta(s) registrada(s) para ${waIncoming30d} mensagem(ns) recebida(s) em conversas individuais nos últimos 30 dias (${rate}%).`, action: "Verificar se a IA está respondendo e se as respostas são registradas." });
   }
   if (aiEnabled === null) gaps.push({ area: "atendimento", severity: "importante", message: "IA de atendimento não configurada.", action: "Configurar a IA de atendimento do projeto." });
   else if (!aiEnabled) gaps.push({ area: "atendimento", severity: "importante", message: "IA de atendimento desligada.", action: "Ligar a IA de atendimento." });

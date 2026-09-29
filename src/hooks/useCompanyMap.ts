@@ -29,8 +29,8 @@ async function loadCompanyMap(): Promise<ProjectMap[]> {
   const projects = projectsRes.data ?? [];
   const activityCounts = await Promise.all(projects.map(async (p) => {
     const [incoming, outgoing, events] = await Promise.all([
-      countRows(supabase.from("imphq_wa_messages").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("direction", "incoming").gte("created_at", since30d)),
-      countRows(supabase.from("imphq_wa_messages").select("id", { count: "exact", head: true }).eq("project_id", p.id).eq("direction", "outgoing").gte("created_at", since30d)),
+      countRows(supabase.from("imphq_wa_messages").select("id, imphq_wa_conversations!inner(jid_suffix)", { count: "exact", head: true }).eq("project_id", p.id).eq("direction", "incoming").gte("created_at", since30d).or("jid_suffix.is.null,jid_suffix.neq.g.us", { referencedTable: "imphq_wa_conversations" })),
+      countRows(supabase.from("imphq_wa_messages").select("id, imphq_wa_conversations!inner(jid_suffix)", { count: "exact", head: true }).eq("project_id", p.id).eq("direction", "outgoing").gte("created_at", since30d).or("jid_suffix.is.null,jid_suffix.neq.g.us", { referencedTable: "imphq_wa_conversations" })),
       countRows(supabase.from("imphq_funnel_events").select("id", { count: "exact", head: true }).eq("project_id", p.id).gte("created_at", since7d)),
     ]);
     return { incoming, outgoing, events };
