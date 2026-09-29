@@ -4,10 +4,11 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { buildProjectMap } from "../_shared/project-map.ts";
+import { checkMcpKey } from "../_shared/mcp-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-project-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-project-id, x-mcp-key",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
@@ -693,6 +694,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Esta função usa a chave de administrador do banco: só atende quem tem a chave do MCP.
+  const auth = checkMcpKey(req.headers, Deno.env.get("MCP_API_KEYS"));
+  if (!auth.ok) return json({ error: auth.error }, auth.status);
 
   const url = new URL(req.url);
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

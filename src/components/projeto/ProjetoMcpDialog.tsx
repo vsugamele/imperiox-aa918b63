@@ -19,7 +19,8 @@ export function ProjetoMcpDialog({ open, onOpenChange, project }: Props) {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://tkbivipqiewkfnhktmqq.supabase.co";
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+  // A chave do MCP é um segredo (MCP_API_KEYS no Supabase) e nunca vai no código do site.
+  const mcpKeyPlaceholder = "COLE_SUA_CHAVE_MCP";
   const projectId = project.id;
 
   const projectData = jsonFields(project.data);
@@ -44,7 +45,7 @@ export function ProjetoMcpDialog({ open, onOpenChange, project }: Props) {
               "mcp-remote",
               `${supabaseUrl}/functions/v1/project-mcp`,
               "--header",
-              `apikey: ${supabaseKey}`,
+              `x-mcp-key: ${mcpKeyPlaceholder}`,
               "--header",
               `x-project-id: ${projectId}`,
             ],
@@ -54,7 +55,7 @@ export function ProjetoMcpDialog({ open, onOpenChange, project }: Props) {
       null,
       2
     );
-  }, [supabaseUrl, supabaseKey, projectId]);
+  }, [supabaseUrl, projectId]);
 
   // ── 2. Dossiê Markdown Mestre para colar em qualquer IA ──
   const masterPromptMarkdown = useMemo(() => {
@@ -96,11 +97,11 @@ ${prodList}
   const curlExample = useMemo(() => {
     return `# 1. Puxar dossiê completo do projeto via GET
 curl -X GET "${supabaseUrl}/functions/v1/project-mcp?project_id=${projectId}&action=context" \\
-  -H "apikey: ${supabaseKey}"
+  -H "x-mcp-key: ${mcpKeyPlaceholder}"
 
 # 2. Puxar métricas de hoje via MCP Tool Call (POST)
 curl -X POST "${supabaseUrl}/functions/v1/project-mcp" \\
-  -H "apikey: ${supabaseKey}" \\
+  -H "x-mcp-key: ${mcpKeyPlaceholder}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "jsonrpc": "2.0",
@@ -112,7 +113,7 @@ curl -X POST "${supabaseUrl}/functions/v1/project-mcp" \\
     }
   }'
 `;
-  }, [supabaseUrl, supabaseKey, projectId]);
+  }, [supabaseUrl, projectId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,6 +183,9 @@ curl -X POST "${supabaseUrl}/functions/v1/project-mcp" \\
                 </p>
                 <p>
                   <strong>Como usar no Cursor:</strong> Vá em <em>Settings &gt; MCP &gt; Add Server</em> e use o comando acima.
+                </p>
+                <p>
+                  <strong>Chave:</strong> troque <code className="text-primary font-mono bg-black/40 px-1 py-0.5 rounded">{mcpKeyPlaceholder}</code> pela chave do MCP que o dono do projeto te passou. Sem ela, o MCP recusa a conexão.
                 </p>
               </div>
             </div>
@@ -264,7 +268,7 @@ curl -X POST "${supabaseUrl}/functions/v1/project-mcp" \\
               <div>
                 <p className="font-semibold text-white">Autenticação Segura</p>
                 <p className="text-[11px] mt-0.5">
-                  Seu sócio pode usar a chave anon pública do Supabase configurada como header <code className="text-primary font-mono">apikey</code> ou uma Service Role para operações de escrita avançadas.
+                  Todas as chamadas exigem o cabeçalho <code className="text-primary font-mono">x-mcp-key</code> com uma chave do MCP. Cada pessoa ou ferramenta recebe a sua chave (segredo <code className="text-primary font-mono">MCP_API_KEYS</code> no Supabase), e dá para revogar uma sem afetar as outras. Nunca compartilhe a chave de administrador (Service Role) do banco.
                 </p>
               </div>
             </div>
