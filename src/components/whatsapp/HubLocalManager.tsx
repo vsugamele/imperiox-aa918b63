@@ -41,6 +41,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Zap,
+  Plus,
 } from "lucide-react";
 import ChatView from "@/components/whatsapp/ChatView";
 import { groupHubMessages, HubMessage } from "@/components/whatsapp/hub-conversations";
