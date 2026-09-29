@@ -15,7 +15,7 @@ export default function Cockpit() {
     try {
       const saved = localStorage.getItem("imphq:cockpit:theme");
       if (saved === "papel" || saved === "terminal") return saved;
-    } catch {}
+    } catch { /* localStorage indisponível (modo privado) */ }
     return "grafite";
   });
 
@@ -25,7 +25,7 @@ export default function Cockpit() {
   useEffect(() => {
     try {
       localStorage.setItem("imphq:cockpit:theme", theme);
-    } catch {}
+    } catch { /* localStorage indisponível (modo privado) */ }
   }, [theme]);
 
   const barData = [42, 55, 38, 61, 73, 49, 58, 80, 66, 52, 71, 88, 64, 79];

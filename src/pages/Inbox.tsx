@@ -175,7 +175,6 @@ function FilaUnificadaTab() {
       if (document.visibilityState === "visible") load();
     }, 60_000);
     return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) return <TabLoader />;

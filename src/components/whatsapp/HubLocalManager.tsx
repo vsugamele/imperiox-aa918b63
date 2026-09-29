@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import ChatView from "@/components/whatsapp/ChatView";
 import { groupHubMessages, HubMessage } from "@/components/whatsapp/hub-conversations";
+import { errorMessage as getErrorMessage } from "@/lib/error-message";
 
 interface HubLocalSession {
   id: string;
@@ -66,7 +67,7 @@ interface HubLocalCommand {
 
 interface HubLocalManagerProps {
   projects: { id: string; name: string }[];
-  providers?: any[];
+  providers?: Pick<Tables<"imphq_wa_providers">, "id">[];
   onOpenConversation?: (conversationId: string) => void;
 }
 
@@ -195,8 +196,8 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
       if (pairingSessionKey === session.session_key) {
         handleSuggestKey(pairingProjectId);
       }
-    } catch (err: any) {
-      toast.error("Falha ao remover sessão: " + (err.message || "Erro desconhecido"));
+    } catch (err) {
+      toast.error("Falha ao remover sessão: " + (getErrorMessage(err) || "Erro desconhecido"));
     } finally {
       setSessionToDelete(null);
     }
@@ -222,8 +223,8 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
       }
       toast.success(`${removed} instâncias offline foram limpas.`);
       await loadData();
-    } catch (err: any) {
-      toast.error("Erro durante a limpeza: " + (err.message || ""));
+    } catch (err) {
+      toast.error("Erro durante a limpeza: " + (getErrorMessage(err) || ""));
     } finally {
       setCleaningOffline(false);
       setConfirmCleanOpen(false);
@@ -891,7 +892,7 @@ export default function HubLocalManager({ projects, onOpenConversation }: HubLoc
                   />
                 </div>
 
-                <Select value={filterSessionStatus} onValueChange={(v: any) => setFilterSessionStatus(v)}>
+                <Select value={filterSessionStatus} onValueChange={(v) => setFilterSessionStatus(v as typeof filterSessionStatus)}>
                   <SelectTrigger className="w-32 h-8 text-xs bg-[#0A0B0D] border-[#1B1E23]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>

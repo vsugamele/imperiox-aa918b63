@@ -33,13 +33,14 @@ import {
   AlertCircle,
   RotateCcw,
 } from "lucide-react";
-import { jsonFields, jsonText } from "@/lib/json-fields";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
+import { parseProduct, toJson } from "@/lib/funis-data";
 import { normalizeProductLinks, ProductLink } from "@/lib/produto-links";
 
 interface Props {
   projectId: string;
   project: Tables<"imphq_projects">;
-  onUpdateData: (newData: any) => void;
+  onUpdateData: (newData: Json) => void;
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -108,9 +109,9 @@ const PLATFORM_BADGES: Record<string, { label: string; color: string }> = {
   monetizze: { label: "Monetizze", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
 };
 
-function inferCluster(p: any): ValueTier {
-  const tipo = (p.tipo_oferta || p.tipo || "").toLowerCase();
-  const nome = (p.nome || p.name || "").toLowerCase();
+function inferCluster(p: Record<string, unknown>): ValueTier {
+  const tipo = String(p.tipo_oferta || p.tipo || "").toLowerCase();
+  const nome = String(p.nome || p.name || "").toLowerCase();
   const preco = parseFloat(String(p.preco || p.preco_por || "0").replace(/[^0-9.]/g, ""));
 
   if (tipo.includes("tripwire") || tipo.includes("isca") || tipo.includes("aquisicao") || nome.includes("grátis") || (preco > 0 && preco <= 97 && (tipo.includes("ebook") || nome.includes("starter")))) {
@@ -184,15 +185,16 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
 
   // Normalize products with explicit tier
   const products = useMemo(() => {
-    return rawProducts.map((p: any, idx: number) => {
-      const nome = typeof p === "string" ? p : p.nome || p.name || `Produto ${idx + 1}`;
-      const preco = typeof p === "object" ? String(p.preco || p.preco_por || p.price || "") : "";
-      const tipo = typeof p === "object" ? String(p.tipo || "Infoproduto") : "Infoproduto";
-      const tipo_oferta: ValueTier = (typeof p === "object" && p.tipo_oferta) ? p.tipo_oferta : inferCluster(p);
-      const plataforma = typeof p === "object" ? String(p.plataforma || "").toLowerCase() : "";
-      const descricao = typeof p === "object" ? String(p.descricao || "") : "";
+    return rawProducts.map((p, idx) => {
+      const obj = objectFields(p);
+      const nome = typeof p === "string" ? p : String(obj.nome || obj.name || `Produto ${idx + 1}`);
+      const preco = String(obj.preco || obj.preco_por || obj.price || "");
+      const tipo = String(obj.tipo || "Infoproduto");
+      const tipo_oferta = obj.tipo_oferta ? (obj.tipo_oferta as ValueTier) : inferCluster(obj);
+      const plataforma = String(obj.plataforma || "").toLowerCase();
+      const descricao = String(obj.descricao || "");
       const links = normalizeProductLinks(p);
-      const ofertas = typeof p === "object" && Array.isArray(p.ofertas) ? p.ofertas : [];
+      const ofertas = Array.isArray(obj.ofertas) ? obj.ofertas.map(parseProduct) : [];
 
       return {
         originalIndex: idx,
@@ -291,13 +293,13 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
 
     const nextList = [...rawProducts];
     const existing = editingIndex !== null ? nextList[editingIndex] : {};
-    const baseObject = typeof existing === "object" && existing !== null ? (existing as Record<string, any>) : ({} as Record<string, any>);
+    const baseObject = objectFields(existing);
 
     // Prepare links
-    let links = Array.isArray(baseObject.links) ? [...baseObject.links] : [];
+    const links = Array.isArray(baseObject.links) ? baseObject.links.map(objectFields) : [];
     if (productForm.checkout_url.trim()) {
       const cleanUrl = productForm.checkout_url.trim();
-      const existingCheckoutIdx = links.findIndex((l: any) => l.tipo === "checkout");
+      const existingCheckoutIdx = links.findIndex((l) => l.tipo === "checkout");
       if (existingCheckoutIdx >= 0) {
         links[existingCheckoutIdx] = { ...links[existingCheckoutIdx], url: cleanUrl, ativo: true };
       } else {
@@ -305,7 +307,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
       }
     }
 
-    const updatedProduct = {
+    const updatedProduct = toJson({
       ...baseObject,
       nome: productForm.nome.trim(),
       preco: productForm.preco.trim(),
@@ -315,7 +317,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
       plataforma: productForm.plataforma,
       descricao: productForm.descricao.trim(),
       links,
-    };
+    });
 
     if (editingIndex !== null) {
       nextList[editingIndex] = updatedProduct;
@@ -332,7 +334,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
   // Confirm delete
   const handleDeleteProduct = () => {
     if (deleteIndex === null) return;
-    const nextList = rawProducts.filter((_: any, i: number) => i !== deleteIndex);
+    const nextList = rawProducts.filter((_, i) => i !== deleteIndex);
     onUpdateData({ ...projectData, produtos: nextList });
     toast.success("Produto removido do projeto.");
     setDeleteIndex(null);
@@ -596,7 +598,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                                 Ofertas Vinculadas ({prod.ofertas.length}):
                               </p>
                               <div className="space-y-1">
-                                {prod.ofertas.map((of: any, oi: number) => (
+                                {prod.ofertas.map((of, oi) => (
                                   <div
                                     key={oi}
                                     className="flex items-center justify-between text-[10px] bg-[#0E1013] px-2 py-1 rounded border border-[#1B1E23]/40"

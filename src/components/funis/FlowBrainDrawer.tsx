@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { errorMessage } from "@/lib/error-message";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface FlowNodeItem {
   id: string;
@@ -41,7 +43,7 @@ export interface FlowNodeItem {
   stage_role?: string | null;
   executor_type?: string | null;
   linked_skill_id?: string | null;
-  api_binding?: any;
+  api_binding?: Json | null;
   checklist?: Array<{ id: string; text: string; done: boolean }>;
 }
 
@@ -64,7 +66,7 @@ interface FlowBrainDrawerProps {
 }
 
 // Stage role mapping helper
-export function inferStageRole(kind: string, label: string): string {
+function inferStageRole(kind: string, label: string): string {
   const text = (kind + " " + label).toLowerCase();
   if (/anuncio|trafego|meta|facebook|tiktok|instagram|youtube/.test(text)) return "trafego_anuncio";
   if (/captura|optin|landing|pv|pagina de vendas|vsl|webinar|aula|live/.test(text)) return "captura_vsl";
@@ -77,7 +79,7 @@ export function inferStageRole(kind: string, label: string): string {
 }
 
 // Recommended skill mapping helper
-export function inferRecommendedSkill(stageRole: string, label: string): { skillId: string; skillName: string } {
+function inferRecommendedSkill(stageRole: string, label: string): { skillId: string; skillName: string } {
   const text = label.toLowerCase();
   if (stageRole === "trafego_anuncio") {
     if (/hook|gancho/.test(text)) return { skillId: "hooklab", skillName: "HookLab (400 Hooks)" };
@@ -105,7 +107,7 @@ export function inferRecommendedSkill(stageRole: string, label: string): { skill
 }
 
 // Recommended executor type
-export function inferExecutorType(stageRole: string, label: string): { type: string; label: string; badgeColor: string } {
+function inferExecutorType(stageRole: string, label: string): { type: string; label: string; badgeColor: string } {
   const text = label.toLowerCase();
   if (/wa-ai-reply|recovery|openflow|cron|api/.test(text)) {
     return { type: "API_AUTONOMOUS", label: "⚡ 100% Autônomo (API / Cron)", badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25" };
@@ -241,8 +243,8 @@ export function FlowBrainDrawer({
 
       toast.success(`${updatedCount} nós enriquecidos com semântica e skills!`);
       onRefresh();
-    } catch (err: any) {
-      toast.error("Erro ao enriquecer nós: " + err.message);
+    } catch (err) {
+      toast.error("Erro ao enriquecer nós: " + errorMessage(err));
     } finally {
       setApplying(false);
     }

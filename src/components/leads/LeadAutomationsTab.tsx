@@ -27,6 +27,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { objectFields } from "@/lib/json-fields";
 
 type Automation = Tables<"imphq_automacoes">;
 
@@ -143,9 +144,10 @@ const TRIGGER_HUMAN_INFO: Record<string, { label: string; icon: string; descript
 };
 
 // Extrai passos resumidos de uma ação
-function summarizeAction(raw: any, index: number) {
-  const t = raw?.tipo || "";
-  const cfg = raw?.config || raw || {};
+function summarizeAction(raw: unknown, index: number) {
+  const action = objectFields(raw);
+  const t = String(action.tipo || "");
+  const cfg = action.config ? objectFields(action.config) : action;
 
   if (t === "whatsapp" || t === "mensagem") {
     const text = cfg.template || cfg.mensagem || cfg.text || cfg.content || "Mensagem de texto";
@@ -154,7 +156,7 @@ function summarizeAction(raw: any, index: number) {
       icon: MessageCircle,
       label: "Mensagem WhatsApp",
       preview: typeof text === "string" ? text.slice(0, 75) + (text.length > 75 ? "..." : "") : "Mensagem",
-      fullText: text,
+      fullText: String(text),
       color: "text-emerald-400",
     };
   }
@@ -165,14 +167,14 @@ function summarizeAction(raw: any, index: number) {
       icon: Mic,
       label: "Áudio Clonado",
       preview: typeof text === "string" ? text.slice(0, 75) + (text.length > 75 ? "..." : "") : "Áudio",
-      fullText: text,
+      fullText: String(text),
       color: "text-cyan-400",
     };
   }
   if (t === "delay" || t === "aguardar" || t === "espera") {
     const min = cfg.delay_min || cfg.minutos || cfg.minutes || 0;
     const hr = cfg.horas || cfg.hours || 0;
-    const timeLabel = hr ? `${hr}h ${min ? min + "m" : ""}` : `${min} min`;
+    const timeLabel = hr ? `${hr}h ${min ? `${min}m` : ""}` : `${min} min`;
     return {
       step: index + 1,
       icon: Clock,
@@ -209,7 +211,7 @@ function summarizeAction(raw: any, index: number) {
       icon: Bot,
       label: "Resposta IA Inteligente",
       preview: "Gera mensagem contextual com IA",
-      fullText: cfg.prompt || cfg.template || "Resposta IA",
+      fullText: String(cfg.prompt || cfg.template || "Resposta IA"),
       color: "text-pink-400",
     };
   }

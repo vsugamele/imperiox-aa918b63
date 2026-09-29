@@ -20,7 +20,7 @@ interface TimelineGroup {
   lastTimestamp: string;
   title: string;
   subtitle?: string;
-  details?: Record<string, any>;
+  details?: TimelineEvent["details"];
   isErrorGroup?: boolean;
   errorReason?: string;
 }
@@ -76,7 +76,7 @@ export function GroupedTimelineView({ timeline, eventConfig }: Props) {
           lastTimestamp: ev.timestamp,
           title: ev.title,
           subtitle: ev.subtitle,
-          details: ev.details as any,
+          details: ev.details,
           isErrorGroup: isErr,
           errorReason: reason,
         });

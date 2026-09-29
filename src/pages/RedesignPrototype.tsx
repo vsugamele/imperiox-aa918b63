@@ -253,7 +253,7 @@ export default function RedesignPrototype() {
                   return (
                     <button
                       key={item.key}
-                      onClick={() => setScreen(item.key as any)}
+                      onClick={() => setScreen(item.key as typeof screen)}
                       className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded text-left transition-all ${
                         active
                           ? "bg-[#14161A] text-[#E8EAED] border-l-2 border-[#D6FF4B]"

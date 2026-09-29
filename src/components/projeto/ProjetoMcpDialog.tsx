@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import type { Tables } from "@/integrations/supabase/types";
-import { jsonFields, jsonText } from "@/lib/json-fields";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export function ProjetoMcpDialog({ open, onOpenChange, project }: Props) {
   const masterPromptMarkdown = useMemo(() => {
     const produtos = Array.isArray(projectData.produtos) ? projectData.produtos : [];
     const prodList = produtos.length > 0
-      ? produtos.map((p: any) => `- **${p.nome || p.name}**: R$ ${p.preco || p.price || "—"} | Tipo: ${p.tipo || "principal"} | Checkout: ${p.checkout_url || p.link || "Sem link"}`).join("\n")
+      ? produtos.map(objectFields).map((p) => `- **${p.nome || p.name}**: R$ ${p.preco || p.price || "—"} | Tipo: ${p.tipo || "principal"} | Checkout: ${p.checkout_url || p.link || "Sem link"}`).join("\n")
       : "Nenhum produto cadastrado no briefing.";
 
     return `# DOSSIÊ EXECUTIVO DE OPERAÇÃO: ${project.name.toUpperCase()} (ID: ${project.id})

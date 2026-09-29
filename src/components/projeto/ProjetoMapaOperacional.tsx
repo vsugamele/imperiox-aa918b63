@@ -27,7 +27,8 @@ import {
   Network,
   ListChecks,
 } from "lucide-react";
-import { jsonFields, jsonText } from "@/lib/json-fields";
+import type { LucideIcon } from "lucide-react";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
 import { ProjetoMcpDialog } from "./ProjetoMcpDialog";
 import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
 
@@ -45,7 +46,7 @@ interface MapNode {
   step: number;
   title: string;
   subtitle: string;
-  icon: any;
+  icon: LucideIcon;
   status: NodeStatus;
   statusLabel: string;
   kpiLabel: string;
@@ -60,10 +61,10 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<Tables<"imphq_leads">[]>([]);
   const [vendas, setVendas] = useState<Tables<"imphq_vendas">[]>([]);
-  const [waProviders, setWaProviders] = useState<any[]>([]);
-  const [aiConfig, setAiConfig] = useState<any | null>(null);
-  const [automacoes, setAutomacoes] = useState<any[]>([]);
-  const [adsSpend, setAdsSpend] = useState<any[]>([]);
+  const [waProviders, setWaProviders] = useState<Tables<"imphq_wa_providers">[]>([]);
+  const [aiConfig, setAiConfig] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
+  const [automacoes, setAutomacoes] = useState<Tables<"imphq_automacoes">[]>([]);
+  const [adsSpend, setAdsSpend] = useState<Tables<"imphq_ads_spend">[]>([]);
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"canvas" | "pipeline">(() => {
     return (localStorage.getItem(`mapa_view_${projectId}`) as "canvas" | "pipeline") || "canvas";
@@ -162,8 +163,8 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
 
     // 3. Atendimento & IA Autônoma X1
     const hasActiveProvider = waProviders.some(p => p.is_active || p.status === "connected");
-    const isAiEnabled = Boolean(aiConfig?.is_active ?? true);
-    const isFullAutonomy = Boolean(aiConfig?.is_full_autonomy ?? true);
+    const isAiEnabled = Boolean(aiConfig?.enabled);
+    const isFullAutonomy = isAiEnabled && !aiConfig?.draft_mode;
     const waStatus: NodeStatus = (hasActiveProvider && isAiEnabled) ? "operational" : hasActiveProvider ? "warning" : "offline";
 
     const node3X1: MapNode = {
@@ -192,7 +193,7 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
     // 4. Oferta, Mecanismo & Checkouts
     const produtos = Array.isArray(projectData.produtos) ? projectData.produtos : [];
     const hasProducts = produtos.length > 0;
-    const hasCheckoutLink = produtos.some((p: any) => p.checkout_url || p.link) || Boolean(projectData.checkout_url || projectData.link_checkout);
+    const hasCheckoutLink = produtos.some((p) => { const prod = objectFields(p); return prod.checkout_url || prod.link; }) || Boolean(projectData.checkout_url || projectData.link_checkout);
     const hasMecanismo = Boolean(projectData.mecanismo || projectData.mecanismo_unico || projectData.tese);
     const offerStatus: NodeStatus = (hasProducts && hasCheckoutLink && hasMecanismo) ? "operational" : (hasProducts || hasMecanismo) ? "warning" : "offline";
 

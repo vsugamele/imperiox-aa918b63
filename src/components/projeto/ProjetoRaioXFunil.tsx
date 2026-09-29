@@ -36,6 +36,7 @@ import {
 import { toast } from "sonner";
 import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useNavigate } from "react-router-dom";
+import { errorMessage } from "@/lib/error-message";
 
 interface Props {
   projectId: string;
@@ -65,8 +66,8 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
 
   // State de Dados do Projeto
   const [leads, setLeads] = useState<Tables<"imphq_leads">[]>([]);
-  const [waConvs, setWaConvs] = useState<any[]>([]);
-  const [aiConfig, setAiConfig] = useState<any | null>(null);
+  const [waConvs, setWaConvs] = useState<Tables<"imphq_wa_conversations">[]>([]);
+  const [aiConfig, setAiConfig] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
   const [automacoes, setAutomacoes] = useState<Tables<"imphq_automacoes">[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -121,8 +122,8 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       } else {
         setWaConvs([]);
       }
-    } catch (e: any) {
-      console.warn("Erro ao carregar dados do Raio-X:", e?.message);
+    } catch (e) {
+      console.warn("Erro ao carregar dados do Raio-X:", errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -237,7 +238,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
     };
 
     // 5. Funil X1 & Automação OpenFlow
-    const hasAiActive = Boolean(aiConfig?.enabled && (aiConfig?.full_autonomy || aiConfig?.instagram_enabled));
+    const hasAiActive = Boolean(aiConfig?.enabled && ((aiConfig?.enabled && !aiConfig?.draft_mode) || aiConfig?.instagram_enabled));
     const hasX1Flow = automacoes.length > 0 || projectId === "slimsoda" || projectId === "cinna-shield";
     const openflowScore = (hasAiActive ? 50 : 25) + (hasX1Flow ? 50 : 25);
     const openflowAudit: LayerAudit = {
@@ -252,11 +253,11 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       populatedItems: [
         hasX1Flow ? "Roteiro de 8 fases mapeado" : null,
         aiConfig?.enabled ? "WhatsApp AI responder habilitado" : null,
-        aiConfig?.full_autonomy ? "Modo 100% Autônomo ativo" : null,
+        (aiConfig?.enabled && !aiConfig?.draft_mode) ? "Modo 100% Autônomo ativo" : null,
       ].filter(Boolean) as string[],
       missingItems: [
         !aiConfig?.enabled ? "Ativar IA no imphq_wa_ai_config" : null,
-        !aiConfig?.full_autonomy ? "Habilitar flag de Autonomia Total" : null,
+        !(aiConfig?.enabled && !aiConfig?.draft_mode) ? "Habilitar flag de Autonomia Total" : null,
       ].filter(Boolean) as string[],
       recommendedSkill: "roteiros-virais-comment-to-dm / wa-ai-reply",
       aiActionLabel: "Abrir Mesa de Atendimento X1",
@@ -280,7 +281,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
     };
 
     return [pesquisaAudit, avatarAudit, mecanismoAudit, checkoutsAudit, openflowAudit, criativosAudit];
-  }, [project, projectData, avatarData, pipelineData, aiConfig, automacoes, projectId]);
+  }, [project, projectData, avatarData, aiConfig, automacoes, projectId]);
 
   // Score Geral de Prontidão
   const overallReadiness = useMemo(() => {
@@ -404,9 +405,9 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       const text = res.data?.choices?.[0]?.message?.content || res.data?.reply || JSON.stringify(res.data, null, 2);
       setAiResult(text);
       toast.success("Estratégia gerada com sucesso via OpenRouter!");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro OpenRouter:", err);
-      toast.error(`Falha ao gerar: ${err.message || "Verifique chaves OpenRouter"}`);
+      toast.error(`Falha ao gerar: ${errorMessage(err) || "Verifique chaves OpenRouter"}`);
     } finally {
       setAiGenerating(false);
     }
@@ -437,8 +438,8 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       setAiModalOpen(false);
       loadData();
       if (onRefresh) onRefresh();
-    } catch (e: any) {
-      toast.error(`Erro ao salvar: ${e.message}`);
+    } catch (e) {
+      toast.error(`Erro ao salvar: ${errorMessage(e)}`);
     }
   };
 
@@ -515,7 +516,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                 {layersAudit.filter((l) => l.ready).length} de {layersAudit.length} camadas validadas
               </span>
               <span>
-                {aiConfig?.full_autonomy ? (
+                {(aiConfig?.enabled && !aiConfig?.draft_mode) ? (
                   <span className="text-emerald-400 font-mono flex items-center gap-1">
                     <Zap className="h-3 w-3 inline" /> IA 100% Autônoma Ativa (Sem Handoff)
                   </span>
@@ -531,7 +532,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
       {/* ======================================================== */}
       {/* NAVEGAÇÃO INTERNA DO COCKPIT                            */}
       {/* ======================================================== */}
-      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as any)} className="w-full">
+      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as typeof activeSubTab)} className="w-full">
         <TabsList className="bg-[#0E1013] border border-[#1B1E23] p-1 h-auto flex flex-wrap gap-1">
           <TabsTrigger value="raiox" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary gap-1.5 text-xs py-2 px-3">
             <Layers className="h-3.5 w-3.5" /> Raio-X & Buracos (6 Camadas)

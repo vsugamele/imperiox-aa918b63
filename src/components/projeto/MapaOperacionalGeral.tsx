@@ -33,7 +33,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { jsonFields } from "@/lib/json-fields";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -153,36 +154,36 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       // Mapeia para cada projeto
       const mapped = projects.map((proj): ProjectCardData => {
         const pId = proj.id;
-        const pData = jsonFields(proj.data) as Record<string, any>;
+        const pData = jsonFields(proj.data);
 
         // Vendas 24h
-        const pVendas24h = vList.filter((v: any) => v.project_id === pId && v.created_at >= last24h);
-        const aprovadas24h = pVendas24h.filter((v: any) => v.status === "aprovado");
-        const receita24h = aprovadas24h.reduce((sum: number, v: any) => sum + Number(v.valor || 0), 0);
-        const abandonos24h = pVendas24h.filter((v: any) => v.status === "carrinho_abandonado");
-        const pix24h = pVendas24h.filter((v: any) => v.status === "pix_gerado");
+        const pVendas24h = vList.filter((v) => v.project_id === pId && v.created_at >= last24h);
+        const aprovadas24h = pVendas24h.filter((v) => v.status === "aprovado");
+        const receita24h = aprovadas24h.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+        const abandonos24h = pVendas24h.filter((v) => v.status === "carrinho_abandonado");
+        const pix24h = pVendas24h.filter((v) => v.status === "pix_gerado");
 
         // Vendas 30d
-        const pVendas30d = vList.filter((v: any) => v.project_id === pId && v.status === "aprovado");
-        const receita30d = pVendas30d.reduce((sum: number, v: any) => sum + Number(v.valor || 0), 0);
+        const pVendas30d = vList.filter((v) => v.project_id === pId && v.status === "aprovado");
+        const receita30d = pVendas30d.reduce((sum, v) => sum + Number(v.valor || 0), 0);
 
         // Leads 24h
-        const pLeads24h = lList.filter((l: any) => l.project_id === pId);
-        const hotLeads = pLeads24h.filter((l: any) => Number(l.score || 0) >= 70);
+        const pLeads24h = lList.filter((l) => l.project_id === pId);
+        const hotLeads = pLeads24h.filter((l) => Number(l.score || 0) >= 70);
 
         // Conversas e mensagens paradas (últimas 48h)
-        const pConvs = cList.filter((c: any) => c.project_id === pId);
-        const recentPendingConvs = pConvs.filter((c: any) =>
+        const pConvs = cList.filter((c) => c.project_id === pId);
+        const recentPendingConvs = pConvs.filter((c) =>
           c.last_message_at && new Date(c.last_message_at).getTime() >= Date.now() - 48 * 3600000
         );
-        const pInbound = inList.filter((m: any) => m.project_id === pId);
+        const pInbound = inList.filter((m) => m.project_id === pId);
 
         // Provider WA
-        const prov = pList.find((pr: any) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas")) || null;
-        const ai = aList.find((a: any) => a.project_id === pId) || null;
+        const prov = pList.find((pr) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas")) || null;
+        const ai = aList.find((a) => a.project_id === pId) || null;
 
         // Demandas / Kanban
-        const pTasks = kList.filter((k: any) => k.project_id === pId).slice(0, 4).map((k: any) => {
+        const pTasks = kList.filter((k) => k.project_id === pId).slice(0, 4).map((k) => {
           const colTitle = (k.imphq_kanban_columns?.title || "").toLowerCase();
           const isDone = colTitle.includes("done") || colTitle.includes("conclu") || colTitle.includes("finaliz");
           return {
@@ -198,10 +199,10 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
         let vslUrl = "";
         if (pData.vsl_url && typeof pData.vsl_url === "string") vslUrl = pData.vsl_url;
         else if (Array.isArray(pData.produtos) && pData.produtos.length > 0) {
-          const prod = pData.produtos.find((x: any) => x?.status === "ativo") || pData.produtos[0];
-          if (Array.isArray(prod?.links) && prod.links.length > 0) vslUrl = prod.links[0];
+          const prod = objectFields(pData.produtos.find((x) => objectFields(x).status === "ativo") ?? pData.produtos[0]);
+          if (Array.isArray(prod.links) && prod.links.length > 0) vslUrl = jsonText(prod.links[0]) ?? "";
         }
-        if (!vslUrl && pData.links && typeof pData.links === "object") vslUrl = (pData.links as any).site || "";
+        if (!vslUrl) vslUrl = jsonText(objectFields(pData.links).site) ?? "";
         if (!vslUrl) {
           if (pId === "jp_freitas") vslUrl = "https://codigodoscortesperfeitos.vercel.app";
           else if (pId === "linfaflow") vslUrl = "https://linfaflow.com/";
@@ -225,7 +226,10 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
 
         // Meta Ads status
         const creatives = Array.isArray(pData.facebook_creatives) ? pData.facebook_creatives : [];
-        const hasActiveAds = creatives.some((c: any) => c.status === "ACTIVE" || c.status === "ACTIVE_CAMPAIGN");
+        const hasActiveAds = creatives.some((c) => {
+          const status = objectFields(c).status;
+          return status === "ACTIVE" || status === "ACTIVE_CAMPAIGN";
+        });
         const hasCreatives = creatives.length > 0;
 
         // Contagem de gargalos
@@ -272,7 +276,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       });
 
       setCardsData(mapped);
-    } catch (e: any) {
+    } catch (e) {
       console.error("Erro ao carregar mapa operacional geral:", e);
       toast.error("Falha ao carregar dados do mapa geral");
     } finally {
@@ -334,9 +338,9 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.success("Raio-X disparado no grupo Imperio X com sucesso!");
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast.error(`Falha ao disparar no WhatsApp: ${e.message}`);
+      toast.error(`Falha ao disparar no WhatsApp: ${errorMessage(e)}`);
     } finally {
       setDispatchingWa(false);
     }
@@ -360,9 +364,9 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       setProjectToDelete(null);
       loadAllData();
       onRefresh?.();
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      toast.error(`Falha ao excluir projeto: ${e.message}`);
+      toast.error(`Falha ao excluir projeto: ${errorMessage(e)}`);
     } finally {
       setDeleting(false);
     }

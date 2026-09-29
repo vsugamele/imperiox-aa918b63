@@ -1,6 +1,6 @@
 import { parsePosition, parseChecklist, parseAnnotationKind, parseAnnotationStyle } from "@/components/funis/company-map-data";
 import { record, toJson, parseProjectData } from "@/lib/funis-data";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Json, Tables } from "@/integrations/supabase/types";
 import type { NodeStats } from "@/hooks/useCompanyMapLiveStats";
 import { errorMessage } from "@/lib/error-message";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
@@ -73,13 +73,13 @@ export interface AgentExecutionData {
   output_url: string;
 }
 
-export function extractAgentData(notes?: string | null): AgentExecutionData {
+function extractAgentData(notes?: string | null): AgentExecutionData {
   if (!notes) {
     return { executor: "human_general", skill: "none", status: "pending", prompt: "", output_url: "" };
   }
   const executor = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
   const skill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
-  const status = (notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending") as any;
+  const status = (notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending") as AgentExecutionData["status"];
   const output_url = notes.match(/\[agent_output:([^\]]+)\]/)?.[1] || "";
 
   let prompt = "";
@@ -94,7 +94,7 @@ export function extractAgentData(notes?: string | null): AgentExecutionData {
   return { executor, skill, status, prompt, output_url };
 }
 
-export function updateAgentDataInNotes(notes: string | null | undefined, data: Partial<AgentExecutionData>): string {
+function updateAgentDataInNotes(notes: string | null | undefined, data: Partial<AgentExecutionData>): string {
   let text = notes || "";
   text = text.replace(/\[agent_executor:[^\]]*\]/g, "")
              .replace(/\[agent_skill:[^\]]*\]/g, "")
@@ -189,8 +189,8 @@ interface MapNode {
   stage_role?: string | null;
   executor_type?: string | null;
   linked_skill_id?: string | null;
-  api_binding?: any;
-  metrics_target?: any;
+  api_binding?: Json | null;
+  metrics_target?: Json | null;
 }
 
 // Helpers for image nodes
@@ -655,8 +655,7 @@ function InnerMap({
 
   const isWaKind = selected?.kind === "whatsapp";
   const isProductKind = ["checkout", "orderbump", "upsell", "downsell", "produto", "oferta"].includes(String(selected?.kind || ""));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const projectProducts = projectProductsList as any[];
+  const projectProducts = projectProductsList;
 
   const handleSelectCampaign = (value: string) => {
     if (!selected) return;
@@ -1955,7 +1954,7 @@ function InnerMap({
       toast.success("Fluxo operacional desenhado com sucesso!", { id: toastId });
       setTimeout(() => fitView({ duration: 800 }), 300);
 
-    } catch (e: any) {
+    } catch (e) {
       console.error("Erro ao desenhar fluxo com IA:", e);
       toast.error(errorMessage(e) || "Erro ao desenhar com IA", { id: toastId });
     } finally {
@@ -3010,7 +3009,7 @@ function InnerMap({
                         <SelectTrigger className="h-8 text-xs bg-secondary"><SelectValue placeholder="Selecione um produto..." /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Personalizado / Avulso</SelectItem>
-                          {projectProducts.map((p: any) => (
+                          {projectProducts.map((p) => (
                             <SelectItem key={p.nome} value={p.nome}>
                               {p.nome} {p.preco ? `· R$ ${p.preco}` : ""}
                             </SelectItem>
@@ -3112,7 +3111,7 @@ function InnerMap({
                       </span>
                       <Select
                         value={agent.status}
-                        onValueChange={(v) => handleUpdateAgent({ status: v as any })}
+                        onValueChange={(v) => handleUpdateAgent({ status: v as AgentExecutionData["status"] })}
                       >
                         <SelectTrigger className="h-7 w-[125px] text-[10px] bg-secondary/80 font-mono">
                           <SelectValue />
@@ -3535,7 +3534,7 @@ function InnerMap({
                     <SelectValue placeholder="Selecione o produto principal do projeto..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#0A0B0D] border-[#1B1E23]">
-                    {projectProductsList.map((prod: any, idx: number) => {
+                    {projectProductsList.map((prod, idx) => {
                       const name = prod.nome || prod.name || `Produto ${idx + 1}`;
                       return (
                         <SelectItem key={idx} value={name} className="text-xs">

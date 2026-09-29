@@ -21,7 +21,6 @@ function useLiveLeadCount(): number | null {
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval>;
 
     async function fetchCount() {
       if (document.visibilityState === "hidden") return;
@@ -34,7 +33,7 @@ function useLiveLeadCount(): number | null {
     }
 
     fetchCount();
-    intervalId = setInterval(fetchCount, 5 * 60 * 1000);
+    const intervalId = setInterval(fetchCount, 5 * 60 * 1000);
 
     return () => clearInterval(intervalId);
   }, []);

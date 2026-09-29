@@ -31,6 +31,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { errorMessage as getErrorMessage } from "@/lib/error-message";
 
 interface ProviderInput {
   id?: string;
@@ -127,7 +128,7 @@ export default function ConnectWhatsAppModal({
         return true;
       }
       return false;
-    } catch (err: any) {
+    } catch (err) {
       console.warn("[ConnectWhatsAppModal] Erro no polling de status:", err);
       return false;
     }
@@ -191,10 +192,10 @@ export default function ConnectWhatsAppModal({
       } else {
         throw new Error(data?.error || "Não foi possível obter o QR Code.");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("[ConnectWhatsAppModal] Erro ao gerar QR:", err);
       setStatus("error");
-      setErrorMessage(err?.message || "Erro ao conectar com a Evolution API.");
+      setErrorMessage(getErrorMessage(err) || "Erro ao conectar com a Evolution API.");
       toast.error("Erro ao gerar QR Code");
     }
   };
@@ -217,8 +218,8 @@ export default function ConnectWhatsAppModal({
       if (onSuccess) {
         onSuccess({ instance: instanceName, phone: null });
       }
-    } catch (err: any) {
-      toast.error("Erro ao desconectar: " + (err.message || String(err)));
+    } catch (err) {
+      toast.error("Erro ao desconectar: " + (getErrorMessage(err) || String(err)));
     }
   };
 

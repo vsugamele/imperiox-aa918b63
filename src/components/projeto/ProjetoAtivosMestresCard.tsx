@@ -31,7 +31,8 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
-import { jsonFields } from "@/lib/json-fields";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
 
 interface Props {
   project: Tables<"imphq_projects">;
@@ -59,7 +60,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
   const [pendingConvsCount, setPendingConvsCount] = useState<number>(0);
 
   const projectData = useMemo(() => {
-    return jsonFields(project.data) as Record<string, any>;
+    return jsonFields(project.data);
   }, [project.data]);
 
   // Carregar status do WhatsApp e IA do projeto
@@ -117,15 +118,15 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
     if (projectData.vsl_url && typeof projectData.vsl_url === "string") {
       url = projectData.vsl_url;
     } else if (Array.isArray(projectData.produtos) && projectData.produtos.length > 0) {
-      const p = projectData.produtos.find((prod: any) => prod?.status === "ativo") || projectData.produtos[0];
-      if (Array.isArray(p?.links) && p.links.length > 0) {
-        url = p.links[0];
-        label = p.nome || label;
+      const p = objectFields(projectData.produtos.find((prod) => objectFields(prod).status === "ativo") ?? projectData.produtos[0]);
+      if (Array.isArray(p.links) && p.links.length > 0) {
+        url = jsonText(p.links[0]) ?? "";
+        label = jsonText(p.nome) || label;
       }
     }
 
-    if (!url && projectData.links && typeof projectData.links === "object") {
-      url = (projectData.links as any).site || "";
+    if (!url) {
+      url = jsonText(objectFields(projectData.links).site) ?? "";
     }
 
     // Fallbacks canônicos conhecidos
@@ -165,20 +166,20 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
 
   // 3. Criativo Winner (Controle)
   const winnerCreative = useMemo(() => {
-    const list = Array.isArray(projectData.facebook_creatives) ? (projectData.facebook_creatives as any[]) : [];
-    
+    const list = Array.isArray(projectData.facebook_creatives) ? projectData.facebook_creatives.map(objectFields) : [];
+
     // Procura criativo com nome "insegura" ou "cachos" ou o primeiro com copy
-    const found = list.find((c: any) =>
-      c?.name?.toLowerCase()?.includes("insegura") ||
-      c?.body?.toLowerCase()?.includes("insegura")
-    ) || list.find((c: any) => c?.body && c.body.length > 50) || null;
+    const found = list.find((c) =>
+      jsonText(c.name)?.toLowerCase().includes("insegura") ||
+      jsonText(c.body)?.toLowerCase().includes("insegura")
+    ) || list.find((c) => (jsonText(c.body)?.length ?? 0) > 50) || null;
 
     if (found) {
       return {
-        title: found.title || found.name || "De insegura a referência em cachos",
-        body: found.body || "",
-        imageUrl: found.image_url || found.thumbnail_url || null,
-        status: found.status || "CAMPAIGN_PAUSED",
+        title: jsonText(found.title) || jsonText(found.name) || "De insegura a referência em cachos",
+        body: jsonText(found.body) || "",
+        imageUrl: jsonText(found.image_url) || jsonText(found.thumbnail_url) || null,
+        status: jsonText(found.status) || "CAMPAIGN_PAUSED",
       };
     }
 
@@ -196,8 +197,8 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
 
   // 4. Status do Tráfego Pago
   const trafficStatus = useMemo(() => {
-    const list = Array.isArray(projectData.facebook_creatives) ? (projectData.facebook_creatives as any[]) : [];
-    const hasActive = list.some((c: any) => c?.status === "ACTIVE" || c?.status === "ACTIVE_CAMPAIGN");
+    const list = Array.isArray(projectData.facebook_creatives) ? projectData.facebook_creatives.map(objectFields) : [];
+    const hasActive = list.some((c) => c.status === "ACTIVE" || c.status === "ACTIVE_CAMPAIGN");
     return {
       isActive: hasActive,
       label: hasActive ? "Meta Ads Rodando" : "Tráfego Pausado no Meta",
@@ -248,9 +249,9 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
       } else {
         throw new Error("Sem resposta da IA");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao gerar variações:", err);
-      toast.error(`Falha ao gerar variações: ${err.message || "Tente novamente"}`);
+      toast.error(`Falha ao gerar variações: ${errorMessage(err) || "Tente novamente"}`);
     } finally {
       setGenerating(false);
     }

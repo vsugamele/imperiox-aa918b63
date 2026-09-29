@@ -1,4 +1,4 @@
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { parseProjectData } from "@/lib/funis-data";
 import { errorMessage } from "@/lib/error-message";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -269,10 +269,10 @@ export default function Skills() {
         if (file.name.endsWith(".zip")) {
           const zip = await JSZip.loadAsync(file);
           const mdFiles = Object.keys(zip.files).filter(f => f.endsWith(".md") && !zip.files[f].dir);
-          const payload: any[] = [];
+          const payload: TablesInsert<"imphq_skills">[] = [];
           for (const mf of mdFiles) {
             const content = await zip.files[mf].async("string");
-            const slug = mf.replace(/\/SKILL\.md$/, "").replace(/^.*[\\\/]/, "").replace(/\.md$/, "");
+            const slug = mf.replace(/\/SKILL\.md$/, "").replace(/^.*[\\/]/, "").replace(/\.md$/, "");
             const nameMatch = content.match(/^name:\s*(.+)$/m);
             const descMatch = content.match(/^description:\s*(.+)$/m);
             const nome = nameMatch ? nameMatch[1].trim().replace(/^['"]|['"]$/g, '') : slug.replace(/[-_]/g, ' ');
