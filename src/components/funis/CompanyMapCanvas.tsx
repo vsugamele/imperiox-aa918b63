@@ -611,6 +611,39 @@ function InnerMap({
     }
   }, [selected]);
 
+  const isWaKind = selected?.kind === "whatsapp";
+  const isProductKind = ["checkout", "orderbump", "upsell", "downsell", "produto", "oferta"].includes(String(selected?.kind || ""));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const projectProducts = projectProductsList as any[];
+
+  const handleSelectCampaign = (value: string) => {
+    if (!selected) return;
+    const id = value === "none" ? null : value;
+    setSelectedCampaignId(id);
+    setSelected({ ...selected, notes: setWaCampaignInNotes(selected.notes, id) });
+  };
+
+  const handleCreateCampaign = async () => {
+    const name = newCampaignName.trim();
+    if (!name || !effectiveProjectId || !selected) return;
+    const { data, error } = await supabase
+      .from("imphq_wa_campaigns")
+      .insert({ name, project_id: effectiveProjectId } as never)
+      .select("*")
+      .single();
+    if (error || !data) { toast.error("Falha ao criar campanha"); return; }
+    setWaCampaigns(prev => [data, ...prev]);
+    setCreatingCampaign(false);
+    setNewCampaignName("");
+    handleSelectCampaign(data.id);
+  };
+
+  const handleLinkProduct = (value: string) => {
+    if (!selected) return;
+    const name = value === "none" ? null : value;
+    setSelected({ ...selected, notes: setProductIdInNotes(selected.notes, name) });
+  };
+
   const [checklistPanel, setChecklistPanel] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
@@ -3286,7 +3319,7 @@ function InnerMap({
               campaignId={selectedCampaignId}
               projectId={effectiveProjectId || ""}
               produto={currentCampaign?.produto || ""}
-              groups={campaignGroups}
+              groups={campaignGroups.map(g => g.jid || g.id)}
             />
           )}
         </DialogContent>
