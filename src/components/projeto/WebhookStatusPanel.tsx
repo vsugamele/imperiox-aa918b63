@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import {
@@ -68,8 +68,7 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
     url: `${BASE_URL}?project_id=${slug}&platform=${p.key}`,
   }));
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadVendas = useCallback(() => {
     setLoadingVendas(true);
     supabase
       .from("imphq_vendas")
@@ -78,13 +77,14 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
       .order("created_at", { ascending: false })
       .limit(5)
       .then(({ data }) => {
-        if (!cancelled) {
-          setVendas(data ?? []);
-          setLoadingVendas(false);
-        }
+        setVendas(data ?? []);
+        setLoadingVendas(false);
       });
-    return () => { cancelled = true; };
   }, [project.id]);
+
+  useEffect(() => {
+    loadVendas();
+  }, [loadVendas]);
 
   const copyUrl = (url: string, key: string) => {
     navigator.clipboard.writeText(url);
@@ -112,6 +112,7 @@ export function WebhookStatusPanel({ project }: { project: Tables<"imphq_project
       });
       if (error) throw error;
       toast.success("Webhook de teste enviado com sucesso!");
+      setTimeout(loadVendas, 1200);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao enviar webhook de teste");
     } finally {

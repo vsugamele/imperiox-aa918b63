@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText, Tag, Package } from "lucide-react";
+import { Settings, Key, Bell, Shield, Eye, EyeOff, AlertTriangle, Monitor, Clock, Play, Loader2, RefreshCw, Webhook, Trash2, Copy, Plus, Users, UserPlus, KeyRound, Ban, Activity, ScrollText, Tag, Package } from "lucide-react";
 import { toast } from "sonner";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -526,6 +526,7 @@ function statusDot(status: string | null) {
 function CronJobsTab() {
   const [jobs, setJobs] = useState<CronJobRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [runningKey, setRunningKey] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -552,6 +553,24 @@ function CronJobsTab() {
       setJobs(prev => prev.map(j => j.job_key === row.job_key ? { ...j, is_enabled: !newEnabled } : j));
     } else {
       toast.success(newEnabled ? 'Cron ativado' : 'Cron desativado');
+    }
+  };
+
+  const executeNow = async (jobKey: string) => {
+    setRunningKey(jobKey);
+    try {
+      const { error } = await supabase.rpc('run_cron_job', {
+        p_job_key: jobKey,
+        p_function_name: jobKey,
+        p_body: jobKey === 'wa-weekly-report' ? { target_jid: "120363409438175766@g.us" } : {}
+      });
+      if (error) throw error;
+      toast.success(`Job "${jobKey}" disparado com sucesso!`);
+      setTimeout(fetchJobs, 1200);
+    } catch (err: unknown) {
+      toast.error('Erro ao executar job: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setRunningKey(null);
     }
   };
 
@@ -614,6 +633,21 @@ function CronJobsTab() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs border-border/60 hover:border-primary/40 text-muted-foreground hover:text-primary gap-1 px-2"
+                        disabled={runningKey === cfg.key}
+                        onClick={() => executeNow(cfg.key)}
+                        title="Executar este job imediatamente"
+                      >
+                        {runningKey === cfg.key ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        ) : (
+                          <Play className="h-3 w-3 text-primary" />
+                        )}
+                        Executar
+                      </Button>
                       <Switch
                         checked={row?.is_enabled ?? false}
                         onCheckedChange={() => row && toggleCron(row)}
