@@ -68,6 +68,28 @@ export async function pushNotifyByPref({ supabase, prefKey, title, message, user
         }).catch((e) => console.error(`[push-notify:${prefKey}] send error:`, e))
       )
     );
+
+    // Enviar alerta em tempo real para o grupo WhatsApp dos sócios (Imperio X)
+    const WA_GROUP_EVENTS: NotificationKey[] = [
+      "venda_aprovada",
+      "meta_diaria_atingida",
+      "reembolso_solicitado",
+      "erro_conexao",
+    ];
+
+    if (WA_GROUP_EVENTS.includes(prefKey)) {
+      const evoUrl = (Deno.env.get("EVOLUTION_API_URL") || "https://darkadvanced-evolution-api.llxtug.easypanel.host").replace(/\/+$/, "");
+      const evoKey = Deno.env.get("EVOLUTION_API_KEY") || "B500C35BE341-4CCB-B108-34384641D7D7";
+      const groupJid = Deno.env.get("IMPERIO_WA_GROUP_JID") || "120363409438175766@g.us";
+      const instance = Deno.env.get("EVOLUTION_INSTANCE") || "jpfreitas";
+
+      const waText = `🔔 *${title}*\n\n${message}\n\n_Império HQ · Operação Autônoma_`;
+      fetch(`${evoUrl}/message/sendText/${instance}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: evoKey },
+        body: JSON.stringify({ number: groupJid, text: waText }),
+      }).catch((e) => console.error(`[push-notify:wa-group] send error:`, e));
+    }
   } catch (e) {
     console.error(`[push-notify:${prefKey}] unexpected:`, e);
   }
