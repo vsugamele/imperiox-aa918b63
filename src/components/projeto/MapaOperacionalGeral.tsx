@@ -872,6 +872,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
             </Card>
           );
         })}
+      </div>
       {/* Dialog de Confirmação de Exclusão de Projeto */}
       <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
         <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23] text-foreground">
