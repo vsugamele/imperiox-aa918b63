@@ -70,7 +70,7 @@ const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = 
       { value: "openflow", label: "OpenFlow & Automações", emoji: "⚡" },
       { value: "comando", label: "Comando", emoji: "🎯" },
       { value: "raiox", label: "Raio-X & Funil", emoji: "⚡" },
-      { value: "identidade", label: "Identidade", emoji: "🎨" },
+      { value: "identidade", label: "Setup, Pixels & Links", emoji: "⚙️" },
       { value: "expert_panel", label: "Painel", emoji: "🧭" },
     ],
   },

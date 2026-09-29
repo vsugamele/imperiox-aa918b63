@@ -28,6 +28,7 @@ import {
   Layers,
   ArrowRight,
   Loader2,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { jsonFields } from "@/lib/json-fields";
@@ -285,6 +286,17 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
                   WA: {waProvider.instance_name} ({aiConfig?.full_autonomy ? "100% IA" : "Ativo"})
                 </Badge>
               )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs border-white/10 hover:border-primary/40 text-muted-foreground hover:text-white gap-1 font-mono"
+                onClick={() => onNavigateTab?.("identidade")}
+                title="Configurar links de página de vendas, Pixel do Facebook, Clarity e CAPI"
+              >
+                <Settings className="h-3 w-3 text-primary" />
+                Setup & Pixels
+              </Button>
             </div>
           </div>
 
