@@ -404,45 +404,78 @@ function APIsTab() {
 }
 
 // ── Notificações Tab ─────────────────────────────────────────────
+const NOTIFICATIONS_CONFIG = [
+  { key: 'venda_aprovada',        label: 'Nova venda realizada',         desc: 'Alerta quando uma compra é confirmada em qualquer produto' },
+  { key: 'novo_lead',             label: 'Novo lead capturado',          desc: 'Notificação quando um novo lead é registrado no CRM' },
+  { key: 'hot_lead',              label: 'Hot lead detectado',           desc: 'Lead com score > 70 nas últimas 2h' },
+  { key: 'checkout_abandonado',   label: 'Carrinho abandonado',          desc: 'Pix ou Boleto gerado mas não pago em 30+ min' },
+  { key: 'erro_conexao',          label: 'Chip WhatsApp desconectado',   desc: 'Alerta crítico imediato quando o chip cai' },
+  { key: 'resposta_ia',           label: 'Alertas de IA',                desc: 'Oportunidades e insights gerados automaticamente' },
+  { key: 'venda_recusada',        label: 'Pagamento recusado',           desc: 'Cartão ou Pix recusado — candidato a recovery' },
+  { key: 'reembolso_solicitado',  label: 'Reembolso solicitado',         desc: 'Pedido de estorno detectado' },
+];
+
 function NotificacoesTab() {
-  const NOTIFICATIONS = [
-    { key: "lead_capturado", label: "Novo Lead capturado", desc: "Notificação quando um novo lead é registrado" },
-    { key: "nova_venda", label: "Nova venda realizada", desc: "Alerta de compra confirmada em algum produto" },
-    { key: "tarefa_atribuida", label: "Novas tarefas atribuídas", desc: "Quando uma tarefa é atribuída para você" },
-    { key: "relatorio_semanal", label: "Relatório semanal", desc: "Resumo de KPIs toda segunda-feira às 9h" },
-    { key: "alertas_ia", label: "Alertas de IA", desc: "Oportunidades e insights gerados automaticamente" },
-    { key: "atividade_equipe", label: "Atividade da equipe", desc: "Updates de membros em projetos que você segue" },
-  ];
+  const { user } = useAuth();
+  const [prefs, setPrefs] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
 
-  const [prefs, setPrefs] = useState<Record<string, boolean>>(() => {
-    const saved = localStorage.getItem("imphq_notif_prefs");
-    return saved ? JSON.parse(saved) : {
-      lead_capturado: true, nova_venda: true, tarefa_atribuida: false,
-      relatorio_semanal: true, alertas_ia: true, atividade_equipe: false,
-    };
-  });
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('imphq_notification_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) {
+        const mapped: Record<string, boolean> = {};
+        for (const cfg of NOTIFICATIONS_CONFIG) {
+          mapped[cfg.key] = (data as Record<string, unknown>)[cfg.key] !== false;
+        }
+        setPrefs(mapped);
+      } else {
+        const defaults: Record<string, boolean> = {};
+        for (const cfg of NOTIFICATIONS_CONFIG) defaults[cfg.key] = true;
+        setPrefs(defaults);
+      }
+      setLoading(false);
+    })();
+  }, [user]);
 
-  const toggle = (key: string) => {
-    const next = { ...prefs, [key]: !prefs[key] };
-    setPrefs(next);
-    localStorage.setItem("imphq_notif_prefs", JSON.stringify(next));
+  const toggle = async (key: string) => {
+    if (!user) return;
+    const newValue = !prefs[key];
+    setPrefs(prev => ({ ...prev, [key]: newValue }));
+    const { error } = await supabase
+      .from('imphq_notification_preferences')
+      .upsert({ user_id: user.id, [key]: newValue }, { onConflict: 'user_id' });
+    if (error) {
+      toast.error('Erro ao salvar preferência: ' + error.message);
+      setPrefs(prev => ({ ...prev, [key]: !newValue }));
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="space-y-4">
         <h2 className="text-lg font-bold">Preferências de Notificação</h2>
-        <div className="space-y-1">
-          {NOTIFICATIONS.map(n => (
-            <div key={n.key} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-              <div>
-                <p className="text-sm font-medium">{n.label}</p>
-                <p className="text-xs text-muted-foreground">{n.desc}</p>
+        {loading ? (
+          <p className="text-xs text-muted-foreground">Carregando...</p>
+        ) : (
+          <div className="space-y-1">
+            {NOTIFICATIONS_CONFIG.map(n => (
+              <div key={n.key} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+                <div>
+                  <p className="text-sm font-medium">{n.label}</p>
+                  <p className="text-xs text-muted-foreground">{n.desc}</p>
+                </div>
+                <Switch checked={prefs[n.key] ?? true} onCheckedChange={() => toggle(n.key)} />
               </div>
-              <Switch checked={prefs[n.key]} onCheckedChange={() => toggle(n.key)} />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* WhatsApp / Campaign Notification Preferences (DB-backed) */}
@@ -455,91 +488,145 @@ function NotificacoesTab() {
 }
 
 // ── Cron Jobs Tab ────────────────────────────────────────────────
+const CRON_JOBS_CONFIG = [
+  { key: 'daily-briefing-wa',          name: 'Briefing Diário no WhatsApp',      desc: 'Resumo matinal por projeto, todo dia às 09:00 BRT',       icon: '📱', frequency: 'Diário às 09:00 BRT',    cron: '0 12 * * *' },
+  { key: 'payment-recovery',           name: 'Recuperação de Carrinho',           desc: 'Dispara 3 toques escalonados para Pix/Boleto abandonados', icon: '💰', frequency: 'A cada 15 minutos',       cron: '*/15 * * * *' },
+  { key: 'hot-lead-responder',         name: 'Responder Hot Leads',               desc: 'Aborda leads com score > 70 e Pix recente',               icon: '🔥', frequency: 'A cada 30 minutos',       cron: '*/30 * * * *' },
+  { key: 'wa-health-monitor',          name: 'Monitor de Saúde do WhatsApp',      desc: 'Verifica se o chip está conectado e tenta reconectar',    icon: '🟢', frequency: 'A cada 10 minutos',       cron: '*/10 * * * *' },
+  { key: 'wa-cold-lead-reactivator',   name: 'Reativação de Leads Frios',         desc: 'Contata leads sem interação há 48h+ com IA personalizada', icon: '🧊', frequency: 'Diário às 07:00 BRT',    cron: '0 10 * * *' },
+  { key: 'facebook-ads-sync-all',      name: 'Sync Meta Ads',                     desc: 'Atualiza spend, impressões e ROAS de todas as campanhas',  icon: '📊', frequency: 'A cada 6 horas',           cron: '0 */6 * * *' },
+  { key: 'checkout-abandoned-scanner', name: 'Scanner de Abandono de Checkout',  desc: 'Detecta Pix/Boleto gerados há 30min–24h ainda não pagos', icon: '🛒', frequency: 'A cada 15 minutos',       cron: '*/15 * * * *' },
+  { key: 'wa-weekly-report',           name: 'Relatório Semanal no WhatsApp',     desc: 'Resumo semanal de KPIs para o grupo Imperio X',           icon: '📈', frequency: 'Toda segunda às 09:00 BRT', cron: '0 12 * * 1' },
+];
+
+interface CronJobRow {
+  id: string;
+  job_key: string;
+  is_enabled: boolean;
+  last_run_at: string | null;
+  last_status: string | null;
+  last_error: string | null;
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return 'Nunca executado';
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return `há ${diff}s`;
+  if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
+  if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
+  return `há ${Math.floor(diff / 86400)}d`;
+}
+
+function statusDot(status: string | null) {
+  if (status === 'success') return <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" title="Sucesso" />;
+  if (status === 'error') return <span className="h-2 w-2 rounded-full bg-destructive shrink-0" title="Erro" />;
+  return <span className="h-2 w-2 rounded-full bg-muted-foreground/40 shrink-0" title="Nunca executado" />;
+}
+
 function CronJobsTab() {
-  const CRON_JOBS = [
-    { key: "relatorio_semanal", name: "Relatório Semanal", description: "Gera um resumo de KPIs e métricas de todos os projetos ativos", icon: "📊", frequency: "Toda segunda às 9h", cron: "0 9 * * 1" },
-    { key: "limpeza_dados", name: "Limpeza de Dados Antigos", description: "Remove webhooks processados com mais de 90 dias e logs antigos", icon: "🧹", frequency: "Todo domingo às 3h", cron: "0 3 * * 0" },
-    { key: "leads_inativos", name: "Verificação de Leads Inativos", description: "Identifica leads sem interação há 30+ dias e marca como inativos", icon: "👤", frequency: "Diariamente às 6h", cron: "0 6 * * *" },
-    { key: "sync_analytics", name: "Sync de Analytics", description: "Puxa dados de plataformas (Meta, GA) e atualiza KPIs dos projetos", icon: "📈", frequency: "A cada 6 horas", cron: "0 */6 * * *" },
-    { key: "backup_kb", name: "Backup Knowledge Base", description: "Exporta toda a KB para um documento de backup no Supabase Storage", icon: "💾", frequency: "Diariamente às 2h", cron: "0 2 * * *" },
-  ];
+  const [jobs, setJobs] = useState<CronJobRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [statuses, setStatuses] = useState<Record<string, { enabled: boolean; lastRun?: string; status?: string }>>(() => {
-    const saved = localStorage.getItem("imphq_cron_statuses");
-    return saved ? JSON.parse(saved) : {};
-  });
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('imphq_cron_jobs')
+      .select('*')
+      .order('job_key');
+    if (error) toast.error('Erro ao carregar cron jobs: ' + error.message);
+    else setJobs(data as CronJobRow[] || []);
+    setLoading(false);
+  }, []);
 
-  const [running, setRunning] = useState<string | null>(null);
+  useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-  const toggleCron = (key: string) => {
-    const next = { ...statuses, [key]: { ...statuses[key], enabled: !statuses[key]?.enabled } };
-    setStatuses(next);
-    localStorage.setItem("imphq_cron_statuses", JSON.stringify(next));
-    toast.success(next[key].enabled ? "Cron ativado" : "Cron desativado");
+  const toggleCron = async (row: CronJobRow) => {
+    const newEnabled = !row.is_enabled;
+    setJobs(prev => prev.map(j => j.job_key === row.job_key ? { ...j, is_enabled: newEnabled } : j));
+    const { error } = await supabase
+      .from('imphq_cron_jobs')
+      .update({ is_enabled: newEnabled })
+      .eq('job_key', row.job_key);
+    if (error) {
+      toast.error('Erro ao atualizar: ' + error.message);
+      setJobs(prev => prev.map(j => j.job_key === row.job_key ? { ...j, is_enabled: !newEnabled } : j));
+    } else {
+      toast.success(newEnabled ? 'Cron ativado' : 'Cron desativado');
+    }
   };
 
-  const runManual = async (key: string) => {
-    setRunning(key);
-    await new Promise(r => setTimeout(r, 2000));
-    const next = { ...statuses, [key]: { ...statuses[key], lastRun: new Date().toISOString(), status: "success" } };
-    setStatuses(next);
-    localStorage.setItem("imphq_cron_statuses", JSON.stringify(next));
-    setRunning(null);
-    toast.success("Executado com sucesso!");
-  };
+  // Build a lookup by job_key for quick access
+  const jobMap = new Map(jobs.map(j => [j.job_key, j]));
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-bold">Cron Jobs</h2>
-        <p className="text-xs text-muted-foreground">Tarefas agendadas do sistema. Ative pg_cron no Supabase para execução automática.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold">Cron Jobs</h2>
+          <p className="text-xs text-muted-foreground">Tarefas agendadas via pg_cron — dados em tempo real do Supabase.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={fetchJobs} disabled={loading} className="h-8 text-xs">
+          <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </Button>
       </div>
-      <Card className="bg-amber-500/5 border-amber-500/20">
-        <CardContent className="p-4 space-y-2">
-          <p className="text-xs font-medium text-amber-400">⚠️ Para habilitar execução automática:</p>
-          <ol className="text-[11px] text-muted-foreground space-y-1">
-            <li>1. Ative a extensão <code className="bg-secondary px-1 rounded">pg_cron</code> e <code className="bg-secondary px-1 rounded">pg_net</code> no Supabase</li>
-            <li>2. Execute o SQL de configuração no SQL Editor do Supabase</li>
-            <li>3. Os cron jobs chamarão as edge functions automaticamente nos horários configurados</li>
-          </ol>
-        </CardContent>
-      </Card>
-      <div className="space-y-3">
-        {CRON_JOBS.map(job => {
-          const st = statuses[job.key] as { enabled?: boolean; lastRun?: string; status?: string } | undefined;
-          return (
-            <Card key={job.key} className="bg-card border-border">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <span className="text-xl mt-0.5">{job.icon}</span>
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-sm">{job.name}</h3>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{job.description}</p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <Badge variant="outline" className="text-[9px] font-mono">{job.cron}</Badge>
-                        <Badge variant="secondary" className="text-[9px]">{job.frequency}</Badge>
-                        {st?.lastRun && (
-                          <Badge className={`text-[9px] ${st.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-destructive/20 text-destructive"}`}>
-                            Último: {new Date(st.lastRun).toLocaleString("pt-BR")}
-                          </Badge>
-                        )}
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Carregando...</p>
+      ) : (
+        <div className="space-y-3">
+          {CRON_JOBS_CONFIG.map(cfg => {
+            const row = jobMap.get(cfg.key);
+            return (
+              <Card key={cfg.key} className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="text-xl mt-0.5">{cfg.icon}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {statusDot(row?.last_status ?? null)}
+                          <h3 className="font-medium text-sm">{cfg.name}</h3>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{cfg.desc}</p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge variant="outline" className="text-[9px] font-mono">{cfg.cron}</Badge>
+                          <Badge variant="secondary" className="text-[9px]">{cfg.frequency}</Badge>
+                          {row ? (
+                            <Badge
+                              className={`text-[9px] ${
+                                row.last_status === 'success' ? 'bg-emerald-500/20 text-emerald-400' :
+                                row.last_status === 'error'   ? 'bg-destructive/20 text-destructive' :
+                                'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {timeAgo(row.last_run_at)}
+                            </Badge>
+                          ) : (
+                            <Badge className="text-[9px] bg-muted text-muted-foreground">Sem registro</Badge>
+                          )}
+                          {row?.last_status === 'error' && row.last_error && (
+                            <Badge className="text-[9px] bg-destructive/10 text-destructive max-w-[180px] truncate" title={row.last_error}>
+                              {row.last_error}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Switch
+                        checked={row?.is_enabled ?? false}
+                        onCheckedChange={() => row && toggleCron(row)}
+                        disabled={!row}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => runManual(job.key)} disabled={running === job.key}>
-                      {running === job.key ? <RefreshCw className="h-3 w-3 mr-1 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
-                      {running === job.key ? "Executando..." : "Executar"}
-                    </Button>
-                    <Switch checked={st?.enabled || false} onCheckedChange={() => toggleCron(job.key)} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
