@@ -131,6 +131,7 @@ export const MAP_ELEMENTS: MapElementType[] = [
   el("whop", "Whop", "integracoes", "operacao", "#ff6243", "Plug"),
   el("mercado_pago", "Mercado Pago", "integracoes", "operacao", "#00b1ea", "Plug"),
   el("evolution_api", "WhatsApp API (Evolution)", "integracoes", "operacao", "#25d366", "Plug"),
+  el("zernio", "Zernio (Instagram DM e comentários)", "integracoes", "operacao", "#7c3aed", "Bot"),
   el("manychat", "ManyChat", "integracoes", "operacao", "#0084ff", "Bot"),
   el("pixel_meta", "Pixel Meta", "integracoes", "operacao", "#1877f2", "Crosshair"),
   el("utmify", "UTMify", "integracoes", "operacao", "#f97316", "Crosshair"),

@@ -536,7 +536,8 @@ Deno.serve(async (req) => {
           project_id, action: "reply_comment",
           endpoint: `/api/v1/inbox/comments/${encodeURIComponent(row.media_id)}`,
           apiKey: creds.zernio_api_key,
-          body: { accountId: creds.zernio_account_id, content: message, parentCommentId: rawCid },
+          // Zernio exige o texto em `message` (com `content` respondia 400 missing_required_field).
+          body: { accountId: creds.zernio_account_id, message, parentCommentId: rawCid },
         });
         if (!r.ok) {
           console.warn(`[instagram-api] Zernio reply_comment ${r.status}: ${r.errorSummary} (media=${row.media_id} parent=${rawCid} reqId=${r.requestId})`);
