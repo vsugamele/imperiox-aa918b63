@@ -42,6 +42,7 @@ import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisa
 import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
 import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
 import { ProjetoInsights } from "@/components/projeto/ProjetoInsights";
+import { WebhookStatusPanel } from "@/components/projeto/WebhookStatusPanel";
 import { ProjetoInstagram } from "@/components/projeto/ProjetoInstagram";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff, Zap } from "lucide-react";
@@ -517,6 +518,7 @@ export default function ProjetoDetalhe() {
           <ProjetoInstagram projectId={id!} />
         </TabsContent>
         <TabsContent value="analytics" className="mt-4 space-y-4">
+          <WebhookStatusPanel project={project} />
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm uppercase tracking-wider text-primary font-sans">📈 Analytics & Tracking</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
