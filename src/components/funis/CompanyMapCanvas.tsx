@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowBrainDrawer } from "@/components/funis/FlowBrainDrawer";
+import { CompanyInfraToolsModal } from "@/components/funis/CompanyInfraToolsModal";
 import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
 import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
@@ -612,6 +613,7 @@ function InnerMap({
   // Gerador de Fluxo por IA
   const [aiFlowModalOpen, setAiFlowModalOpen] = useState(false);
   const [showFlowBrain, setShowFlowBrain] = useState(false);
+  const [infraToolsOpen, setInfraToolsOpen] = useState(false);
   const [aiFlowPreset, setAiFlowPreset] = useState<string>("vsl_perpetuo");
   const [aiFlowCustomText, setAiFlowCustomText] = useState("");
   const [aiFlowProduct, setAiFlowProduct] = useState("");
@@ -2193,6 +2195,14 @@ function InnerMap({
         >
           <Brain className="h-3.5 w-3.5" /> Flow Brain (Auditar com IA)
         </Button>
+        <Button
+          size="sm"
+          onClick={() => setInfraToolsOpen(true)}
+          className="h-7 px-2.5 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-semibold gap-1.5 shadow-sm transition-all"
+          title="Ver aparelhos GeeLark, perfis de redes sociais, ajustar acessos de ferramentas e produtos"
+        >
+          <Smartphone className="h-3.5 w-3.5 text-cyan-400" /> Infra, Perfis & Acessos
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
           <LayoutGrid className="h-3 w-3" /> Organizar
         </Button>
@@ -3620,6 +3630,16 @@ function InnerMap({
         onExecuteSkill={(skillId) => {
           navigate("/skills");
           toast.info(`Navegando para o arsenal de skills (${skillId})`);
+        }}
+      />
+
+      {/* Central de Infraestrutura, GeeLark & Acessos */}
+      <CompanyInfraToolsModal
+        open={infraToolsOpen}
+        onOpenChange={setInfraToolsOpen}
+        mapId={mapId}
+        onNodeInjected={() => {
+          if (mapId) loadMap(mapId);
         }}
       />
 
