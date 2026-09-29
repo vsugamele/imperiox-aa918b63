@@ -5,7 +5,7 @@ type Project = Tables<"imphq_projects">;
 type UpdateProject = <K extends keyof Project>(field: K, value: Project[K]) => void;
 import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -13,6 +13,16 @@ import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { ProjetoIdentidade } from "@/components/projeto/ProjetoIdentidade";
@@ -45,7 +55,7 @@ import { ProjetoInsights } from "@/components/projeto/ProjetoInsights";
 import { WebhookStatusPanel } from "@/components/projeto/WebhookStatusPanel";
 import { ProjetoInstagram } from "@/components/projeto/ProjetoInstagram";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
-import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff, Zap } from "lucide-react";
+import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff, Zap, Trash2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -107,11 +117,38 @@ const findPillarOf = (tabValue: string) =>
 
 export default function ProjetoDetalhe() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [editingIcon, setEditingIcon] = useState(false);
   const [editingCategory, setEditingCategory] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const save = useAutoSave(id);
+
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    setDeleting(true);
+    try {
+      const tables = [
+        "imphq_leads", "imphq_vendas", "imphq_automacoes", "imphq_ads_spend",
+        "imphq_ads_reports", "imphq_content_library", "imphq_referencias",
+        "imphq_kanban_cards", "imphq_wa_campaigns", "imphq_events",
+      ] as const;
+      for (const table of tables) {
+        await supabase.from(table).delete().eq("project_id", project.id);
+      }
+      const { error } = await supabase.from("imphq_projects").delete().eq("id", project.id);
+      if (error) throw error;
+      toast.success(`Projeto "${project.name}" excluído com sucesso.`);
+      navigate("/projetos");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir projeto");
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
+  };
 
   const storageKey = id ? `projeto:${id}:tab` : null;
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -336,6 +373,14 @@ export default function ProjetoDetalhe() {
               >
                 <Download className="h-3 w-3" /> Exportar JSON
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+                onClick={() => setDeleteConfirmOpen(true)}
+              >
+                <Trash2 className="h-3 w-3" /> Excluir
+              </Button>
             </div>
             <button
               type="button"
@@ -356,6 +401,32 @@ export default function ProjetoDetalhe() {
             </button>
           </div>
         </div>
+
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23] text-foreground">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-destructive" />
+                Excluir o projeto "{project.name}"?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-zinc-400 text-xs leading-relaxed">
+                Esta ação é definitiva e irreversível. Todos os dados associados a este projeto (leads, vendas, automações, cards do Kanban e configurações) serão excluídos permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-secondary text-foreground hover:bg-secondary/80">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleting}
+                onClick={handleDeleteProject}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold"
+              >
+                {deleting ? "Excluindo..." : "Sim, excluir projeto"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <div className="editorial-divider mt-6" />
       </header>

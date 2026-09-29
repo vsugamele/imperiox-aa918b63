@@ -558,10 +558,15 @@ function InnerMap({
   // Hub Lançamento / WhatsApp Campaigns & Step Editor
   const [waCampaigns, setWaCampaigns] = useState<Tables<"imphq_wa_campaigns">[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [campaignGroups, setCampaignGroups] = useState<{ id: string; name: string; jid?: string }[]>([]);
   const [stepEditorOpen, setStepEditorOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState("");
   const [creatingCampaign, setCreatingCampaign] = useState(false);
   const [waSubMode, setWaSubMode] = useState<"x1" | "grupo">("x1");
+
+  const currentCampaign = useMemo(() => {
+    return waCampaigns.find(c => c.id === selectedCampaignId) || null;
+  }, [waCampaigns, selectedCampaignId]);
 
   // Gerador de Fluxo por IA
   const [aiFlowModalOpen, setAiFlowModalOpen] = useState(false);

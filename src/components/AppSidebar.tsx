@@ -5,7 +5,7 @@ import {
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
   Inbox, Pencil, Workflow, Globe, Coins,
-  Palette,
+  Palette, Layers,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/auth-context";
@@ -26,6 +26,7 @@ const hojeitems = [
 
 const venderItems = [
   { title: "Projetos",   url: "/projetos",  icon: FolderKanban },
+  { title: "Funis",      url: "/funis",     icon: Layers },
   { title: "Campanhas",  url: "/campanhas", icon: Target },
   { title: "Sites",      url: "/sites",     icon: Globe },
   { title: "OpenFlow",   url: "/openflow",  icon: Workflow },

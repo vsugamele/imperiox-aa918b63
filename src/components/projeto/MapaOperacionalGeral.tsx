@@ -29,10 +29,21 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { jsonFields } from "@/lib/json-fields";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Props {
   projects: Tables<"imphq_projects">[];
@@ -78,6 +89,8 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
   const [filterMode, setFilterMode] = useState<"all" | "core" | "bottlenecks">("all");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [dispatchingWa, setDispatchingWa] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [cardsData, setCardsData] = useState<ProjectCardData[]>([]);
 
@@ -329,6 +342,32 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
     }
   };
 
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+    setDeleting(true);
+    try {
+      const tables = [
+        "imphq_leads", "imphq_vendas", "imphq_automacoes", "imphq_ads_spend",
+        "imphq_ads_reports", "imphq_content_library", "imphq_referencias",
+        "imphq_kanban_cards", "imphq_wa_campaigns", "imphq_events",
+      ] as const;
+      for (const table of tables) {
+        await supabase.from(table).delete().eq("project_id", projectToDelete.id);
+      }
+      const { error } = await supabase.from("imphq_projects").delete().eq("id", projectToDelete.id);
+      if (error) throw error;
+      toast.success(`Projeto "${projectToDelete.name}" excluído.`);
+      setProjectToDelete(null);
+      loadAllData();
+      onRefresh?.();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Falha ao excluir projeto: ${e.message}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ======================================================== */}
@@ -552,6 +591,18 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
                   >
                     Abrir Cockpit do Projeto
                     <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    title="Excluir projeto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectToDelete({ id: p.id, name: p.name });
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -821,7 +872,32 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
             </Card>
           );
         })}
-      </div>
+      {/* Dialog de Confirmação de Exclusão de Projeto */}
+      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <AlertDialogContent className="bg-[#0E1013] border-[#1B1E23] text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Excluir o projeto "{projectToDelete?.name}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400 text-xs leading-relaxed">
+              Esta ação é definitiva e irreversível. Todos os dados associados a este projeto (leads, vendas, automações, cards do Kanban e configurações) serão excluídos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-secondary text-foreground hover:bg-secondary/80">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={handleDeleteProject}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold"
+            >
+              {deleting ? "Excluindo..." : "Sim, excluir projeto"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
