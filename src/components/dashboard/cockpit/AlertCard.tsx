@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Flame, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Flame, Clock, AlertTriangle, CheckCircle2, WifiOff, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 // ─── data fetchers ────────────────────────────────────────────────────────────
@@ -41,6 +41,28 @@ async function fetchAutomationErrors(): Promise<number> {
     .gte('created_at', since);
 
   if (error) throw error;
+  return count ?? 0;
+}
+
+async function fetchDisconnectedChips(): Promise<number> {
+  const { count, error } = await supabase
+    .from('imphq_wa_providers')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_active', true)
+    .not('status', 'in', '("connected","open")');
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
+async function fetchCronErrors(): Promise<number> {
+  const { count, error } = await supabase
+    .from('imphq_cron_jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_enabled', true)
+    .eq('last_status', 'error');
+
+  if (error) return 0;
   return count ?? 0;
 }
 
@@ -88,15 +110,29 @@ export function AlertCard() {
     staleTime: 60_000,
   });
 
-  if (loadingLeads || loadingAwaiting || loadingErrors) {
+  const { data: chips, isLoading: loadingChips } = useQuery({
+    queryKey: ['alert-disconnected-chips'],
+    queryFn: fetchDisconnectedChips,
+    staleTime: 60_000,
+  });
+
+  const { data: cronErrors, isLoading: loadingCrons } = useQuery({
+    queryKey: ['alert-cron-errors'],
+    queryFn: fetchCronErrors,
+    staleTime: 60_000,
+  });
+
+  if (loadingLeads || loadingAwaiting || loadingErrors || loadingChips || loadingCrons) {
     return null;
   }
 
   const hl = hotLeads ?? 0;
   const aw = awaiting  ?? 0;
   const er = errors    ?? 0;
+  const ch = chips     ?? 0;
+  const cr = cronErrors ?? 0;
 
-  const allClear = hl === 0 && aw === 0 && er === 0;
+  const allClear = hl === 0 && aw === 0 && er === 0 && ch === 0 && cr === 0;
 
   return (
     <div className="flex items-center gap-2 flex-wrap py-2">
@@ -106,10 +142,28 @@ export function AlertCard() {
           style={{ backgroundColor: '#052e16', color: '#4ADE80' }}
         >
           <CheckCircle2 size={12} strokeWidth={2.5} />
-          Operação sem alertas
+          Operação 100% autônoma · Sem alertas
         </span>
       ) : (
         <>
+          {ch > 0 && (
+            <AlertPill
+              icon={WifiOff}
+              label={`${ch} chip WhatsApp desconectado!`}
+              color="#EF4444"
+              textColor="#FFFFFF"
+              to="/projetos"
+            />
+          )}
+          {cr > 0 && (
+            <AlertPill
+              icon={AlertCircle}
+              label={`${cr} cron job com erro`}
+              color="#F59E0B"
+              textColor="#0A0B0D"
+              to="/configuracoes?tab=cronjobs"
+            />
+          )}
           {hl > 0 && (
             <AlertPill
               icon={Flame}

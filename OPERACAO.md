@@ -92,6 +92,23 @@
   * `get_agent_runbook`: Retorna o checklist de tarefas e passos executáveis por IA.
   * `complete_step`: Marca um passo executável como concluído no mapa da empresa.
 
+### 3.4. Motor de Autonomia & Rotinas pg_cron (Operação 24/7)
+O backend roda 8 rotinas autônomas no Postgres gerenciadas pela função `run_cron_job` e rastreadas na tabela `imphq_cron_jobs`:
+1. `daily-briefing-wa` (09:00 BRT): Dispara resumo matinal detalhado por projeto no grupo Imperio X.
+2. `payment-recovery` (a cada 15 min): Executa régua de 3 toques persuasivos para Pix e Boletos abandonados.
+3. `hot-lead-responder` (a cada 30 min): Aborda leads quentes (score > 70) com personalização de IA.
+4. `wa-health-monitor` (a cada 10 min): Testa conexão dos chips; se cair, alerta o grupo e cria card Kanban após 3 falhas.
+5. `wa-cold-lead-reactivator` (07:00 BRT): Reativa leads frios sem interação há 48h+.
+6. `facebook-ads-sync-all` (a cada 6h): Sincroniza métricas de tráfego, ROAS e gastos de anúncios.
+7. `checkout-abandoned-scanner` (a cada 15 min): Alerta carrinhos abandonados entre 30min e 24h.
+8. `wa-weekly-report` (Segunda 09:00 BRT): Relatório executivo da semana enviado no grupo WhatsApp.
+
+**Alertas Instantâneos no WhatsApp (`Imperio X`):**
+* Nova Venda Confirmada (`compra_aprovada`)
+* Meta Diária Batida (`meta_diaria_atingida`)
+* Reembolso Solicitado (`reembolso_solicitado`)
+* Queda de Chip (`erro_conexao`)
+
 ---
 
 ## 4. Skills Persuasivas & Ferramental de Copywriting
