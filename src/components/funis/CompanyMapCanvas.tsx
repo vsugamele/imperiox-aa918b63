@@ -1,5 +1,5 @@
 import { parsePosition, parseChecklist, parseAnnotationKind, parseAnnotationStyle } from "@/components/funis/company-map-data";
-import { record, toJson } from "@/lib/funis-data";
+import { record, toJson, parseProjectData } from "@/lib/funis-data";
 import type { Tables } from "@/integrations/supabase/types";
 import type { NodeStats } from "@/hooks/useCompanyMapLiveStats";
 import { errorMessage } from "@/lib/error-message";
