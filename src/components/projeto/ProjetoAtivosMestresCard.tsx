@@ -58,7 +58,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
   const [pendingConvsCount, setPendingConvsCount] = useState<number>(0);
 
   const projectData = useMemo(() => {
-    return jsonFields(project.data);
+    return jsonFields(project.data) as Record<string, any>;
   }, [project.data]);
 
   // Carregar status do WhatsApp e IA do projeto
@@ -164,7 +164,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
 
   // 3. Criativo Winner (Controle)
   const winnerCreative = useMemo(() => {
-    const list = Array.isArray(projectData.facebook_creatives) ? projectData.facebook_creatives : [];
+    const list = Array.isArray(projectData.facebook_creatives) ? (projectData.facebook_creatives as any[]) : [];
     
     // Procura criativo com nome "insegura" ou "cachos" ou o primeiro com copy
     const found = list.find((c: any) =>
@@ -195,7 +195,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
 
   // 4. Status do Tráfego Pago
   const trafficStatus = useMemo(() => {
-    const list = Array.isArray(projectData.facebook_creatives) ? projectData.facebook_creatives : [];
+    const list = Array.isArray(projectData.facebook_creatives) ? (projectData.facebook_creatives as any[]) : [];
     const hasActive = list.some((c: any) => c?.status === "ACTIVE" || c?.status === "ACTIVE_CAMPAIGN");
     return {
       isActive: hasActive,

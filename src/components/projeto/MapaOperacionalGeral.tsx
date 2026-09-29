@@ -151,9 +151,9 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       const kList = kanbanData || [];
 
       // Mapeia para cada projeto
-      const mapped: ProjectCardData[] = projects.map((proj) => {
+      const mapped = projects.map((proj): ProjectCardData => {
         const pId = proj.id;
-        const pData = jsonFields(proj.data);
+        const pData = jsonFields(proj.data) as Record<string, any>;
 
         // Vendas 24h
         const pVendas24h = vList.filter((v: any) => v.project_id === pId && v.created_at >= last24h);

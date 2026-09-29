@@ -730,7 +730,7 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
                         return (
                           <tr key={lead.id} className="border-b border-[#1B1E23]/50 hover:bg-white/[0.02]">
                             <td className="p-3">
-                              <p className="font-semibold text-white">{lead.nome || lead.name || "Lead Sem Nome"}</p>
+                              <p className="font-semibold text-white">{lead.nome || (lead as { name?: string }).name || "Lead Sem Nome"}</p>
                               {cleanPhone && (
                                 <p className="text-[11px] font-mono text-muted-foreground">{cleanPhone}</p>
                               )}

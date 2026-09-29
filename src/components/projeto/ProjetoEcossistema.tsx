@@ -291,7 +291,7 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
 
     const nextList = [...rawProducts];
     const existing = editingIndex !== null ? nextList[editingIndex] : {};
-    const baseObject = typeof existing === "object" && existing !== null ? existing : {};
+    const baseObject = typeof existing === "object" && existing !== null ? (existing as Record<string, any>) : ({} as Record<string, any>);
 
     // Prepare links
     let links = Array.isArray(baseObject.links) ? [...baseObject.links] : [];
