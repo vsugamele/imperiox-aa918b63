@@ -30,6 +30,13 @@ Deno.serve(async (req) => {
   const results = { processed: 0, sent: 0, errors: [] as string[] };
 
   try {
+    // Suporte a target_jid (ex: grupo Imperio X) passado pelo cron
+    let targetJid: string | null = null;
+    try {
+      const body = await req.clone().json().catch(() => ({}));
+      targetJid = typeof body?.target_jid === "string" ? body.target_jid : null;
+    } catch { /* ignore */ }
+
     // Janela da semana anterior
     const now = new Date();
     const weekStart = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
@@ -168,9 +175,12 @@ Deno.serve(async (req) => {
           },
         });
 
-        // ── Enviar via WhatsApp se owner_phone configurado ─────────────────
-        if (!proj.owner_phone) {
-          console.log(`[wa-weekly-report] ${proj.name}: sem owner_phone, relatório salvo no dashboard.`);
+        // ── Enviar via WhatsApp ─────────────────────────────────────────────
+        // target_jid override (ex: grupo Imperio X via cron)
+        const sendNumber = targetJid ?? (proj.owner_phone ? proj.owner_phone + "@s.whatsapp.net" : null);
+
+        if (!sendNumber) {
+          console.log(`[wa-weekly-report] ${proj.name}: sem destino (owner_phone ou target_jid), relatório salvo no dashboard.`);
           continue;
         }
 
@@ -196,7 +206,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: provider.api_key },
           body: JSON.stringify({
-            number: proj.owner_phone + "@s.whatsapp.net",
+            number: sendNumber,
             text: reportText,
             options: { delay: 1200 },
           }),
