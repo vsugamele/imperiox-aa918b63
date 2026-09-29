@@ -1,5 +1,5 @@
-// Envia o briefing diário via WhatsApp para usuários com wa_briefing_enabled = true
-// e cuja hora preferida bate com a hora atual (BRT).
+// Envia o briefing diário via WhatsApp por projeto para usuários com wa_briefing_enabled = true
+// e cuja hora preferida bate com a hora atual (BRT), ou on-demand via target_jid.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -11,9 +11,18 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 function brtHour() {
-  // BRT = UTC-3
   const d = new Date();
   return (d.getUTCHours() - 3 + 24) % 24;
+}
+
+function brtNowStr() {
+  const d = new Date();
+  const brt = new Date(d.getTime() - 3 * 3600000);
+  const day = String(brt.getUTCDate()).padStart(2, "0");
+  const month = String(brt.getUTCMonth() + 1).padStart(2, "0");
+  const hours = String(brt.getUTCHours()).padStart(2, "0");
+  const mins = String(brt.getUTCMinutes()).padStart(2, "0");
+  return `${day}/${month} · ${hours}:${mins} BRT`;
 }
 
 function normalizePhone(raw: string) {
@@ -22,6 +31,152 @@ function normalizePhone(raw: string) {
   let p = trimmed.replace(/\D/g, "");
   if (p.length === 10 || p.length === 11) p = "55" + p;
   return p;
+}
+
+const PROJECT_EMOJIS: Record<string, string> = {
+  jp_freitas: "💈",
+  linfaflow: "🌿",
+  slimsoda: "🥤",
+  tatuagem: "🎨",
+  laise: "✈️",
+  "dr---fitness": "💪",
+  lipo: "💧",
+};
+
+async function buildOperationalBriefing(supabase: any, isOnDemand: boolean) {
+  const now = new Date();
+  const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  // 1. Projetos cadastrados
+  const { data: allProjects } = await supabase
+    .from("imphq_projects")
+    .select("id, name, category, active, data");
+
+  const coreIds = ["jp_freitas", "linfaflow", "slimsoda"];
+
+  // 2. Vendas nas últimas 24h
+  const { data: vendas24h } = await supabase
+    .from("imphq_vendas")
+    .select("project_id, valor, status, produto_nome")
+    .gte("created_at", last24h);
+
+  // 3. Leads nas últimas 24h
+  const { data: leads24h } = await supabase
+    .from("imphq_leads")
+    .select("project_id, id, score, criado_em")
+    .gte("criado_em", last24h);
+
+  // 4. WhatsApp providers
+  const { data: providers } = await supabase
+    .from("imphq_wa_providers")
+    .select("project_id, instance_name, status, is_active");
+
+  // 5. WhatsApp AI Config
+  const { data: aiConfigs } = await supabase
+    .from("imphq_wa_ai_config")
+    .select("project_id, enabled, full_autonomy");
+
+  const vList = vendas24h || [];
+  const lList = leads24h || [];
+  const pList = providers || [];
+  const aList = aiConfigs || [];
+
+  // Filtra projetos prioritários + qualquer outro com atividade recente
+  const targetProjects = (allProjects || []).filter((p: any) => {
+    if (coreIds.includes(p.id)) return true;
+    const hasSales = vList.some((v: any) => v.project_id === p.id);
+    const hasLeads = lList.some((l: any) => l.project_id === p.id);
+    return hasSales || hasLeads;
+  }).sort((a: any, b: any) => {
+    const aIdx = coreIds.indexOf(a.id);
+    const bIdx = coreIds.indexOf(b.id);
+    if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+    if (aIdx !== -1) return -1;
+    if (bIdx !== -1) return 1;
+    return (a.name || "").localeCompare(b.name || "");
+  });
+
+  const lines: string[] = [];
+  lines.push(isOnDemand ? "⚡ *Imperius — Raio-X por Projeto*" : "🏛️ *Imperius — Briefing por Projeto*");
+  lines.push(`📅 ${brtNowStr()}`);
+  lines.push("");
+
+  let totalReceitaAprovada = 0;
+  let totalVendasAprovadas = 0;
+  let totalAbandonos = 0;
+  let totalLeads = 0;
+  let totalHotLeads = 0;
+  const actions: string[] = [];
+
+  for (const proj of targetProjects) {
+    const pId = proj.id;
+    const emoji = PROJECT_EMOJIS[pId] || "🎯";
+    const projVendas = vList.filter((v: any) => v.project_id === pId);
+    const aprovadas = projVendas.filter((v: any) => v.status === "aprovado");
+    const abandonos = projVendas.filter((v: any) => v.status === "carrinho_abandonado" || v.status === "pix_gerado");
+    const recAprovada = aprovadas.reduce((s: number, v: any) => s + Number(v.valor || 0), 0);
+
+    const projLeads = lList.filter((l: any) => l.project_id === pId);
+    const hotLeads = projLeads.filter((l: any) => Number(l.score || 0) >= 70);
+
+    totalReceitaAprovada += recAprovada;
+    totalVendasAprovadas += aprovadas.length;
+    totalAbandonos += abandonos.length;
+    totalLeads += projLeads.length;
+    totalHotLeads += hotLeads.length;
+
+    // Provider WA do projeto
+    const prov = pList.find((pr: any) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas"));
+    const ai = aList.find((ai: any) => ai.project_id === pId);
+
+    // Meta Ads status
+    const creatives = Array.isArray(proj.data?.facebook_creatives) ? proj.data.facebook_creatives : [];
+    const hasActiveAds = creatives.some((c: any) => c.status === "ACTIVE" || c.status === "ACTIVE_CAMPAIGN");
+
+    lines.push(`${emoji} *${proj.name}* (${proj.category || "Operação"})`);
+    lines.push(`• Vendas 24h: R$ ${recAprovada.toFixed(2)} (${aprovadas.length} aprovadas)`);
+    
+    if (abandonos.length > 0) {
+      lines.push(`• Recuperação: ⚠️ ${abandonos.length} abandonos/pix pendentes`);
+      actions.push(`[${proj.name}] Recuperar ${abandonos.length} carrinho(s) abandonado(s) de hoje.`);
+    }
+
+    lines.push(`• Novos Leads: ${projLeads.length} leads ${hotLeads.length > 0 ? `(🔥 ${hotLeads.length} quentes)` : ""}`);
+
+    if (prov) {
+      const isOnline = prov.status === "connected" || prov.is_active;
+      const aiMode = ai?.full_autonomy ? "100% IA Autônoma" : "Co-piloto";
+      lines.push(`• WhatsApp: ${isOnline ? "🟢" : "🔴"} ${prov.instance_name} (${aiMode})`);
+      if (!isOnline) actions.push(`[${proj.name}] Reconectar chip do WhatsApp (${prov.instance_name}).`);
+    }
+
+    if (creatives.length > 0) {
+      lines.push(`• Meta Ads: ${hasActiveAds ? "🟢 Anúncios rodando" : "🟡 Campanhas pausadas"}`);
+      if (!hasActiveAds) actions.push(`[${proj.name}] Reativar tráfego pausado no Meta Ads.`);
+    }
+
+    lines.push("");
+  }
+
+  // Consolidado
+  lines.push("━━━━━━━━━━━━━━━━━━━━");
+  lines.push("📊 *Consolidado Geral (24h):*");
+  lines.push(`💰 Receita Aprovada: R$ ${totalReceitaAprovada.toFixed(2)} (${totalVendasAprovadas} vendas)`);
+  if (totalAbandonos > 0) {
+    lines.push(`🛒 Em Recuperação: ${totalAbandonos} abandonos na mesa`);
+  }
+  lines.push(`🔥 Novos Leads: ${totalLeads} (${totalHotLeads} qualificados)`);
+  lines.push(`📱 WhatsApp: ${pList.filter((p: any) => p.is_active).length} chip(s) ativos`);
+
+  if (actions.length > 0) {
+    lines.push("");
+    lines.push("⚡ *Ações Prioritárias:*");
+    actions.slice(0, 3).forEach((act, idx) => {
+      lines.push(`${idx + 1}. ${act}`);
+    });
+  }
+
+  return lines.join("\n");
 }
 
 Deno.serve(async (req) => {
@@ -54,55 +209,25 @@ Deno.serve(async (req) => {
 
     const results: Array<{user_id:string} & ({error:string}|{status:number;send:unknown})> = [];
 
+    // Constrói o briefing pontuado por projeto
+    const message = await buildOperationalBriefing(supabase, Boolean(targetJid));
+
+    // Provider global ativo para disparo
+    const { data: provider } = await supabase
+      .from("imphq_wa_providers")
+      .select("*")
+      .eq("is_active", true)
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+
     for (const pref of targets) {
       try {
-        // Gera/recupera briefing global do dia
-        const briefingRes = await fetch(`${SUPABASE_URL}/functions/v1/daily-briefing`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        });
-        const briefingJson = await briefingRes.json();
-        const briefing = briefingJson?.briefing;
-        if (!briefing) {
-          results.push({ user_id: pref.user_id, error: "Sem briefing disponível" });
-          continue;
-        }
-
-        const lines: string[] = [];
-        if (targetJid) {
-          lines.push("⚡ *Imperius — Raio-X em Tempo Real*");
-        } else {
-          lines.push("🏛️ *Imperius — Briefing diário*");
-        }
-        lines.push("");
-        lines.push(briefing.briefing_text);
-        const m = briefing.metrics || {};
-        lines.push("");
-        lines.push(`💰 Receita 24h: R$ ${Number(m.receita24h || 0).toFixed(2)} (${m.vendasCount || 0} vendas)`);
-        lines.push(`🔥 Hot leads: ${m.hotLeadsCount || 0}`);
-        lines.push(`📋 Tarefas atrasadas: ${m.tarefasAtrasadasCount || 0}`);
-        if (Array.isArray(briefing.actions) && briefing.actions.length) {
-          lines.push("");
-          lines.push("*Próximas ações:*");
-          briefing.actions.forEach((a: unknown, i: number) => { if (a && typeof a === "object" && "label" in a) lines.push(`${i + 1}. ${a.label}`); });
-        }
-        const message = lines.join("\n");
-
         const phone = normalizePhone(pref.wa_briefing_phone || "");
         if (!phone) {
           results.push({ user_id: pref.user_id, error: "Sem telefone configurado" });
           continue;
         }
-
-        // Provider global ativo
-        const { data: provider } = await supabase
-          .from("imphq_wa_providers")
-          .select("*")
-          .eq("is_active", true)
-          .order("last_seen_at", { ascending: false, nullsFirst: false })
-          .limit(1)
-          .maybeSingle();
 
         if (!provider?.instance_name) {
           results.push({ user_id: pref.user_id, error: "Nenhum provider WA ativo" });
@@ -122,7 +247,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, hour, count: results.length, results }), {
+    return new Response(JSON.stringify({ ok: true, hour, count: results.length, results, message_preview: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
