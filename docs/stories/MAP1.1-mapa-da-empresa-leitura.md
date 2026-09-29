@@ -13,8 +13,8 @@ Fase 1 = uma regra única de leitura, sem migrar o banco. Fase 2 (story futura) 
 - [x] Testes cobrindo os 4 formatos de dados e os problemas de cadastro vistos no JP (duplicidade, campo legado conflitante, "concorrentes" que são anotações, chip inativo com tráfego, taxa de resposta).
 - [x] Tela "Mapa da Empresa" (`/mapa`): matriz projetos × áreas, filtro de lacunas críticas, detalhe por projeto; versão em cartões no celular.
 - [x] Ferramenta MCP `get_project_map` usando o mesmo motor (código pronto).
-- [ ] Deploy da `project-mcp` (aguarda aprovação).
-- [ ] Validação visual com dados reais logado.
+- [x] Deploy da `project-mcp` (29/09, junto com a chave de acesso do MCP; `get_project_map` verificada em produção).
+- [x] Validação visual com dados reais logado (12 projetos; corrigido falso positivo de vendas por nome parecido).
 - [x] lint + typecheck + test (418) + build verdes.
 
 ## Achados nos dados reais (para decisão)
