@@ -1216,13 +1216,14 @@ Deno.serve(async (req) => {
 
             const parsedSteps = (rawNodes || []).map(n => {
               const notes = n.notes || "";
-              const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] ||
+              // Ordem: marcação nas notas → campo da etapa (canvas / Flow Brain) → palpite pelo tipo.
+              const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type ||
                 (n.kind === "anuncio" ? "ai_higgsfield" :
                  n.kind === "vsl" || n.kind === "pagina_vendas" ? "ai_copywriter" :
                  n.kind === "whatsapp" ? "openflow" :
                  n.kind === "checkout" ? "human_traffic" : "human_general");
 
-              const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] ||
+              const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id ||
                 (nExec === "ai_higgsfield" ? "skill-black-belt" :
                  nExec === "ai_copywriter" ? "rebel-copy" :
                  nExec === "openflow" ? "roteiros-virais-comment-to-dm" :
@@ -1451,8 +1452,8 @@ Deno.serve(async (req) => {
       const { data: rawNodes } = await q;
       const parsedSteps = (rawNodes || []).map(n => {
         const notes = n.notes || "";
-        const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
-        const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
+        const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
+        const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
         const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
           (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c) => c.done) ? "done" : "pending");
         const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
@@ -1606,8 +1607,8 @@ Deno.serve(async (req) => {
     const { data: mapNodes } = await supabase.from("imphq_company_map_nodes").select("*").eq("linked_project_id", projectId);
     const parsedSteps = (mapNodes || []).map(n => {
       const notes = n.notes || "";
-      const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
-      const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
+      const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
+      const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
       const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending";
       const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
       const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
