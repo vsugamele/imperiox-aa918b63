@@ -57,6 +57,16 @@ describe("buildProjectMap", () => {
     expect(map.gaps.some((g) => g.item === "Master Cuts")).toBe(false);
   });
 
+  it("credits each sale to the closest product name only", () => {
+    const map = buildProjectMap(input({
+      data: { produtos: [{ nome: "JP Hair Education" }, { nome: "JP Hair Education Assinatura" }, { nome: "Finalização Express" }] },
+    }, { activity: { ...noActivity, approvedSales30dByProduct: { "JP Hair Education": 5, "Finalizacao Express - Bump": 2 } } }));
+    const status = (label: string) => section(map, "produtos").items.find((i) => i.label === label)?.status;
+    expect(status("JP Hair Education")).toBe("rodando");
+    expect(status("JP Hair Education Assinatura")).toBe("desenhado");
+    expect(status("Finalização Express")).toBe("rodando");
+  });
+
   it("reads the single-product format without inventing price or links", () => {
     const map = buildProjectMap(input({ data: { produto: "LinfaFlow", preco: "197,00", checkout_url: "https://linfa.com/checkout", vsl_url: "https://linfa.com" } }));
     const product = section(map, "produtos").items[0];

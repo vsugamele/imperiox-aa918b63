@@ -213,22 +213,40 @@ function normalizeProducts(data: Record<string, unknown>): NormalizedProduct[] {
   return [];
 }
 
-function salesFor(name: string, sales: Record<string, number>): number {
-  const target = normalizeName(name);
-  if (!target) return 0;
-  return Object.entries(sales).reduce((sum, [produto, count]) => {
-    const candidate = normalizeName(produto);
-    return candidate && (candidate === target || candidate.includes(target) || target.includes(candidate)) ? sum + count : sum;
-  }, 0);
+const productKey = (name: string) => normalizeName(name).replace(/^(o|a|os|as)\s+/, "");
+
+/**
+ * Atribui cada nome de venda a UM produto: nome igual primeiro; senão, o nome que contém/está contido
+ * com menor diferença de tamanho. Evita "JP Hair Education Assinatura" herdar as vendas de "JP Hair Education".
+ */
+function assignSales(products: NormalizedProduct[], sales: Record<string, number>): number[] {
+  const keys = products.map((p) => productKey(p.name));
+  const totals = products.map(() => 0);
+  for (const [produto, count] of Object.entries(sales)) {
+    const sale = productKey(produto);
+    if (!sale) continue;
+    let best = keys.findIndex((k) => k === sale);
+    if (best < 0) {
+      let bestGap = Infinity;
+      keys.forEach((k, i) => {
+        if (!k || !(k.includes(sale) || sale.includes(k))) return;
+        const gap = Math.abs(k.length - sale.length);
+        if (gap < bestGap) { bestGap = gap; best = i; }
+      });
+    }
+    if (best >= 0) totals[best] += count;
+  }
+  return totals;
 }
 
 function productsSection(products: NormalizedProduct[], data: Record<string, unknown>, input: ProjectMapInput, gaps: MapGap[]): MapSection {
-  const items: MapItem[] = products.map((p) => {
+  const soldByProduct = assignSales(products, input.activity.approvedSales30dByProduct);
+  const items: MapItem[] = products.map((p, index) => {
     const evidence: string[] = [];
     if (p.price) evidence.push(`Preço: ${p.price}`);
     p.checkout.forEach((l) => evidence.push(`Checkout: ${l.url}`));
     p.pages.forEach((l) => evidence.push(`Página: ${l.url}`));
-    const sold = salesFor(p.name, input.activity.approvedSales30dByProduct);
+    const sold = soldByProduct[index];
     if (sold > 0) evidence.push(`${sold} venda(s) aprovada(s) em 30 dias`);
 
     let status: ItemStatus;
@@ -246,7 +264,7 @@ function productsSection(products: NormalizedProduct[], data: Record<string, unk
     return { key: `produto:${p.name}`, label: p.name, status, evidence };
   });
 
-  const names = products.map((p) => normalizeName(p.name).replace(/^(o|a|os|as)\s+/, ""));
+  const names = products.map((p) => productKey(p.name));
   const duplicates = products.filter((p, i) => names.findIndex((n) => n === names[i]) !== i).map((p) => p.name);
   if (duplicates.length) {
     gaps.push({ area: "produtos", severity: "sugestao", message: `Produto(s) cadastrado(s) em duplicidade: ${duplicates.join(", ")}.`, action: "Unificar os cadastros duplicados para a IA não usar preço ou link errado." });
