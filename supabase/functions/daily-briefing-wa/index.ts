@@ -28,21 +28,29 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const url = new URL(req.url);
-    const force = url.searchParams.get("force") === "true";
-    const onlyUser = url.searchParams.get("user_id");
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const force = url.searchParams.get("force") === "true" || body?.force === true;
+    const onlyUser = url.searchParams.get("user_id") || body?.user_id;
+    const targetJid = url.searchParams.get("target_jid") || body?.target_jid;
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
     const hour = brtHour();
 
-    let q = supabase
-      .from("imphq_notification_preferences")
-      .select("user_id, wa_briefing_enabled, wa_briefing_phone, wa_briefing_hour")
-      .eq("wa_briefing_enabled", true);
-    if (onlyUser) q = q.eq("user_id", onlyUser);
+    let targets: Array<{ user_id: string; wa_briefing_phone?: string | null; wa_briefing_hour?: number | null }> = [];
 
-    const { data: prefs } = await q;
-    const targets = (prefs || []).filter((p: {wa_briefing_hour:number|null}) =>
-      force || onlyUser || Number(p.wa_briefing_hour ?? 8) === hour
-    );
+    if (targetJid) {
+      targets = [{ user_id: "on_demand", wa_briefing_phone: targetJid, wa_briefing_hour: hour }];
+    } else {
+      let q = supabase
+        .from("imphq_notification_preferences")
+        .select("user_id, wa_briefing_enabled, wa_briefing_phone, wa_briefing_hour")
+        .eq("wa_briefing_enabled", true);
+      if (onlyUser) q = q.eq("user_id", onlyUser);
+
+      const { data: prefs } = await q;
+      targets = (prefs || []).filter((p: {wa_briefing_hour:number|null}) =>
+        force || onlyUser || Number(p.wa_briefing_hour ?? 8) === hour
+      );
+    }
 
     const results: Array<{user_id:string} & ({error:string}|{status:number;send:unknown})> = [];
 
@@ -62,7 +70,11 @@ Deno.serve(async (req) => {
         }
 
         const lines: string[] = [];
-        lines.push("🏛️ *Imperius — Briefing diário*");
+        if (targetJid) {
+          lines.push("⚡ *Imperius — Raio-X em Tempo Real*");
+        } else {
+          lines.push("🏛️ *Imperius — Briefing diário*");
+        }
         lines.push("");
         lines.push(briefing.briefing_text);
         const m = briefing.metrics || {};

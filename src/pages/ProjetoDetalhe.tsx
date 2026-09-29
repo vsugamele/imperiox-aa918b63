@@ -35,6 +35,7 @@ import { ProjetoEcossistema } from "@/components/projeto/ProjetoEcossistema";
 import { ProjetoOpenFlow } from "@/components/projeto/ProjetoOpenFlow";
 import { ProjetoMcpDialog } from "@/components/projeto/ProjetoMcpDialog";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
+import { ProjetoAtivosMestresCard } from "@/components/projeto/ProjetoAtivosMestresCard";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
 import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
 import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
@@ -360,6 +361,15 @@ export default function ProjetoDetalhe() {
 
       {/* ───────── Live KPI Strip ───────── */}
       <ProjectKPIStrip projectId={id!} onNavigate={goToTab} />
+
+      {/* ───────── Ficha Raio-X de Ativos Mestres (Links & Status) ───────── */}
+      {project && (
+        <ProjetoAtivosMestresCard
+          project={project}
+          onNavigateTab={goToTab}
+          onRefresh={refreshProject}
+        />
+      )}
 
       {/* ───────── Pillar Navigation (2-tier) ───────── */}
       <Tabs value={activeTab} onValueChange={goToTab}>

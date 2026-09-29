@@ -312,6 +312,38 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
     const projectId = prov?.project_id || "";
     const providerId = prov?.id || null;
 
+    // Comando On-Demand dos sócios (/status, /resumo, /kpi, /hoje)
+    if (!isFromMe && content) {
+      const lowerTrimmed = content.trim().toLowerCase();
+      const isOpsCommand =
+        lowerTrimmed === "/status" ||
+        lowerTrimmed === "/resumo" ||
+        lowerTrimmed === "/kpi" ||
+        lowerTrimmed === "/hoje" ||
+        lowerTrimmed === "!status" ||
+        lowerTrimmed === "!resumo";
+
+      if (isOpsCommand) {
+        console.log(`[webhook] Ops command '${lowerTrimmed}' triggered from ${rawJid}`);
+        const sbUrl = Deno.env.get("SUPABASE_URL") || "";
+        const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+        if (sbUrl && sbKey) {
+          fetch(`${sbUrl}/functions/v1/daily-briefing-wa?force=true`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${sbKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ target_jid: rawJid, force: true }),
+          }).catch((e: unknown) => console.warn("[webhook] on-demand briefing error:", errorText(e)));
+        }
+
+        return new Response(JSON.stringify({ success: true, command: lowerTrimmed }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     if (phone && content && projectId) {
       const conv = await findOrCreateConversation(phone, projectId, providerId, pushName || undefined, jidSuffix);
 
