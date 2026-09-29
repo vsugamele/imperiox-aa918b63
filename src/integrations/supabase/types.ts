@@ -867,9 +867,11 @@ export type Database = {
           endereco: string | null
           id: string
           nome: string
+          observacoes: string | null
           observacoes_capilares: string | null
           porosidade: string | null
           preferencias_capilares: Json | null
+          salao_id: string | null
           tags: string[] | null
           tipo_curvatura: string | null
           tratamentos_anteriores: string | null
@@ -893,9 +895,11 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome: string
+          observacoes?: string | null
           observacoes_capilares?: string | null
           porosidade?: string | null
           preferencias_capilares?: Json | null
+          salao_id?: string | null
           tags?: string[] | null
           tipo_curvatura?: string | null
           tratamentos_anteriores?: string | null
@@ -919,16 +923,26 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome?: string
+          observacoes?: string | null
           observacoes_capilares?: string | null
           porosidade?: string | null
           preferencias_capilares?: Json | null
+          salao_id?: string | null
           tags?: string[] | null
           tipo_curvatura?: string | null
           tratamentos_anteriores?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_clientes_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appbrabas_comanda_itens: {
         Row: {
@@ -6756,6 +6770,7 @@ export type Database = {
           outbound_webhook_secret: string | null
           outbound_webhook_tags: string[] | null
           outbound_webhook_url: string | null
+          primary_color: string | null
           primary_hsl: string
           program_card_aspect: string
           program_card_aspect_by_section: Json
@@ -6856,6 +6871,7 @@ export type Database = {
           outbound_webhook_secret?: string | null
           outbound_webhook_tags?: string[] | null
           outbound_webhook_url?: string | null
+          primary_color?: string | null
           primary_hsl?: string
           program_card_aspect?: string
           program_card_aspect_by_section?: Json
@@ -6956,6 +6972,7 @@ export type Database = {
           outbound_webhook_secret?: string | null
           outbound_webhook_tags?: string[] | null
           outbound_webhook_url?: string | null
+          primary_color?: string | null
           primary_hsl?: string
           program_card_aspect?: string
           program_card_aspect_by_section?: Json
@@ -18632,6 +18649,7 @@ export type Database = {
           stop_rate: number | null
           thumbnail_url: string | null
           valor: number
+          valor_conversao: number | null
           video_3s_views: number | null
           video_thruplay: number | null
         }
@@ -18680,6 +18698,7 @@ export type Database = {
           stop_rate?: number | null
           thumbnail_url?: string | null
           valor?: number
+          valor_conversao?: number | null
           video_3s_views?: number | null
           video_thruplay?: number | null
         }
@@ -18728,6 +18747,7 @@ export type Database = {
           stop_rate?: number | null
           thumbnail_url?: string | null
           valor?: number
+          valor_conversao?: number | null
           video_3s_views?: number | null
           video_thruplay?: number | null
         }
@@ -20761,10 +20781,12 @@ export type Database = {
       }
       imphq_company_map_nodes: {
         Row: {
+          api_binding: Json | null
           checklist: Json
           color: string
           created_at: string
           description: string | null
+          executor_type: string | null
           height: number | null
           id: string
           image_url: string | null
@@ -20773,21 +20795,26 @@ export type Database = {
           linked_flow_id: string | null
           linked_funnel_id: string | null
           linked_project_id: string | null
+          linked_skill_id: string | null
           linked_wa_provider_id: string | null
           map_id: string
+          metrics_target: Json | null
           notes: string | null
           position: Json
           show_live_kpis: boolean | null
           size: string
+          stage_role: string | null
           updated_at: string
           url: string | null
           width: number | null
         }
         Insert: {
+          api_binding?: Json | null
           checklist?: Json
           color?: string
           created_at?: string
           description?: string | null
+          executor_type?: string | null
           height?: number | null
           id?: string
           image_url?: string | null
@@ -20796,21 +20823,26 @@ export type Database = {
           linked_flow_id?: string | null
           linked_funnel_id?: string | null
           linked_project_id?: string | null
+          linked_skill_id?: string | null
           linked_wa_provider_id?: string | null
           map_id: string
+          metrics_target?: Json | null
           notes?: string | null
           position?: Json
           show_live_kpis?: boolean | null
           size?: string
+          stage_role?: string | null
           updated_at?: string
           url?: string | null
           width?: number | null
         }
         Update: {
+          api_binding?: Json | null
           checklist?: Json
           color?: string
           created_at?: string
           description?: string | null
+          executor_type?: string | null
           height?: number | null
           id?: string
           image_url?: string | null
@@ -20819,12 +20851,15 @@ export type Database = {
           linked_flow_id?: string | null
           linked_funnel_id?: string | null
           linked_project_id?: string | null
+          linked_skill_id?: string | null
           linked_wa_provider_id?: string | null
           map_id?: string
+          metrics_target?: Json | null
           notes?: string | null
           position?: Json
           show_live_kpis?: boolean | null
           size?: string
+          stage_role?: string | null
           updated_at?: string
           url?: string | null
           width?: number | null
@@ -22007,54 +22042,66 @@ export type Database = {
       imphq_events: {
         Row: {
           created_at: string
+          entity_id: string | null
+          entity_type: string | null
           event_data: Json | null
           event_name: string
           id: string
+          metadata: Json | null
           page_url: string | null
           project_id: string | null
           referrer: string | null
           session_id: string | null
+          type: string | null
           user_agent: string | null
           utm_campaign: string | null
           utm_content: string | null
           utm_medium: string | null
           utm_source: string | null
           utm_term: string | null
-          visitor_id: string
+          visitor_id: string | null
         }
         Insert: {
           created_at?: string
-          event_data?: Json | null
-          event_name?: string
-          id: string
-          page_url?: string | null
-          project_id?: string | null
-          referrer?: string | null
-          session_id?: string | null
-          user_agent?: string | null
-          utm_campaign?: string | null
-          utm_content?: string | null
-          utm_medium?: string | null
-          utm_source?: string | null
-          utm_term?: string | null
-          visitor_id: string
-        }
-        Update: {
-          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
           event_data?: Json | null
           event_name?: string
           id?: string
+          metadata?: Json | null
           page_url?: string | null
           project_id?: string | null
           referrer?: string | null
           session_id?: string | null
+          type?: string | null
           user_agent?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
-          visitor_id?: string
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_data?: Json | null
+          event_name?: string
+          id?: string
+          metadata?: Json | null
+          page_url?: string | null
+          project_id?: string | null
+          referrer?: string | null
+          session_id?: string | null
+          type?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_id?: string | null
         }
         Relationships: []
       }
@@ -29659,6 +29706,7 @@ export type Database = {
           ai_debounce_until: string | null
           ai_last_reply_at: string | null
           ai_lock_until: string | null
+          ai_paused: boolean | null
           ai_paused_until: string | null
           ai_pending_since: string | null
           ai_summary: string | null
@@ -29723,6 +29771,7 @@ export type Database = {
           ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
+          ai_paused?: boolean | null
           ai_paused_until?: string | null
           ai_pending_since?: string | null
           ai_summary?: string | null
@@ -29787,6 +29836,7 @@ export type Database = {
           ai_debounce_until?: string | null
           ai_last_reply_at?: string | null
           ai_lock_until?: string | null
+          ai_paused?: boolean | null
           ai_paused_until?: string | null
           ai_pending_since?: string | null
           ai_summary?: string | null
@@ -30309,6 +30359,7 @@ export type Database = {
           created_at: string
           direction: string | null
           feedback_correction_type: string | null
+          from_me: boolean | null
           gap_analyzed: boolean | null
           gap_score: number | null
           id: string
@@ -30335,6 +30386,7 @@ export type Database = {
           created_at?: string
           direction?: string | null
           feedback_correction_type?: string | null
+          from_me?: boolean | null
           gap_analyzed?: boolean | null
           gap_score?: number | null
           id?: string
@@ -30361,6 +30413,7 @@ export type Database = {
           created_at?: string
           direction?: string | null
           feedback_correction_type?: string | null
+          from_me?: boolean | null
           gap_analyzed?: boolean | null
           gap_score?: number | null
           id?: string

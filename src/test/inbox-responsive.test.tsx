@@ -24,24 +24,24 @@ describe("Inbox responsive hook ordering", () => {
   beforeEach(() => { viewport.mobile = false; localStorage.clear(); });
 
   it("keeps desktop state while switching to mobile and back", async () => {
-    const view = render(<MemoryRouter><Inbox /></MemoryRouter>);
+    const view = render(<MemoryRouter initialEntries={["/inbox?tab=whatsapp"]}><Inbox /></MemoryRouter>);
     await screen.findByText("WhatsApp conversations");
     fireEvent.click(screen.getByTitle("Recolher KPIs"));
     expect(localStorage.getItem("wa.showKpiStrip")).toBe("false");
     viewport.mobile = true;
-    await act(async () => { view.rerender(<MemoryRouter><Inbox /></MemoryRouter>); });
+    await act(async () => { view.rerender(<MemoryRouter initialEntries={["/inbox?tab=whatsapp"]}><Inbox /></MemoryRouter>); });
     expect(screen.getByText("Mobile inbox")).toBeInTheDocument();
     viewport.mobile = false;
-    await act(async () => { view.rerender(<MemoryRouter><Inbox /></MemoryRouter>); });
+    await act(async () => { view.rerender(<MemoryRouter initialEntries={["/inbox?tab=whatsapp"]}><Inbox /></MemoryRouter>); });
     expect(screen.getByTitle("Expandir KPIs")).toBeInTheDocument();
   });
 
   it("can start on mobile then render desktop", async () => {
     viewport.mobile = true;
-    const view = render(<MemoryRouter><Inbox /></MemoryRouter>);
+    const view = render(<MemoryRouter initialEntries={["/inbox?tab=whatsapp"]}><Inbox /></MemoryRouter>);
     expect(screen.getByText("Mobile inbox")).toBeInTheDocument();
     viewport.mobile = false;
-    await act(async () => { view.rerender(<MemoryRouter><Inbox /></MemoryRouter>); });
+    await act(async () => { view.rerender(<MemoryRouter initialEntries={["/inbox?tab=whatsapp"]}><Inbox /></MemoryRouter>); });
     expect(await screen.findByText("WhatsApp conversations")).toBeInTheDocument();
   });
 });

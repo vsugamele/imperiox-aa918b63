@@ -258,7 +258,7 @@ it("retries failed payment recovery, then skips the successfully delivered level
   const sale = { id: "sale", lead_id: "lead", project_id: "project", valor: 49, produto_nome: "Product", status: "pendente", created_at: new Date(Date.now() - 30 * 60_000).toISOString() };
   const update = vi.fn((value: { data: Record<string, unknown> }) => { saleData = value.data; return queryResult(null); });
   const database = { from: (table: string) => {
-    const data = table === "imphq_vendas" ? [{ ...sale, data: saleData }] : table === "imphq_leads" ? { id: "lead", nome: "Person", phone: "5511999999999", project_id: "project" } : table === "imphq_whatsapp_config" ? { id: "provider", provider: "evolution", api_url: "https://provider.test", api_key: "test", instance_name: "test" } : null;
+    const data = table === "imphq_vendas" ? [{ ...sale, data: saleData }] : table === "imphq_leads" ? { id: "lead", nome: "Person", phone: "5511999999999", project_id: "project" } : table === "imphq_wa_providers" ? { id: "provider", provider: "evolution", api_url: "https://provider.test", api_key: "test", instance_name: "test" } : null;
     const q = queryResult(data);
     return { ...q, gte: () => q, update, insert: async () => ({ error: null }) };
   } };
@@ -266,6 +266,8 @@ it("retries failed payment recovery, then skips the successfully delivered level
   const handler = loadBackendHandler("payment-recovery", database, fetchMock);
   expect(await (await handler(request({}))).json()).toMatchObject({ sent: 0 });
   expect(saleData.recovery_sent_levels).toEqual([]);
+  // Anti-loop throttle blocks the same level for 90 min after a failure; simulate that window elapsing.
+  saleData = { ...saleData, recovery_attempt_L1_at: new Date(Date.now() - 91 * 60_000).toISOString() };
   expect(await (await handler(request({}))).json()).toMatchObject({ sent: 1 });
   expect(saleData.recovery_sent_levels).toEqual([1]);
   expect(await (await handler(request({}))).json()).toMatchObject({ sent: 0, skipped: 1 });

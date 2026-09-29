@@ -9,6 +9,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // jsdom UI tests exceed the 5s default when the full suite runs in parallel.
+    testTimeout: 15_000,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
