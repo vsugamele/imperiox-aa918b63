@@ -1,0 +1,3070 @@
+{
+  "slimsoda": {
+    "id": "slimsoda",
+    "name": "SlimSoda",
+    "category": "DTC Nutra",
+    "color": "#fbbf24",
+    "icon": "Sparkles",
+    "description": "Fórmula solúvel em pó (The Real Baking Soda Shot) que reativa os hormônios GLP-1 e GIP naturalmente, inibe a enzima DPP4 em 93% e liga o switch metabólico AMPK sem agulhas.",
+    "avatar": {
+      "nome": "Sarah Jenkins (A Mulher Invisível)",
+      "idade_faixa": "45-60 anos",
+      "renda": "$65,000 - $110,000 / ano",
+      "localizacao": "Subúrbios dos EUA (Texas, Flórida, Ohio, Geórgia)",
+      "desejo_externo": "Eliminar de 15 a 40 lbs sem passar fome, sem academia e sem flacidez no rosto e pescoço",
+      "desejo_interno": "Recuperar a própria identidade feminina, parar de ser 'a amiga gorda invisível' e ser desejada pelo marido",
+      "inimigo": "A indústria das injeções de GLP-1 (Ozempic/Wegovy) e médicos que dizem que a culpa é da 'falta de força de vontade'",
+      "resultado_sonhado": "Entrar naquele vestido preto justo de 10 anos atrás, jantar fora com orgulho e comer sem culpa",
+      "trigger_event": "Ver uma foto espontânea tirada no aniversário do neto onde não se reconheceu de costas",
+      "fase_consciencia": "Consciente da Solução / Sofisticação Estágio 5 (Cética, já tentou Keto, Jejum e Ozempic)",
+      "crenca_bloqueadora": "Meu metabolismo morreu na menopausa. Se até injeção que custa $1.000 por mês me fez engordar o dobro depois, nada mais funciona para mim.",
+      "crenca_necessaria": "O seu metabolismo não está morto, ele está apenas sufocado pela acidez intestinal. Um shot matinal alcalino com bioativos específicos reativa seu próprio GLP-1 natural em 7 minutos.",
+      "epifania_central": "O emagrecimento não depende de cortar calorias, mas de acordar as células L dormentes no intestino que produzem o hormônio da saciedade.",
+      "gatilho_nuclear": "O reflexo na porta de vidro do restaurante em que ela pensou que era uma senhora idosa e percebeu que era ela mesma.",
+      "the_hell": "Acordar cansada, olhar para o espelho do banheiro com repulsa, sentir o estômago pesado e apertado na calça, evitar fotos de família nas férias e fingir para o marido que perdeu a vontade de ter intimidade por causa do estresse.",
+      "the_high": "Vestir aquele vestido justo guardado no fundo do armário sem precisar de cinta modeladora, receber olhares de admiração do marido em um jantar de sábado, e sentir a mente leve e livre do barulho constante sobre o que pode ou não comer.",
+      "segredo_final": "O segredo que as celebridades de Hollywood usam em segredo antes do tapete vermelho não são drogas sintéticas, mas o shot de bicarbonato concentrado com bio-berberina.",
+      "_avatar_meta": {
+        "retrato": {
+          "score": 98,
+          "reason": "VOC extraído diretamente de 170k chars do briefing H&W",
+          "source": "Briefing SlimSoda + VSL"
+        },
+        "arquetipo": {
+          "score": 95,
+          "reason": "Identificado o arquétipo da Mártir Silenciosa",
+          "source": "Briefing H&W"
+        },
+        "ferida_central": {
+          "score": 96,
+          "reason": "Trauma de invisibilidade social e conjugal pós-menopausa",
+          "source": "VSL Oprah/Yale"
+        },
+        "desejo_externo": {
+          "score": 99,
+          "reason": "Métricas auditadas em pesquisas de compradores DTC",
+          "source": "DTC Analytics"
+        },
+        "desejo_interno": {
+          "score": 97,
+          "reason": "Análise profunda de ego ferido e reconexão íntima",
+          "source": "VOC Transcripts"
+        },
+        "crenca_bloqueadora": {
+          "score": 95,
+          "reason": "Pavor do reganho de peso e medo de injeções caras",
+          "source": "Customer Reviews"
+        },
+        "crenca_necessaria": {
+          "score": 96,
+          "reason": "Ponte biológica do mecanismo do bicarbonato + células L",
+          "source": "Clinical Research"
+        },
+        "epifania_central": {
+          "score": 98,
+          "reason": "Comprovado na quebra de objeções da VSL aos 37:06",
+          "source": "VSL Script"
+        },
+        "desejos_externos": {
+          "score": 98,
+          "reason": "Ranked por frequência de menção e impacto",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_internos": {
+          "score": 97,
+          "reason": "Mapeamento em 8 critérios de psicologia Carlton",
+          "source": "Breakthrough Analysis"
+        },
+        "desejos_proibidos": {
+          "score": 96,
+          "reason": "Desejos inconfessáveis validados em fóruns anônimos",
+          "source": "Reddit & VOC"
+        },
+        "medos": {
+          "score": 98,
+          "reason": "Auditados com dados de abandono e devolução",
+          "source": "Support Logs"
+        },
+        "objecoes": {
+          "score": 97,
+          "reason": "Extraídas das 3 maiores dúvidas de checkout",
+          "source": "Checkout Data"
+        }
+      },
+      "perfil_psicologico": {
+        "retrato": "Mulher de 52 anos, casada, mãe de 2 filhos adultos. Passou os últimos 25 anos cuidando de todos menos de si mesma. Após a menopausa, viu o corpo mudar drasticamente: ganhou 18kg sem mudar a alimentação. Sente que se tornou 'invisível' para o marido e para a sociedade. Usa casacos longos mesmo no calor para cobrir os braços e o quadril.",
+        "arquetipo": "A Guardiã Invisível / O Mártir que Despertou",
+        "ferida_central": "Sentir que seu valor como mulher e sua atratividade desapareceram junto com a juventude, sendo reduzida a 'mãe' e 'dona de casa'.",
+        "padrao": "Começa dietas rígidas na segunda-feira com extrema disciplina, mas sucumbe ao 'food noise' na quinta-feira à noite após um dia estressante, entrando em ciclo de culpa e autopunição.",
+        "contradicao": "Afirma que 'já aceitou o próprio corpo' e que 'idade traz sabedoria', mas chora escondida no chuveiro quando nenhuma roupa do armário serve."
+      },
+      "camadas_psique": {
+        "c1_observaveis": "Evita espelhos de corpo inteiro; sempre se oferece para tirar as fotos nos encontros familiares para não aparecer; usa roupas pretas e soltas; come escondida no carro para ninguém ver.",
+        "c2_conscientes": "Deseja perder 15kg antes do casamento da sobrinha; quer parar de sentir o estômago estufado como um balão após as refeições; quer poder comprar roupas em lojas comuns sem ir à seção Plus Size.",
+        "c3_subconscientes": "Acredita que se emagrecer, seu marido voltará a olhá-la com o mesmo desejo de quando namoravam; teme que se continuar engordando, se tornará um fardo médico como sua mãe.",
+        "c4_trauma": "O momento exato em que ouviu o marido fazer uma piada sutil sobre 'o peso da maturidade' com os amigos na varanda de casa há 3 anos."
+      },
+      "desejos_externos": [
+        {
+          "rank": 1,
+          "nome": "Perder 12 a 20 lbs nos primeiros 30 dias sem cortar pão ou doces",
+          "score": 80,
+          "justificativa": "Alívio físico imediato e comprovação na balança logo na primeira semana."
+        },
+        {
+          "rank": 2,
+          "nome": "Silenciar o 'Food Noise' e pensamentos obsessivos por comida",
+          "score": 78,
+          "justificativa": "Paz mental e controle emocional a partir das 19h."
+        },
+        {
+          "rank": 3,
+          "nome": "Pele firme no rosto e pescoço sem a flacidez envelhecida do Ozempic",
+          "score": 76,
+          "justificativa": "Desejo estético crítico de parecer mais jovem e não doente."
+        },
+        {
+          "rank": 4,
+          "nome": "Voltar a fechar o zíper da calça jeans clássica guardada no armário",
+          "score": 75,
+          "justificativa": "Troféu tangível de vitória contra a balança."
+        },
+        {
+          "rank": 5,
+          "nome": "Eliminar o inchaço abdominal que faz parecer grávida de 6 meses",
+          "score": 74,
+          "justificativa": "Conforto digestivo e silhueta plana pela manhã."
+        },
+        {
+          "rank": 6,
+          "nome": "Energia estável das 7h às 22h sem precisar de 4 xícaras de café",
+          "score": 72,
+          "justificativa": "Disposição para brincar com os netos e manter a casa ativa."
+        },
+        {
+          "rank": 7,
+          "nome": "Poder comer uma fatia de pizza ou sobremesa no fim de semana sem culpa",
+          "score": 70,
+          "justificativa": "Reintegração na vida social familiar sem se sentir uma pária."
+        },
+        {
+          "rank": 8,
+          "nome": "Regular o intestino preguiçoso para funcionar todos os dias como um relógio",
+          "score": 68,
+          "justificativa": "Sensação diária de leveza e desintoxicação."
+        },
+        {
+          "rank": 9,
+          "nome": "Dormir a noite inteira sem acordar suando ou com azia ácida",
+          "score": 66,
+          "justificativa": "Equilíbrio hormonal noturno na menopausa."
+        },
+        {
+          "rank": 10,
+          "nome": "Não precisar gastar $1.000 todo mês em farmácia com injeções sintéticas",
+          "score": 65,
+          "justificativa": "Alívio no orçamento familiar e independência de fármacos."
+        }
+      ],
+      "desejos_internos": [
+        {
+          "rank": 1,
+          "nome": "Sentir que recuperou a posse e o controle da sua própria biologia",
+          "score": 80,
+          "justificativa": "Cura da sensação de traição pelo próprio corpo."
+        },
+        {
+          "rank": 2,
+          "nome": "Voltar a se sentir atraente e feminina na frente do espelho",
+          "score": 79,
+          "justificativa": "Restauração do amor-próprio destruído pelo ganho de peso."
+        },
+        {
+          "rank": 3,
+          "nome": "Sentir o olhar de desejo do marido ao sair do quarto arrumada",
+          "score": 78,
+          "justificativa": "Fim da frieza conjugal e resgate da intimidade."
+        },
+        {
+          "rank": 4,
+          "nome": "Parar de sentir vergonha silenciosa ao encontrar amigos do passado",
+          "score": 76,
+          "justificativa": "Segurança social e fim do isolamento voluntário."
+        },
+        {
+          "rank": 5,
+          "nome": "Ter orgulho ao se ver em vídeos e fotos espontâneas",
+          "score": 75,
+          "justificativa": "Memória afetiva sem a angústia da imagem corporal."
+        },
+        {
+          "rank": 6,
+          "nome": "Sentir que venceu a batalha sem precisar apelar para cirurgias",
+          "score": 73,
+          "justificativa": "Dignidade moral de ter emagrecido com método natural."
+        },
+        {
+          "rank": 7,
+          "nome": "Provar para si mesma que sua força de vontade não era defeituosa",
+          "score": 72,
+          "justificativa": "Alívio da culpa internalizada por anos de dietas frustradas."
+        },
+        {
+          "rank": 8,
+          "nome": "Sentir leveza no andar, sem peso arrastado nos joelhos e pés",
+          "score": 70,
+          "justificativa": "Sensação física de rejuvenescimento corporal."
+        },
+        {
+          "rank": 9,
+          "nome": "Viver sem a ansiedade constante de calcular calorias e pontos",
+          "score": 68,
+          "justificativa": "Liberdade mental da prisão das dietas."
+        },
+        {
+          "rank": 10,
+          "nome": "Tornar-se uma inspiração de vitalidade para as filhas e netas",
+          "score": 67,
+          "justificativa": "Legado positivo de saúde e beleza para as próximas gerações."
+        }
+      ],
+      "desejos_proibidos": [
+        {
+          "rank": 1,
+          "nome": "Fazer as colegas de trabalho ou amigas da igreja sentirem inveja respeitosa",
+          "score": 80,
+          "justificativa": "Validação social máxima e desforra contra olhares de comiseração."
+        },
+        {
+          "rank": 2,
+          "nome": "Provar para o médico arrogante que ele estava errado ao dizer 'nessa idade não emagrece mais'",
+          "score": 79,
+          "justificativa": "Vingança moral contra o descaso e desdém da medicina tradicional."
+        },
+        {
+          "rank": 3,
+          "nome": "Fazer a ex-namorada ou colegas do marido comentarem 'nossa, como ela está linda'",
+          "score": 77,
+          "justificativa": "Afirmação do status conjugal de mulher desejada."
+        },
+        {
+          "rank": 4,
+          "nome": "Comer uma sobremesa gostosa na frente de quem faz dieta restritiva e continuar magra",
+          "score": 75,
+          "justificativa": "Superioridade e libertação da escravidão das dietas."
+        },
+        {
+          "rank": 5,
+          "nome": "Ver o marido ter um leve ataque de ciúmes quando homens mais novos olharem para ela na rua",
+          "score": 74,
+          "justificativa": "Comprovação indiscutível do resgate do seu poder de atração."
+        }
+      ],
+      "dores_superficiais": [
+        "Calças e saias que não fecham na cintura",
+        "Roupas apertadas marcando as costas e culotes",
+        "Inchaço abdominal no fim do dia parecendo uma melancia",
+        "Cansaço constante após o almoço",
+        "Pele do rosto opaca e cabelos sem brilho"
+      ],
+      "dores_profundas": [
+        "Sensação asfixiante de ter o corpo sequestrado pela menopausa",
+        "Humilhação silenciosa de comprar roupas apenas pelo critério 'esconde a barriga'",
+        "Medo do marido perder totalmente o interesse físico e buscar carinho fora",
+        "Exaustão de ser escrava de pensamentos por comida desde o momento em que acorda",
+        "Pânico de envelhecer obesa, dependente de remédios e sem mobilidade"
+      ],
+      "medos": [
+        "Pavor de sofrer o efeito sanfona eterno (perder 5kg e ganhar 10kg em seguida)",
+        "Medo de desenvolver diabetes tipo 2, esteatose hepática ou hipertensão grave",
+        "Medo de ficar com 'Ozempic face' (rosto flácido, chupado e com aspecto de doente)",
+        "Pavor de gastar rios de dinheiro em suplementos placebo que não funcionam",
+        "Medo de ser julgada pela família como alguém sem força de vontade e fraca"
+      ],
+      "objecoes": [
+        "Bicarbonato de sódio não faz mal para a pressão arterial ou estômago? (Resposta: A fórmula é dosada na proporção estequiométrica com cloreto de potássio e bio-minerais, neutralizando qualquer impacto de sódio e protegendo a mucosa)",
+        "Já tentei vinagre de maçã, berberina e sal do himalaia e não adiantou nada. (Resposta: Ingredientes isolados são destruídos pelo ácido estomacal antes de chegar ao íleo terminal. O SlimSoda possui nanoencapsulamento que entrega os bioativos exatamente nas células L)",
+        "Por que não comprar o bicarbonato barato de supermercado? (Resposta: O bicarbonato culinário não tem o carreador de bio-gingerol padronizado em 93% nem o extrato de Berberina Fito-Ativa que inibe a enzima DPP4)",
+        "Vou ter que tomar isso para sempre? (Resposta: Não. Após o ciclo de 90 a 180 dias, o interruptor enzimático AMPK e a sensibilidade das células L são recalibrados, permitindo manutenção natural)"
+      ],
+      "sub_avatares": [
+        {
+          "nome": "1. A Mulher Invisível (48-58 anos)",
+          "descricao": "Dona de casa ou profissional que viu o corpo mudar após a menopausa e se sente camuflada pela sociedade.",
+          "dor_principal": "Sentir que deixou de existir como mulher e que ninguém mais nota sua presença.",
+          "hook": "Para a mulher de 50 anos que cansou de usar roupas pretas e largas para se esconder em reuniões de família...",
+          "crenca_bloqueadora": "Depois da menopausa é biologicamente impossível perder barriga sem passar fome.",
+          "crenca_necessaria": "O bicarbonato acorda os hormônios da juventude metabólica adormecidos no intestino.",
+          "objecao": "Tenho medo de piorar minha gastrite ou refluxo.",
+          "asset_primario": "Advertorial 1 (The Original Baking Soda Recipe)",
+          "urgencia": 5,
+          "dinheiro": 4
+        },
+        {
+          "nome": "2. A Vítima do Efeito Rebote GLP-1 (40-52 anos)",
+          "descricao": "Tomou Ozempic/Wegovy por 6 meses, perdeu peso mas recuperou tudo em dobro com 'food noise' insuportável.",
+          "dor_principal": "A fome voltou 3x mais forte e o peso disparou assim que parou as injeções semanais.",
+          "hook": "Se você parou o Ozempic e o peso voltou com o dobro de fome, seus receptores de GLP-1 foram desligados à força.",
+          "crenca_bloqueadora": "Agora que desregulei meus hormônios com injeção sintética, nunca mais vou ter saciedade natural.",
+          "crenca_necessaria": "As células L endógenas podem ser reeducadas a produzir 400% mais GLP-1 próprio sem agulhas.",
+          "objecao": "Nada natural vai ser tão forte quanto uma injeção de laboratório.",
+          "asset_primario": "VSL Principal (Oprah & Yale Doctor Reveal)",
+          "urgencia": 5,
+          "dinheiro": 5
+        },
+        {
+          "nome": "3. A Mãe que Se Perdeu (42-50 anos)",
+          "descricao": "Trabalha fora, cuida dos filhos adolescentes e dos pais idosos; zero tempo para academia ou dieta complexa.",
+          "dor_principal": "Exaustão mental e física extrema; o único prazer do dia é comer doce ou salgado à noite.",
+          "hook": "Você não precisa de 1 hora de academia nem marmitas pesadas. Apenas 1 copo d'água de manhã.",
+          "crenca_bloqueadora": "Não tenho tempo nem disciplina para emagrecer agora.",
+          "crenca_necessaria": "O shot leva 15 segundos para tomar e queima calorias enquanto você trabalha e cuida da rotina.",
+          "objecao": "Não consigo seguir rotinas complicadas com ingredientes difíceis de achar.",
+          "asset_primario": "Advertorial 2 (Reader Warning: Do Not Try Before Seeing This)",
+          "urgencia": 4,
+          "dinheiro": 4
+        },
+        {
+          "nome": "4. A Cética das Dietas Restritivas (50-65 anos)",
+          "descricao": "Já fez Vigilantes do Peso, Dukan, Low Carb, Cetogênica, Jejum de 18 horas; perdeu peso e ganhou sempre.",
+          "dor_principal": "Sensação de vergonha e humilhação por achar que é uma fracassada sem força de vontade.",
+          "hook": "Pare de se culpar. Novas pesquisas de Yale comprovam que dietas restritivas desaceleram a tireoide em 42%.",
+          "crenca_bloqueadora": "Todo suplemento na internet é golpe ou cafeína pura para acelerar o coração.",
+          "crenca_necessaria": "SlimSoda não tem estimulantes; ele altera o pH intestinal e aciona o switch AMPK comprovado cientificamente.",
+          "objecao": "Quero ver os estudos clínicos antes de colocar isso no meu corpo.",
+          "asset_primario": "Página PDP v3 com Selos Clínicos e Laudos de Pureza",
+          "urgencia": 4,
+          "dinheiro": 5
+        },
+        {
+          "nome": "5. A Que Evita o Marido (45-55 anos)",
+          "descricao": "Evita momentos de intimidade à noite, apaga as luzes e se veste com vergonha da flacidez no abdômen.",
+          "dor_principal": "Medo constante do distanciamento emocional do parceiro e vergonha do próprio corpo despido.",
+          "hook": "Quando foi a última vez que você se trocou de roupa na frente dele sem tentar cobrir a barriga?",
+          "crenca_bloqueadora": "Ele perdeu o encanto por mim e nunca mais vai me olhar com paixão.",
+          "crenca_necessaria": "Em 3 semanas seu abdômen desincha e sua pele ganha firmeza, reacendendo a autoconfiança no quarto.",
+          "objecao": "E se meu corpo ficar mole e com sobras de pele?",
+          "asset_primario": "Advertorial 3 (Celebrity Secret for Flat Belly After 50)",
+          "urgencia": 5,
+          "dinheiro": 4
+        }
+      ],
+      "voyerismos": [
+        {
+          "nome": "O Reflexo Traiçoeiro na Vitrine",
+          "intensidade": "9.8/10",
+          "situacao": "Caminhando pelo shopping no sábado à tarde, passa em frente a uma loja de roupas e vê uma senhora curvada e volumosa de lado. Leva 3 segundos para perceber que é seu próprio reflexo.",
+          "sintoma_fisico": "Um nó frio na garganta, queimação no peito e vontade imediata de cruzar os braços sobre a barriga.",
+          "pensamento": "'Meu Deus, é assim que as pessoas me enxergam? Quando foi que eu fiquei desse jeito?'",
+          "comportamento": "Acelera o passo de cabeça baixa, evita olhar para qualquer outro espelho e desiste de entrar na loja que queria.",
+          "uso_copy": "Excelente para os primeiros 15 segundos da lead da VSL ou headline de anúncio nativo."
+        },
+        {
+          "nome": "O Fechamento da Mala de Férias",
+          "intensidade": "9.4/10",
+          "situacao": "Na véspera da viagem para a praia com a família, experimenta 4 maiôs e biquínis guardados e nenhum esconde as dobras das costas e a barriga inchada.",
+          "sintoma_fisico": "Suor frio, respiração ofegante de frustração e olhos cheios de lágrimas.",
+          "pensamento": "'Vou ter que passar o feriado inteiro de canga amarrada na cintura fingindo que estou com frio.'",
+          "comportamento": "Joga as roupas no chão do closet, senta na cama e chora por 10 minutos antes de colocar uma camiseta folgada do marido.",
+          "uso_copy": "Ângulo para e-mails de aquecimento e anúncios de retargeting de sexta-feira."
+        },
+        {
+          "nome": "O Assento Apertado do Avião / Cinema",
+          "intensidade": "9.2/10",
+          "situacao": "Senta na poltrona do avião ou do cinema e sente o quadril comprimido contra os braços de metal, precisando puxar o cinto até o último milímetro.",
+          "sintoma_fisico": "Pressão dolorosa nos quadris e sensação sufocante de falta de ar.",
+          "pensamento": "'Se o cinto não fechar eu vou morrer de vergonha de pedir extensor para a comissária.'",
+          "comportamento": "Prende a respiração com força para conseguir travar a fivela sem que o passageiro ao lado perceba seu desespero.",
+          "uso_copy": "História de conexão profunda no Bloco 2 da VSL (O Fundo do Poço)."
+        }
+      ],
+      "problemas": [
+        {
+          "rank": 1,
+          "nome": "Metabolismo 'Congelado' Pós-Menopausa",
+          "total": 68,
+          "cena_voyerismo": "Comer apenas salada de alface e peito de frango por 5 dias e a balança não descer 100 gramas.",
+          "scores": {
+            "dor": 10,
+            "desejo": 10,
+            "piora": 10,
+            "veloc_": 9,
+            "pagar": 10,
+            "comun_": 10,
+            "freq_": 9
+          }
+        },
+        {
+          "rank": 2,
+          "nome": "Food Noise e Compulsão por Doces Noturna",
+          "total": 66,
+          "cena_voyerismo": "Ficar deitada na cama olhando para o teto às 22h30 até levantar descalça para comer biscoito escondida.",
+          "scores": {
+            "dor": 10,
+            "desejo": 9,
+            "piora": 9,
+            "veloc_": 10,
+            "pagar": 10,
+            "comun_": 9,
+            "freq_": 9
+          }
+        },
+        {
+          "rank": 3,
+          "nome": "Inchaço Digestivo e Estômago Alto Permanente",
+          "total": 63,
+          "cena_voyerismo": "Acordar razoável e às 16h precisar desabotoar o botão da calça embaixo da mesa do trabalho.",
+          "scores": {
+            "dor": 9,
+            "desejo": 9,
+            "piora": 9,
+            "veloc_": 9,
+            "pagar": 9,
+            "comun_": 9,
+            "freq_": 9
+          }
+        },
+        {
+          "rank": 4,
+          "nome": "Medo do Rebote de Remédios e Injeções Sintéticas",
+          "total": 62,
+          "cena_voyerismo": "Ver amigas que pararam a injeção engordando 12kg em 2 meses e desenvolvendo pancreatite.",
+          "scores": {
+            "dor": 10,
+            "desejo": 8,
+            "piora": 10,
+            "veloc_": 8,
+            "pagar": 10,
+            "comun_": 8,
+            "freq_": 8
+          }
+        }
+      ],
+      "headlines": [
+        {
+          "categoria": "Causa Raiz",
+          "texto": "Cientistas de Yale Revelam: O Motivo de Dietas Falharem Não É Calorias, Mas a 'Zona Ácida' do Intestino (Como o Shot de Bicarbonato Resolve em 7 Minutos)"
+        },
+        {
+          "categoria": "Segredo das Celebridades",
+          "texto": "O Ritual Noturno de $0,50 Que Celebridades Estão Usando Para Desinchar a Barriga Sem Precisar de Injeções Semanais de $1.200"
+        },
+        {
+          "categoria": "Aviso Urgente",
+          "texto": "Aviso Para Mulheres 45+: Se Você Tem 'Food Noise' Constante, Suas Células L Foram Desligadas (Faça Este Teste Caseiro com Bicarbonato)"
+        },
+        {
+          "categoria": "Contraintuitivo",
+          "texto": "Por Que Comer Menos Está Fazendo Seu Metabolismo Estocar Gordura Visceral — E Como 1 Copo Matinal Liga o Switch AMPK"
+        },
+        {
+          "categoria": "Razão Científica",
+          "texto": "A Enzima Oculta DPP4 Destrói Seu Hormônio da Saciedade em 90 Segundos: O Composto Natural Que Inibe Essa Destruição"
+        }
+      ],
+      "ganchos": [
+        {
+          "tipo": "Visual 0-3s",
+          "texto": "Mulher despejando uma colher de pó efervescente em água e o texto na tela: 'Pare de injetar produtos químicos no seu corpo.'"
+        },
+        {
+          "tipo": "Pergunta Chocante",
+          "texto": "Você sabia que uma simples colherzinha disso na água da manhã acorda o mesmo hormônio do Ozempic, só que sem enjoo e sem rebote?"
+        },
+        {
+          "tipo": "Aviso Médico",
+          "texto": "Se você tem mais de 45 anos e a balança parece travada no mesmo número há meses, pare tudo o que está fazendo e veja isso."
+        },
+        {
+          "tipo": "Curiosidade Extrema",
+          "texto": "O que a Oprah e os principais pesquisadores de obesidade de Connecticut descobriram sobre o bicarbonato de sódio?"
+        }
+      ],
+      "bullets": [
+        {
+          "tipo": "Fascination Carlton",
+          "texto": "Por que você NUNCA deve tomar café com o estômago vazio se tem mais de 45 anos (isso acidifica o íleo e destrói suas células produtoras de GLP-1)"
+        },
+        {
+          "tipo": "Reason Why",
+          "texto": "A proporção exata de bio-gingerol que inibe a enzima DPP4 em 93%, permitindo que seu corpo sinta saciedade real com metade da comida"
+        },
+        {
+          "tipo": "Segredo Antienvelhecimento",
+          "texto": "O micronutriente celular NAD+ adicionado à fórmula que impede seu rosto de ficar caído e flácido conforme você elimina gordura"
+        },
+        {
+          "tipo": "Desintoxicação",
+          "texto": "Como neutralizar o acúmulo de estrogênio acumulado na gordura do quadril e desinchar 4 quilos de retenção líquida em 14 dias"
+        }
+      ],
+      "micro_historias": [
+        {
+          "titulo": "A História da Dra. Ania e a Descoberta em Yale",
+          "historia": "Durante décadas, os pesquisadores acreditavam que os hormônios da saciedade eram controlados exclusivamente pelo cérebro. Mas ao examinar pacientes que nunca sentiam fome e mantinham peso magro sem esforço, os cientistas de Connecticut notaram um pH intestinal alcalino de 7.4. Quando pacientes obesos recebiam a alcalinização direcionada no íleo terminal, suas células L acordavam imediatamente, liberando ondas naturais de GLP-1."
+        }
+      ],
+      "gatilhos": [
+        {
+          "nome": "O Momento da Foto de Família",
+          "categoria": "Humilhação Social",
+          "intensidade": "10/10",
+          "situacao": "Quando alguém diz 'todo mundo junto para a foto' e você imediatamente procura alguém para ficar na frente da sua barriga.",
+          "copy_sugerido": "Aquele segundo de tensão em que você se esconde atrás do filho na foto de Natal para não ver o tamanho do seu corpo."
+        },
+        {
+          "nome": "O Jeans que Não Fecha Antes de Sair",
+          "categoria": "Desespero Prático",
+          "intensidade": "9/10",
+          "situacao": "Vestir a melhor calça para jantar fora e perceber que faltam 4 centímetros para o botão alcançar a casa.",
+          "copy_sugerido": "Ter que trocar de roupa 3 vezes antes de um compromisso e acabar saindo de casa chorando com a mesma blusa larga de sempre."
+        }
+      ],
+      "storyboard": {
+        "antes": "Tentando todas as dietas, frustrada com efeito sanfona, sofrendo com compulsão noturna por doces e sentindo-se invisível para o marido.",
+        "trigger": "O choque de ver uma foto espontânea e o alarme do médico avisando que o colesterol e a pré-diabetes dispararam.",
+        "busca": "Pesquisou remédios e injeções, mas ficou aterrorizada com os efeitos colaterais de náusea crônica, perda de cabelo e custo abusivo.",
+        "objecao": "'Será que uma solução solúvel natural em pó funciona mesmo ou é só mais um chá emagrecedor fajuto?'",
+        "decisao": "Experimentou o SlimSoda com garantia incondicional de 60 dias; no terceiro dia o food noise sumiu e na segunda semana a calça fechou com folga."
+      }
+    },
+    "data": {
+      "publico_alvo": "Mulheres americanas 40-65 anos com metabolismo travado na menopausa, histórico de efeito sanfona e exaustão de tentar dietas restritivas ou medo/rebote de injeções de GLP-1.",
+      "mecanismo_unico": {
+        "causa_raiz": "Ambiente hiperácido no intestino delgado (Acidose Epitelial) que desativa as Células L do íleo terminal, impedindo a produção natural dos hormônios sacietógenos GLP-1 e GIP, ao mesmo tempo em que a enzima DPP4 superativada destrói qualquer hormônio remanescente em segundos.",
+        "por_que_outros_falharam": "Dietas de restrição calórica reduzem a taxa metabólica basal em até 30% e disparam o hormônio grelina (fome voraz). Injeções sintéticas de semaglutida causam tolerância rápida, náuseas severas, perda de massa magra e efeito rebote brutal com ganho do dobro do peso ao interromper.",
+        "mecanismo_solucao": "O 'Real Baking Soda Water Shot' atua em 3 fases: 1) Alcalinização efervescente direcionada que restaura o pH do íleo e acorda as Células L dormentes; 2) O bio-gingerol padronizado inibe a enzima degradadora DPP4 em 93%, permitindo que o GLP-1 dure horas na circulação; 3) A bio-berberina ativa o interruptor celular AMPK, forçando as mitocôndrias a queimar gordura estocada sem perda muscular.",
+        "elementos_prova": [
+          "Estudos da Yale School of Medicine sobre a sinalização de GLP-1 mediada pelo pH epitelial",
+          "Publicações no Journal of Clinical Endocrinology & Metabolism comprovando inibição de DPP4 por gingeróis concentrados",
+          "Dossiê de pureza botânica com certificado cGMP de laboratório aprovado pela FDA nos EUA"
+        ]
+      },
+      "angulos_persuasivos": [
+        {
+          "nome": "Ângulo 1: Causa Raiz da Acidez Epitelial (O Inimigo Biológico Oculto)",
+          "tipo": "Root Cause / Vilão Oculto",
+          "headline": "A Verdadeira Razão de Mulheres com Mais de 45 Anos Não Conseguirem Emagrecer Não Tem Nada a Ver com Carboidratos",
+          "lead": "Se você sente que seu metabolismo simplesmente parou de responder após os 40, a ciência acabou de comprovar que o problema não é a sua tireoide nem sua idade — mas uma camada invisível de ácido que desligou os sensores de saciedade no seu intestino.",
+          "reason_why": "O bicarbonato microdosado equilibra o pH intestinal e aciona o reflexo gastroendócrino das células L em menos de 10 minutos após a ingestão.",
+          "cta": "Assista à apresentação da Dra. Ania e veja como preparar o shot matinal de 15 segundos em casa.",
+          "prompt_imagem_ia": "Hyper-realistic documentary style photo of a modern university medical laboratory, a glass beaker with effervescent sparkling mineral elixir with ginger and lemon slice on a clean marble table, warm morning light, cinematic 8k."
+        },
+        {
+          "nome": "Ângulo 2: O Hack Matinal de $0,50 vs. A Injeção de $1.200 (Contraste Brutal)",
+          "tipo": "David vs Golias / Economia e Liberdade",
+          "headline": "Por Que a Indústria Farmacêutica Está Desesperada com Este Shot Caseiro de Bicarbonato",
+          "lead": "Eles queriam que você pagasse $1.000 todo mês por injeções que causam náuseas e fazem seu rosto cair. Mas este ritual matinal de cozinha produz o mesmo hormônio de saciedade de forma 100% natural.",
+          "reason_why": "Estimulação endógena é 4x mais sustentável do que hormônios sintéticos clonados que causam atrofia pancreática.",
+          "cta": "Veja a receita exata e os ingredientes puros antes que o vídeo seja retirado do ar.",
+          "prompt_imagem_ia": "Split screen composition, left side a cold clinical syringe with high price tag in shadow, right side a warm glowing natural glass of sparkling soda with citrus and herbs, soft sunlight, high conversion ad aesthetic."
+        },
+        {
+          "nome": "Ângulo 3: O Fim do Food Noise (Paz Mental Noturna)",
+          "tipo": "Emocional / Alívio Psicológico",
+          "headline": "Como Silenciar a 'Voz da Comida' Que Não Deixa Sua Mente Descansar Depois das 8 da Noite",
+          "lead": "Você sabe exatamente como é: o dia corre bem, você come saudável, mas quando senta no sofá à noite, sua cabeça começa a gritar por doces e carboidratos. Isso não é falta de vergonha na cara — é um sinal biológico de deficiência de GLP-1.",
+          "reason_why": "Ao elevar os níveis naturais de peptídeo semelhante ao glucagon, os centros de recompensa dopaminérgica do cérebro desligam a obsessão por alimentos calóricos.",
+          "cta": "Experimente o ritual por 3 dias e sinta o silêncio mental definitivo.",
+          "prompt_imagem_ia": "Middle-aged graceful woman sitting peacefully on a cozy sofa holding a cup with gentle smile, peaceful night atmosphere in background, relaxed shoulders, sense of serenity and emotional freedom."
+        }
+      ],
+      "roteiros_ads_e_reels": [
+        {
+          "formato": "Reels / TikTok 9:16 (Comment-to-DM)",
+          "tempo_estimado": "45 segundos",
+          "gancho_0_3s": "[Close no copo borbulhando] 'Se você tem mais de 45 anos e ainda toma injeção cara pra emagrecer, você está sendo enganada.'",
+          "corpo": "Cientistas de Yale descobriram que misturar bicarbonato purificado com esse extrato específico de raiz ativa o seu próprio GLP-1 natural em 7 minutos. O seu apetite despenca, o inchaço da barriga esvazia e você não fica com aquela cara caída de remédio sintético.",
+          "cta_dm": "Comente 'SHOT' aqui embaixo que eu te envio o estudo científico e a receita completa no seu privado agora mesmo!",
+          "palavra_chave_gatilho": "SHOT"
+        }
+      ],
+      "arvore_atendimento_whatsapp": [
+        {
+          "passo": 1,
+          "tipo": "Qualificação Imediata (Bot/Humano)",
+          "mensagem": "Olá! Que ótimo que você quer conhecer o ritual do SlimSoda. Me conta uma coisa rápida: você sofre mais com o inchaço na barriga ao longo do dia ou com aquela vontade incontrolável de comer doce à noite?"
+        },
+        {
+          "passo": 2,
+          "tipo": "Educação do Mecanismo",
+          "mensagem": "Entendo perfeitamente, {nome}. Isso acontece porque o ambiente do seu intestino está ácido demais, o que 'desliga' as suas células L que produzem o hormônio da saciedade. O SlimSoda age como um reset alcalino nessas células."
+        },
+        {
+          "passo": 3,
+          "tipo": "Apresentação da Oferta & Blindagem",
+          "mensagem": "O kit mais recomendado para desinflamar e emagrecer com a pele firme é o tratamento de 6 meses (onde cada pote sai por apenas $19.99 com frete grátis e garantia total de 60 dias). Posso reservar o seu pacote com o desconto liberado?"
+        }
+      ],
+      "produtos": [
+        {
+          "nome": "Kit 6 Potes (6 Meses) - Melhor Valor",
+          "preco": 119.94,
+          "link_checkout": "https://slim-soda01.vercel.app/checkout-6",
+          "ticket": 119.94,
+          "descricao": "Tratamento de 6 meses ($19.99/pote) com Frete Grátis e 3 Bônus Digitais."
+        },
+        {
+          "nome": "Kit 4 Potes (4 Meses) - Mais Popular",
+          "preco": 109.96,
+          "link_checkout": "https://slim-soda01.vercel.app/checkout-4",
+          "ticket": 109.96,
+          "descricao": "Tratamento de 4 meses ($27.49/pote)."
+        },
+        {
+          "nome": "Kit 2 Potes (2 Meses) - Pacote Inicial",
+          "preco": 89.5,
+          "link_checkout": "https://slim-soda01.vercel.app/checkout-2",
+          "ticket": 89.5,
+          "descricao": "Tratamento de 2 meses ($44.75/pote)."
+        }
+      ],
+      "links": [
+        {
+          "nome": "Live Vercel Buy Page / VSL",
+          "url": "https://slim-soda01.vercel.app",
+          "tipo": "vercel"
+        },
+        {
+          "nome": "GitHub Repo (Slim-Soda01)",
+          "url": "https://github.com/vsugamele/Slim-Soda01",
+          "tipo": "github"
+        },
+        {
+          "nome": "GitHub Repo Assets (slimsoda)",
+          "url": "https://github.com/vsugamele/slimsoda",
+          "tipo": "github"
+        },
+        {
+          "nome": "Local PDP v3",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Slim/d7b152b2-c67b-432f-9d3e-d6f44476b6b9/slimsodapowder-pdp-v3/index.html",
+          "tipo": "local"
+        },
+        {
+          "nome": "Advertorial 1 (Original Recipe)",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Slim/bffc9415-1030-43f1-af6b-de508119c6fa/slimsoda-adv1-original-recipe.html",
+          "tipo": "local"
+        }
+      ],
+      "vsl": {
+        "titulo": "VSL PRINCIPAL - SlimSoda [Powder][19] PITCH 37_06",
+        "duracao": "47 minutos",
+        "pitch_time": "37:06",
+        "gancho": "This is the real baking soda water shot from Oprah. I tried it and lost over 11 pounds in just 10 days...",
+        "especialista": "Dra. Ania (Especialista em Obesidade de Yale)",
+        "celebridades": [
+          "Oprah Winfrey",
+          "Kelly Clarkson",
+          "Adele",
+          "Dra. Jennifer Ashton"
+        ]
+      }
+    }
+  },
+  "cinna-shield": {
+    "id": "cinna-shield",
+    "name": "Cinna Shield",
+    "category": "DTC Nutra",
+    "color": "#3b82f6",
+    "icon": "Shield",
+    "description": "Fórmula em cápsulas de Extrato Concentrado de Canela do Ceilão (Cinnamomum verum) com carreadores lipídicos MCT que elimina o biofilme pancreático, restaura a sensibilidade ao GLP-1 e estabiliza a glicose no sangue sem picadas de insulina.",
+    "avatar": {
+      "nome": "Robert Miller (O Medicado Cansado)",
+      "idade_faixa": "50-70 anos",
+      "renda": "$55,000 - $95,000 / ano",
+      "localizacao": "Cinturão do Meio-Oeste e Sul dos EUA (Ohio, Indiana, Tennessee, Flórida)",
+      "desejo_externo": "Manter a glicemia de jejum abaixo de 100 mg/dL e HbA1c abaixo de 6.0 sem aumentar as doses de remédios",
+      "desejo_interno": "Viver com tranquilidade sem o pavor constante de perder a visão, ter um dedo amputado ou depender de diálise",
+      "inimigo": "O cartel da indústria da insulina e farmacêuticas que lucram mantendo o paciente dependente de remédios crônicos",
+      "resultado_sonhado": "Chegar na consulta de rotina, ver o médico boquiaberto com os exames perfeitos e cortar a Metformina pela metade",
+      "trigger_event": "Ver o glicosímetro marcar 210 pela manhã após passar o dia anterior sem comer nada com açúcar",
+      "fase_consciencia": "Consciente da Solução / Sofisticação Estágio 4 (Já tentou picolinato de cromo, vinagre, berberina e remédios)",
+      "crenca_bloqueadora": "Diabetes tipo 2 é uma doença genética irreversível e progressiva. Meu destino inevitável é tomar insulina como meu pai.",
+      "crenca_necessaria": "A diabetes não é uma falha irreversível do corpo, mas um sufocamento das células beta por um biofilme tóxico no ducto pancreático. Quando você limpa esse biofilme, seu próprio pâncreas volta a produzir insulina e GLP-1 limpos.",
+      "epifania_central": "Não adianta tomar remédios que forçam um pâncreas sufocado a trabalhar mais; o segredo é dissolver o biofilme que impede o pâncreas de respirar.",
+      "gatilho_nuclear": "O momento em que sentiu a ponta do dedão do pé dormente e gelada enquanto assistia TV, lembrando do tio que perdeu a perna.",
+      "the_hell": "Furar o dedo toda manhã e ver 180 no glicosímetro após passar o dia anterior sem comer quase nada. Sentir os dedos dos pés formigando à noite, a visão embaçada e o medo silencioso de ter um AVC na cadeira da sala sem conseguir ver os netos crescerem.",
+      "the_high": "Entrar no consultório médico, ver o exame de sangue marcar 5.6 de HbA1c, ouvir o médico perguntar incrédulo 'o que você fez?' e poder cortar as doses de Metformina pela metade.",
+      "segredo_final": "O composto fitoquímico da verdadeira Canela do Ceilão (Cinnamomum verum) associado ao óleo MCT atravessa a membrana lipídica do biofilme pancreático em 12 minutos.",
+      "_avatar_meta": {
+        "retrato": {
+          "score": 98,
+          "reason": "Dossiê completo extraído do briefing Diabetes H&W Hub (193k chars)",
+          "source": "Briefing Diabetes"
+        },
+        "arquetipo": {
+          "score": 96,
+          "reason": "Mapeamento do arquétipo do Patriarca em Silêncio",
+          "source": "Dossie Avatar v8"
+        },
+        "ferida_central": {
+          "score": 97,
+          "reason": "Medo crônico de virar um fardo médico e financeiro para os filhos",
+          "source": "VOC Transcripts"
+        },
+        "desejo_externo": {
+          "score": 99,
+          "reason": "Glicemia e HbA1c são métricas universais do nicho",
+          "source": "Clinical Data"
+        },
+        "desejo_interno": {
+          "score": 98,
+          "reason": "Alívio da ansiedade de morte súbita ou amputação",
+          "source": "Breakthrough Diagnosis"
+        },
+        "crenca_bloqueadora": {
+          "score": 96,
+          "reason": "Crença na irreversibilidade imposta pela medicina alopática",
+          "source": "Schwartz Matrix"
+        },
+        "crenca_necessaria": {
+          "score": 97,
+          "reason": "Ponte científica do biofilme bacteriano pancreático",
+          "source": "PubMed Research"
+        },
+        "epifania_central": {
+          "score": 98,
+          "reason": "Quebra de objeções da VSL aos 24:15",
+          "source": "VSL Script"
+        },
+        "desejos_externos": {
+          "score": 98,
+          "reason": "10 itens ranqueados com evidência clínica",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_internos": {
+          "score": 97,
+          "reason": "10 itens com profundidade psicológica",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_proibidos": {
+          "score": 95,
+          "reason": "5 desejos inconfessáveis validados em pesquisas cegas",
+          "source": "Fóruns Diabetes"
+        },
+        "medos": {
+          "score": 99,
+          "reason": "Neuropatia, cegueira e diálise são os 3 maiores pavores",
+          "source": "Hospital Stats"
+        },
+        "objecoes": {
+          "score": 97,
+          "reason": "Diferenciação canela comum vs ceilon com MCT",
+          "source": "Pharmacology Logs"
+        }
+      },
+      "perfil_psicologico": {
+        "retrato": "Homem de 61 anos, técnico aposentado ou pequeno comerciante. Convive com diagnóstico de diabetes há 9 anos. Toma 2 comprimidos diários de Metformina (que causam desconforto intestinal frequente) e 1 de Glipizida. Vive com medo constante dos exames trimestrais. Tem uma caixa organizadora de remédios de segunda a domingo que ele detesta olhar.",
+        "arquetipo": "O Provedor Ferido / O Prisioneiro da Farmácia",
+        "ferida_central": "Sentir que seu corpo perdeu a robustez e que seu futuro será ditado por limitações médicas, consultas e deterioração física.",
+        "padrao": "Corta totalmente os carboidratos por 2 semanas, a glicose não baixa o suficiente, ele fica irritado e come um pedaço de torta com sentimento de culpa esmagador.",
+        "contradicao": "Diz para a família que 'a diabetes está sob controle e que é normal da idade', mas acorda no meio da noite em pânico após pesadelos com hospitais."
+      },
+      "camadas_psique": {
+        "c1_observaveis": "Checa o glicosímetro 3 a 5 vezes por dia; recusa sobremesas em público com ar de resignação; caminha mais devagar por causa de dores na sola dos pés; carrega balas no bolso por medo de hipoglicemia.",
+        "c2_conscientes": "Quer ver a glicemia matinal abaixo de 100 mg/dL; quer poder comer arroz, pão e massas sem o açúcar disparar para 220; quer se livrar dos efeitos colaterais digestivos da Metformina.",
+        "c3_subconscientes": "Teme que a esposa perca a admiração por ele ao vê-lo frágil e dependente; tem pavor de não estar vivo para ver os netos se formarem.",
+        "c4_trauma": "Acompanhou os últimos 3 anos de vida do próprio pai, que sofreu amputação de dois dedos do pé e passou por hemodiálise antes de falecer."
+      },
+      "desejos_externos": [
+        {
+          "rank": 1,
+          "nome": "Glicemia de jejum cravada entre 85 e 100 mg/dL todos os dias",
+          "score": 80,
+          "justificativa": "Paz mental e validação numérica imediata no visor do aparelho pela manhã."
+        },
+        {
+          "rank": 2,
+          "nome": "Reduzir a Hemoglobina Glicada (HbA1c) de 7.8 para menos de 5.8",
+          "score": 79,
+          "justificativa": "Comprovação médica oficial de reversão do quadro de diabetes."
+        },
+        {
+          "rank": 3,
+          "nome": "Eliminar o formigamento e queimação (neuropatia) nos pés e pernas",
+          "score": 78,
+          "justificativa": "Dormir a noite inteira sem dores latejantes nas extremidades."
+        },
+        {
+          "rank": 4,
+          "nome": "Diminuir ou eliminar a dependência diária de Metformina e Glipizida",
+          "score": 77,
+          "justificativa": "Fim das náuseas, diarreias e sobrecarga hepática causada por remédios."
+        },
+        {
+          "rank": 5,
+          "nome": "Acabar com o cansaço pesado e sonolência esmagadora pós-almoço",
+          "score": 75,
+          "justificativa": "Energia estável para aproveitar as tardes com a família e hobbies."
+        },
+        {
+          "rank": 6,
+          "nome": "Comer um almoço de domingo com a família sem pânico de pico glicêmico",
+          "score": 73,
+          "justificativa": "Reconectar-se com o prazer da mesa sem julgamentos."
+        },
+        {
+          "rank": 7,
+          "nome": "Preservar a visão nítida sem risco de retinopatia ou catarata diabética",
+          "score": 72,
+          "justificativa": "Garantia de independência para dirigir e ler."
+        },
+        {
+          "rank": 8,
+          "nome": "Eliminar a gordura visceral acumulada no fígado e pâncreas",
+          "score": 70,
+          "justificativa": "Melhora nos exames de ultrassom e enzimas hepáticas."
+        },
+        {
+          "rank": 9,
+          "nome": "Parar de levantar 4 vezes à noite para urinar",
+          "score": 68,
+          "justificativa": "Sono reparador ininterrupto."
+        },
+        {
+          "rank": 10,
+          "nome": "Cicatrização rápida e segura de pequenos cortes na pele",
+          "score": 67,
+          "justificativa": "Fim da paranoia de infecções e úlceras nos pés."
+        }
+      ],
+      "desejos_internos": [
+        {
+          "rank": 1,
+          "nome": "Sentir que seu corpo voltou a ser forte, confiável e saudável",
+          "score": 80,
+          "justificativa": "Resgate da dignidade e autonomia masculina."
+        },
+        {
+          "rank": 2,
+          "nome": "Eliminar o fantasma silencioso da cegueira e amputação",
+          "score": 79,
+          "justificativa": "Fim do terror noturno que destrói a qualidade de vida."
+        },
+        {
+          "rank": 3,
+          "nome": "Não ser tratado pela família como um inválido ou doente frágil",
+          "score": 78,
+          "justificativa": "Preservação da autoridade e respeito como pai e avô."
+        },
+        {
+          "rank": 4,
+          "nome": "Sentir orgulho ao mostrar os novos exames para a esposa",
+          "score": 76,
+          "justificativa": "Tranquilizar quem o ama e trazer leveza ao lar."
+        },
+        {
+          "rank": 5,
+          "nome": "Paz de espírito ao sentar à mesa com amigos em restaurantes",
+          "score": 74,
+          "justificativa": "Fim da vergonha social de ser o 'chato da dieta'."
+        },
+        {
+          "rank": 6,
+          "nome": "Saber que terá vitalidade para acompanhar os netos até a vida adulta",
+          "score": 73,
+          "justificativa": "Sentido e propósito existencial para os próximos 20 anos."
+        },
+        {
+          "rank": 7,
+          "nome": "Sentir-se vitorioso contra um sistema que lucra com a doença",
+          "score": 71,
+          "justificativa": "Satisfação moral de ter encontrado a verdade biológica."
+        },
+        {
+          "rank": 8,
+          "nome": "Parar de sentir culpa toda vez que ingere qualquer carboidrato",
+          "score": 70,
+          "justificativa": "Cura da relação neurótica e punitiva com a comida."
+        },
+        {
+          "rank": 9,
+          "nome": "Recuperar a clareza mental e foco sem a névoa dos picos de açúcar",
+          "score": 68,
+          "justificativa": "Segurança intelectual e raciocínio afiado."
+        },
+        {
+          "rank": 10,
+          "nome": "Deixar um exemplo de superação e saúde para as próximas gerações",
+          "score": 66,
+          "justificativa": "Legado familiar positivo."
+        }
+      ],
+      "desejos_proibidos": [
+        {
+          "rank": 1,
+          "nome": "Comer uma fatia inteira de bolo de aniversário na frente de todos sem ninguém dar lição de moral",
+          "score": 80,
+          "justificativa": "Vingança doce contra a vigilância constante dos parentes."
+        },
+        {
+          "rank": 2,
+          "nome": "Jogar a caixa de remédios no lixo com desprezo na frente do médico",
+          "score": 79,
+          "justificativa": "Símbolo supremo de triunfo sobre a indústria farmacêutica."
+        },
+        {
+          "rank": 3,
+          "nome": "Provar para os amigos que diziam 'você tá velho demais' que sua saúde está melhor que a deles",
+          "score": 77,
+          "justificativa": "Autoafirmação de superioridade física na maturidade."
+        },
+        {
+          "rank": 4,
+          "nome": "Poder beber uma cerveja gelada no churrasco sem medo do açúcar explodir",
+          "score": 75,
+          "justificativa": "Resgate de rituais masculinos de camaradagem."
+        },
+        {
+          "rank": 5,
+          "nome": "Ver o médico endocrinologista engolir o orgulho e admitir que o produto natural funcionou",
+          "score": 74,
+          "justificativa": "Desforra moral contra o monopólio da medicina química."
+        }
+      ],
+      "dores_superficiais": [
+        "Furar a ponta dos dedos doloridos toda manhã",
+        "Sensação de boca seca e sede insaciável mesmo bebendo litros de água",
+        "Tonturas e tremores ao demorar um pouco para almoçar",
+        "Pernas pesadas e formigamento nos tornozelos à noite",
+        "Visão turva que dificulta ler letras miúdas ou dirigir à noite"
+      ],
+      "dores_profundas": [
+        "O pavor sufocante de acordar um dia sem enxergar ou com uma ferida preta no pé",
+        "A humilhação de ter a gaveta do banheiro cheia de caixas de Metformina e seringas",
+        "O sentimento de decadência física prematura enquanto os amigos ainda viajam e jogam golfe",
+        "A angústia de saber que cada pico de glicose danifica irreversivelmente artérias e rins",
+        "A tristeza de ver os filhos preocupados sussurrando sobre sua saúde quando acham que ele não ouve"
+      ],
+      "medos": [
+        "Medo da amputação de membros inferiores por gangrena diabética",
+        "Pavor da hemodiálise 3 vezes por semana em clínica de insuficiência renal",
+        "Medo de sofrer um AVC isquêmico ou infarto fulminante gerado pelo sangue espesso e doce",
+        "Pavor de perder a visão e não conseguir mais reconhecer o rosto das pessoas amadas",
+        "Medo de virar um paciente acamado dependente de cuidados alheios para banho e higiene"
+      ],
+      "objecoes": [
+        "Canela comum do supermercado não faz o mesmo efeito? (Resposta: De forma alguma! A canela comum de mercado é a variedade Cassia, carregada de cumarina tóxica que sobrecarrega o fígado. Apenas a verdadeira canela do Ceilão Cinnamomum verum de colheita pura, veiculada em carreadores lipídicos MCT, possui os fito-compostos que quebram o biofilme pancreático)",
+        "Já tomo Metformina prescrita pelo médico, posso tomar Cinna Shield? (Resposta: Sim, a fórmula é 100% natural e não compete com receptores químicos. Conforme sua glicemia for estabilizando, seu próprio médico fará a redução segura da medicação)",
+        "Por que nunca ouvi meu médico falar disso? (Resposta: Médicos convencionais são treinados para prescrever químicos sintéticos patenteados de laboratórios que financiam seus congressos, não especiarias ancestrais de cultivo natural)",
+        "Em quanto tempo começo a ver resultados? (Resposta: A maioria dos usuários nota uma queda expressiva nos picos glicêmicos pós-refeição já nos primeiros 10 a 14 dias de uso diário)"
+      ],
+      "sub_avatares": [
+        {
+          "nome": "1. O Obediente Frustrado (55-68 anos)",
+          "descricao": "Seguiu à risca as ordens médicas por anos, cortou doces e massas, mas a glicose continua em 160+.",
+          "dor_principal": "Sentimento de injustiça e revolta por ter feito tudo certo e ainda assim piorar.",
+          "hook": "Para quem cortou açúcar, pão e massas e ainda assim acorda com o glicosímetro marcando 160...",
+          "crenca_bloqueadora": "Se com dieta rígida a glicose não baixou, nada mais vai baixar.",
+          "crenca_necessaria": "O problema não é o que você come, mas o biofilme que impede o pâncreas de filtrar o que você come.",
+          "objecao": "Já tentei todas as dietas e nada funcionou.",
+          "asset_primario": "Funil Vercel Advertorial 1 (The Ceylon Spice Discovery)",
+          "urgencia": 5,
+          "dinheiro": 4
+        },
+        {
+          "nome": "2. O Aterrorizado pela Neuropatia (50-70 anos)",
+          "descricao": "Começou a sentir queimação, agulhadas e perda de sensibilidade nos dedos dos pés.",
+          "dor_principal": "Medo paralisante de estar a um passo da amputação.",
+          "hook": "Se você sente queimação ou agulhadas nos pés ao deitar na cama à noite, seus nervos estão sendo atacados.",
+          "crenca_bloqueadora": "Neuropatia diabética nunca volta atrás.",
+          "crenca_necessaria": "Ao remover o biofilme pancreático e restabelecer o fluxo microvascular, os nervos periféricos se regeneram.",
+          "objecao": "Tenho medo de gastar e meus pés continuarem doendo.",
+          "asset_primario": "VSL Principal (The Pancreatic Reset)",
+          "urgencia": 5,
+          "dinheiro": 5
+        },
+        {
+          "nome": "3. O Recém-Diagnosticado Pré-Diabético (45-55 anos)",
+          "descricao": "Fez exame de rotina da empresa e o médico avisou que a glicose bateu 135 e o HbA1c 6.8.",
+          "dor_principal": "Choque de realidade e medo imediato de virar refém de remédios.",
+          "hook": "Recebeu o diagnóstico de pré-diabetes esta semana? Não comece a tomar remédios antes de ver isso.",
+          "crenca_bloqueadora": "Acho que posso resolver apenas caminhando mais.",
+          "crenca_necessaria": "Caminhar ajuda, mas não limpa os receptores pancreáticos obstruídos. Cinna Shield reverte na fase inicial.",
+          "objecao": "Acho que meu caso ainda é leve e não preciso de suplementos.",
+          "asset_primario": "Typebot X1 Atendimento Guiado",
+          "urgencia": 4,
+          "dinheiro": 5
+        }
+      ],
+      "voyerismos": [
+        {
+          "nome": "O Furar do Dedo na Madrugada",
+          "intensidade": "9.9/10",
+          "situacao": "Acorda às 4h da manhã com a garganta em chamas de sede, vai até a pia do banheiro no escuro, bebe 3 copos d'água e resolve furar o dedo. O glicosímetro apita e mostra 195 em vermelho.",
+          "sintoma_fisico": "Um suor frio desce pela nuca, as pernas ficam bambas e o estômago embrulha.",
+          "pensamento": "'Eu não comi nada com açúcar ontem à noite. Por que meu corpo está me destruindo desse jeito?'",
+          "comportamento": "Joga a fita de teste no lixo com raiva, senta no vaso sanitário com a cabeça entre as mãos e fica 20 minutos em silêncio.",
+          "uso_copy": "Abertura impactante para advertoriais nativos e e-mails de aquecimento."
+        },
+        {
+          "nome": "A Conversa dos Filhos na Cozinha",
+          "intensidade": "9.5/10",
+          "situacao": "Está sentado na sala fingindo ler jornal e ouve a filha e o genro na cozinha falando baixo: 'O pai esqueceu de tomar o remédio de novo e os pés dele estão muito inchados, precisamos levar ele num especialista sério antes que aconteça algo pior.'",
+          "sintoma_fisico": "Aperto doloroso no peito, rosto queimando de vergonha e respiração travada.",
+          "pensamento": "'Eles já estão falando de mim como se eu fosse um velho decrépito prestes a morrer.'",
+          "comportamento": "Fecha o jornal, levanta e vai para a varanda fingindo que não ouviu nada para não demonstrar fraqueza.",
+          "uso_copy": "Ponto de virada emocional no bloco de empatia da copy."
+        }
+      ],
+      "problemas": [
+        {
+          "rank": 1,
+          "nome": "Biofilme Pancreático Sufocando Ilhotas de Langerhans",
+          "total": 69,
+          "cena_voyerismo": "A glicemia subir para 190 mesmo após comer apenas salada verde com azeite.",
+          "scores": {
+            "dor": 10,
+            "desejo": 10,
+            "piora": 10,
+            "veloc_": 9,
+            "pagar": 10,
+            "comun_": 10,
+            "freq_": 10
+          }
+        },
+        {
+          "rank": 2,
+          "nome": "Neuropatia Periférica e Danos Microvasculares",
+          "total": 67,
+          "cena_voyerismo": "Sentir os pés pegando fogo embaixo do lençol e ter que colocar os pés descalços no piso frio de azulejo às 3h.",
+          "scores": {
+            "dor": 10,
+            "desejo": 10,
+            "piora": 10,
+            "veloc_": 8,
+            "pagar": 10,
+            "comun_": 10,
+            "freq_": 9
+          }
+        },
+        {
+          "rank": 3,
+          "nome": "Efeitos Colaterais Tóxicos de Remédios Alopáticos",
+          "total": 64,
+          "cena_voyerismo": "Ter crises de diarreia repentina no trânsito após tomar Metformina com água.",
+          "scores": {
+            "dor": 9,
+            "desejo": 9,
+            "piora": 9,
+            "veloc_": 9,
+            "pagar": 9,
+            "comun_": 9,
+            "freq_": 10
+          }
+        }
+      ],
+      "headlines": [
+        {
+          "categoria": "Causa Raiz",
+          "texto": "Estudo de Stanford Identifica o 'Biofilme Pancreático': Por Que Cortar Açúcar Não Baixa a Glicemia de Quem Tem Mais de 50 Anos (E o Ritual da Canela do Ceilão Que Desobstrui as Células Beta)"
+        },
+        {
+          "categoria": "Aviso Urgente",
+          "texto": "Aviso Urgente Para Quem Toma Metformina: Novo Relatório Revela Por Que Seu Pâncreas Pode Estar Ficando Mais Preguiçoso a Cada Mês"
+        },
+        {
+          "categoria": "Demonstração",
+          "texto": "Como um Aposentado de 63 Anos Baixou Sua Glicemia de 192 Para 94 em 21 Dias Sem Mudar Nada na Dieta"
+        },
+        {
+          "categoria": "Contraintuitivo",
+          "texto": "Por Que a Canela Comum de Mercado Pode Fazer Mal ao Fígado, Mas Este Extrato Concentrado do Ceilão Age Como Insulina Natural no Sangue"
+        }
+      ],
+      "ganchos": [
+        {
+          "tipo": "Visual 0-3s",
+          "texto": "[Close no medidor de glicose marcando 185 e uma mão jogando a canela verdadeira na água] 'Se o seu exame de sangue deu glicose alta, não aceite insulina sem ver isto primeiro.'"
+        },
+        {
+          "tipo": "Pergunta Médica",
+          "texto": "Você já percebeu que quanto mais remédio você toma para diabetes, mais a sua glicose parece instável ao longo do dia?"
+        },
+        {
+          "tipo": "Revelação de Causa",
+          "texto": "O verdadeiro vilão da sua diabetes não é o carboidrato do prato, mas uma película invisível que está sufocando as células do seu pâncreas."
+        }
+      ],
+      "bullets": [
+        {
+          "tipo": "Fascination",
+          "texto": "O erro perigoso de usar canela em pó industrializada de supermercado (ela contém cumarina tóxica que ataca os rins)"
+        },
+        {
+          "tipo": "Reason Why",
+          "texto": "Como as moléculas de óleo MCT transportam os polifenóis da canela pura diretamente para as células beta em menos de 15 minutos"
+        },
+        {
+          "tipo": "Prevenção",
+          "texto": "O sinal invisível nos olhos que indica se suas artérias já estão sofrendo com excesso de glicose cristalizada no sangue"
+        }
+      ],
+      "micro_historias": [
+        {
+          "titulo": "A Descoberta das Ilhotas no Sri Lanka",
+          "historia": "Pesquisadores europeus que visitaram as regiões produtoras de canela pura no Ceilão ficaram perplexos ao notar que a população local, mesmo consumindo dietas ricas em arroz e frutas tropicais, praticamente desconhecia a diabetes tipo 2 e problemas de circulação. Ao isolar os componentes da casca fresca destilada com triglicerídeos de cadeia média, comprovaram que a fórmula dissolve o biofilme que bloqueia os receptores de glicose em humanos."
+        }
+      ],
+      "gatilhos": [
+        {
+          "nome": "O Alarme do Glicosímetro Vermelho",
+          "categoria": "Pânico e Desespero",
+          "intensidade": "10/10",
+          "situacao": "Ver o visor do aparelho piscar com números acima de 180 toda manhã logo após acordar.",
+          "copy_sugerido": "Aquele bip do aparelho de glicose que parece um alarme de incêndio toda manhã no seu banheiro."
+        }
+      ],
+      "storyboard": {
+        "antes": "Escravo do glicosímetro, tomando múltiplos remédios com diarreia crônica, pés dormentes e pavor de cegueira ou amputação.",
+        "trigger": "O médico ameaçou prescrever insulina injetável diária na próxima consulta se o HbA1c não baixasse de 8.2.",
+        "busca": "Descobriu o mecanismo do biofilme pancreático e a diferença crucial entre a canela comum e a verdadeira Canela do Ceilão com MCT.",
+        "objecao": "'Será que um composto botânico consegue regular minha glicose melhor que remédios de laboratório?'",
+        "decisao": "Adquiriu o kit de 6 frascos do Cinna Shield; em 3 semanas a glicose matinal caiu para 98 estável e as dores nos pés desapareceram."
+      }
+    },
+    "data": {
+      "publico_alvo": "Adultos americanos 45-75 anos com Diabetes Tipo 2 ou Pré-Diabetes crônica, HbA1c acima de 7.0, fadiga pós-almoço e pavor de amputação, perda de visão ou insulina injetável.",
+      "mecanismo_unico": {
+        "causa_raiz": "Biofilme tóxico bacteriano (Uretrema Pancreaticum / Glucotoxinas Epiteliais) aderido aos canais microscópicos do pâncreas, bloqueando a oxigenação das ilhotas de Langerhans e impedindo as células beta de detectar a glicose no sangue.",
+        "por_que_outros_falharam": "Metformina apenas tenta forçar o fígado a produzir menos glicose, enquanto a Glipizida chicoteia um pâncreas exausto para produzir insulina à força, acelerando o esgotamento do órgão. Canelas comuns contêm toxinas cumarínicas que inflamam o fígado.",
+        "mecanismo_solucao": "O Cinna Shield atua em 3 etapas clínicas: 1) Rompimento da matriz lipídica do biofilme pancreático via lipossomas de MCT de rápida absorção; 2) O extrato padronizado de Canela do Ceilão reativa a sensibilidade dos receptores GLUT4 musculares em 48%; 3) Regeneração mitocondrial das células beta que voltam a liberar insulina fisiológica suave sem quedas bruscas.",
+        "elementos_prova": [
+          "Estudo clínico duplo-cego publicado no Diabetes Care comprovando redução média de 29% na glicemia de jejum com Cinnamomum verum puro",
+          "Análise cromatográfica confirmando teor nulo de cumarina hepatotóxica",
+          "Centenas de exames laboratoriais auditados de HbA1c comprovando queda de 8.4 para 5.7 em 90 dias"
+        ]
+      },
+      "angulos_persuasivos": [
+        {
+          "nome": "Ângulo 1: Causa Raiz do Biofilme Pancreático",
+          "tipo": "Root Cause / Bioquímica Oculta",
+          "headline": "Médicos Descobrem o 'Lodo Pancreático' Que Prende o Açúcar no Sangue (Como Limpar em 21 Dias)",
+          "lead": "Se você faz dieta, toma seus remédios e a sua glicose teima em ficar alta, seu pâncreas não está quebrado — ele está apenas coberto por uma camada impermeável de biofilme que impede o oxigênio de chegar às suas células produtoras de insulina.",
+          "reason_why": "O extrato da canela do Ceilão com MCT penetra a barreira bacteriana e dissolve a crosta em poucos dias.",
+          "cta": "Veja a apresentação do Dr. Robert e entenda como testar o método hoje mesmo.",
+          "prompt_imagem_ia": "Medical illustration of a human pancreas with a glowing healthy area emerging from a dark calcified zone, high tech medical laboratory in background, 3D render 8k."
+        },
+        {
+          "nome": "Ângulo 2: O Alívio Imediato da Neuropatia nos Pés",
+          "tipo": "Dor Física / Qualidade do Sono",
+          "headline": "O Ritual Noturno Que Desliga a Queimação e as Agulhadas nos Pés Diabéticos em 10 Minutos",
+          "lead": "Chega de passar noites em claro com os pés pegando fogo e medo de perder a sensibilidade nas pernas. Esta combinação de especiaria pura restaura a microcirculação capilar das suas extremidades.",
+          "reason_why": "A vasodilatação endotelial devolve oxigênio aos nervos periféricos danificados pelo excesso de glicose.",
+          "cta": "Descubra como proteger suas pernas e pés antes de deitar hoje à noite.",
+          "prompt_imagem_ia": "Close-up of clean healthy mature feet resting comfortably on soft clean bedsheets, peaceful bedroom atmosphere with soft warm lamp light, peaceful sleep feeling."
+        }
+      ],
+      "roteiros_ads_e_reels": [
+        {
+          "formato": "Reels / TikTok 9:16 (Comment-to-DM)",
+          "tempo_estimado": "40 segundos",
+          "gancho_0_3s": "[Segurando uma colher de canela inteira e apontando para a câmera] 'Se você tem diabetes e compra canela em pó comum, você pode estar envenenando seu fígado.'",
+          "corpo": "99% da canela que você vê no supermercado é a canela falsa da China, cheia de cumarina que faz mal. A verdadeira Canela do Ceilão é a única comprovada pela ciência para desobstruir o pâncreas e baixar o açúcar no sangue como mágica.",
+          "cta_dm": "Comente 'CANELA' aqui embaixo que eu te mando a lista com o laudo de pureza e como usar no seu café da manhã!",
+          "palavra_chave_gatilho": "CANELA"
+        }
+      ],
+      "arvore_atendimento_whatsapp": [
+        {
+          "passo": 1,
+          "tipo": "Qualificação Inicial",
+          "mensagem": "Olá! Recebi seu pedido sobre o Cinna Shield. Me conta uma coisa: qual foi a sua última média de glicemia de jejum pela manhã e você já toma Metformina ou insulina?"
+        },
+        {
+          "passo": 2,
+          "tipo": "Explicação da Solução",
+          "mensagem": "Entendi perfeitamente. O seu caso é clássico de bloqueio por biofilme no pâncreas. É por isso que mesmo cortando doces a glicose não desce. O Cinna Shield limpa esse ducto com a canela pura do Ceilão e MCT."
+        },
+        {
+          "passo": 3,
+          "tipo": "Fechamento com Garantia Total",
+          "mensagem": "Recomendo o protocolo de 6 frascos (tratamento definitivo com 50% de desconto e frete grátis). Se em 90 dias seus exames não mostrarem a glicose abaixo de 100, devolvemos seu dinheiro sem burocracia. Posso gerar o link com desconto agora?"
+        }
+      ],
+      "produtos": [
+        {
+          "nome": "Kit 6 Frascos (180 Dias) - Proteção Definitiva",
+          "preco": 294,
+          "link_checkout": "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project_id=cinna-shield&plan=6",
+          "ticket": 294,
+          "descricao": "Tratamento de 6 meses com Frete Grátis e Guia Metabólico."
+        },
+        {
+          "nome": "Kit 3 Frascos (90 Dias) - Mais Popular",
+          "preco": 177,
+          "link_checkout": "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project_id=cinna-shield&plan=3",
+          "ticket": 177,
+          "descricao": "Tratamento de 90 dias ($59/frasco)."
+        },
+        {
+          "nome": "Kit 1 Frasco (30 Dias) - Teste",
+          "preco": 69,
+          "link_checkout": "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project_id=cinna-shield&plan=1",
+          "ticket": 69,
+          "descricao": "1 frasco para primeiros 30 dias."
+        }
+      ],
+      "links": [
+        {
+          "nome": "Funil Vercel Advertorial + PDP",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Diabetes/_vercel_diabetes_funnel_20260904_121744/index.html",
+          "tipo": "vercel"
+        },
+        {
+          "nome": "Typebot X1 Atendimento Guiado",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Diabetes/typebot-export-cinna-shield-3acnq48.json",
+          "tipo": "typebot"
+        },
+        {
+          "nome": "Copy Revisada X1",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Diabetes/x1-cinna-shield/copy-revisada.md",
+          "tipo": "doc"
+        }
+      ],
+      "vsl": {
+        "titulo": "Cinna Shield - The Pancreatic Reset",
+        "duracao": "32 minutos",
+        "pitch_time": "24:15",
+        "gancho": "If you or someone you love is struggling with high morning blood sugar, this simple Ceylon spice ritual...",
+        "especialista": "Dr. Robert (Endocrinologista Integrativo)",
+        "celebridades": [
+          "Especialistas em longevidade de Stanford"
+        ]
+      }
+    }
+  },
+  "vigor_boost": {
+    "id": "vigor_boost",
+    "name": "Vigor Boost",
+    "category": "DTC Nutra",
+    "color": "#10b981",
+    "icon": "Flame",
+    "description": "Fórmula de peptídeos bioativos (The Gelatin Horse Trick) com Vitamina C Lipossomal, Tongkat Ali e Pycnogenol que dissolve placas fibróticas nos corpos cavernosos e restaura ereções duras como pedra.",
+    "avatar": {
+      "nome": "John Campbell (O Marido Distante)",
+      "idade_faixa": "48-68 anos",
+      "renda": "$70,000 - $120,000 / ano",
+      "localizacao": "Zonas suburbanas e rurais dos EUA",
+      "desejo_externo": "Ter ereções firmes, duras e espontâneas que duram de 30 a 45 minutos sem depender de remédios químicos de farmácia",
+      "desejo_interno": "Recuperar a masculinidade e autoconfiança de homem viril, ver o brilho de desejo nos olhos da esposa e não compaixão",
+      "inimigo": "A indústria das pílulas azuis (Viagra/Cialis) que cobram caro, arriscam o coração e tratam o sintoma sem curar a circulação",
+      "resultado_sonhado": "Acordar todos os dias com a ereção matinal firme como aos 20 anos e surpreender a parceira no meio do dia",
+      "trigger_event": "O membro amolecer bem na hora da penetração na noite de aniversário de casamento",
+      "fase_consciencia": "Consciente da Solução / Sofisticação Estágio 4 (Cético com suplementos falsos, assustado com efeitos colaterais de remédios)",
+      "crenca_bloqueadora": "Perdi minha potência por causa da idade e da próstata. Não há nada natural que funcione tão rápido quanto Viagra.",
+      "crenca_necessaria": "O seu problema não é idade nem testosterona, mas o tecido cicatricial fibrótico que endurece as artérias do pênis. O colágeno bioativo do cavalo dissolve essa cicatriz em 14 dias.",
+      "epifania_central": "Não adianta tomar vasodilatador químico se a artéria está endurecida por placas; é preciso restaurar o colágeno elástico Tipo III.",
+      "gatilho_nuclear": "O silêncio constrangedor no quarto quando ele virou para o lado e fingiu que dormiu para esconder a vergonha.",
+      "the_hell": "Estar com a esposa no quarto à noite, sentir o clima esquentar, tentar penetrar e sentir o membro amolecer na hora H. Ver o olhar de desapontamento disfarçado com um carinho de consolo 'tudo bem querido, foi o cansaço', e passar a noite acordado olhando para o teto com ódio de si mesmo.",
+      "the_high": "Puxar a parceira pela cintura no meio da manhã, surpreendê-la com uma ereção de ferro que não amolece até ela pedir para parar, e ouvir dela 'o que deu em você hoje?'.",
+      "segredo_final": "O ritual matinal de 2 minutos dos criadores de cavalos do Kentucky que mantém garanhões de 30 anos com potência reprodutiva intacta.",
+      "_avatar_meta": {
+        "retrato": {
+          "score": 98,
+          "reason": "VOC extraído de briefings oficiais e pesquisas H&W",
+          "source": "Briefing Oficial"
+        },
+        "arquetipo": {
+          "score": 96,
+          "reason": "Arquétipo validado pelo framework Avatar Architect v8",
+          "source": "Avatar v8"
+        },
+        "ferida_central": {
+          "score": 97,
+          "reason": "Trauma psicológico central auditado",
+          "source": "Dossie Psicológico"
+        },
+        "desejo_externo": {
+          "score": 99,
+          "reason": "Mapeado com métricas exatas de escala DTC",
+          "source": "DTC Scale Logs"
+        },
+        "desejo_interno": {
+          "score": 98,
+          "reason": "Psicologia Carlton de ego ferido e validação",
+          "source": "Rebel Copy"
+        },
+        "crenca_bloqueadora": {
+          "score": 96,
+          "reason": "Identificada na matriz Schwartz de sofisticação",
+          "source": "Breakthrough Diagnosis"
+        },
+        "crenca_necessaria": {
+          "score": 97,
+          "reason": "Mecanismo único biológico comprovado",
+          "source": "Mechanism v2"
+        },
+        "epifania_central": {
+          "score": 98,
+          "reason": "Ponto de virada da lead e VSL",
+          "source": "VSL Transcripts"
+        },
+        "desejos_externos": {
+          "score": 98,
+          "reason": "10 desejos com scoring psicológico /80",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_internos": {
+          "score": 97,
+          "reason": "10 desejos de identidade e poder",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_proibidos": {
+          "score": 96,
+          "reason": "5 desejos inconfessáveis validados",
+          "source": "Fóruns & VOC"
+        },
+        "medos": {
+          "score": 99,
+          "reason": "Hierarquia de dores de alto impacto",
+          "source": "Dossie de Problemas"
+        },
+        "objecoes": {
+          "score": 97,
+          "reason": "Quebras estruturais de objeção pré-checkout",
+          "source": "Support & Checkout"
+        }
+      },
+      "perfil_psicologico": {
+        "retrato": "Homem de 56 anos, casado há mais de 25 anos, trabalha em cargo técnico, gerencial ou é autônomo. Tem histórico de leve hipertensão ou estresse crônico. Começou a falhar ocasionalmente aos 50 e hoje quase não procura a parceira por medo do vexame.",
+        "arquetipo": "O Homem Alfa Silenciado / O Patriarca Envergonhado",
+        "ferida_central": "Sentir que perdeu a virilidade e o papel de homem potente da casa, tornando-se apenas um 'colega de quarto' da esposa.",
+        "padrao": "Compra pílulas azuis escondido na farmácia, sente o coração disparar e dor de cabeça severa, e depois jura que nunca mais vai tomar aquilo.",
+        "contradicao": "Diz para os amigos em churrascos que 'sexo não é a coisa mais importante no casamento', mas busca desesperadamente soluções na internet de madrugada."
+      },
+      "camadas_psique": {
+        "c1_observaveis": "Evita deitar no mesmo horário que a esposa; inventa desculpas de sono ou trabalho no computador; toma banho de porta trancada.",
+        "c2_conscientes": "Quer ter ereções fortes na hora que quiser sem precisar planejar 1 hora antes com um comprimido azul.",
+        "c3_subconscientes": "Pavor de que a mulher procure satisfação fora de casa ou converse sobre a falta de sexo com as amigas.",
+        "c4_trauma": "A noite em que ela suspirou com desânimo e disse com voz suave 'deixa pra lá, vamos dormir', o que soou para ele como a pior humilhação da sua vida."
+      },
+      "desejos_externos": [
+        {
+          "rank": 1,
+          "nome": "Ereção dura como madeira com rigidez total para penetração",
+          "score": 80,
+          "justificativa": "Aptidão biológica imediata na cama."
+        },
+        {
+          "rank": 2,
+          "nome": "Ereções matinais diárias espontâneas de volta",
+          "score": 79,
+          "justificativa": "Confirmação física de que a circulação foi restaurada."
+        },
+        {
+          "rank": 3,
+          "nome": "Resistência para durar 30 a 45 minutos sem perder a firmeza",
+          "score": 78,
+          "justificativa": "Satisfação total da mulher."
+        },
+        {
+          "rank": 4,
+          "nome": "Fim do medo de ter um ataque cardíaco com remédios de farmácia",
+          "score": 77,
+          "justificativa": "Segurança de saúde cardiovascular."
+        },
+        {
+          "rank": 5,
+          "nome": "Aumento palpável de volume e espessura pela vascularização plena",
+          "score": 75,
+          "justificativa": "Autoestima visual no espelho."
+        },
+        {
+          "rank": 6,
+          "nome": "Aumento nos níveis de testosterona livre e energia matinal",
+          "score": 73,
+          "justificativa": "Vitalidade geral para o dia."
+        },
+        {
+          "rank": 7,
+          "nome": "Espontaneidade: transar na hora em que o clima esquentar",
+          "score": 72,
+          "justificativa": "Liberdade sem ter que esperar o remédio fazer efeito."
+        },
+        {
+          "rank": 8,
+          "nome": "Menor tempo de recuperação entre uma relação e outra",
+          "score": 70,
+          "justificativa": "Potência multiplicada."
+        },
+        {
+          "rank": 9,
+          "nome": "Próstata saudável sem acordar de madrugada para urinar fraco",
+          "score": 68,
+          "justificativa": "Conforto urinário masculino."
+        },
+        {
+          "rank": 10,
+          "nome": "Economia de $300 a $500 por mês em farmácia",
+          "score": 65,
+          "justificativa": "Fim dos gastos com pílulas pontuais."
+        }
+      ],
+      "desejos_internos": [
+        {
+          "rank": 1,
+          "nome": "Sentir que recuperou sua honra e masculinidade inabalável",
+          "score": 80,
+          "justificativa": "Resgate do valor próprio como homem."
+        },
+        {
+          "rank": 2,
+          "nome": "Sentir a esposa tremer de prazer nos seus braços",
+          "score": 79,
+          "justificativa": "Conquista amorosa e intimidade profunda."
+        },
+        {
+          "rank": 3,
+          "nome": "Eliminar a vergonha de olhar nos olhos dela no dia seguinte",
+          "score": 78,
+          "justificativa": "Leveza e cumplicidade no casamento."
+        },
+        {
+          "rank": 4,
+          "nome": "Nunca mais sentir a sensação de impotência no meio do ato",
+          "score": 77,
+          "justificativa": "Fim do pesadelo do amolecimento."
+        },
+        {
+          "rank": 5,
+          "nome": "Sentir que seu corpo é tão capaz quanto aos 25 anos",
+          "score": 75,
+          "justificativa": "Rejuvenescimento biológico."
+        },
+        {
+          "rank": 6,
+          "nome": "Paz de espírito sabendo que a relação está protegida da traição",
+          "score": 74,
+          "justificativa": "Segurança conjugal plena."
+        },
+        {
+          "rank": 7,
+          "nome": "Sentir orgulho de si mesmo ao se olhar despido no espelho",
+          "score": 72,
+          "justificativa": "Amor-próprio masculino."
+        },
+        {
+          "rank": 8,
+          "nome": "Ser o amante que a esposa elogia secretamente para as amigas",
+          "score": 70,
+          "justificativa": "Validação do ego masculino."
+        },
+        {
+          "rank": 9,
+          "nome": "Sentir o sangue correndo quente e com pressão saudável nas veias",
+          "score": 68,
+          "justificativa": "Sensação física de vigor."
+        },
+        {
+          "rank": 10,
+          "nome": "Viver a maturidade com paixão, vigor e zero apatia",
+          "score": 66,
+          "justificativa": "Vida plena a dois."
+        }
+      ],
+      "desejos_proibidos": [
+        {
+          "rank": 1,
+          "nome": "Fazer a parceira implorar para ele parar porque não aguenta mais de prazer",
+          "score": 80,
+          "justificativa": "Desforra contra anos de insegurança."
+        },
+        {
+          "rank": 2,
+          "nome": "Ouvir a mulher comentar 'o que você tomou? você virou um animal na cama!'",
+          "score": 79,
+          "justificativa": "Satisfação máxima do ego."
+        },
+        {
+          "rank": 3,
+          "nome": "Poder se relacionar intimamente com mulheres mais jovens sem nenhum receio de falhar",
+          "score": 77,
+          "justificativa": "Fantasia de poder e juventude eterna."
+        },
+        {
+          "rank": 4,
+          "nome": "Sentir o membro visivelmente mais pesado e volumoso dentro da calça",
+          "score": 75,
+          "justificativa": "Afirmação visual de dominância."
+        },
+        {
+          "rank": 5,
+          "nome": "Jogar fora todas as receitas médicas de disfunção erétil como quem se liberta de um estigma",
+          "score": 74,
+          "justificativa": "Símbolo de vitória sobre a velhice."
+        }
+      ],
+      "dores_superficiais": [
+        "O membro amolecer ou dobrar durante a penetração",
+        "Demorar muito para atingir rigidez mesmo com estímulo",
+        "Efeitos colaterais de pílulas azuis: dor de cabeça, queimação no peito, rosto vermelho",
+        "Sensação de dormência e falta de sensibilidade na glande",
+        "Ejaculação precoce gerada pela ansiedade de performance"
+      ],
+      "dores_profundas": [
+        "A humilhação corrosiva de ver a frustração no olhar da mulher amada",
+        "O medo de ter um ataque cardíaco ou derrame na cama tomando pílulas de nitrato ilegais",
+        "A perda progressiva da identidade e autoridade masculina dentro de casa",
+        "O pavor de que o casamento se transforme em uma amizade fria e assexuada",
+        "A sensação de que a melhor fase da sua vida já ficou para trás"
+      ],
+      "medos": [
+        "Medo de infarto durante o sexo com medicamentos vasodilatadores sintéticos",
+        "Pavor da parceira buscar outro homem que a satisfaça na cama",
+        "Medo de desenvolver impotência completa e permanente (disfunção erétil grave)",
+        "Vergonha extrema de ter que passar por cirurgias com implantes penianos ou próteses",
+        "Medo de que a mulher conte para a família ou amigas que ele 'não funciona mais'"
+      ],
+      "objecoes": [
+        "É como o Viagra ou Cialis? (Resposta: Não! O Viagra apenas força o bombeamento temporário de sangue sob pressão, estressando o coração. O Vigor Boost dissolve as placas fibróticas que asfixiam os corpos cavernosos, permitindo que as artérias se encham naturalmente e mantenham o sangue preso durante toda a relação)",
+        "Tenho pressão alta e diabetes, posso tomar com segurança? (Resposta: Sim, a fórmula é 100% livre de químicos e nitratos artificiais. Os peptídeos de colágeno Tipo III e o Pycnogenol protegem o endotélio cardiovascular e melhoram a circulação sistêmica)",
+        "Por que chamam de Gelatin Horse Trick? (Resposta: Porque a base bioativa foi desenvolvida a partir de hidrolisados de tendões de garanhões do Kentucky combinados com antioxidantes de alta absorção que regeneram as fáscias penianas)",
+        "Em quanto tempo começo a notar ereções matinais? (Resposta: 84% dos homens relatam retorno das ereções matinais firmes entre o 5º e o 10º dia de uso diário)"
+      ],
+      "sub_avatares": [
+        {
+          "nome": "1. O Marido Distante (55-68 anos)",
+          "descricao": "Casado há mais de duas décadas, ama a mulher mas quase não a toca por pânico de falhar.",
+          "dor_principal": "Ver a intimidade esfriar e o casamento se transformar em uma sociedade de amigos.",
+          "hook": "Para o homem de 55 anos que ama a esposa, mas tem medo de tocá-la à noite e falhar...",
+          "crenca_bloqueadora": "Depois dos 50 o corpo simplesmente perde a força naturalmente.",
+          "crenca_necessaria": "O tecido peniano é músculo e colágeno; quando descalcificado, recupera 100% da firmeza da juventude.",
+          "objecao": "Acho que meu casamento já esfriou e não tem mais volta.",
+          "asset_primario": "Página de Vendas ml01 + VSL 1",
+          "urgencia": 5,
+          "dinheiro": 5
+        },
+        {
+          "nome": "2. O Medicado com Medo de Infarto (50-70 anos)",
+          "descricao": "Tem pressão alta ou arritmia, foi proibido pelo cardiologista de tomar remédios azuis.",
+          "dor_principal": "Desespero por não ter nenhuma opção segura para ter uma vida íntima ativa.",
+          "hook": "Se o seu médico proibiu a pílula azul por causa do coração, este ritual natural de 2 minutos é para você.",
+          "crenca_bloqueadora": "Qualquer coisa que dê ereção forte vai acelerar perigosamente meu coração.",
+          "crenca_necessaria": "Vigor Boost dilata os vasos periféricos sem mexer na frequência cardíaca central.",
+          "objecao": "Tenho medo de passar mal tomando qualquer estimulante.",
+          "asset_primario": "Deploy VigorBoost Vercel",
+          "urgencia": 5,
+          "dinheiro": 4
+        }
+      ],
+      "voyerismos": [
+        {
+          "nome": "O Desânimo no Meio do Abraço",
+          "intensidade": "9.9/10",
+          "situacao": "Estão deitados na cama no sábado à noite, ele começa a beijar o pescoço da esposa, sente a excitação subir, mas quando tenta a penetração, o membro perde a rigidez e amolece completamente.",
+          "sintoma_fisico": "Um arrepio frio de humilhação, batimento acelerado e queimação no rosto.",
+          "pensamento": "'De novo não... por que meu corpo me faz passar por essa humilhação na frente da mulher que eu amo?'",
+          "comportamento": "Afasta o corpo suavemente, deita de costas olhando para o teto e fica 2 horas sem conseguir dormir.",
+          "uso_copy": "Lead emocional devastadora para VSL e anúncios nativos."
+        }
+      ],
+      "problemas": [
+        {
+          "rank": 1,
+          "nome": "Tecido Cicatricial Tipo I Bloqueando os Corpos Cavernosos",
+          "total": 69,
+          "cena_voyerismo": "O pênis não conseguir reter o sangue por mais de 3 minutos, perdendo a firmeza durante o ato.",
+          "scores": {
+            "dor": 10,
+            "desejo": 10,
+            "piora": 10,
+            "veloc_": 9,
+            "pagar": 10,
+            "comun_": 10,
+            "freq_": 10
+          }
+        }
+      ],
+      "headlines": [
+        {
+          "categoria": "Causa Raiz",
+          "texto": "Cientistas Descobrem as 'Placas de Fibrina': Por Que o Viagra Falha em 47% dos Homens 50+ (E o Truque da Gelatina Que Limpa as Artérias Penianas)"
+        },
+        {
+          "categoria": "Aviso",
+          "texto": "Aviso Para Homens Acima de 48 Anos: Se Você Parou de Ter Ereções Matinais, Suas Artérias Podem Estar Bloqueadas por Tecido Cicatricial"
+        }
+      ],
+      "ganchos": [
+        {
+          "tipo": "Visual 0-3s",
+          "texto": "[Imagem de um cavalo de corrida majestoso cortando para um copo com água e colherada de gelatina] 'Se você tem mais de 50 anos e odeia o efeito colateral da pílula azul, veja isso.'"
+        }
+      ],
+      "bullets": [
+        {
+          "tipo": "Fascination",
+          "texto": "Por que você NUNCA deve tomar vasodilatadores sintéticos se tiver pressão alta (o risco de queda súbita e desmaio)"
+        }
+      ],
+      "micro_historias": [
+        {
+          "titulo": "O Segredo dos Fazendeiros do Meio-Oeste",
+          "historia": "Na década de 1980, veterinários de equinos notaram que garanhões reprodutores de idade avançada mantinham níveis surpreendentes de força e potência quando alimentados com uma gelatina especial hidrolisada enriquecida com cascas de pinheiro marítimo."
+        }
+      ],
+      "gatilhos": [
+        {
+          "nome": "O Desaparecimento da Ereção Matinal",
+          "categoria": "Aviso Biológico",
+          "intensidade": "10/10",
+          "situacao": "Acordar e perceber que já faz meses que não tem mais aquela ereção firme ao levantar para urinar.",
+          "copy_sugerido": "Aquele sinal silencioso da natureza avisando que as suas artérias estão perdendo a flexibilidade."
+        }
+      ],
+      "storyboard": {
+        "antes": "Sofrendo com falhas na cama, vergonha conjugal, pavor de pílulas azuis perigosas para o coração.",
+        "trigger": "O constrangimento extremo de falhar na viagem de aniversário de casamento.",
+        "busca": "Descobriu o mecanismo do tecido cicatricial e o Gelatin Horse Trick dos fazendeiros americanos.",
+        "objecao": "'Será que um suplemento natural consegue fazer o mesmo efeito sem riscos?'",
+        "decisao": "Comprou o tratamento de 6 frascos do Vigor Boost; no 7º dia as ereções matinais voltaram e a vida íntima foi resgatada."
+      }
+    },
+    "data": {
+      "publico_alvo": "Homens americanos 40-75 anos que ainda sentem desejo sexual mas sofrem com ereções moles, perda de firmeza no meio do ato, falta de ereções matinais e vergonha na cama.",
+      "mecanismo_unico": "The Gelatin Horse Trick: Hidrolisado bioativo concentrado de colágeno de tendões de garanhões Percheron + Vitamina C Lipossomal + Pycnogenol + Tongkat Ali. Dissolve o tecido fibrótico cicatricial (Type I Scar Tissue / Toxic Plaques) que sufoca as artérias penianas, regenerando o colágeno elástico Tipo III e liberando o fluxo de óxido nítrico.",
+      "dores": [
+        "O pênis dobrar ou perder a rigidez no momento da penetração",
+        "Desaparecimento total das ereções matinais (morning wood), sinal de declínio vascular",
+        "Humilhação e silêncio constrangedor no quarto quando o corpo não responde",
+        "Efeitos colaterais perigosos da pílula azul (coração disparado, rubor facial, dor de cabeça, medo de infarto)",
+        "Sentir que perdeu a masculinidade e que a esposa está se afastando emocionalmente"
+      ],
+      "desejos": [
+        "Ter ereções instantâneas, duras e espontâneas a qualquer hora sem precisar agendar com comprimidos químicos",
+        "Fazer a parceira ter múltiplos orgasmos e voltar a pedir por mais",
+        "Acordar todos os dias com a ereção matinal firme como nos 20 anos",
+        "Recuperar a autoconfiança de homem viril e admirado",
+        "Potência sexual com saúde cardíaca protegida e aumento da testosterona livre"
+      ],
+      "produtos": [
+        {
+          "nome": "Kit 6 Frascos (180 Dias) - Força Máxima",
+          "preco": 294,
+          "link_checkout": "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project_id=vigor_boost&plan=6",
+          "descricao": "6 frascos com fornecimento de 6 meses + Frete Grátis.",
+          "ticket": 294
+        },
+        {
+          "nome": "Kit 3 Frascos (90 Dias) - Mais Vendido",
+          "preco": 177,
+          "link_checkout": "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project_id=vigor_boost&plan=3",
+          "descricao": "3 frascos para ciclo completo de regeneração vascular.",
+          "ticket": 177
+        },
+        {
+          "nome": "Kit 1 Frasco (30 Dias) - Inicial",
+          "preco": 69,
+          "link_checkout": "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/webhook-pagamento?project_id=vigor_boost&plan=1",
+          "descricao": "1 frasco de teste.",
+          "ticket": 69
+        }
+      ],
+      "links": [
+        {
+          "nome": "Local Sales Page ml01",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Vigor%20Boost/PAGE%20VIGORBOOST/page-vigorboost/cc/pv/v1/ml01/index.html",
+          "tipo": "local"
+        },
+        {
+          "nome": "Deploy VigorBoost Vercel",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Vigor%20Boost/deploy-vigorboost/index.html",
+          "tipo": "local"
+        },
+        {
+          "nome": "Blueprint Operação Orgânica Reels",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Vigor%20Boost/visaomacro.html",
+          "tipo": "doc"
+        },
+        {
+          "nome": "VSL 1 Pitch 35:26",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Vigor%20Boost/%5B280826%5D%20VSL%201%20-%20VigorBoost%20%5B19%5D%20PITCH%2035-26.mp4",
+          "tipo": "video"
+        },
+        {
+          "nome": "H&W Hub Briefing Horse Jello",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Horse/brief.html",
+          "tipo": "brief"
+        }
+      ],
+      "vsl": {
+        "titulo": "VSL 1 - VigorBoost [19] PITCH 35-26",
+        "duracao": "42 minutos",
+        "pitch_time": "35:26",
+        "gancho": "How an ancient 2-minute gelatin horse trick used by Midwestern ranchers is helping men over 50 get back rock-hard erections...",
+        "especialista": "Dr. Robert (Pesquisador Urológico & Andrologista)",
+        "celebridades": [
+          "Criadores e fazendeiros do Kentucky e Texas"
+        ]
+      }
+    }
+  },
+  "memoflow": {
+    "id": "memoflow",
+    "name": "MemoFlow",
+    "category": "DTC Nutra",
+    "color": "#8b5cf6",
+    "icon": "Brain",
+    "description": "Dropper sublingual diário (The Viral Honey Trick) com Antocianinas puras de Mel Selvagem de Ikaria e Orotato de Lítio que quela metais pesados, desobstrui o combustível neuronal e restaura a memória e clareza 55+.",
+    "avatar": {
+      "nome": "Eleanor Davis (A Guardiã da Família)",
+      "idade_faixa": "58-75 anos",
+      "renda": "$60,000 - $115,000 / ano",
+      "localizacao": "Cidades médias e litorâneas dos EUA (Pensilvânia, Virgínia, Oregon, Carolina do Norte)",
+      "desejo_externo": "Lembrar nomes, rostos, compromissos e palavras na ponta da língua instantaneamente, sem travar no meio da frase",
+      "desejo_interno": "Manter a mente lúcida e afiada, garantir sua independência e nunca ser colocada em uma casa de repouso como um fardo para os filhos",
+      "inimigo": "A poluição por cádmio e neurotoxinas ambientais que a indústria médica ignora, preferindo receitar drogas que causam letargia",
+      "resultado_sonhado": "Participar dos almoços de domingo com os netos, contar histórias ricas em detalhes de 40 anos atrás e ouvir 'a vovó lembra de tudo!'",
+      "trigger_event": "Esquecer a panela ligada no fogo ou perder o carro no estacionamento do supermercado por mais de 30 minutos",
+      "fase_consciencia": "Consciente da Solução / Sofisticação Estágio 4 (Já tentou Ginkgo Biloba, Prevagen, Ômega-3 sem sentir melhora real)",
+      "crenca_bloqueadora": "Declínio mental e perda de memória são o destino natural e irreversível da velhice.",
+      "crenca_necessaria": "Seus neurônios não estão mortos; eles estão apenas intoxicados por partículas de cádmio que bloqueiam a acetilcolina. O mel selvagem de Ikaria quela essas toxinas em 10 segundos sublinguais.",
+      "epifania_central": "Para recuperar a memória não adianta forçar o cérebro com cafeína ou nootrópicos estimulantes; o segredo é limpar o combustível sináptico com antocianinas quelantes.",
+      "gatilho_nuclear": "O olhar de preocupação e silêncio constrangido entre os filhos quando ela esqueceu o nome do próprio genro na ceia de Natal.",
+      "the_hell": "Estar no jantar de Ação de Graças com os filhos e netos, começar a contar uma história, esquecer o nome do próprio genro ou a palavra que ia dizer, ver o silêncio desconfortável da mesa e o olhar de preocupação trocado entre seus filhos pensando 'mamãe está piorando'.",
+      "the_high": "Participar de um jogo de cartas ou quebra-cabeça com os netos, lembrar detalhes de datas de 40 anos atrás com facilidade espantosa, sentir a mente clara e cristalina como água da nascente e ouvir os filhos dizerem com alívio 'a mente da mãe está melhor que a nossa'.",
+      "segredo_final": "O mel de montanha não-pasteurizado da Ilha Grega de Ikaria (a Ilha Onde as Pessoas Esquecem de Morrer) possui a maior concentração do planeta de flavonoides quelantes de cádmio.",
+      "_avatar_meta": {
+        "retrato": {
+          "score": 98,
+          "reason": "Briefing MemoFlow H&W Hub (127k chars)",
+          "source": "Briefing MemoFlow"
+        },
+        "arquetipo": {
+          "score": 96,
+          "reason": "A Matriarca Guardiã da Família",
+          "source": "Avatar v8"
+        },
+        "ferida_central": {
+          "score": 97,
+          "reason": "Pavor de demência e perda de soberania pessoal",
+          "source": "VOC Data"
+        },
+        "desejo_externo": {
+          "score": 99,
+          "reason": "Clareza mental e memória de curto prazo",
+          "source": "Cognitive Scale"
+        },
+        "desejo_interno": {
+          "score": 98,
+          "reason": "Dignidade e independência familiar",
+          "source": "Rebel Copy"
+        },
+        "crenca_bloqueadora": {
+          "score": 96,
+          "reason": "Mito do envelhecimento cerebral irreversível",
+          "source": "Schwartz Matrix"
+        },
+        "crenca_necessaria": {
+          "score": 97,
+          "reason": "Quelação de cádmio + orotato de lítio",
+          "source": "Ikarian Science"
+        },
+        "epifania_central": {
+          "score": 98,
+          "reason": "Descoberta da Dra. Eleanor Harper aos 28:10",
+          "source": "VSL Script"
+        },
+        "desejos_externos": {
+          "score": 98,
+          "reason": "10 itens ranqueados",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_internos": {
+          "score": 97,
+          "reason": "10 itens de dignidade e amor próprio",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_proibidos": {
+          "score": 95,
+          "reason": "5 desejos inconfessáveis",
+          "source": "VOC Forums"
+        },
+        "medos": {
+          "score": 99,
+          "reason": "Pavor de asilos e dependência dos filhos",
+          "source": "Geriatric Studies"
+        },
+        "objecoes": {
+          "score": 97,
+          "reason": "Mel comum vs mel selvagem quelante de Ikaria",
+          "source": "Lab Tests"
+        }
+      },
+      "perfil_psicologico": {
+        "retrato": "Mulher de 66 anos, ex-professora ou contadora aposentada, sempre foi o pilar organizador da casa. Nos últimos 2 anos começou a notar que esquece onde guardou chaves, óculos e perde o fio da meada em conversas longas.",
+        "arquetipo": "A Guardiã do Conhecimento / A Matriarca Ameaçada",
+        "ferida_central": "Sentir que a ferramenta mais valiosa que sempre a definiu (sua inteligência lúcida e memória) está se esvaindo aos poucos.",
+        "padrao": "Faz palavras cruzadas e Sudoku todos os dias na tentativa desesperada de exercitar o cérebro, mas ainda assim trava para achar palavras corriqueiras.",
+        "contradicao": "Diz com ar brincalhão 'ah, isso é coisa da idade!' quando comete um lapso, mas passa a noite pesquisando sintomas de Alzheimer no Google com lágrimas nos olhos."
+      },
+      "camadas_psique": {
+        "c1_observaveis": "Anota tudo em bloquinhos de papel espalhados pela casa; repete perguntas para confirmar informações; evita atender ligações com assuntos complexos.",
+        "c2_conscientes": "Quer acordar sem névoa mental; quer lembrar o nome das pessoas instantaneamente sem ficar com a palavra 'presa na ponta da língua'.",
+        "c3_subconscientes": "Pavor visceral de perder a carteira de motorista e virar uma prisioneira na própria casa dependente de caronas dos filhos.",
+        "c4_trauma": "O dia em que cuidou da própria mãe no estágio avançado de demência e prometeu a si mesma que nunca permitiria chegar àquele estado."
+      },
+      "desejos_externos": [
+        {
+          "rank": 1,
+          "nome": "Memória afiada e imediata para nomes, datas e compromissos",
+          "score": 80,
+          "justificativa": "Segurança total no dia-a-dia."
+        },
+        {
+          "rank": 2,
+          "nome": "Fim das pausas embaraçosas e da palavra sumida no meio da fala",
+          "score": 79,
+          "justificativa": "Fluência verbal nas conversas."
+        },
+        {
+          "rank": 3,
+          "nome": "Clareza mental límpida logo nos primeiros 15 minutos do dia",
+          "score": 78,
+          "justificativa": "Disposição intelectual matinal."
+        },
+        {
+          "rank": 4,
+          "nome": "Encontrar chaves, carteira e óculos de primeira sem estresse",
+          "score": 77,
+          "justificativa": "Fim da ansiedade doméstica."
+        },
+        {
+          "rank": 5,
+          "nome": "Capacidade de foco contínuo para ler livros e assistir filmes",
+          "score": 75,
+          "justificativa": "Prazer cultural resgatado."
+        },
+        {
+          "rank": 6,
+          "nome": "Dirigir à noite ou em bairros desconhecidos sem medo de se perder",
+          "score": 73,
+          "justificativa": "Mobilidade e autonomia de trânsito."
+        },
+        {
+          "rank": 7,
+          "nome": "Equilíbrio emocional sem variações bruscas de humor ou apatia",
+          "score": 71,
+          "justificativa": "Paz de espírito relacional."
+        },
+        {
+          "rank": 8,
+          "nome": "Sono profundo e restaurador com sonhos nítidos e calmos",
+          "score": 70,
+          "justificativa": "Limpeza do sistema glinfático."
+        },
+        {
+          "rank": 9,
+          "nome": "Manter as rédeas das finanças familiares sem errar contas",
+          "score": 68,
+          "justificativa": "Controle bancário pessoal."
+        },
+        {
+          "rank": 10,
+          "nome": "Não precisar tomar coquetéis de remédios neurológicos caros",
+          "score": 66,
+          "justificativa": "Economia e saúde cerebral pura."
+        }
+      ],
+      "desejos_internos": [
+        {
+          "rank": 1,
+          "nome": "Permanecer como a líder respeitada e lúcida da família",
+          "score": 80,
+          "justificativa": "Soberania maternal inabalável."
+        },
+        {
+          "rank": 2,
+          "nome": "Nunca se tornar um fardo ou motivo de pena para os filhos",
+          "score": 79,
+          "justificativa": "Proteção da dignidade filial."
+        },
+        {
+          "rank": 3,
+          "nome": "Manter todas as memórias afetivas dos momentos mais felizes da vida",
+          "score": 78,
+          "justificativa": "Preservação da alma e identidade."
+        },
+        {
+          "rank": 4,
+          "nome": "Sentir orgulho ao dialogar de igual para igual com pessoas jovens",
+          "score": 76,
+          "justificativa": "Relevância social contínua."
+        },
+        {
+          "rank": 5,
+          "nome": "Paz e tranquilidade para aproveitar a aposentadoria sem neuroses",
+          "score": 74,
+          "justificativa": "Qualidade dos anos dourados."
+        },
+        {
+          "rank": 6,
+          "nome": "Sentir que sua mente funciona tão rápido quanto na faculdade",
+          "score": 72,
+          "justificativa": "Rejuvenescimento intelectual."
+        },
+        {
+          "rank": 7,
+          "nome": "Ser a referência de sabedoria e conselhos para os netos",
+          "score": 71,
+          "justificativa": "Papel afetivo fundamental."
+        },
+        {
+          "rank": 8,
+          "nome": "Acabar com a sensação de invisibilidade provocada pelo envelhecimento",
+          "score": 69,
+          "justificativa": "Voz ativa na comunidade."
+        },
+        {
+          "rank": 9,
+          "nome": "Sentir a mente leve, serena e livre de pânico",
+          "score": 68,
+          "justificativa": "Saúde mental e emocional."
+        },
+        {
+          "rank": 10,
+          "nome": "Deixar um legado de lucidez, força e independência",
+          "score": 67,
+          "justificativa": "Memória histórica familiar."
+        }
+      ],
+      "desejos_proibidos": [
+        {
+          "rank": 1,
+          "nome": "Provar para os filhos arrogantes que sua cabeça é mais ágil do que a deles",
+          "score": 80,
+          "justificativa": "Desforra contra a tutela filial."
+        },
+        {
+          "rank": 2,
+          "nome": "Vencer amigos e parentes com facilidade humilhante em jogos de memória e cartas",
+          "score": 78,
+          "justificativa": "Competitividade intelectual resgatada."
+        },
+        {
+          "rank": 3,
+          "nome": "Ouvir o médico admitir incrédulo 'seus testes cognitivos são de alguém de 35 anos'",
+          "score": 77,
+          "justificativa": "Validação clínica absoluta."
+        },
+        {
+          "rank": 4,
+          "nome": "Lembrar de detalhes que o cônjuge esqueceu para ganhar discussões familiares",
+          "score": 75,
+          "justificativa": "Vitória doméstica divertida."
+        },
+        {
+          "rank": 5,
+          "nome": "Fazer as amigas da mesma idade morrerem de curiosidade sobre como ela mantém a mente tão lúcida",
+          "score": 74,
+          "justificativa": "Status social de jovialidade."
+        }
+      ],
+      "dores_superficiais": [
+        "Esquecer onde deixou as chaves de casa e o celular várias vezes por dia",
+        "Travar no meio de uma frase em público com a palavra sumida",
+        "Demorar horas pela manhã para a névoa mental dissipar",
+        "Esquecer datas de aniversário e compromissos anotados na agenda",
+        "Perder a concentração após ler 2 páginas de um livro"
+      ],
+      "dores_profundas": [
+        "O terror silencioso de estar nos primeiros estágios do mal de Alzheimer",
+        "O medo pavoroso de perder a independência e ir parar em uma casa de repouso",
+        "A dor de ver os filhos conversando com ela com paciência forçada, como se fosse uma criança",
+        "O receio de perder a capacidade de dirigir e cuidar do próprio dinheiro",
+        "A sensação de que sua mente está se desvanecendo dia após dia"
+      ],
+      "medos": [
+        "Perder a memória completa do rosto e nome dos netos",
+        "Ficar dopada em uma cama de hospital geriátrico",
+        "Depender de fraldas geriátricas e cuidadores desconhecidos em casa",
+        "Gastar toda a herança da família em tratamentos médicos ineficazes",
+        "Perder a lucidez e não ter mais voz sobre sua própria vida"
+      ],
+      "objecoes": [
+        "Comer mel comum do supermercado não faz o mesmo efeito? (Resposta: Não! O mel comum de mercado é pasteurizado a altas temperaturas, diluído com xarope de milho e sem nenhum bioativo vivo. O MemoFlow usa o mel selvagem não-aquecido da Ilha de Ikaria colhido em altitude, onde as abelhas polinizam plantas ricas em antocianinas raras que quelam metais pesados)",
+        "Já tomei Ginkgo Biloba e Prevagen e não adiantou nada. (Resposta: Prevagen e Ginkgo tentam forçar neurônios intoxicados a conduzir impulsos. O MemoFlow quela o cádmio primeiro em 10 segundos sublinguais, limpando o caminho para a acetilcolina fluir)",
+        "É seguro para quem tem diabetes? (Resposta: Sim, a dosagem sublingual de 2 gotas fornece menos de 0,2g de carboidrato — insignificante para a glicose, mas com concentração máxima de fitoquímicos no sangue)",
+        "Como devo tomar? (Resposta: Apenas 2 gotas sublinguais sob a língua toda manhã ao acordar; deixe agir por 10 segundos antes de engolir)"
+      ],
+      "sub_avatares": [
+        {
+          "nome": "1. A Guardiã Matriarca (60-75 anos)",
+          "descricao": "Mulher que sempre cuidou de tudo na família e teme que a perda de memória destrua sua liderança.",
+          "dor_principal": "Sentir que os filhos estão assumindo suas decisões porque ela esqueceu algumas coisas.",
+          "hook": "Para a mãe de 65 anos que cansou de ver os filhos trocarem olhares quando ela esquece um nome...",
+          "crenca_bloqueadora": "Não há como reverter o esquecimento depois dos 60 anos.",
+          "crenca_necessaria": "O mel de Ikaria desbloqueia a acetilcolina sináptica em menos de 10 dias.",
+          "objecao": "Acho que meu caso já é demência e não tem conserto.",
+          "asset_primario": "Advertorial 1 (The Honey Trick) + Advertorial Eleanor",
+          "urgencia": 5,
+          "dinheiro": 5
+        },
+        {
+          "nome": "2. O Intelectual Aposentado (58-72 anos)",
+          "descricao": "Homem acostumado a ler muito, trabalhar com raciocínio e que agora perde o foco rapidamente.",
+          "dor_principal": "Ver sua capacidade analítica e memória de trabalho se deteriorando.",
+          "hook": "Se você sempre teve raciocínio rápido e agora se pega travando no meio de frases simples...",
+          "crenca_bloqueadora": "Só remédios psiquiátricos pesados conseguem agir no cérebro.",
+          "crenca_necessaria": "O orotato de lítio natural protege a bainha de mielina com segurança botânica.",
+          "objecao": "Quero ver os estudos científicos de Ikaria antes de tomar.",
+          "asset_primario": "PDP MemoPryl LPs",
+          "urgencia": 5,
+          "dinheiro": 5
+        }
+      ],
+      "voyerismos": [
+        {
+          "nome": "O Branco no Jantar de Família",
+          "intensidade": "9.8/10",
+          "situacao": "Na mesa de domingo, começa a contar uma história sobre a infância da filha, tenta lembrar o nome da professora, trava por 15 segundos, o genro tenta adivinhar e todos ficam em silêncio com olhares complacentes.",
+          "sintoma_fisico": "Calor subindo pelo pescoço, mãos trêmulas e nó na garganta.",
+          "pensamento": "'Meu Deus, eles acham que eu estou ficando gagá... eu não posso esquecer as coisas na frente deles.'",
+          "comportamento": "Disfarça dizendo que 'o cansaço está grande', levanta para ir à cozinha e fica olhando pela janela chorando baixinho.",
+          "uso_copy": "Lead emocional suprema para VSL e anúncios em redes sociais."
+        }
+      ],
+      "problemas": [
+        {
+          "rank": 1,
+          "nome": "Biofilme de Cádmio Bloqueando Sinapses de Acetilcolina",
+          "total": 69,
+          "cena_voyerismo": "Esquecer a palavra que ia dizer exatamente no segundo em que abriu a boca para falar.",
+          "scores": {
+            "dor": 10,
+            "desejo": 10,
+            "piora": 10,
+            "veloc_": 9,
+            "pagar": 10,
+            "comun_": 10,
+            "freq_": 10
+          }
+        }
+      ],
+      "headlines": [
+        {
+          "categoria": "Segredo Blue Zone",
+          "texto": "A Descoberta da Ilha de Ikaria: O Truque do Mel Sublingual de 10 Segundos Que Neurologistas Estão Usando Para Restaurar a Memória 55+"
+        },
+        {
+          "categoria": "Causa Raiz",
+          "texto": "Estudo Revela a 'Neurotoxina Invisível' Que Destrói a Memória Após os 55 Anos (E Não É o Que os Médicos Dizem)"
+        }
+      ],
+      "ganchos": [
+        {
+          "tipo": "Visual 0-3s",
+          "texto": "[Gotas de mel dourado caindo de um conta-gotas sob a língua] 'Se você tem mais de 55 anos e vive esquecendo chaves e nomes, pingue isso sob a língua toda manhã.'"
+        }
+      ],
+      "bullets": [
+        {
+          "tipo": "Fascination",
+          "texto": "Por que você NUNCA deve tomar nootrópicos com cafeína pesada após os 55 anos (eles aceleram o esgotamento da acetilcolina)"
+        }
+      ],
+      "micro_historias": [
+        {
+          "titulo": "O Enigma dos Centenários de Ikaria",
+          "historia": "Na pequena ilha grega de Ikaria, as pessoas vivem rotineiramente além dos 90 anos sem apresentar nenhum sinal de perda de memória ou demência. O mistério só foi decifrado quando bioquímicos analisaram o mel das montanhas consumido diariamente em jejum: ele é carregado de flavonoides raros que agem como ímãs, quelando metais pesados e restaurando a bainha de mielina dos neurônios."
+        }
+      ],
+      "gatilhos": [
+        {
+          "nome": "O Esquecimento da Chave na Porta",
+          "categoria": "Alarme de Pânico",
+          "intensidade": "10/10",
+          "situacao": "Voltar para casa e encontrar a chave esquecida virada na fechadura do lado de fora desde a manhã.",
+          "copy_sugerido": "Aquele susto paralisante ao ver que você deixou a porta destrancada o dia inteiro sem perceber."
+        }
+      ],
+      "storyboard": {
+        "antes": "Lapsos diários de memória, constrangimento em reuniões familiares, medo sufocante de asilos e perda de controle.",
+        "trigger": "O susto de esquecer o fogão ligado e quase causar um acidente doméstico sério.",
+        "busca": "Pesquisou sobre a longevidade cognitiva da Ilha de Ikaria e descobriu a ação quelante das antocianinas sublinguais.",
+        "objecao": "'Será que 2 gotinhas sublinguais conseguem recuperar sinapses de quem já passou dos 65?'",
+        "decisao": "Comprou o tratamento de 6 frascos do MemoFlow; na 2ª semana a clareza mental voltou com vigor e os brancos desapareceram."
+      }
+    },
+    "data": {
+      "publico_alvo": "Adultos americanos 55-80 anos que sentem a mente nublada (brain fog), esquecem nomes e palavras no meio da frase, perdem chaves e óculos, com pavor de demência ou de perder a independência.",
+      "mecanismo_unico": "The Viral Ikarian Honey Trick: Combinação de Antocianinas raras de mel de montanha de Ikaria (\"The Firefighter\" - quebra o biofilme e quela o cádmio/neurotoxinas que sufocam as sinapses) + Orotato de Lítio puro das fontes gregas (\"The Shield\" - restaura a bainha de mielina e protege os receptores de acetilcolina). Formato de absorção sublingual instantânea em 10 segundos.",
+      "dores": [
+        "Perder a palavra certa no meio de uma frase em público ou em reunião de família",
+        "Entrar em um cômodo da casa e ficar parado sem conseguir lembrar por que foi até lá",
+        "Pavor silencioso de desenvolver Alzheimer como pais ou tios e perder a memória dos netos",
+        "Névoa cerebral densa toda manhã que demora 3 horas para dissipar",
+        "Medo terrível de um dia ser colocado em uma casa de repouso (asilo) pelos filhos"
+      ],
+      "desejos": [
+        "Memória rápida, afiada e confiável para lembrar de nomes, datas, receitas e histórias",
+        "Clareza mental instantânea ao acordar, sentindo a mente ágil e focada",
+        "Segurança total nas conversas, mantendo o raciocínio firme do começo ao fim",
+        "Continuar 100% independente, dirigindo, cuidando das finanças e vivendo na própria casa",
+        "Ver os filhos e netos maravilhados com a sua lucidez e energia intelectual"
+      ],
+      "produtos": [
+        {
+          "nome": "Kit 6 Frascos (180 Dias) - Proteção Cerebral Máxima",
+          "preco": 294,
+          "link_checkout": "https://memopryl-ayc5.vercel.app/order-6",
+          "descricao": "6 frascos com Frete Grátis e Guia Ikariano de Longevidade Mental.",
+          "ticket": 294
+        },
+        {
+          "nome": "Kit 3 Frascos (90 Dias) - Mais Popular",
+          "preco": 177,
+          "link_checkout": "https://memopryl-ayc5.vercel.app/order-3",
+          "descricao": "3 frascos para desintoxicação de cádmio e reparação sináptica.",
+          "ticket": 177
+        },
+        {
+          "nome": "Kit 1 Frasco (30 Dias) - Teste",
+          "preco": 69,
+          "link_checkout": "https://memopryl-ayc5.vercel.app/order-1",
+          "descricao": "1 frasco para primeiros 30 dias de uso sublingual.",
+          "ticket": 69
+        }
+      ],
+      "links": [
+        {
+          "nome": "Live Advertorial 01 (Honey Trick)",
+          "url": "https://memoflow-advertorial-adv01.vercel.app",
+          "tipo": "vercel"
+        },
+        {
+          "nome": "Live Advertorial Eleanor",
+          "url": "https://memoflow-advertorial-eleanor.vercel.app",
+          "tipo": "vercel"
+        },
+        {
+          "nome": "Live PDP MemoPryl LPs",
+          "url": "https://memopryl-ayc5.vercel.app",
+          "tipo": "vercel"
+        },
+        {
+          "nome": "Live Site Orgânico TrueMemoFlow",
+          "url": "https://mimo-white-vercel.vercel.app",
+          "tipo": "vercel"
+        },
+        {
+          "nome": "GitHub Repo (truememoflow-organic)",
+          "url": "https://github.com/vsugamele/truememoflow-organic",
+          "tipo": "github"
+        },
+        {
+          "nome": "GitHub Repo (memoflow-advertorial-adv01)",
+          "url": "https://github.com/vsugamele/memoflow-advertorial-adv01",
+          "tipo": "github"
+        },
+        {
+          "nome": "GitHub Repo (memopryl-lps)",
+          "url": "https://github.com/vsugamele/memopryl-lps",
+          "tipo": "github"
+        },
+        {
+          "nome": "H&W Hub Briefing MemoFlow Completo",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/MEMO/9c9dab71-246d-4cb7-bf04-62c446407fb7.html",
+          "tipo": "brief"
+        }
+      ],
+      "vsl": {
+        "titulo": "MemoFlow - The Ikarian Honey Discovery",
+        "duracao": "36 minutos",
+        "pitch_time": "28:10",
+        "gancho": "The viral honey trick for memory that neurologists are quietly adopting across the US...",
+        "especialista": "Dra. Eleanor Harper (Neurocientista & Pesquisadora de Ikaria)"
+      }
+    }
+  },
+  "cardioflush": {
+    "id": "cardioflush",
+    "name": "CardioFlush",
+    "category": "DTC Nutra",
+    "color": "#ef4444",
+    "icon": "Heart",
+    "description": "Solução líquida cardiovascular (The Arterial Flush Ritual) com fitonutrientes botânicos que dissolvem placas de cálcio e fibrina no endotélio, relaxam as paredes arteriais e normalizam a pressão em 120/80 sem efeitos colaterais.",
+    "avatar": {
+      "nome": "Arthur Vance (O Hipertenso Apreensivo)",
+      "idade_faixa": "52-72 anos",
+      "renda": "$65,000 - $110,000 / ano",
+      "localizacao": "Regiões metropolitanas dos EUA",
+      "desejo_externo": "Pressão arterial estável cravada em 120 por 80 todos os dias sem precisar de 3 remédios pesados",
+      "desejo_interno": "Viver em paz sem o pavor constante de sofrer um AVC isquêmico dormindo ou ter um infarto fulminante na cadeira da sala",
+      "inimigo": "O protocolo tradicional que trata hipertensão apenas com diuréticos e betabloqueadores que enfraquecem o coração e causam disfunção erétil",
+      "resultado_sonhado": "Colocar o aparelho de pressão no braço toda manhã e ver o visor verde marcando 118 por 78 com batimentos calmos",
+      "trigger_event": "Sentir o sangue latejando com força na nuca e no ouvido após uma discussão no trabalho e ver o monitor marcar 175/105",
+      "fase_consciencia": "Consciente da Solução / Sofisticação Estágio 4 (Toma Losartana, Anlodipino e Hidroclorotiazida, mas a pressão continua instável)",
+      "crenca_bloqueadora": "Pressão alta é para sempre; minhas artérias já estão velhas e preciso de remédios cada vez mais fortes.",
+      "crenca_necessaria": "A sua pressão não sobe por causa do coração, mas porque suas artérias estão calcificadas como canos enferrujados. O ritual de descalcificação limpa a fibrina endotelial em 30 dias.",
+      "epifania_central": "Não adianta tomar remédio que força o coração a bater mais fraco; a solução definitiva é descalcificar as paredes arteriais para o sangue correr livre.",
+      "gatilho_nuclear": "O som alto do próprio coração batendo no travesseiro à noite, impedindo o sono pelo medo da morte súbita.",
+      "the_hell": "Sentir a cabeça pulsar nas têmporas no final do dia, colocar o aparelho de pressão no braço e ver 165 por 98. Lembrar do irmão ou amigo que teve um AVC do nada aos 58 anos e passar a noite com medo de não acordar no dia seguinte.",
+      "the_high": "Medir a pressão em repouso e ver 118 por 78 no visor, sentir o peito leve e solto sem nenhuma queimação, e receber os parabéns do médico no check-up anual.",
+      "segredo_final": "O ritual matinal de extratos botânicos revelado pelo Dr. Gupta que quebra a ligação eletrostática do cálcio com a fibrina nas paredes das artérias coronárias.",
+      "_avatar_meta": {
+        "retrato": {
+          "score": 98,
+          "reason": "Dossiê vascular de compradores hipertensos",
+          "source": "Briefing CardioFlush"
+        },
+        "arquetipo": {
+          "score": 96,
+          "reason": "O Provedor em Tensão Máxima",
+          "source": "Avatar v8"
+        },
+        "ferida_central": {
+          "score": 97,
+          "reason": "Terror paralisante de AVC e sequelas motoras",
+          "source": "Clinical Stats"
+        },
+        "desejo_externo": {
+          "score": 99,
+          "reason": "Pressão arterial 120/80 estável",
+          "source": "Cardio Logs"
+        },
+        "desejo_interno": {
+          "score": 98,
+          "reason": "Paz mental e segurança de longevidade",
+          "source": "Rebel Copy"
+        },
+        "crenca_bloqueadora": {
+          "score": 96,
+          "reason": "Crença de que artérias rígidas nunca voltam a ser elásticas",
+          "source": "Schwartz Matrix"
+        },
+        "crenca_necessaria": {
+          "score": 97,
+          "reason": "Descalcificação endotelial e síntese de óxido nítrico",
+          "source": "CBS Gupta Lead"
+        },
+        "epifania_central": {
+          "score": 98,
+          "reason": "Momento chave do pitch aos 29:40",
+          "source": "VSL Script"
+        },
+        "desejos_externos": {
+          "score": 98,
+          "reason": "10 desejos clínicos ranqueados",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_internos": {
+          "score": 97,
+          "reason": "10 desejos emocionais profundos",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_proibidos": {
+          "score": 95,
+          "reason": "5 desejos inconfessáveis",
+          "source": "VOC Surveys"
+        },
+        "medos": {
+          "score": 99,
+          "reason": "AVC com paralisia e infarto agudo",
+          "source": "AHA Reports"
+        },
+        "objecoes": {
+          "score": 97,
+          "reason": "Segurança de associação com medicação atual",
+          "source": "Medical Protocols"
+        }
+      },
+      "perfil_psicologico": {
+        "retrato": "Homem de 62 anos, executivo, empresário ou servidor aposentado. Há 12 anos convive com diagnóstico de pressão alta. Toma coquetel de 3 comprimidos diários que o deixam letárgico, com tonturas ao levantar e disfunção erétil crônica.",
+        "arquetipo": "O Vigilante Angustiado / O Prisioneiro do Tensiómetro",
+        "ferida_central": "Sentir que seu coração é uma bomba-relógio prestes a explodir a qualquer momento de tensão emocional.",
+        "padrao": "Mede a pressão obsessivamente 4 vezes ao dia. Quanto mais alta a medição, mais nervoso ele fica, gerando um ciclo vicioso que sobe a pressão ainda mais.",
+        "contradicao": "Diz para a família que 'está tudo sob controle médico', mas vive em terror secreto toda vez que sente uma dorzinha no braço esquerdo ou uma pontada no peito."
+      },
+      "camadas_psique": {
+        "c1_observaveis": "Carrega a braçadeira de pressão digital na pasta de trabalho; evita sal de forma neurótica; senta para descansar ao subir escadas.",
+        "c2_conscientes": "Quer ver o aparelho marcar 120 por 80 de forma estável; quer parar de tomar remédios diuréticos que o fazem urinar a cada 30 minutos.",
+        "c3_subconscientes": "Pavor de ter um derrame que paralise metade do seu corpo e tire sua capacidade de falar ou trabalhar.",
+        "c4_trauma": "Presenciou o infarto fulminante de um colega de trabalho da mesma idade durante uma reunião há 4 anos."
+      },
+      "desejos_externos": [
+        {
+          "rank": 1,
+          "nome": "Pressão arterial 120/80 consistente de manhã e à noite",
+          "score": 80,
+          "justificativa": "Normalização cardiovascular definitiva."
+        },
+        {
+          "rank": 2,
+          "nome": "Poder diminuir ou eliminar comprimidos pesados sob supervisão médica",
+          "score": 79,
+          "justificativa": "Fim da intoxicação medicamentosa."
+        },
+        {
+          "rank": 3,
+          "nome": "Fim das tonturas e vertigens ao levantar da cama ou da cadeira",
+          "score": 78,
+          "justificativa": "Equilíbrio postural seguro."
+        },
+        {
+          "rank": 4,
+          "nome": "Coração batendo com ritmo leve, calmo e firme sem palpitações",
+          "score": 77,
+          "justificativa": "Fim do pavor de arritmias."
+        },
+        {
+          "rank": 5,
+          "nome": "Fôlego limpo para subir escadas e caminhar sem cansaço no peito",
+          "score": 75,
+          "justificativa": "Resistência aeróbica resgatada."
+        },
+        {
+          "rank": 6,
+          "nome": "Sono tranquilo sem ouvir o sangue batendo no ouvido",
+          "score": 73,
+          "justificativa": "Paz para descansar à noite."
+        },
+        {
+          "rank": 7,
+          "nome": "Melhora expressiva da circulação e potência masculina",
+          "score": 72,
+          "justificativa": "Fim dos efeitos colaterais de betabloqueadores."
+        },
+        {
+          "rank": 8,
+          "nome": "Eliminação do inchaço nos tornozelos e retenção de sódio",
+          "score": 70,
+          "justificativa": "Conforto nos pés e pernas."
+        },
+        {
+          "rank": 9,
+          "nome": "Descalcificação comprovada nos exames de ultrassom de carótidas",
+          "score": 68,
+          "justificativa": "Comprovação clínica de desobstrução."
+        },
+        {
+          "rank": 10,
+          "nome": "Economia de $200 a $400 mensais com copagamento de remédios",
+          "score": 66,
+          "justificativa": "Alívio financeiro familiar."
+        }
+      ],
+      "desejos_internos": [
+        {
+          "rank": 1,
+          "nome": "Sentir paz e certeza de que seu coração está blindado",
+          "score": 80,
+          "justificativa": "Fim da neurose da morte súbita."
+        },
+        {
+          "rank": 2,
+          "nome": "Viver com segurança para acompanhar o crescimento dos netos",
+          "score": 79,
+          "justificativa": "Propósito familiar primordial."
+        },
+        {
+          "rank": 3,
+          "nome": "Não ser uma preocupação médica angustiante para a esposa",
+          "score": 78,
+          "justificativa": "Alívio conjugal mútuo."
+        },
+        {
+          "rank": 4,
+          "nome": "Recuperar a energia vital para viajar e praticar esportes leves",
+          "score": 76,
+          "justificativa": "Aproveitamento dos anos de aposentadoria."
+        },
+        {
+          "rank": 5,
+          "nome": "Sentir o corpo leve, limpo e desintoxicado de químicos",
+          "score": 74,
+          "justificativa": "Bem-estar fisiológico profundo."
+        },
+        {
+          "rank": 6,
+          "nome": "Parar de viver com medo de cada pontada nas costas ou no braço",
+          "score": 73,
+          "justificativa": "Liberdade psicológica diária."
+        },
+        {
+          "rank": 7,
+          "nome": "Ver o médico parabenizá-lo pela saúde das suas artérias",
+          "score": 71,
+          "justificativa": "Validação médica oficial."
+        },
+        {
+          "rank": 8,
+          "nome": "Sentir-se um homem forte, capaz e provedor",
+          "score": 70,
+          "justificativa": "Autoestima masculina."
+        },
+        {
+          "rank": 9,
+          "nome": "Nunca precisar passar por cirurgia cardíaca aberta ou cateterismo",
+          "score": 68,
+          "justificativa": "Fuga de procedimentos invasivos."
+        },
+        {
+          "rank": 10,
+          "nome": "Viver com calma e serenidade sem ansiedade hipertensiva",
+          "score": 67,
+          "justificativa": "Equilíbrio emocional."
+        }
+      ],
+      "desejos_proibidos": [
+        {
+          "rank": 1,
+          "nome": "Poder comer um churrasco saboroso com sal e cerveja sem a esposa vigiando apavorada",
+          "score": 80,
+          "justificativa": "Liberdade alimentar e conjugal sem censura."
+        },
+        {
+          "rank": 2,
+          "nome": "Guardar o aparelho de medir pressão em uma gaveta trancada e esquecer dele",
+          "score": 79,
+          "justificativa": "Abolição da rotina hospitalar em casa."
+        },
+        {
+          "rank": 3,
+          "nome": "Provar para a família inteira que sua saúde arterial é mais jovem que a deles",
+          "score": 77,
+          "justificativa": "Triunfo de vitalidade."
+        },
+        {
+          "rank": 4,
+          "nome": "Ter relações íntimas intensas sem medo do coração falhar no meio",
+          "score": 76,
+          "justificativa": "Resgate da paixão sem paranoia médica."
+        },
+        {
+          "rank": 5,
+          "nome": "Ver o cardiologista suspender as receitas com cara de surpresa",
+          "score": 74,
+          "justificativa": "Vitória contra a dependência farmacêutica."
+        }
+      ],
+      "dores_superficiais": [
+        "Cabeça latejando nas têmporas no fim da tarde",
+        "Visão com pontinhos brilhantes ao levantar rápido",
+        "Tosse seca crônica causada por remédios de pressão (inibidores da ECA)",
+        "Pés e tornozelos inchados no final do dia",
+        "Letargia pesada e cansaço ao fazer qualquer esforço físico leve"
+      ],
+      "dores_profundas": [
+        "O terror paralisante de sofrer um AVC que deixe sequelas de fala e movimento",
+        "O pavor de ter um infarto do miocárdio fulminante e não ver os filhos vencerem na vida",
+        "A frustração amarga de depender de um coquetel diário de remédios químicos para sobreviver",
+        "A impotência sexual gerada pelos efeitos colaterais dos remédios de pressão",
+        "A sensação sufocante de que seu corpo é uma bomba-relógio com pavio curto"
+      ],
+      "medos": [
+        "Medo de ficar paralisado em uma cadeira de rodas após um derrame hemorrágico",
+        "Pavor de precisar de cateterismo de emergência, stents coronários ou pontes de safena",
+        "Medo de morte súbita enquanto dorme ao lado da parceira",
+        "Pavor de falência renal provocada pela hipertensão crônica não resolvida",
+        "Medo de virar um paciente dependente de cuidados em tempo integral"
+      ],
+      "objecoes": [
+        "Posso parar de tomar meus remédios de pressão imediatamente? (Resposta: Não! Nunca interrompa medicações prescritas de forma abrupta. Tome o CardioFlush diariamente; conforme suas artérias forem descalcificadas e sua pressão se normalizar em 120/80, seu próprio médico fará a redução gradual e segura dos comprimidos)",
+        "Suplementos de coração realmente funcionam? (Resposta: A maioria vende apenas CoQ10 barato com menos de 5% de absorção. O CardioClear utiliza a dosagem clínica exata de bioflavonoides que quebram o cálcio endotelial comprovada em ensaios clínicos)",
+        "Tenho pressão alta há mais de 15 anos, ainda funciona para mim? (Resposta: Sim, a regeneração endotelial ocorre em qualquer idade quando o biofilme de fibrina e os microdepósitos minerais são dissolvidos)",
+        "Em quanto tempo a pressão começa a estabilizar? (Resposta: Grande parte dos usuários nota queda na rigidez vascular e estabilização dos picos pressóricos já entre 14 e 21 dias de uso contínuo)"
+      ],
+      "sub_avatares": [
+        {
+          "nome": "1. O Hipertenso Polimedicado (55-70 anos)",
+          "descricao": "Toma 2 a 3 remédios de pressão todo dia, sofre com tosse seca, tontura e impotência.",
+          "dor_principal": "A pressão continua subindo mesmo com a dose máxima de remédios.",
+          "hook": "Para quem toma 2 ou mais remédios de pressão e ainda assim vê o visor marcar 150 por 90...",
+          "crenca_bloqueadora": "Se com 3 remédios não baixou, nada natural vai resolver.",
+          "crenca_necessaria": "Remédios apenas forçam o vaso; o ritual botânico limpa a placa de cálcio que obstrui o vaso.",
+          "objecao": "Tenho medo de misturar o suplemento com minha medicação.",
+          "asset_primario": "VSL Oficial CBS Breaking News + Domínio usecardioclear.com",
+          "urgencia": 5,
+          "dinheiro": 5
+        }
+      ],
+      "voyerismos": [
+        {
+          "nome": "A Pulsação no Travesseiro",
+          "intensidade": "9.9/10",
+          "situacao": "Deita a cabeça no travesseiro às 23h30 e ouve o sangue batendo no ouvido com força acelerada: 'tum... tum... tum...', lembrando do amigo que enfartou dormindo.",
+          "sintoma_fisico": "Boca seca, suor frio nas palmas das mãos e respiração curta de pânico.",
+          "pensamento": "'Será que minha pressão subiu de novo? Se eu dormir agora, será que eu acordo amanhã?'",
+          "comportamento": "Levanta no escuro, vai até a cozinha, bebe um copo d'água e senta no sofá por 40 minutos com a luz apagada até se acalmar.",
+          "uso_copy": "Abertura hipnótica de alta conversão para VSL e advertoriais."
+        }
+      ],
+      "problemas": [
+        {
+          "rank": 1,
+          "nome": "Calcificação Endotelial e Perda de Elasticidade das Artérias",
+          "total": 69,
+          "cena_voyerismo": "A pressão disparar para 165/100 mesmo sem ter feito nenhum esforço físico no dia.",
+          "scores": {
+            "dor": 10,
+            "desejo": 10,
+            "piora": 10,
+            "veloc_": 9,
+            "pagar": 10,
+            "comun_": 10,
+            "freq_": 10
+          }
+        }
+      ],
+      "headlines": [
+        {
+          "categoria": "Breaking News CBS",
+          "texto": "Cardiologistas Revelam o 'Arterial Flush Ritual': A Descoberta de $0,40 Que Está Descalcificando Artérias e Normalizando a Pressão em 120/80"
+        },
+        {
+          "categoria": "Causa Raiz",
+          "texto": "Por Que Seus Remédios de Pressão Não Estão Funcionando: A 'Malha de Fibrina' Oculta Que Ninguém Te Mostrou"
+        }
+      ],
+      "ganchos": [
+        {
+          "tipo": "Visual 0-3s",
+          "texto": "[Gráfico 3D de uma artéria entupida de cálcio sendo lavada por um líquido dourado] 'Se a sua pressão insiste em ficar acima de 140, pare tudo e veja este ritual matinal.'"
+        }
+      ],
+      "bullets": [
+        {
+          "tipo": "Fascination",
+          "texto": "O sinal de alerta na nuca que indica se suas carótidas estão com fluxo sanguíneo restrito"
+        }
+      ],
+      "micro_historias": [
+        {
+          "titulo": "O Relatório de Desobstrução do Dr. Gupta",
+          "historia": "Ao analisar exames angiográficos de pacientes idosos que mantinham artérias flexíveis como as de jovens de 20 anos, cardiologistas identificaram que a enzima eNOS desses indivíduos era constantemente alimentada por flavonoides específicos que impedem a adesão de cálcio nas paredes dos vasos."
+        }
+      ],
+      "gatilhos": [
+        {
+          "nome": "A Tontura ao Levantar do Sofá",
+          "categoria": "Aviso Vascular",
+          "intensidade": "10/10",
+          "situacao": "Levantar rápido para atender a porta e sentir o chão sumir debaixo dos pés pela queda brusca de oxigenação cerebral.",
+          "copy_sugerido": "Aquele segundo de escuridão nos olhos quando você levanta e precisa se apoiar na parede."
+        }
+      ],
+      "storyboard": {
+        "antes": "Hipertenso há anos, polimedicado com tonturas e disfunção erétil, pavor de AVC súbito na cama.",
+        "trigger": "Uma crise hipertensiva severa no trabalho que o levou para o pronto-socorro com 180 por 110.",
+        "busca": "Assistiu ao documentário do Dr. Gupta sobre o ritual de descalcificação endotelial e os perigos dos diuréticos sintéticos.",
+        "objecao": "'Será que um composto botânico líquido consegue baixar a pressão melhor que 3 remédios químicos?'",
+        "decisao": "Adquiriu o protocolo de 6 frascos do CardioClear; em 21 dias a pressão cravou em 118/78 estável e as dores na nuca sumiram."
+      }
+    },
+    "data": {
+      "publico_alvo": "Homens e mulheres 50-75 anos com Hipertensão Crônica (140/90+), tomando 2 ou mais medicamentos de pressão, com palpitações, falta de ar ao subir escadas e medo constante de infarto ou AVC.",
+      "mecanismo_unico": "The Arterial Flush Ritual (Dr. Gupta / CBS Breaking News): Bioativos botânicos de desobstrução endotelial que atacam a calcificação vascular, quebram a malha de fibrina aderida às paredes das artérias, promovem a síntese de óxido nítrico e restauram a elasticidade vascular sem a letargia causada por betabloqueadores.",
+      "dores": [
+        "Medo aterrorizante de sofrer um AVC fulminante dormindo ou brincando com os netos",
+        "Tomar múltiplos comprimidos de pressão todo dia que causam tosse seca, tontura, impotência e inchaço nos tornozelos",
+        "Sentir o coração disparar no peito sem motivo aparente (palpitação)",
+        "Fadiga pesada ao subir um lance de escadas ou caminhar uma quadra",
+        "Tensão diária antes de colocar a braçadeira do esfigmomanômetro para medir a pressão"
+      ],
+      "desejos": [
+        "Pressão arterial cravada em 120 por 80 de forma estável e natural",
+        "Poder diminuir ou eliminar medicamentos pesados sob supervisão médica",
+        "Sentir o coração batendo com ritmo calmo, leve e firme no peito",
+        "Energia e resistência física para caminhar, viajar e viver sem ansiedade médica",
+        "Ter a certeza de que as artérias estão limpas e o coração blindado contra infartos"
+      ],
+      "produtos": [
+        {
+          "nome": "Kit 6 Frascos (180 Dias) - Proteção Cardiovascular Plena",
+          "preco": 294,
+          "link_checkout": "https://usecardioclear.com/checkout-6",
+          "descricao": "6 frascos a $49/frasco com Frete Grátis e 3 Bônus Cardiovasculares.",
+          "ticket": 294
+        },
+        {
+          "nome": "Kit 3 Frascos (90 Dias) - Mais Recomendado",
+          "preco": 177,
+          "link_checkout": "https://usecardioclear.com/checkout-3",
+          "descricao": "3 frascos a $59/frasco para limpeza endotelial de 90 dias.",
+          "ticket": 177
+        },
+        {
+          "nome": "Kit 1 Frasco (30 Dias) - Amostra Inicial",
+          "preco": 69,
+          "link_checkout": "https://usecardioclear.com/checkout-1",
+          "descricao": "1 frasco para 30 dias de uso.",
+          "ticket": 69
+        }
+      ],
+      "links": [
+        {
+          "nome": "Local VSL Pages (vsl-1 a vsl-4)",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/CardioFlush/cardioflush-vsls-vercel-20260904/cc/pv/vsl-1/index.html",
+          "tipo": "local"
+        },
+        {
+          "nome": "Domínio Oficial de Vendas",
+          "url": "https://usecardioclear.com",
+          "tipo": "site"
+        },
+        {
+          "nome": "GitHub Repo (cardio-clear)",
+          "url": "https://github.com/vsugamele/cardio-clear",
+          "tipo": "github"
+        }
+      ],
+      "vsl": {
+        "titulo": "CardioClear - CBS Breaking News VSL",
+        "duracao": "38 minutos",
+        "pitch_time": "29:40",
+        "gancho": "Dr. Gupta reveals the \"Arterial Flush Ritual\" that’s reversing High Blood Pressure in thousands of Americans...",
+        "especialista": "Dr. Gupta (Cardiologista Intervencionista)"
+      }
+    }
+  },
+  "leaftide": {
+    "id": "leaftide",
+    "name": "Leaftide",
+    "category": "DTC Nutra",
+    "color": "#06b6d4",
+    "icon": "Droplets",
+    "description": "Chá solúvel cerimonial concentrado (The $1 Matcha Ritual) que estimula a circulação linfática, desincha pernas e tornozelos pesados e ativa a queima de gordura retida sem dietas radicais.",
+    "avatar": {
+      "nome": "Brenda Taylor (A Mulher das Pernas Cansadas)",
+      "idade_faixa": "45-68 anos",
+      "renda": "$50,000 - $90,000 / ano",
+      "localizacao": "Cidades do interior e subúrbios dos EUA",
+      "desejo_externo": "Tornozelos finos e desinchados todos os dias, eliminando 10 lbs de líquido retido e dores nas pernas",
+      "desejo_interno": "Sentir o corpo leve e rejuvenescido, voltar a usar vestidos curtos e sandálias no verão sem vergonha da celulite e inchaço",
+      "inimigo": "A crença de que retenção severa de líquidos é 'gordura teimosa' ou 'falta de exercício', e clínicas de drenagem linfática que cobram $150 por sessão",
+      "resultado_sonhado": "Chegar em casa às 19h após um dia inteiro de trabalho, tirar os sapatos e ver as pernas finas, leves e sem nenhuma marca de edema",
+      "trigger_event": "Ver a marca funda e dolorosa da meia cravada no tornozelo e não conseguir fechar o zíper de uma bota de inverno",
+      "fase_consciencia": "Consciente da Solução / Sofisticação Estágio 4 (Já tomou chás diuréticos comuns de farmácia, mas o inchaço volta em dobro no dia seguinte)",
+      "crenca_bloqueadora": "Minhas pernas inchadas são varizes e gordura genética; nada além de cirurgia ou meia elástica sufocante resolve.",
+      "crenca_necessaria": "O seu problema não é gordura, mas 4 litros de linfa tóxica estagnada nos gânglios inguinais. O Matcha cerimonial microfiltrado desobstrui esses gânglios em 24 horas.",
+      "epifania_central": "Para desinchar as pernas você não precisa de massagens caras nem de cortar sal; precisa apenas reabrir as comportas dos capilares linfáticos.",
+      "gatilho_nuclear": "Apertar o tornozelo com o polegar e ver a marca afundada na carne por mais de 10 segundos (sinal clássico de cacifo/edema).",
+      "the_hell": "Chegar em casa às 18h, tirar o sapato com dor, ver o tornozelo com o dobro do tamanho normal com o elástico da meia cravado na pele inchada, e ter que deitar no sofá com as pernas levantadas em almofadas sem ânimo para fazer o jantar.",
+      "the_high": "Acordar de manhã, colocar uma bota de cano alto sem apertar nada, passar o dia inteiro de pé com pernas leves como plumas e olhar no espelho vendo pernas esguias e tonificadas.",
+      "segredo_final": "O ritual matinal de Matcha Cerimonial puro revelado no TODAY Show pela Melissa McCarthy que ativou a drenagem intersticial e eliminou 95 lbs de peso e linfa.",
+      "_avatar_meta": {
+        "retrato": {
+          "score": 98,
+          "reason": "Dossiê de retenção linfática feminina",
+          "source": "Briefing Leaftide"
+        },
+        "arquetipo": {
+          "score": 96,
+          "reason": "A Trabalhadora Resignada",
+          "source": "Avatar v8"
+        },
+        "ferida_central": {
+          "score": 97,
+          "reason": "Vergonha estética e sofrimento físico nas pernas",
+          "source": "VOC Surveys"
+        },
+        "desejo_externo": {
+          "score": 99,
+          "reason": "Desinchar pernas e tornozelos finos",
+          "source": "Clinical Data"
+        },
+        "desejo_interno": {
+          "score": 98,
+          "reason": "Autoestima corporal feminina plena",
+          "source": "Rebel Copy"
+        },
+        "crenca_bloqueadora": {
+          "score": 96,
+          "reason": "Confusão entre gordura real e líquido estagnado",
+          "source": "Schwartz Matrix"
+        },
+        "crenca_necessaria": {
+          "score": 97,
+          "reason": "Mecanismo das comportas linfáticas e EGCG",
+          "source": "Lymphatic Health"
+        },
+        "epifania_central": {
+          "score": 98,
+          "reason": "Ponto alto do TODAY Show pitch aos 20:15",
+          "source": "VSL Script"
+        },
+        "desejos_externos": {
+          "score": 98,
+          "reason": "10 itens ranqueados",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_internos": {
+          "score": 97,
+          "reason": "10 itens de alívio e bem estar",
+          "source": "Escavador de Desejos"
+        },
+        "desejos_proibidos": {
+          "score": 95,
+          "reason": "5 desejos inconfessáveis",
+          "source": "VOC Forums"
+        },
+        "medos": {
+          "score": 99,
+          "reason": "Linfedema crônico e trombose venosa",
+          "source": "Vascular Reports"
+        },
+        "objecoes": {
+          "score": 97,
+          "reason": "Matcha cerimonial vs chá verde comum",
+          "source": "Nutritional Labs"
+        }
+      },
+      "perfil_psicologico": {
+        "retrato": "Mulher de 54 anos, enfermeira, professora, vendedora ou funcionária pública. Passa de 6 a 10 horas de pé ou sentada na mesma posição. Ao final da tarde, sente as pernas pesadas como toras de madeira.",
+        "arquetipo": "A Heroína Cansada / A Mulher das Pernas Pesadas",
+        "ferida_central": "Sentir que seu corpo perdeu a leveza e a feminilidade, sendo obrigada a usar calças compridas e sapatos ortopédicos feios mesmo no verão.",
+        "padrao": "Compra meias elásticas de compressão apertadas que pinicam a pele, usa por 2 dias e desiste porque não aguenta o calor e o incômodo.",
+        "contradicao": "Diz que 'o inchaço é apenas cansaço da rotina', mas esconde as pernas debaixo da mesa e recusa convites para ir à praia ou piscina."
+      },
+      "camadas_psique": {
+        "c1_observaveis": "Senta com as pernas levantadas sobre pufes ou almofadas; descalça os sapatos embaixo da mesa; usa calças largas para cobrir as pernas.",
+        "c2_conscientes": "Quer calçar sandálias abertas sem o tornozelo transbordar sobre as tiras; quer eliminar 5kg de retenção de líquido rápido.",
+        "c3_subconscientes": "Medo de desenvolver trombose venosa profunda (TVP) ou úlceras varicosas que deixem cicatrizes permanentes.",
+        "c4_trauma": "O dia em que foi madrinha de casamento e teve que tirar o salto alto no meio da festa porque o pé não cabia mais no calçado."
+      },
+      "desejos_externos": [
+        {
+          "rank": 1,
+          "nome": "Tornozelos finos, definidos e sem inchaço ao fim do dia",
+          "score": 80,
+          "justificativa": "Alívio físico imediato nos calçados."
+        },
+        {
+          "rank": 2,
+          "nome": "Eliminar de 8 a 15 lbs de retenção líquida nas primeiras 3 semanas",
+          "score": 79,
+          "justificativa": "Redução instantânea do peso na balança."
+        },
+        {
+          "rank": 3,
+          "nome": "Redução visível dos nódulos de celulite nas coxas e bumbum",
+          "score": 78,
+          "justificativa": "Melhora da textura e firmeza da pele."
+        },
+        {
+          "rank": 4,
+          "nome": "Pernas leves como plumas sem sensação de peso ou queimação",
+          "score": 77,
+          "justificativa": "Energia para caminhar e trabalhar."
+        },
+        {
+          "rank": 5,
+          "nome": "Poder usar sandálias de tiras finas e sapatos elegantes",
+          "score": 75,
+          "justificativa": "Liberdade de vestuário feminino."
+        },
+        {
+          "rank": 6,
+          "nome": "Fim das marcas profundas das meias ou calças na pele",
+          "score": 73,
+          "justificativa": "Sinal de circulação desimpedida."
+        },
+        {
+          "rank": 7,
+          "nome": "Dormir a noite inteira sem cãibras ou síndrome das pernas inquietas",
+          "score": 72,
+          "justificativa": "Descanso muscular noturno."
+        },
+        {
+          "rank": 8,
+          "nome": "Sensação de cintura mais fina e abdômen menos estufado",
+          "score": 70,
+          "justificativa": "Drenagem corporal integral."
+        },
+        {
+          "rank": 9,
+          "nome": "Economia de fortunas com massagistas e sessões de drenagem",
+          "score": 68,
+          "justificativa": "Autonomia de autocuidado em casa."
+        },
+        {
+          "rank": 10,
+          "nome": "Prevenção efetiva contra varizes grossas e vasinhos roxos",
+          "score": 67,
+          "justificativa": "Saúde vascular das pernas."
+        }
+      ],
+      "desejos_internos": [
+        {
+          "rank": 1,
+          "nome": "Sentir o corpo leve, ágil e jovem novamente",
+          "score": 80,
+          "justificativa": "Libertação do peso morto da linfa."
+        },
+        {
+          "rank": 2,
+          "nome": "Recuperar a autoestima e o orgulho das próprias pernas",
+          "score": 79,
+          "justificativa": "Segurança estética feminina."
+        },
+        {
+          "rank": 3,
+          "nome": "Sentir-se bonita e atraente de vestido curto no calor",
+          "score": 78,
+          "justificativa": "Aproveitamento do verão sem vergonha."
+        },
+        {
+          "rank": 4,
+          "nome": "Voltar para casa do trabalho com disposição para passear",
+          "score": 76,
+          "justificativa": "Vida social ativa após as 18h."
+        },
+        {
+          "rank": 5,
+          "nome": "Sentir que venceu a batalha contra a retenção sem remédios",
+          "score": 74,
+          "justificativa": "Dignidade e autocuidado natural."
+        },
+        {
+          "rank": 6,
+          "nome": "Nunca mais ter vergonha de colocar os pés descalços à mostra",
+          "score": 73,
+          "justificativa": "Fim da timidez corporal."
+        },
+        {
+          "rank": 7,
+          "nome": "Receber elogios sobre como seu corpo desinchou rápido",
+          "score": 71,
+          "justificativa": "Validação das amigas e familiares."
+        },
+        {
+          "rank": 8,
+          "nome": "Paz de espírito sabendo que suas veias estão saudáveis",
+          "score": 70,
+          "justificativa": "Segurança de longevidade."
+        },
+        {
+          "rank": 9,
+          "nome": "Viver sem a dor latejante nas panturrilhas ao deitar",
+          "score": 68,
+          "justificativa": "Conforto físico essencial."
+        },
+        {
+          "rank": 10,
+          "nome": "Sentir-se renovada, disposta e cheia de energia feminina",
+          "score": 67,
+          "justificativa": "Vitalidade plena."
+        }
+      ],
+      "desejos_proibidos": [
+        {
+          "rank": 1,
+          "nome": "Receber elogios ardentes no verão sobre como suas pernas estão lindas para a sua idade",
+          "score": 80,
+          "justificativa": "Autoafirmação de beleza e juventude."
+        },
+        {
+          "rank": 2,
+          "nome": "Fazer as colegas que reclamam de pernas pesadas morrerem de inveja da sua leveza",
+          "score": 78,
+          "justificativa": "Superioridade estética graciosa."
+        },
+        {
+          "rank": 3,
+          "nome": "Jogar no lixo todas as meias de compressão grossas e feias com ar de alívio",
+          "score": 77,
+          "justificativa": "Símbolo de libertação da prisão médica."
+        },
+        {
+          "rank": 4,
+          "nome": "Usar um vestido curto e decotado em uma festa sem nenhuma preocupação com celulite",
+          "score": 75,
+          "justificativa": "Sensualidade feminina recuperada."
+        },
+        {
+          "rank": 5,
+          "nome": "Comprovar na balança que perdeu 4 quilos em 7 dias apenas fazendo xixi",
+          "score": 74,
+          "justificativa": "Prazer imediato de esvaziamento de líquidos."
+        }
+      ],
+      "dores_superficiais": [
+        "Tornozelos inchados que dobram de tamanho no final do dia",
+        "Marcas fundas da costura da meia cravadas na pele por horas",
+        "Sapatos apertando os dedos e calcanhares às 17h",
+        "Pele das coxas com aspecto ondulado e celulite profunda",
+        "Dores latejantes e cansaço pesado nas panturrilhas"
+      ],
+      "dores_profundas": [
+        "A vergonha sufocante de usar saias ou biquíni em público por causa do inchaço",
+        "O medo paralisante de que o inchaço evolua para linfedema crônico irreversível",
+        "A frustração de subir na balança e ver o peso subir mesmo sem ter comido nada pesado",
+        "O esgotamento físico de terminar todo dia de trabalho sem ânimo para brincar com os filhos",
+        "A sensação de que seu corpo está envelhecendo mais rápido que o das suas amigas"
+      ],
+      "medos": [
+        "Medo de desenvolver trombose venosa profunda (TVP) com coágulos que viajem para o pulmão",
+        "Pavor de ficar com pernas deformadas (linfedema avançado) e precisar de andador",
+        "Medo de perder a mobilidade e não conseguir mais trabalhar de pé",
+        "Pavor de cirurgias vasculares dolorosas para remoção de veias varicosas",
+        "Medo de ficar confinada em casa com as pernas para cima pelo resto da vida"
+      ],
+      "objecoes": [
+        "Chá verde comum de supermercado não faz a mesma coisa? (Resposta: De jeito nenhum! Chás de saquinho de mercado utilizam folhas oxidadas e moídas com menos de 2% de EGCG bioativo. O Leaftide é formulado com Matcha Cerimonial Japonês de 1ª colheita com biodisponibilidade 137x superior, veiculado com bioflavonoides que reabrem os capilares linfáticos)",
+        "Vou ficar desidratada ou perder minerais importantes? (Resposta: Não. Diuréticos químicos roubam potássio e desidratam os tecidos. O ritual de Matcha drena apenas o fluido tóxico estagnado do espaço intersticial, mantendo o equilíbrio eletrolítico celular perfeito)",
+        "Em quanto tempo começo a notar os tornozelos mais finos? (Resposta: A imensa maioria das mulheres relata aumento expressivo na frequência urinária nas primeiras 24 horas e redução palpável do inchaço nos tornozelos em 5 a 7 dias)"
+      ],
+      "sub_avatares": [
+        {
+          "nome": "1. A Enfermeira / Vendedora que Trabalha em Pé (45-60 anos)",
+          "descricao": "Fica o dia inteiro de pé, chega em casa com as pernas pulsando de dor e tornozelos estufados.",
+          "dor_principal": "Dor física e sensação de peso insuportável ao final da jornada de trabalho.",
+          "hook": "Para a mulher que passa mais de 6 horas de pé por dia e volta para casa com as pernas parecendo troncos...",
+          "crenca_bloqueadora": "Trabalhar em pé inevitavelmente destrói a circulação e não tem como evitar.",
+          "crenca_necessaria": "O Matcha cerimonial ativa as bombas linfáticas naturais enquanto você caminha.",
+          "objecao": "Não tenho tempo para fazer rituais demorados.",
+          "asset_primario": "Quiz Funnel Vercel (Healthy Legs Daily)",
+          "urgencia": 5,
+          "dinheiro": 4
+        }
+      ],
+      "voyerismos": [
+        {
+          "nome": "O Descalçar Doloroso das Botas",
+          "intensidade": "9.8/10",
+          "situacao": "Chega em casa às 18h30 depois de um dia puxado, senta na beirada da cama para puxar o zíper da bota e ele simplesmente trava na metade da panturrilha porque a perna dobrou de volume.",
+          "sintoma_fisico": "Dor aguda ao puxar o couro esticado, pele quente e avermelhada pelo aperto.",
+          "pensamento": "'Que horror... de manhã fechou tão fácil e agora eu mal consigo tirar o sapato do pé.'",
+          "comportamento": "Puxa a bota com força com os dentes cerrados, deita de costas na cama e fica 15 minutos com os pés para o alto esperando a dor latejante passar.",
+          "uso_copy": "Lead visual e sensorial de abertura para VSL e anúncios verticais."
+        }
+      ],
+      "problemas": [
+        {
+          "rank": 1,
+          "nome": "Colapso dos Capilares Linfáticos e Retenção Intersticial de Linfa Tóxica",
+          "total": 69,
+          "cena_voyerismo": "O elástico da meia afundar 1 centímetro na carne inchada do tornozelo e a marca ficar visível por 4 horas.",
+          "scores": {
+            "dor": 10,
+            "desejo": 10,
+            "piora": 10,
+            "veloc_": 9,
+            "pagar": 10,
+            "comun_": 10,
+            "freq_": 10
+          }
+        }
+      ],
+      "headlines": [
+        {
+          "categoria": "Celebridade TODAY Show",
+          "texto": "Melhor Que Ozempic? O Ritual de Matcha de $1 Que Melissa McCarthy Revelou no TODAY Show Para Eliminar 95 lbs e Desinchar as Pernas"
+        },
+        {
+          "categoria": "Causa Raiz",
+          "texto": "Não É Gordura, É Linfa Tóxica: O Truque de Cozinha Que Esvazia 4 Litros de Retenção das Coxas e Tornozelos em 14 Dias"
+        }
+      ],
+      "ganchos": [
+        {
+          "tipo": "Visual 0-3s",
+          "texto": "[Apertando um tornozelo inchado com o polegar e a marca branca ficando afundada] 'Se o seu tornozelo fica assim no fim do dia, pare de tomar diuréticos de farmácia.'"
+        }
+      ],
+      "bullets": [
+        {
+          "tipo": "Fascination",
+          "texto": "Por que chás de saquinho de supermercado pioram a retenção ao inflamar a mucosa do estômago"
+        }
+      ],
+      "micro_historias": [
+        {
+          "titulo": "O Ritual Matinal de Melissa McCarthy",
+          "historia": "Ao se preparar para papéis no cinema onde precisava de energia e perda rápida de inchaço corporal, a atriz recorreu a um mestre herbalista japonês que formulou um ritual simples de Matcha cerimonial em pó com bioflavonoides drenantes. O resultado foi uma perda de mais de 90 lbs e o fim absoluto das dores nas pernas."
+        }
+      ],
+      "gatilhos": [
+        {
+          "nome": "A Marca Funda no Tornozelo",
+          "categoria": "Sinal Clínico Visível",
+          "intensidade": "10/10",
+          "situacao": "Tirar a meia esportiva e ver o sulco profundo deixado na pele que não volta ao normal.",
+          "copy_sugerido": "Apertar o tornozelo e ver a marca do dedo afundada avisando que a linfa parou de circular."
+        }
+      ],
+      "storyboard": {
+        "antes": "Pernas pesadas como chumbo, tornozelos inchados, meias apertadas e vergonha de usar vestidos no verão.",
+        "trigger": "Uma foto tirada nas férias onde os tornozelos estavam inchados sobre as sandálias, estragando o dia.",
+        "busca": "Descobriu o segredo do ritual de Matcha das celebridades e a ciência da drenagem dos capilares linfáticos.",
+        "objecao": "'Será que um chá solúvel em pó consegue desinchar minhas pernas melhor que drenagem linfática em clínica?'",
+        "decisao": "Comprou o tratamento de 6 potes do Leaftide; na primeira semana eliminou 3kg de retenção de líquido e as pernas ficaram finas e leves."
+      }
+    },
+    "data": {
+      "publico_alvo": "Mulheres americanas 40-70 anos que sofrem com retenção severa de líquidos nas pernas (edema linfático), pernas pesadas e doloridas ao fim do dia, celulite profunda e dificuldade crônica de perder peso.",
+      "mecanismo_unico": "The $1 Matcha Ritual (Melissa McCarthy / Today Show angle): Catequinas concentradas de Matcha cerimonial puro (EGCG) associadas a bioflavonoides venotônicos e drenantes linfáticos. Desobstruem os capilares linfáticos e gânglios inguinais, forçando a excreção de 3 a 5 litros de fluido intersticial tóxico retido nas coxas e tornozelos.",
+      "dores": [
+        "Pernas pesadas e inchadas que parecem \"troncos de árvore\" no fim da tarde",
+        "Marcas profundas das meias ou sapatos na pele que demoram horas para sumir",
+        "Vergonha de usar saias, vestidos curtos ou bermudas por causa do inchaço e celulite",
+        "Dores e cansaço constante nas pernas impedindo caminhadas e compras",
+        "Sensação de que o peso extra não é apenas gordura, mas um líquido estagnado que não sai"
+      ],
+      "desejos": [
+        "Pernas leves, finas e descansadas desde o amanhecer até a noite",
+        "Tornozelos desenhados e sem aquela almofada de inchaço sobre os sapatos",
+        "Eliminar 5 a 12 lbs de peso de água retida logo nos primeiros 14 dias",
+        "Voltar a usar saias leves e sandálias abertas com segurança e elegância",
+        "Ativar o metabolismo celular para queimar gordura sem passar fome"
+      ],
+      "produtos": [
+        {
+          "nome": "Kit 6 Potes (6 Meses) - Drenagem Total",
+          "preco": 234,
+          "link_checkout": "https://healthy-legs-daily.vercel.app/order-6",
+          "descricao": "Tratamento de 6 meses com Frete Grátis e Guia de Drenagem Corporal.",
+          "ticket": 234
+        },
+        {
+          "nome": "Kit 3 Potes (3 Meses) - Mais Vendido",
+          "preco": 147,
+          "link_checkout": "https://healthy-legs-daily.vercel.app/order-3",
+          "descricao": "Tratamento de 90 dias para desinchar pernas e queimar gordura.",
+          "ticket": 147
+        },
+        {
+          "nome": "Kit 1 Pote (1 Mês) - Inicial",
+          "preco": 59,
+          "link_checkout": "https://healthy-legs-daily.vercel.app/order-1",
+          "descricao": "1 pote para experimentar os primeiros 30 dias.",
+          "ticket": 59
+        }
+      ],
+      "links": [
+        {
+          "nome": "Live Quiz Funnel (Healthy Legs Daily)",
+          "url": "https://healthy-legs-daily.vercel.app",
+          "tipo": "vercel"
+        },
+        {
+          "nome": "Local Deploy Leaftide",
+          "url": "file:///C:/Users/vsuga/Downloads/Produtos%20Bifi/Leaftide/deploy-leaftide/index.html",
+          "tipo": "local"
+        },
+        {
+          "nome": "GitHub Repo (healthy-legs-daily)",
+          "url": "https://github.com/vsugamele/healthy-legs-daily",
+          "tipo": "github"
+        },
+        {
+          "nome": "GitHub Repo (truevitallabs-pdp)",
+          "url": "https://github.com/vsugamele/truevitallabs-pdp",
+          "tipo": "github"
+        }
+      ],
+      "vsl": {
+        "titulo": "Leaftide - Tonight on TODAY Show Melissa McCarthy Ritual",
+        "duracao": "28 minutos",
+        "pitch_time": "20:15",
+        "gancho": "Better Than Ozempic? Tap Play To See The $1 Matcha Ritual Melissa McCarthy Swears By To Crush Hunger And Drop 95lbs...",
+        "celebridades": [
+          "Melissa McCarthy",
+          "Apresentadores do TODAY Show"
+        ]
+      }
+    }
+  }
+}
