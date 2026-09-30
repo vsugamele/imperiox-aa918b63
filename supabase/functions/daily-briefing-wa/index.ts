@@ -54,11 +54,55 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
 
   const coreIds = ["jp_freitas", "linfaflow", "slimsoda"];
 
-  // 2. Vendas nas últimas 24h
-  const { data: vendas24h } = await supabase
+  // 2. Vendas recentes (considerando data_venda real para não puxar reprocessamento histórico antigo)
+  const { data: rawVendas } = await supabase
     .from("imphq_vendas")
-    .select("project_id, valor, status, produto_nome")
-    .gte("created_at", last24h);
+    .select("id, project_id, valor, status, produto_nome, data_venda, created_at, nome, lead_id, data")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const vendas24h = (rawVendas || []).filter((v: any) => {
+    const rawTs = v.data_venda || v.created_at;
+    const ts = rawTs ? new Date(rawTs).getTime() : 0;
+    return ts >= (now.getTime() - 24 * 60 * 60 * 1000);
+  });
+
+  // Mapeamento enriquecido de abandonos nas 24h
+  const abandonos24h = vendas24h.filter(
+    (v: any) => v.status === "carrinho_abandonado" || v.status === "pix_gerado"
+  );
+  const leadIds = abandonos24h.map((a: any) => a.lead_id).filter(Boolean);
+  const leadsInfoMap: Record<string, any> = {};
+  if (leadIds.length > 0) {
+    const { data: lData } = await supabase
+      .from("imphq_leads")
+      .select("id, nome, phone, email")
+      .in("id", leadIds);
+    (lData || []).forEach((l: any) => { leadsInfoMap[l.id] = l; });
+  }
+
+  const phoneList: string[] = [];
+  abandonos24h.forEach((a: any) => {
+    const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
+    const rawP = lead?.phone || a.data?.phone || a.data?.telefone;
+    if (rawP) {
+      let clean = String(rawP).replace(/\D/g, "");
+      if (clean.length === 10 || clean.length === 11) clean = "55" + clean;
+      if (clean) phoneList.push(clean);
+    }
+  });
+
+  const activeConvsMap: Record<string, any> = {};
+  if (phoneList.length > 0) {
+    const { data: cData } = await supabase
+      .from("imphq_wa_conversations")
+      .select("id, phone, status, last_message_at, ia_ativa, message_count")
+      .in("phone", phoneList);
+    (cData || []).forEach((c: any) => {
+      const clean = (c.phone || "").replace(/\D/g, "");
+      activeConvsMap[clean] = c;
+    });
+  }
 
   // 3. Leads nas últimas 24h
   const { data: leads24h } = await supabase
@@ -165,6 +209,16 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     
     if (abandonos.length > 0) {
       lines.push(`• Recuperação: ⚠️ ${abandonos.length} abandonos/pix pendentes`);
+      abandonos.slice(0, 3).forEach((a: any) => {
+        const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
+        const nome = lead?.nome || a.nome || a.data?.nome || "Lead";
+        const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
+        let cleanPhone = String(rawPhone).replace(/\D/g, "");
+        if (cleanPhone.length === 10 || cleanPhone.length === 11) cleanPhone = "55" + cleanPhone;
+        const conv = cleanPhone ? activeConvsMap[cleanPhone] : null;
+        const x1Tag = conv ? "🟢 No X1" : "⚠️ Fora do X1";
+        lines.push(`  └ *${nome}* (${a.produto_nome || "Produto"}) — ${x1Tag}${cleanPhone ? ` → wa.me/${cleanPhone}` : ""}`);
+      });
       actions.push(`[${proj.name}] Recuperar ${abandonos.length} carrinho(s) abandonado(s) de hoje.`);
     }
 
@@ -215,7 +269,48 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     });
   }
 
-  return lines.join("\n");
+  // Constrói mensagem dedicada de recuperação caso haja abandonos
+  let recoveryMessage: string | null = null;
+  if (abandonos24h.length > 0) {
+    const rLines: string[] = [];
+    rLines.push("🎯 *Ficha de Recuperação de Carrinho (Últimas 24h)*");
+    rLines.push("");
+
+    abandonos24h.slice(0, 8).forEach((a: any, idx: number) => {
+      const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
+      const nome = lead?.nome || a.nome || a.data?.nome || a.data?.name || "Cliente sem nome";
+      const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
+      let cleanPhone = String(rawPhone).replace(/\D/g, "");
+      if (cleanPhone.length === 10 || cleanPhone.length === 11) cleanPhone = "55" + cleanPhone;
+
+      const email = lead?.email || a.data?.email || null;
+      const produto = a.produto_nome || "Produto";
+      const valor = Number(a.valor || 0) > 0 ? ` (R$ ${Number(a.valor).toFixed(2)})` : "";
+      const conv = cleanPhone ? activeConvsMap[cleanPhone] : null;
+
+      rLines.push(`*${idx + 1}. ${nome}*`);
+      rLines.push(`   📦 *Produto:* ${produto}${valor}`);
+      if (conv) {
+        const iaDesc = conv.ia_ativa ? "IA ativa respondendo" : "Atendimento manual";
+        rLines.push(`   💬 *Status no X1:* 🟢 *Em conversa ativa* (${iaDesc})`);
+      } else {
+        rLines.push(`   💬 *Status no X1:* ⚠️ *NÃO está no WhatsApp* (Sem conversa iniciada)`);
+      }
+
+      if (cleanPhone) {
+        rLines.push(`   📱 *Iniciar X1:* https://wa.me/${cleanPhone}`);
+      }
+      if (email) {
+        rLines.push(`   📧 *E-mail:* ${email}`);
+      }
+      rLines.push("");
+    });
+
+    rLines.push("_💡 Toque no link wa.me para abrir o WhatsApp e abordar o lead agora!_");
+    recoveryMessage = rLines.join("\n");
+  }
+
+  return { briefingText: lines.join("\n"), recoveryMessage };
 }
 
 Deno.serve(async (req) => {
@@ -248,8 +343,8 @@ Deno.serve(async (req) => {
 
     const results: Array<{user_id:string} & ({error:string}|{status:number;send:unknown})> = [];
 
-    // Constrói o briefing pontuado por projeto
-    const message = await buildOperationalBriefing(supabase, Boolean(targetJid));
+    // Constrói o briefing pontuado por projeto + ficha de recuperação
+    const { briefingText, recoveryMessage } = await buildOperationalBriefing(supabase, Boolean(targetJid));
 
     // Provider global ativo para disparo
     const { data: provider } = await supabase
@@ -277,16 +372,26 @@ Deno.serve(async (req) => {
         const sendRes = await fetch(sendUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: provider.api_key },
-          body: JSON.stringify({ number: phone, text: message }),
+          body: JSON.stringify({ number: phone, text: briefingText }),
         });
         const sendJson = await sendRes.json().catch(() => ({}));
         results.push({ user_id: pref.user_id, status: sendRes.status, send: sendJson });
+
+        // Se houver abandonos e mensagem detalhada de recuperação, envia logo em seguida
+        if (recoveryMessage) {
+          await new Promise((r) => setTimeout(r, 1200));
+          await fetch(sendUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: provider.api_key },
+            body: JSON.stringify({ number: phone, text: recoveryMessage }),
+          }).catch((e) => console.warn("[daily-briefing-wa] recovery msg send error:", e));
+        }
       } catch (err) {
         results.push({ user_id: pref.user_id, error: err instanceof Error ? err.message : String(err) });
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, hour, count: results.length, results, message_preview: message }), {
+    return new Response(JSON.stringify({ ok: true, hour, count: results.length, results, message_preview: briefingText, recovery_preview: recoveryMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
