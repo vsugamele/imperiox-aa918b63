@@ -36,6 +36,8 @@ Responsáveis: @dev implementação, @qa validação, @devops publicação.
 - src/test/conversation-policy.test.ts
 - src/test/jp-access-recovery.test.ts
 - src/test/quality-backend.test.ts
+- src/test/jp-crm-server.test.ts
+- supabase/functions/crm-bridge/index.ts
 
 ## Evidência
 
@@ -43,4 +45,8 @@ Referência: docs/sessions/2026-09/2026-09-30-jp-auditoria-conversas-ia.md.
 CRM publicado usa `exists` e `entitlements`; consumidor usava `has_account`/`user_exists`.
 Histórico existente será preservado. Validação operacional não envolve enviar mensagens a leads.
 
-Validação: cenário monetário isolado; 24 testes específicos de catálogo/recuperação; 459 testes passaram na suíte completa; lint sem erros (2 avisos anteriores), typecheck e Deno check das seis funções. Migração aplicada; integração SQL passou com rollback integral. Nenhum envio ou geração de acesso para lead real.
+Validação: cenário monetário isolado; 30 testes específicos de catálogo/recuperação; 465 testes passaram no conjunto final (66 arquivos); lint sem erros (2 avisos anteriores), typecheck e Deno check das seis funções. Migração aplicada; integração SQL passou com rollback integral. Nenhum envio ou geração de acesso para lead real.
+
+Causa adicional confirmada: CRM v7 retornava HTTP 503 porque exigia areamembrojp_settings.crm_bridge_secret, ausente no banco. JPFREITAS_CRM_BRIDGE_SECRET existe no ambiente. Reaproveitada a função publicada com leitura do segredo do ambiente e fallback compatível para o banco. O fallback de auth.admin.getUserByEmail, inexistente no SDK usado, foi substituído por listUsers paginado. Sem alteração de segredo ou liberação de acesso.
+
+Consulta por telefone compatível com o consumidor WhatsApp foi implementada na função CRM. Chamadas internas com credencial exata service_role são autenticadas; credenciais inválidas continuam recebendo 401. Clientes externos continuam usando x-crm-secret. Deploy adicional e consulta real somente de leitura seguem para verificação.
