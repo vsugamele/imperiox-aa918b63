@@ -5,6 +5,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { buildProjectMap } from "../_shared/project-map.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
+import { CAPABILITY_TASKS, pickCapabilities, tasksForKind, type Capability } from "../_shared/capabilities.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +22,20 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+type Supabase = ReturnType<typeof createClient>;
+
+/** Catálogo ativo (imphq_capabilities). Falha de leitura vira lista vazia: sugestão de ferramenta nunca derruba a etapa. */
+async function loadCapabilities(supabase: Supabase): Promise<Capability[]> {
+  const { data, error } = await supabase.from("imphq_capabilities").select("*").eq("ativo", true);
+  if (error) console.error("imphq_capabilities", error.message);
+  return (data || []) as Capability[];
+}
+
+/** Ferramentas sugeridas para uma etapa, pelo tipo dela no mapa. */
+function toolsForStep(caps: Capability[], kind: string | null) {
+  return pickCapabilities(caps, tasksForKind(kind), 4).map((c) => ({ id: c.id, nome: c.nome, url: c.url, quando_usar: c.quando_usar }));
 }
 
 function parseJson(val: unknown) {
@@ -670,6 +685,18 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "get_capabilities",
+    description: "Catálogo de ferramentas de produção (libs de vídeo, imagem, áudio, páginas, dashboards, ícones, 3D) com quando usar cada uma e a licença. Consulte antes de produzir criativo, página ou automação. Filtre por tarefa: " + CAPABILITY_TASKS.map((t) => t.key).join(", ") + ".",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tarefa: { type: "string", enum: CAPABILITY_TASKS.map((t) => t.key), description: "Tarefa a executar (opcional)" },
+        busca: { type: "string", description: "Texto livre em nome, categoria ou quando usar (opcional)" },
+        prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "Só esta prioridade (opcional)" },
+      },
+    },
+  },
+  {
     name: "complete_step",
     description: "Atualiza o status de execução de uma etapa do funil no mapa, anexa o entregável gerado (ex: URL do vídeo gerado no Higgsfield, link do Google Drive, doc da copy) e marca tarefas da checklist.",
     inputSchema: {
@@ -930,6 +957,23 @@ Deno.serve(async (req) => {
           }
 
           // TOOL: get_project_map
+          if (name === "get_capabilities") {
+            const { tarefa, busca, prioridade } = args || {};
+            let caps = await loadCapabilities(supabase);
+            if (tarefa) caps = pickCapabilities(caps, [tarefa], caps.length);
+            if (prioridade) caps = caps.filter((c) => c.prioridade === prioridade);
+            if (busca) {
+              const b = String(busca).toLowerCase();
+              caps = caps.filter((c) => [c.nome, c.categoria, c.quando_usar, c.descricao].some((v) => (v || "").toLowerCase().includes(b)));
+            }
+            const payload = {
+              tarefas: CAPABILITY_TASKS,
+              total: caps.length,
+              ferramentas: caps.map((c) => ({ id: c.id, nome: c.nome, url: c.url, categoria: c.categoria, quando_usar: c.quando_usar, serve_para: c.serve_para, prioridade: c.prioridade, licenca: c.licenca_nota })),
+            };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] } });
+          }
+
           if (name === "get_project_map") {
             const projectId = args?.project_id;
             if (!projectId) throw new Error("project_id é obrigatório");
@@ -1213,6 +1257,7 @@ Deno.serve(async (req) => {
 
             const { data: rawNodes, error: nodeErr } = await q;
             if (nodeErr) throw nodeErr;
+            const caps = await loadCapabilities(supabase);
 
             const parsedSteps = (rawNodes || []).map(n => {
               const notes = n.notes || "";
@@ -1250,6 +1295,7 @@ Deno.serve(async (req) => {
                 checklist: n.checklist || [],
                 output_url,
                 product_context: primaryProd,
+                ferramentas: toolsForStep(caps, n.kind),
               };
             });
 
@@ -1450,6 +1496,7 @@ Deno.serve(async (req) => {
       }
 
       const { data: rawNodes } = await q;
+      const caps = await loadCapabilities(supabase);
       const parsedSteps = (rawNodes || []).map(n => {
         const notes = n.notes || "";
         const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
@@ -1471,6 +1518,7 @@ Deno.serve(async (req) => {
           prompt,
           checklist: n.checklist || [],
           output_url,
+          ferramentas: toolsForStep(caps, n.kind),
         };
       });
 
@@ -1605,6 +1653,7 @@ Deno.serve(async (req) => {
   // Retorna Etapas Executáveis por IA (Agentic SOP / Runbook)
   if (action === "executable_steps") {
     const { data: mapNodes } = await supabase.from("imphq_company_map_nodes").select("*").eq("linked_project_id", projectId);
+    const caps = await loadCapabilities(supabase);
     const parsedSteps = (mapNodes || []).map(n => {
       const notes = n.notes || "";
       const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
@@ -1625,6 +1674,7 @@ Deno.serve(async (req) => {
         prompt,
         checklist: n.checklist || [],
         output_url,
+        ferramentas: toolsForStep(caps, n.kind),
       };
     });
 

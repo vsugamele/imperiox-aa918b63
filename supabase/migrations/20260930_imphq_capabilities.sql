@@ -1,0 +1,106 @@
+-- Catálogo de capacidades (libs, bancos de assets, ferramentas de render) que as IAs consultam
+-- antes de executar uma etapa do mapa. Fonte inicial: planilha "USEFUL LIBS" do Vinicius.
+-- Lido pelo project-mcp (get_capabilities e sugestões em get_executable_steps).
+create table if not exists public.imphq_capabilities (
+  id text primary key,
+  nome text not null,
+  url text,
+  categoria text not null,
+  descricao text,
+  quando_usar text,
+  serve_para text[] not null default '{}',
+  prioridade text not null default 'media' check (prioridade in ('alta', 'media', 'baixa')),
+  licenca_nota text,
+  fonte text not null default 'planilha USEFUL LIBS',
+  ativo boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists imphq_capabilities_serve_para_idx on public.imphq_capabilities using gin (serve_para);
+
+alter table public.imphq_capabilities enable row level security;
+
+drop policy if exists "auth manage capabilities" on public.imphq_capabilities;
+create policy "auth manage capabilities" on public.imphq_capabilities
+  for all to authenticated using (true) with check (true);
+
+insert into public.imphq_capabilities (id, nome, url, categoria, descricao, quando_usar, serve_para, prioridade, licenca_nota)
+values
+  ('kobra', 'Kobra', 'https://kobra.systems/', 'UI/UX Components', null, 'Referência de componentes para montar telas novas do Império ou de apps.', array['interface']::text[], 'media', null),
+  ('cuelume', 'Cuelume', 'https://cuelume.dev/', 'Áudio, sons', null, 'Sons de interface e microinterações em páginas e apps.', array['audio', 'interface']::text[], 'baixa', null),
+  ('bencho-sounds', 'Bencho Sounds', 'https://bencho.dev/sounds', 'Áudio, sons', null, 'Efeitos sonoros curtos para vídeos e interfaces.', array['audio']::text[], 'baixa', null),
+  ('animejs', 'Anime.js', 'https://animejs.com/', 'Motion', null, 'Animações leves em páginas HTML puras (advertorial, VSL, buy page) sem React.', array['pagina']::text[], 'media', null),
+  ('animate-ui', 'Animate UI', 'https://animate-ui.com/', 'Motion', null, 'Componentes shadcn já animados para o Império e landing pages em React.', array['interface', 'pagina']::text[], 'media', null),
+  ('shadcn-ui', 'shadcn/ui', 'https://ui.shadcn.com/', 'UI/UX Components', null, 'Base de componentes que o Império já usa. Primeira escolha para telas novas.', array['interface']::text[], 'alta', null),
+  ('60fps-design', '60fps.design', 'https://60fps.design/', 'UI/UX Motion', null, 'Referências de microanimação para desenhar interações antes de implementar.', array['interface']::text[], 'baixa', null),
+  ('icon-museum', 'Icon Museum', 'https://icon.museum/', 'Ícones', null, 'Ícones de app estilizados para mockups e criativos.', array['icones', 'criativo_imagem']::text[], 'baixa', null),
+  ('iconly', 'Iconly', 'https://iconly.design/', 'Ícones', null, 'Pacote de ícones com vários estilos para páginas e criativos.', array['icones']::text[], 'baixa', null),
+  ('3dicons', '3dicons', 'https://3dicons.co/', 'Ícones', null, 'Ícones 3D prontos para criativos estáticos e seções de página.', array['icones', 'criativo_imagem', 'pagina']::text[], 'media', null),
+  ('text-effects-colorion', 'Text Effects (Colorion)', 'https://text-effects.colorion.co/', 'Text effects', null, 'Efeitos de texto em CSS para headlines de página.', array['pagina']::text[], 'baixa', null),
+  ('evilcharts', 'EvilCharts', 'https://evilcharts.com/', 'Gráficos', null, 'Gráficos prontos em estilo shadcn para dashboards do Império.', array['dashboard', 'interface']::text[], 'media', null),
+  ('threejs', 'Three.js', 'https://threejs.org/', '3D / WebGL', 'Base essencial para cenas 3D, câmeras, partículas, materiais e animações.', 'Só quando o criativo ou a página pedir cena 3D real.', array['3d']::text[], 'baixa', null),
+  ('react-three-fiber', 'React Three Fiber', 'https://r3f.docs.pmnd.rs/', '3D com React', 'Permite criar cenas Three.js usando componentes React, muito conveniente para o Claude gerar código.', 'Cena 3D dentro de React ou de um vídeo Remotion.', array['3d', 'criativo_video']::text[], 'baixa', null),
+  ('drei', 'Drei', 'https://drei.docs.pmnd.rs/', 'Helpers 3D', 'Coleção de componentes prontos para React Three Fiber: câmeras, controles, textos, ambientes e efeitos.', 'Junto com React Three Fiber, para não reinventar câmera, luz e texto 3D.', array['3d']::text[], 'baixa', null),
+  ('postprocessing', 'postprocessing', 'https://github.com/pmndrs/postprocessing', 'Efeitos visuais', 'Bloom, chromatic aberration, glitch, depth of field, noise, vignette e outros efeitos cinematográficos.', 'Acabamento cinematográfico em cenas 3D.', array['3d', 'criativo_video']::text[], 'baixa', null),
+  ('cannon-es', 'cannon-es', 'https://github.com/pmndrs/cannon-es', 'Física 3D', 'Física para partículas, objetos, colisões e movimentos mais realistas.', 'Produto caindo, colidindo ou se movendo com física em cena 3D.', array['3d']::text[], 'baixa', null),
+  ('p5js', 'p5.js', 'https://p5js.org/', 'Creative coding', 'Excelente para arte generativa, partículas, ruído, formas abstratas e visualizações.', 'Fundos e texturas generativas para criativos.', array['criativo_imagem', 'criativo_video']::text[], 'baixa', null),
+  ('pixijs', 'PixiJS', 'https://pixijs.com/', '2D WebGL', 'Renderização 2D de alto desempenho para partículas, sprites e efeitos em tempo real.', 'Animação 2D pesada (partículas, muitos sprites) em página ou vídeo.', array['criativo_video', 'pagina']::text[], 'baixa', null),
+  ('hydra', 'Hydra', 'https://hydra.ojack.xyz/', 'Live coding visual', 'Geração de vídeo e efeitos visuais com shaders em tempo real.', 'Fundos visuais abstratos para vídeo.', array['criativo_video']::text[], 'baixa', null),
+  ('tonejs', 'Tone.js', 'https://tonejs.github.io/', 'Áudio generativo', 'Sintetizadores, sequenciadores, efeitos e música programática em JavaScript.', 'Trilha ou efeito sonoro gerado por código, sem licença de terceiros.', array['audio']::text[], 'baixa', null),
+  ('howlerjs', 'Howler.js', 'https://howlerjs.com/', 'Reprodução de áudio', 'Biblioteca simples e confiável para tocar e controlar sons.', 'Tocar áudio em páginas (VSL com trilha, quiz com som).', array['audio', 'pagina']::text[], 'media', null),
+  ('wavesurfer', 'WaveSurfer.js', 'https://wavesurfer.xyz/', 'Waveforms / áudio', 'Exibe formas de onda, regiões, marcadores e permite sincronizar visual com áudio.', 'Mostrar onda de áudio ou sincronizar legenda com voz.', array['audio', 'criativo_video']::text[], 'baixa', null),
+  ('soundtouchjs', 'SoundTouchJS', 'https://github.com/cutterbl/SoundTouchJS', 'Processamento de áudio', 'Alteração de pitch e tempo sem precisar alterar a velocidade do vídeo.', 'Ajustar ritmo ou tom de locução sem mexer no vídeo.', array['audio']::text[], 'baixa', null),
+  ('meyda', 'Meyda', 'https://meyda.js.org/', 'Análise de áudio', 'Extrai volume, frequência, energia e outras características para animar elementos visualmente.', 'Animar elementos no ritmo da voz ou da música em vídeo.', array['audio', 'criativo_video']::text[], 'baixa', null),
+  ('freesound', 'Freesound', 'https://freesound.org/', 'Banco de sons', 'Uma das melhores fontes de efeitos sonoros, mas é importante verificar a licença de cada arquivo.', 'Efeitos sonoros para criativos de vídeo.', array['audio', 'criativo_video']::text[], 'media', 'Licença varia por arquivo; conferir antes de usar em anúncio.'),
+  ('splittype', 'SplitType', 'https://github.com/lukePeavey/SplitType', 'Texto animado', 'Divide texto em caracteres, palavras e linhas para criar animações precisas.', 'Headline animada palavra a palavra em página ou vídeo.', array['pagina', 'criativo_video']::text[], 'media', null),
+  ('splittingjs', 'Splitting.js', 'https://splitting.js.org/', 'Texto / lettering', 'Outra opção para dividir e animar letras, palavras e linhas com CSS ou JavaScript.', 'Alternativa ao SplitType quando a animação for só CSS.', array['pagina']::text[], 'baixa', null),
+  ('opentypejs', 'OpenType.js', 'https://opentype.js.org/', 'Tipografia', 'Permite manipular fontes, glifos e paths diretamente em JavaScript.', 'Transformar texto em path para efeitos tipográficos em criativo.', array['criativo_imagem']::text[], 'baixa', null),
+  ('fontsource', 'Fontsource', 'https://fontsource.org/', 'Fontes', 'Pacotes de fontes open source fáceis de importar localmente, evitando depender de Google Fonts em renderizações.', 'Fontes locais em renders (Remotion, Satori), sem depender de rede.', array['criativo_video', 'criativo_imagem', 'pagina']::text[], 'alta', null),
+  ('variable-fonts', 'Variable Fonts', 'https://v-fonts.com/', 'Fontes variáveis', 'Boa fonte de inspiração e referência para animações de peso, largura e estilo tipográfico.', 'Escolher fonte variável para animar peso e largura.', array['criativo_video', 'pagina']::text[], 'baixa', null),
+  ('d3', 'D3.js', 'https://d3js.org/', 'Data visualization', 'A biblioteca mais flexível para gráficos e visualizações animadas.', 'Gráfico sob medida que as libs prontas não fazem.', array['dashboard']::text[], 'baixa', null),
+  ('observable-plot', 'Observable Plot', 'https://observablehq.com/plot/', 'Gráficos', 'Mais simples que D3 para gerar visualizações bonitas com menos código.', 'Gráfico rápido para relatório ou análise pontual.', array['dashboard']::text[], 'baixa', null),
+  ('echarts', 'Apache ECharts', 'https://echarts.apache.org/', 'Gráficos interativos', 'Excelente para dashboards, mapas, linhas, barras, radar e animações de dados.', 'Dashboards interativos do Império com muito dado (funil, ROAS, vendas).', array['dashboard']::text[], 'media', null),
+  ('nivo', 'Nivo', 'https://nivo.rocks/', 'Gráficos React', 'Componentes prontos de gráficos React com boa aparência e animações.', 'Gráficos React bonitos com pouco código no Império.', array['dashboard', 'interface']::text[], 'media', null),
+  ('chartjs', 'Chart.js', 'https://www.chartjs.org/', 'Gráficos simples', 'Ótimo para gerar gráficos rapidamente dentro de vídeos e interfaces.', 'Gráfico simples dentro de página HTML ou vídeo de prova.', array['dashboard', 'criativo_video']::text[], 'baixa', null),
+  ('roughjs', 'Rough.js', 'https://roughjs.com/', 'Gráficos desenhados à mão', 'Cria gráficos e formas com aparência manual, semelhante a quadro branco.', 'Estilo quadro-branco em vídeo explicativo ou advertorial.', array['criativo_video', 'pagina']::text[], 'baixa', null),
+  ('react-flow', 'React Flow', 'https://reactflow.dev/', 'Diagramas / fluxogramas', 'Excelente para criar mapas, fluxos, pipelines e explicações visuais animadas.', 'Já usado no canvas do Mapa do Império. Base para qualquer fluxo novo.', array['interface']::text[], 'alta', null),
+  ('lucide', 'Lucide', 'https://lucide.dev/', 'Ícones SVG', 'Open source, consistente e muito fácil de animar e customizar.', 'Ícones padrão do Império. Primeira escolha em interface.', array['icones', 'interface']::text[], 'alta', null),
+  ('tabler-icons', 'Tabler Icons', 'https://tabler.io/icons', 'Ícones SVG', 'Uma das coleções mais completas, com licença permissiva.', 'Quando o Lucide não tiver o ícone.', array['icones']::text[], 'media', null),
+  ('phosphor-icons', 'Phosphor Icons', 'https://phosphoricons.com/', 'Ícones', 'Vários pesos e estilos, muito bons para interfaces e vídeos explicativos.', 'Ícones com vários pesos para páginas e vídeos.', array['icones', 'pagina', 'criativo_video']::text[], 'media', null),
+  ('iconoir', 'Iconoir', 'https://iconoir.com/', 'Ícones', 'Coleção open source minimalista com muitos ícones em SVG.', 'Ícones minimalistas alternativos.', array['icones']::text[], 'baixa', null),
+  ('heroicons', 'Heroicons', 'https://heroicons.com/', 'Ícones UI', 'Excelente para interfaces e componentes no estilo Tailwind.', 'Ícones em páginas Tailwind fora do Império.', array['icones', 'pagina']::text[], 'baixa', null),
+  ('open-doodles', 'Open Doodles', 'https://www.opendoodles.com/', 'Ilustrações', 'Ilustrações open source personalizáveis em SVG.', 'Ilustração leve para seção de página ou criativo.', array['ilustracao', 'pagina']::text[], 'baixa', null),
+  ('undraw', 'unDraw', 'https://undraw.co/', 'Ilustrações', 'Grande biblioteca de ilustrações SVG com troca de cores.', 'Ilustração com a cor da marca em página ou deck.', array['ilustracao', 'pagina']::text[], 'media', null),
+  ('open-peeps', 'Open Peeps', 'https://www.openpeeps.com/', 'Personagens', 'Biblioteca modular de personagens desenhados à mão.', 'Personagem ilustrado representando o avatar em página ou vídeo.', array['ilustracao', 'criativo_video']::text[], 'baixa', null),
+  ('blush', 'Blush', 'https://blush.design/', 'Ilustrações', 'Permite combinar personagens, cenários e objetos; verificar a licença do uso desejado.', 'Cena ilustrada customizada para página ou criativo.', array['ilustracao', 'criativo_imagem']::text[], 'baixa', 'Licença depende do plano e do uso; conferir.'),
+  ('poly-haven', 'Poly Haven', 'https://polyhaven.com/', 'HDRI / texturas / modelos', 'Assets de alta qualidade em domínio público/CC0. Um dos melhores recursos da lista.', 'Luz, textura e modelos 3D sem preocupação de licença.', array['3d']::text[], 'media', 'CC0.'),
+  ('ambientcg', 'ambientCG', 'https://ambientcg.com/', 'Texturas PBR', 'Texturas, materiais e HDRIs gratuitos sob CC0.', 'Materiais realistas para cena 3D de produto.', array['3d']::text[], 'baixa', 'CC0.'),
+  ('kenney', 'Kenney', 'https://kenney.nl/', 'Assets 2D/3D', 'Grande coleção de assets gratuitos, especialmente útil para cenas estilizadas.', 'Assets estilizados (jogo, cartoon) para criativos lúdicos.', array['3d', 'ilustracao']::text[], 'baixa', null),
+  ('opengameart', 'OpenGameArt', 'https://opengameart.org/', 'Assets de jogos', 'Sprites, sons, modelos e texturas; é necessário verificar a licença de cada item.', 'Sprites e sons para criativos em estilo jogo.', array['ilustracao', 'audio']::text[], 'baixa', 'Licença varia por item; conferir.'),
+  ('sketchfab', 'Sketchfab', 'https://sketchfab.com/', 'Modelos 3D', 'Bom acervo, mas as licenças variam bastante.', 'Buscar modelo 3D pronto (produto, cenário).', array['3d']::text[], 'baixa', 'Licença varia por modelo; conferir.'),
+  ('gltf-transform', 'glTF Transform', 'https://gltf-transform.dev/', 'Pipeline 3D', 'Otimização, conversão e manipulação de modelos glTF/GLB.', 'Deixar modelo 3D leve antes de pôr em página.', array['3d', 'automacao']::text[], 'baixa', null),
+  ('blender', 'Blender', 'https://www.blender.org/', '3D / renderização', 'Open source e indispensável para criar ou preparar assets 3D mais complexos.', 'Criar ou ajustar modelo 3D do produto (pote, embalagem).', array['3d']::text[], 'baixa', null),
+  ('radix-ui', 'Radix UI', 'https://www.radix-ui.com/', 'UI primitives', 'Componentes acessíveis e sem estilo rígido para montar interfaces.', 'Já é a base do shadcn no Império; usar direto só para componente fora do shadcn.', array['interface']::text[], 'media', null),
+  ('headless-ui', 'Headless UI', 'https://headlessui.com/', 'UI primitives', 'Componentes acessíveis e fáceis de estilizar com Tailwind.', 'Componentes acessíveis em apps Tailwind que não usam shadcn.', array['interface']::text[], 'baixa', null),
+  ('react-aria', 'React Aria', 'https://react-spectrum.adobe.com/react-aria/', 'Acessibilidade', 'Primitivas robustas para componentes interativos.', 'Componente interativo complexo com acessibilidade exigente.', array['interface']::text[], 'baixa', null),
+  ('magic-ui', 'Magic UI', 'https://magicui.design/', 'UI / motion', 'Componentes visuais e animações prontos para landing pages e vídeos de produto.', 'Seções animadas de landing page e PDP (hero, prova social, contador).', array['pagina', 'criativo_video']::text[], 'alta', null),
+  ('react-bits', 'React Bits', 'https://reactbits.dev/', 'UI / efeitos', 'Componentes animados e efeitos visuais que podem ser reutilizados em cenas.', 'Efeitos de texto e fundo para páginas e cenas de vídeo em React.', array['pagina', 'criativo_video']::text[], 'media', null),
+  ('aceternity-ui', 'Aceternity UI', 'https://ui.aceternity.com/', 'UI / efeitos', 'Muitos efeitos interessantes para hero sections, cards e apresentações visuais.', 'Hero section e cards com impacto visual em página de vendas.', array['pagina']::text[], 'alta', null),
+  ('remotion', 'Remotion', 'https://www.remotion.dev/', 'Vídeo programático / React', 'Provavelmente a biblioteca mais importante para criar vídeos usando React, com composição por frames, renderização via FFmpeg e suporte a dados dinâmicos.', 'Criativos de vídeo em série: mesma estrutura variando ângulo, headline, avatar e oferta a partir dos dados do projeto.', array['criativo_video']::text[], 'alta', 'Grátis para pessoa física e empresas pequenas; empresas maiores precisam de licença paga (conferir no site).'),
+  ('motion-canvas', 'Motion Canvas', 'https://motioncanvas.io/', 'Motion graphics', 'Open source, feito especialmente para animações e vídeos com TypeScript. Excelente para explicadores, diagramas e animações sincronizadas com áudio.', 'Vídeo explicativo do mecanismo (diagrama animado sincronizado com a locução).', array['criativo_video']::text[], 'alta', null),
+  ('theatrejs', 'Theatre.js', 'https://www.theatrejs.com/', 'Motion / timeline', 'Timeline visual e animação cinematográfica para WebGL, DOM e Three.js.', 'Ajustar timing de animação 3D ou de página em linha do tempo visual.', array['criativo_video', '3d']::text[], 'baixa', null),
+  ('motion', 'Motion', 'https://motion.dev/', 'Motion UI', 'Evolução do Framer Motion, ótima para animações em React, Vue e JavaScript.', 'Animações do Império (já usa framer-motion) e de páginas React.', array['interface', 'pagina']::text[], 'alta', null),
+  ('lottie-web', 'Lottie Web', 'https://github.com/airbnb/lottie-web', 'Animação vetorial', 'Reproduz animações exportadas do After Effects via JSON. Muito útil para ícones, transições e elementos de interface.', 'Animação leve em página (selo, seta, check) sem pesar o carregamento.', array['pagina', 'interface']::text[], 'alta', null),
+  ('rive', 'Rive', 'https://rive.app/', 'Animação interativa', 'Runtime open source e formato extremamente eficiente para animações vetoriais interativas.', 'Animação interativa em quiz ou página (reage a clique e rolagem).', array['pagina', 'interface']::text[], 'media', null),
+  ('ffmpeg', 'FFmpeg', 'https://ffmpeg.org/', 'Vídeo / áudio', 'Fundamental para renderizar, converter, cortar, concatenar, mixar áudio e exportar vídeos.', 'Cortar, juntar, legendar, mixar áudio e exportar formatos (9:16, 1:1, 16:9) dos criativos.', array['criativo_video', 'audio', 'automacao']::text[], 'alta', null),
+  ('playwright', 'Playwright', 'https://playwright.dev/', 'Browser rendering', 'Útil para renderizar páginas, capturar frames, gerar screenshots e automatizar cenas em navegador.', 'Print das nossas páginas e das dos concorrentes; teste do funil ponta a ponta.', array['automacao']::text[], 'alta', null),
+  ('puppeteer', 'Puppeteer', 'https://pptr.dev/', 'Browser rendering', 'Alternativa ao Playwright, muito usada para captura de canvas, SVG e HTML animado.', 'Alternativa ao Playwright quando a ferramenta já usar Puppeteer.', array['automacao']::text[], 'baixa', null),
+  ('sharp', 'Sharp', 'https://sharp.pixelplumbing.com/', 'Imagem', 'Processamento rápido de imagens, thumbnails, composição, resize e conversões.', 'Redimensionar, compor e converter criativos estáticos em lote.', array['criativo_imagem', 'automacao']::text[], 'alta', null),
+  ('satori', 'Satori', 'https://github.com/vercel/satori', 'HTML/SVG para imagem', 'Gera SVG a partir de componentes semelhantes a React. Excelente para títulos, cards, thumbnails e lower thirds.', 'Criativos estáticos em série a partir de template (headline, preço, selo) sem editor gráfico.', array['criativo_imagem']::text[], 'alta', null),
+  ('resvg-js', 'resvg-js', 'https://github.com/thx/resvg-js', 'SVG rendering', 'Renderiza SVG em PNG com alta qualidade, útil para exportar elementos gráficos.', 'Converter o SVG do Satori em PNG para subir no anúncio.', array['criativo_imagem', 'automacao']::text[], 'alta', null),
+  ('webcodecs', 'WebCodecs', 'https://developer.mozilla.org/docs/Web/API/WebCodecs_API', 'Codec de vídeo', 'API nativa para processamento de frames e áudio diretamente no navegador.', 'Editar ou gerar vídeo dentro do navegador, sem servidor.', array['criativo_video']::text[], 'baixa', null)
+on conflict (id) do update set
+  nome = excluded.nome, url = excluded.url, categoria = excluded.categoria, descricao = excluded.descricao,
+  quando_usar = excluded.quando_usar, serve_para = excluded.serve_para, prioridade = excluded.prioridade,
+  licenca_nota = excluded.licenca_nota, updated_at = now();
