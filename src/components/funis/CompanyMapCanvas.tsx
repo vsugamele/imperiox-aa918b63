@@ -3889,7 +3889,7 @@ function InnerMap({
       <GrowthCopilotModal
         open={growthCopilotOpen}
         onOpenChange={setGrowthCopilotOpen}
-        projects={projects as any}
+        projects={projects}
       />
 
     </div>

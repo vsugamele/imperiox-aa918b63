@@ -30,8 +30,8 @@ export function SemaforoProjetos({ projects, onOpenGrowthCopilot }: Props) {
 
   const projectsHealth = useMemo(() => {
     return projects.map((p) => {
-      const pData = jsonFields(p.data) as Record<string, any>;
-      const avatar = jsonFields(p.avatar) as Record<string, any>;
+      const pData = jsonFields(p.data);
+      const avatar = jsonFields(p.avatar);
 
       // Avaliação de Saúde e Prontidão
       const hasCheckout = !!(pData.checkout_url || (Array.isArray(pData.produtos) && pData.produtos.length > 0));

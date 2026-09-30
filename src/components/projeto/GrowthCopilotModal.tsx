@@ -24,13 +24,18 @@ import {
   DollarSign
 } from "lucide-react";
 import { toast } from "sonner";
-import { jsonFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
+
+/** O mapa passa só id/name/data; as páginas de projeto passam a linha inteira. */
+type CopilotProject = Pick<Tables<"imphq_projects">, "id" | "name" | "data"> &
+  Partial<Pick<Tables<"imphq_projects">, "category" | "avatar" | "icon">>;
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projects: Tables<"imphq_projects">[];
-  initialProject?: Tables<"imphq_projects">;
+  projects: CopilotProject[];
+  initialProject?: CopilotProject;
 }
 
 export function GrowthCopilotModal({ open, onOpenChange, projects, initialProject }: Props) {
@@ -51,7 +56,7 @@ export function GrowthCopilotModal({ open, onOpenChange, projects, initialProjec
 
   const budgetNum = parseFloat(budgetStr.replace(/[^\d.,]/g, "").replace(",", ".")) || 200;
 
-function parsePrice(raw: any, fallback = 47): number {
+function parsePrice(raw: unknown, fallback = 47): number {
   if (typeof raw === "number" && !isNaN(raw) && raw > 0) return raw;
   if (!raw) return fallback;
   if (typeof raw === "string") {
@@ -82,21 +87,21 @@ function parsePrice(raw: any, fallback = 47): number {
   // Análise Inteligente de Funil & Matemática da Verba
   const strategy = useMemo(() => {
     const isJP = selectedProjectId === "jp_freitas";
-    const pData = jsonFields(selectedProject?.data) as Record<string, any>;
-    const avatar = jsonFields(selectedProject?.avatar) as Record<string, any>;
+    const pData = jsonFields(selectedProject?.data);
+    const avatar = jsonFields(selectedProject?.avatar);
 
     let frontTicket = isJP ? 47 : (selectedProject?.category === "DTC Nutra" ? 69 : 47);
-    let bumpTicket = isJP ? 27 : 29;
-    let currency = selectedProject?.category === "DTC Nutra" ? "$" : "R$";
+    const bumpTicket = isJP ? 27 : 29;
+    const currency = selectedProject?.category === "DTC Nutra" ? "$" : "R$";
 
-    if (pData.produtos && Array.isArray(pData.produtos) && pData.produtos.length > 0) {
-      const targetProd = pData.produtos.find((p: any) => 
-        p.nome?.toLowerCase().includes("código") || 
-        p.nome?.toLowerCase().includes("cortes") || 
-        p.tipo_oferta === "aquisicao"
-      ) || pData.produtos[0];
+    const produtos = Array.isArray(pData.produtos) ? pData.produtos.map(objectFields) : [];
+    if (produtos.length > 0) {
+      const targetProd = produtos.find((p) => {
+        const nome = jsonText(p.nome)?.toLowerCase() ?? "";
+        return nome.includes("código") || nome.includes("cortes") || p.tipo_oferta === "aquisicao";
+      }) || produtos[0];
 
-      frontTicket = parsePrice(targetProd?.preco ?? targetProd?.valor ?? targetProd?.ticket, frontTicket);
+      frontTicket = parsePrice(targetProd.preco ?? targetProd.valor ?? targetProd.ticket, frontTicket);
     }
 
     const estimatedAOV = Number(frontTicket) + Number(bumpTicket) * 0.45; // 45% bump rate
@@ -233,8 +238,8 @@ ${strategy.angulos.map((a, i) => `
 
       await supabase.from("imphq_kanban_cards").insert(cards);
       toast.success("4 tarefas criadas no Kanban com sucesso!");
-    } catch (err: any) {
-      toast.error("Erro criando tarefas: " + err.message);
+    } catch (err) {
+      toast.error("Erro criando tarefas: " + errorMessage(err));
     } finally {
       setCreatingTasks(false);
     }
@@ -296,7 +301,7 @@ ${strategy.angulos.map((a, i) => `
 
             <div>
               <Label className="text-[11px] font-mono text-[#8A8F98]">Objetivo Principal</Label>
-              <Select value={objective} onValueChange={(v: any) => setObjective(v)}>
+              <Select value={objective} onValueChange={(v) => setObjective(v as typeof objective)}>
                 <SelectTrigger className="h-8 text-xs bg-[#0A0B0D] border-[#1B1E23] mt-1">
                   <SelectValue />
                 </SelectTrigger>

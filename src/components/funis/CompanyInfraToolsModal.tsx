@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/error-message";
+import { jsonFields, jsonNumber, jsonText, objectFields } from "@/lib/json-fields";
 import {
   Smartphone,
   KeyRound,
@@ -60,7 +63,14 @@ interface PerfilEmpresa {
   seguidores: number | null;
   cloud_phone_provider: string | null;
   project_id: string | null;
-  extra?: any;
+  extra?: Json;
+}
+
+interface ProjectRow {
+  id: string;
+  name: string;
+  category: string | null;
+  data: Json;
 }
 
 interface VaultTool {
@@ -84,7 +94,7 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
   const [phones, setPhones] = useState<CloudPhone[]>([]);
   const [perfis, setPerfis] = useState<PerfilEmpresa[]>([]);
   const [tools, setTools] = useState<VaultTool[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
 
   // Modal de Edição de Acesso / Ferramenta
   const [editingTool, setEditingTool] = useState<Partial<VaultTool> | null>(null);
@@ -108,9 +118,9 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
       setPhones((phonesRes.data || []) as CloudPhone[]);
       setPerfis((perfisRes.data || []) as PerfilEmpresa[]);
       setTools((toolsRes.data || []) as VaultTool[]);
-      setProjects(projectsRes.data || []);
-    } catch (err: any) {
-      toast.error("Erro ao carregar infraestrutura: " + (err.message || err));
+      setProjects((projectsRes.data || []) as ProjectRow[]);
+    } catch (err) {
+      toast.error("Erro ao carregar infraestrutura: " + (errorMessage(err) || "erro desconhecido"));
     } finally {
       setLoading(false);
     }
@@ -128,7 +138,7 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
     kind: string,
     color: string,
     description: string,
-    apiBinding?: any,
+    apiBinding?: Json,
     stageRole?: string
   ) => {
     if (!mapId) {
@@ -159,8 +169,8 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
 
       toast.success(`Nó "${label}" adicionado ao mapa visual!`);
       if (onNodeInjected) onNodeInjected();
-    } catch (err: any) {
-      toast.error("Erro ao adicionar nó: " + (err.message || err));
+    } catch (err) {
+      toast.error("Erro ao adicionar nó: " + (errorMessage(err) || "erro desconhecido"));
     }
   };
 
@@ -173,7 +183,7 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
 
     setSavingTool(true);
     try {
-      const payload: any = {
+      const payload = {
         name: editingTool.name,
         url: editingTool.url || null,
         username: editingTool.username || null,
@@ -196,8 +206,8 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
 
       setEditingTool(null);
       loadData();
-    } catch (err: any) {
-      toast.error("Erro ao salvar ferramenta: " + (err.message || err));
+    } catch (err) {
+      toast.error("Erro ao salvar ferramenta: " + (errorMessage(err) || "erro desconhecido"));
     } finally {
       setSavingTool(false);
     }
@@ -212,7 +222,7 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
 
     setSavingPerfil(true);
     try {
-      const payload: any = {
+      const payload = {
         nome: editingPerfil.nome,
         tipo: editingPerfil.tipo || "instagram",
         warmup_status: editingPerfil.warmup_status || "aquecendo",
@@ -234,8 +244,8 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
 
       setEditingPerfil(null);
       loadData();
-    } catch (err: any) {
-      toast.error("Erro ao salvar perfil: " + (err.message || err));
+    } catch (err) {
+      toast.error("Erro ao salvar perfil: " + (errorMessage(err) || "erro desconhecido"));
     } finally {
       setSavingPerfil(false);
     }
@@ -543,8 +553,11 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
 
             <div className="space-y-3">
               {projects.map((proj) => {
-                const pData = (proj.data || {}) as Record<string, any>;
-                const prods = Array.isArray(pData.produtos) ? pData.produtos : [];
+                const pData = jsonFields(proj.data);
+                const prods = (Array.isArray(pData.produtos) ? pData.produtos : []).map((raw) => {
+                  const p = objectFields(raw);
+                  return { nome: jsonText(p.nome), preco: jsonText(p.preco) ?? jsonNumber(p.preco), ticket: jsonText(p.ticket) ?? jsonNumber(p.ticket) };
+                });
 
                 return (
                   <div key={proj.id} className="p-3.5 rounded-lg bg-[#0E1013] border border-[#1B1E23] space-y-3">
@@ -580,7 +593,7 @@ export function CompanyInfraToolsModal({ open, onOpenChange, mapId, onNodeInject
 
                     {/* Lista de Produtos do Projeto */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {prods.map((prod: any, idx: number) => (
+                      {prods.map((prod, idx) => (
                         <div key={idx} className="p-2.5 rounded bg-[#0A0B0D] border border-[#1B1E23] flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <div className="text-xs font-medium text-white truncate">{prod.nome || "Produto Sem Nome"}</div>
