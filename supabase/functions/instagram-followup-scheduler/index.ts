@@ -1,3 +1,5 @@
+import { acquireIgReply, validIgLease, releaseIgReply } from "../_shared/ig-reply-lease.ts";
+import { productContext, jpConversationRules, guardJPReply, dedupeHistory, permanentJPRules } from "../_shared/conversation-policy.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
@@ -20,6 +22,18 @@ Deno.serve(async (req) => {
   try {
     console.log("[ig-followup-scheduler] Iniciando processamento de follow-ups...");
 
+    const { data: pendingReplies, error: pendingError } = await supa.rpc("imphq_pending_ig_replies");
+    if (pendingError) console.error("[ig-followup] pending recovery query failed");
+    for (const pending of pendingReplies || []) {
+      const res = await supa.functions.invoke("instagram-webhook", { body: {
+        object: "instagram", resume_pending: true, entry: [{ id: pending.ig_user_id, messaging: [{
+          sender: { id: pending.participant_id }, recipient: { id: pending.ig_user_id },
+          timestamp: Date.parse(pending.created_at), message: { mid: pending.mid, text: pending.content },
+        }] }],
+      } });
+      if (res.error) console.error("[ig-followup] pending recovery invoke failed");
+    }
+
     // 1. Buscar todas as conversas elegíveis para follow-up de 24h
     // follow_up_status = 'pending' E last_message_at entre 24h e 48h atrás
     const time24hAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -29,6 +43,8 @@ Deno.serve(async (req) => {
       .from("imphq_ig_conversations")
       .select("*, imphq_ig_accounts!inner(project_id, ig_user_id)")
       .eq("follow_up_status", "pending")
+      .eq("ai_paused", false)
+      .neq("ia_ativa", false)
       .lte("last_message_at", time24hAgo)
       .gte("last_message_at", time48hAgo);
 
@@ -54,7 +70,7 @@ Deno.serve(async (req) => {
     for (const conv of convs) {
       processedCount++;
       const account = record(conv.imphq_ig_accounts);
-      const projectId = account?.project_id;
+      const projectId = String(account?.project_id || "");
       const igUserId = account?.ig_user_id;
 
       if (!projectId || !igUserId) {
@@ -64,7 +80,12 @@ Deno.serve(async (req) => {
 
       console.log(`[ig-followup-scheduler] Processando conversa ${conv.id} (Lead @${conv.participant_username}) no projeto ${projectId}`);
 
+      let lease: string | null = null;
       try {
+        if (projectId === "jp_freitas") {
+          lease = await acquireIgReply(supa, conv.id, null);
+          if (!lease) continue;
+        }
         // 2. Buscar a configuração de IA do projeto
         let aiConfig = null;
         const { data: configs, error: configErr } = await supa
@@ -78,7 +99,7 @@ Deno.serve(async (req) => {
           aiConfig = configs.find((c) => !c.provider_id) || configs[0];
         }
 
-        if (!aiConfig) {
+        if (!aiConfig || !aiConfig.instagram_enabled) {
           console.log(`[ig-followup-scheduler] IA desabilitada ou não configurada para o projeto ${projectId}`);
           continue;
         }
@@ -86,7 +107,7 @@ Deno.serve(async (req) => {
         // 3. Buscar histórico de mensagens da conversa
         const { data: dbHistory } = await supa
           .from("imphq_ig_messages")
-          .select("direction, content, created_at")
+          .select("id,mid,direction,content,created_at")
           .eq("conversation_id", conv.id)
           .order("created_at", { ascending: false })
           .limit(10);
@@ -119,10 +140,10 @@ Deno.serve(async (req) => {
           const sources = aiConfig.context_sources || [];
           const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
           if (sources.includes("briefing") && d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 600)}\n`;
-          if (sources.includes("produtos") && d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+          if (sources.includes("produtos") && d.produtos) projectContext += projectId === "jp_freitas" ? productContext(d, projectId) : `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
           if (sources.includes("avatar") && project.avatar) projectContext += `Avatar: ${JSON.stringify(project.avatar).slice(0, 400)}\n`;
           if (sources.includes("branding") && project.brand_kit) projectContext += `Branding: ${JSON.stringify(project.brand_kit).slice(0, 400)}\n`;
-          if (sources.includes("copy_arsenal")) {
+          if (projectId !== "jp_freitas" && sources.includes("copy_arsenal")) {
             const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
             if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
           }
@@ -159,24 +180,24 @@ Deno.serve(async (req) => {
         const customInstr = aiConfig.custom_instructions;
         const productFocus = aiConfig.product_focus;
 
-        const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+        const systemPrompt = `${jpConversationRules(projectId)}${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
 ${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
 Você está respondendo via Instagram Direct (DM) para a empresa "${project?.name || ""}".
 Seu objetivo é enviar uma mensagem curta de follow-up (acompanhamento/lembrete) após 24 horas de silêncio do lead, com o intuito de reatar a conversa de forma amigável e natural.
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
 ${productFocus ? `\nOFERTA ATIVA (se fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
-${customInstr ? `\nREGRAS DO EXPERT:\n${customInstr.slice(0, 600)}\n` : ""}
+${customInstr ? `\nREGRAS DO EXPERT:\n${customInstr}\n` : ""}
 REGRAS DO FOLLOW-UP:
 - Seja extremamente conciso (máximo 1-2 frases curtas, ex: "Ei! Conseguiu ver o que te mandei?" ou "Olá! Ficou alguma dúvida sobre o que conversamos ontem?").
 - Fale de forma muito natural e humana, como se estivesse batendo um papo.
-- NUNCA mencione que você é um sistema automatizado ou IA.
+- Seja transparente sobre ser o assistente da equipe, se perguntarem.
 - Seja amigável e utilize o tom de voz da marca.
 - Não empurre a venda de forma agressiva; apenas tente puxar assunto sobre a última mensagem enviada no histórico abaixo.`;
 
         // Ordenar histórico cronologicamente (do mais antigo para o mais recente)
-        const historyMsgs = [...dbHistory].reverse();
+        const historyMsgs = dedupeHistory(dbHistory).reverse();
 
-        const messages: { role: string; content: string }[] = [{ role: "system", content: systemPrompt }];
+        const messages: { role: string; content: string }[] = [{ role: "system", content: systemPrompt + await permanentJPRules(supa, projectId, conv.id) + jpConversationRules(projectId) }];
         historyMsgs.forEach((m) => {
           messages.push({
             role: m.direction === "in" || m.direction === "incoming" ? "user" : "assistant",
@@ -237,7 +258,7 @@ REGRAS DO FOLLOW-UP:
         }
 
         const aiData = await aiRes.json();
-        const aiReply = aiData.choices?.[0]?.message?.content || "";
+        const aiReply = guardJPReply(aiData.choices?.[0]?.message?.content || "", typeof project?.data === "string" ? JSON.parse(project.data) : project?.data, projectId, historyMsgs.map(m => m.content || "").join("\n"));
 
         if (!aiReply.trim()) {
           console.warn(`[ig-followup-scheduler] Resposta gerada vazia para conversa ${conv.id}`);
@@ -246,6 +267,12 @@ REGRAS DO FOLLOW-UP:
 
         console.log(`[ig-followup-scheduler] Resposta de follow-up gerada: "${aiReply.trim()}"`);
 
+        if (lease) {
+          if (!await validIgLease(supa, conv.id, lease)) continue;
+          const { data: freshLast } = await supa.from("imphq_ig_messages").select("id,direction").eq("conversation_id",conv.id).order("created_at",{ascending:false}).limit(1).single();
+          const { data: freshConv } = await supa.from("imphq_ig_conversations").select("follow_up_status").eq("id",conv.id).single();
+          if (freshLast?.id !== dbHistory[0].id || freshLast?.direction === "in" || freshConv?.follow_up_status !== "pending") continue;
+        }
         // 7. Enviar a mensagem via instagram-api passando metadata.is_follow_up = true
         const { data: replyData, error: replyError } = await supa.functions.invoke("instagram-api", {
           body: {
@@ -253,6 +280,7 @@ REGRAS DO FOLLOW-UP:
             project_id: projectId,
             recipient_id: conv.participant_id,
             text: aiReply.trim(),
+            ai_generated: true,
             metadata: { is_follow_up: true },
           },
         });
@@ -296,6 +324,8 @@ REGRAS DO FOLLOW-UP:
           .from("imphq_ig_conversations")
           .update({ follow_up_status: errMsg })
           .eq("id", conv.id);
+      } finally {
+        if (lease) await releaseIgReply(supa, conv.id, lease, null);
       }
     }
 

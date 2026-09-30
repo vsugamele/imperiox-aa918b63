@@ -1,3 +1,4 @@
+import { cheaperProduct, productContext, jpConversationRules, guardJPReply, guardDownsell } from "../_shared/conversation-policy.ts";
 import { z } from "https://esm.sh/zod@3.25.76";
 /**
  * wa-pitch-followup — Follow-up consultivo automático pós-envio do link de checkout
@@ -170,24 +171,9 @@ Deno.serve(async (req) => {
           const produtoOfertado = conv.last_pitch_produto || "o curso";
           const linkOfertado = conv.last_pitch_link || "";
 
-          // Produto entrada (stage 3): config explícita ou produto mais barato com preço
-          let entryProduct: z.infer<typeof EntryProduct> | null = null;
-          if (stageNext === 3) {
-            if (cfg.pitch_followup_entry_product_id) {
-              entryProduct = produtos.find((p) => p.id === cfg.pitch_followup_entry_product_id) || null;
-            }
-            if (!entryProduct) {
-              const ofertado = produtoOfertado.toLowerCase();
-              const others = produtos
-                .filter((p) => {
-                  const nome = (p.nome || p.name || "").toLowerCase();
-                  const preco = parseFloat(String(p.preco || p.price || 0));
-                  return nome && preco > 0 && !nome.includes(ofertado) && !ofertado.includes(nome);
-                })
-                .sort((a, b) => parseFloat(String(a.preco || a.price || 0)) - parseFloat(String(b.preco || b.price || 0)));
-              entryProduct = others[0] || null;
-            }
-          }
+          const entryProduct = stageNext === 3
+            ? cheaperProduct(d, project_id, produtoOfertado, linkOfertado, cfg.pitch_followup_entry_product_id)
+            : null;
 
           // Objeções calibradas do projeto (contexto extra)
           const { data: objs } = await supabase
@@ -211,10 +197,10 @@ Deno.serve(async (req) => {
 - 1 pergunta consultiva no final. Máx 3 linhas.`
             : `Toque 3 — Último toque / Descompressão ou plano de entrada.
 - Reconheça com leveza que talvez o momento esteja corrido ou o investimento do ${produtoOfertado} pese agora.
-${entryProduct ? `- Sugira a opção de entrada: "${entryProduct.nome || entryProduct.name}" (R$ ${entryProduct.preco || entryProduct.price}) caso queira começar de forma mais acessível.` : `- Diga que se preferir ver isso com calma depois ou tiver qualquer dúvida, tá tudo bem.`}
+${entryProduct ? `- Sugira a opção de entrada: "${entryProduct.name}" (R$ ${entryProduct.price?.toFixed(2)}) caso queira começar de forma mais acessível.` : `- Não existe alternativa inferior confirmada: É PROIBIDO sugerir outro produto neste toque. Diga que se preferir ver isso com calma depois ou tiver qualquer dúvida, tá tudo bem.`}
 - Sem pressão comercial. Máx 3 linhas. 1 pergunta acolhedora no final.`;
 
-          const systemPrompt = `Você é um vendedor consultivo humano e empático no WhatsApp, atendendo para "${project?.name || project_id}".
+          const systemPrompt = `${jpConversationRules(project_id)}${productContext(d, project_id)}Você é um assistente de atendimento consultivo e empático no WhatsApp, atendendo para "${project?.name || project_id}".
 ${cfg.expert_persona ? `Persona: ${cfg.expert_persona}.` : ""}
 Tom: ${cfg.tone || "amigavel"}. Personalidade: ${cfg.personality || "consultor"}.
 
@@ -264,6 +250,8 @@ REGRAS RÍGIDAS:
             results.errors.push(`ai exc conv=${conv.id}: ${errorMessage(e)}`);
             continue;
           }
+          if (stageNext === 3) aiText = guardDownsell(aiText, d, project_id, entryProduct);
+          aiText = guardJPReply(aiText, d, project_id, history);
           if (!aiText) { results.skipped++; continue; }
 
           // Envia via Evolution

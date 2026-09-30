@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { databaseTable, type DatabasePort } from "./database-port.ts";
 import { errorText, record } from "./value.ts";
 // Helper compartilhado de embeddings com cache.
 // Antes: cada chamada paga ao Lovable/OpenRouter mesmo se o mesmo texto foi feito ontem.
@@ -74,7 +74,7 @@ async function callEmbeddingApi(text: string, model: string, dimensions: number)
  * @returns embedding array ou null se falhar
  */
 export async function getCachedEmbedding(
-  supabase: SupabaseClient,
+  supabase: DatabasePort,
   text: string,
   opts: { model?: string; dimensions?: number; skipCache?: boolean } = {}
 ): Promise<number[] | null> {
@@ -86,18 +86,18 @@ export async function getCachedEmbedding(
   if (!opts.skipCache) {
     try {
       const hash = await sha256Hex(`${normalized}::${model}::${dimensions}`);
-      const { data: cached } = await supabase
-        .from("imphq_embedding_cache")
+      const { data: rawCached } = await databaseTable(supabase, "imphq_embedding_cache")
         .select("id, embedding, hits")
         .eq("text_hash", hash)
         .eq("model", model)
         .eq("dimensions", dimensions)
         .maybeSingle();
 
-      if (validEmbedding(cached?.embedding, dimensions)) {
+      const cached = record(rawCached);
+      if (validEmbedding(cached.embedding, dimensions)) {
         // Fire-and-forget atualização de hits/last_used_at
-        supabase.from("imphq_embedding_cache")
-          .update({ hits: (cached.hits || 0) + 1, last_used_at: new Date().toISOString() })
+        databaseTable(supabase, "imphq_embedding_cache")
+          .update({ hits: (typeof cached.hits === "number" ? cached.hits : 0) + 1, last_used_at: new Date().toISOString() })
           .eq("id", cached.id)
           .then(() => {}, () => {});
         return cached.embedding;
@@ -108,7 +108,7 @@ export async function getCachedEmbedding(
       if (!emb) return null;
 
       // Write-through (fire-and-forget com upsert para concorrência)
-      supabase.from("imphq_embedding_cache").upsert({
+      databaseTable(supabase, "imphq_embedding_cache").upsert({
         text_hash: hash,
         model,
         dimensions,
@@ -132,7 +132,7 @@ export async function getCachedEmbedding(
  * Retorna array de embeddings (null em índice se falhou).
  */
 export async function getCachedEmbeddingsBatch(
-  supabase: SupabaseClient,
+  supabase: DatabasePort,
   texts: string[],
   opts: { model?: string; dimensions?: number } = {}
 ): Promise<(number[] | null)[]> {

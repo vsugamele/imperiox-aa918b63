@@ -409,19 +409,21 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Grava mensagem outbound
-      const { data: conv } = await supa.from("imphq_ig_conversations").select("id").eq("participant_id", recipient_id).maybeSingle();
-      if (conv) {
-        await supa.from("imphq_ig_messages").insert({
-          conversation_id: conv.id,
-          direction: "out",
-          type: "text",
-          content: text,
-          mid: messageId,
-          status: "sent",
-          ai_generated: !!ai_generated,
-          metadata: { ...(metadata || {}), provider, zernio_error: zernioErr || undefined },
+      // Scope lookup to this project's account, not only participant ID.
+      const { data: accountIds } = await supa.from("imphq_ig_accounts").select("id").eq("project_id", project_id);
+      const { data: conv } = await supa.from("imphq_ig_conversations").select("id").eq("participant_id", recipient_id)
+        .in("account_id", (accountIds || []).map(a => a.id)).maybeSingle();
+      if (conv && project_id === "jp_freitas") {
+        const { error: ingestError } = await supa.rpc("imphq_ingest_ig_message", {
+          p_conversation_id: conv.id, p_direction: "out", p_type: "text", p_content: text,
+          p_media_url: null, p_mid: messageId || null, p_source: "outbound-api", p_created_at: new Date().toISOString(),
+          p_ai_generated: !!ai_generated, p_metadata: { ...(metadata || {}), provider },
         });
+        if (ingestError) console.error("[instagram-api] Sent message persistence failed:", ingestError.code);
+      } else if (conv) {
+        await supa.from("imphq_ig_messages").insert({ conversation_id: conv.id, direction: "out", type: "text",
+          content: text, mid: messageId, status: "sent", ai_generated: !!ai_generated,
+          metadata: { ...(metadata || {}), provider, zernio_error: zernioErr || undefined } });
       }
       return json({ success: true, message_id: messageId, provider, fallback: !!zernioErr });
     }

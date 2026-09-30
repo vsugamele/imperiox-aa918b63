@@ -1,3 +1,7 @@
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+import { acquireIgReply, validIgLease, releaseIgReply } from "../_shared/ig-reply-lease.ts";
+import { jpPrepareAccessReply, jpBuildInstructionsBlock, jpLookupLead, jpBuildContextBlock } from "../_shared/crmBridgeJP.ts";
+import { productContext, jpConversationRules, guardJPReply, dedupeHistory, permanentJPRules } from "../_shared/conversation-policy.ts";
 // Instagram webhook receiver — Meta envia POST com mensagens, comentários, menções
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -231,13 +235,14 @@ Deno.serve(async (req) => {
         const senderName = messaging.sender?.name || null;
         const senderAvatar = messaging.sender?.avatar || null;
 
-        const upsertData: { account_id: string; participant_id: string; last_message: string; last_message_at: string; participant_username?: string; participant_name?: string; participant_avatar?: string } = {
+        const upsertData: { ig_thread_id?: string; account_id: string; participant_id: string; last_message: string; last_message_at: string; participant_username?: string; participant_name?: string; participant_avatar?: string } = {
           account_id: account.id,
           participant_id: participantId,
           last_message: messaging.message?.text || "[mídia]",
           last_message_at: new Date(messaging.timestamp || Date.now()).toISOString(),
         };
 
+        if (messaging.zernio_thread_id) upsertData.ig_thread_id = messaging.zernio_thread_id;
         if (senderUsername) upsertData.participant_username = senderUsername;
         if (senderName) upsertData.participant_name = senderName;
         if (senderAvatar) upsertData.participant_avatar = senderAvatar;
@@ -285,11 +290,26 @@ Deno.serve(async (req) => {
         }
 
         if (conv && messaging.message) {
-          const content = messaging.message.text || null;
+          let content = messaging.message.text || null;
+          let storedMessageId: string | null = null;
           const remoteMedia = messaging.message.attachments?.[0]?.payload?.url || null;
           const persistedMedia = remoteMedia
             ? await persistIgMedia(supa, remoteMedia, account.project_id, `dm/${conv.id}/${messaging.message.mid || Date.now()}`)
             : null;
+          if (account.project_id === "jp_freitas") {
+            const { data: ingested, error: ingestError } = await supa.rpc("imphq_ingest_ig_message", {
+              p_conversation_id: conv.id, p_direction: isInbound ? "in" : "out",
+              p_type: messaging.message.attachments?.[0]?.type || "text", p_content: content,
+              p_media_url: persistedMedia || remoteMedia, p_mid: messaging.message.mid || null,
+              p_source: messaging.ingest_source === "zernio" ? "zernio" : "meta",
+              p_created_at: new Date(messaging.timestamp || Date.now()).toISOString(),
+              p_ai_generated: false, p_metadata: { story_reply: !!messaging.message.reply_to },
+            });
+            if (ingestError) throw ingestError;
+            storedMessageId = ingested?.id || null;
+            const internalResume = payload.resume_pending === true && req.headers.get("authorization") === `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+            if (!ingested?.inserted && !internalResume) continue;
+          } else {
           // Dedupe: eco de mensagem enviada por nós — atualiza o registro existente
           // em vez de criar uma cópia. Também evita reinserir o mesmo mid.
           let alreadyStored = false;
@@ -331,6 +351,8 @@ Deno.serve(async (req) => {
               mid: messaging.message.mid,
               status: isInbound ? "received" : "sent",
             });
+          }
+
           }
 
           // Auto-detect Brazilian phone number and auto-bridge to WhatsApp CRM & OpenFlow!
@@ -389,8 +411,21 @@ Deno.serve(async (req) => {
             }
 
             try {
-              (async () => {
+              const replyTask = (async () => {
+                let lease: string | null = null;
+                let handledId: string | null = null;
+                let supportPending = false;
                 try {
+                  if (account.project_id === "jp_freitas") {
+                    lease = await acquireIgReply(supa, conv.id, storedMessageId);
+                    if (!lease) return;
+                    // Coalesce messages already received, so the model sees the latest request.
+                    const { data: latest } = await supa.from("imphq_ig_messages").select("id,content")
+                      .eq("conversation_id", conv.id).eq("direction", "in").order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1).single();
+                    handledId = latest?.id || storedMessageId;
+                    content = latest?.content || content;
+                  }
+
                   // --- CHECK TRIGGERS (DM, Story Reply, Story Mention) ---
                   const isStoryReply = !!(messaging.message?.reply_to || messaging.message?.reply_to?.story);
                   const isStoryMention = isStoryMentionMsg || messaging.message?.attachments?.[0]?.type === "story";
@@ -454,6 +489,7 @@ Deno.serve(async (req) => {
                         }
                       }
                     }
+                    if (lease) await releaseIgReply(supa, conv.id, lease, handledId);
                     return; // Bypass standard AI reply!
                   }
 
@@ -529,7 +565,7 @@ Deno.serve(async (req) => {
                     .order("created_at", { ascending: false })
                     .limit(1)
                     .maybeSingle();
-                  if (lastAiMsg?.created_at) {
+                  if (account.project_id !== "jp_freitas" && lastAiMsg?.created_at) {
                     const last = new Date(lastAiMsg.created_at).getTime();
                     if (Date.now() - last < cooldownSec * 1000) {
                       console.log(`[ig-webhook] AI cooldown active (${cooldownSec}s), skipping`);
@@ -544,7 +580,7 @@ Deno.serve(async (req) => {
                     .eq("conversation_id", conv.id)
                     .order("created_at", { ascending: false })
                     .limit(2);
-                  if (recentMsgs && recentMsgs.length > 0 && recentMsgs[0].direction === "out") {
+                  if (account.project_id !== "jp_freitas" && recentMsgs && recentMsgs.length > 0 && recentMsgs[0].direction === "out") {
                     console.log(`[ig-webhook] Last message was outgoing, skipping to prevent double reply`);
                     return;
                   }
@@ -577,10 +613,10 @@ Deno.serve(async (req) => {
                     const sources = aiConfig.context_sources || [];
                     const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
                     if (sources.includes("briefing") && d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 600)}\n`;
-                    if (sources.includes("produtos") && d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+                    if (sources.includes("produtos") && d.produtos) projectContext += account.project_id === "jp_freitas" ? productContext(d, account.project_id) : `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
                     if (sources.includes("avatar") && project.avatar) projectContext += `Avatar: ${JSON.stringify(project.avatar).slice(0, 400)}\n`;
                     if (sources.includes("branding") && project.brand_kit) projectContext += `Branding: ${JSON.stringify(project.brand_kit).slice(0, 400)}\n`;
-                    if (sources.includes("copy_arsenal")) {
+                    if (account.project_id !== "jp_freitas" && sources.includes("copy_arsenal")) {
                       const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
                       if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
                     }
@@ -643,12 +679,12 @@ Deno.serve(async (req) => {
                     if (lastIgTriage.intent === "objecao") igTriageBlock += "\n⚠️ Lead com objeção — quebre com empatia.";
                   }
 
-                  const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+                  const systemPrompt = `${jpConversationRules(account.project_id)}${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
 ${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
 Você está respondendo via Instagram Direct (DM) para a empresa "${project?.name || ""}".
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
 ${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
-${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
+${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr}\n` : ""}
 ${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}${igTriageBlock}
 REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
 - Responda em português brasileiro de forma natural, curta, direta e simpática. DMs do Instagram devem ser dinâmicas e fluidas!
@@ -659,25 +695,34 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
   * Mostre de forma firme, mas sutil, que o nosso Mecanismo é o único veículo viável capaz de gerar a transformação prometida, invalidando soluções genéricas concorrentes.
 - Seja EXTREMAMENTE CONCISO (máximo 1-2 parágrafos curtos).
 - Não envie blocos densos ou extensos de texto. Fale como um humano real conversando.
-- NUNCA diga que é uma inteligência artificial, robô ou assistente limitado. Não use frases como "como sou um assistente virtual, não tenho acesso".
-- Se o lead perguntar sobre entrega de produtos, status de pedidos, envio, rastreamento ou qualquer suporte técnico/financeiro que você não saiba responder, diga amigavelmente que vai verificar os detalhes com a equipe administrativa interna imediatamente e que ele receberá uma notificação com a resposta em breve (por e-mail, WhatsApp ou notificação push no aplicativo/PWA).
-- NUNCA invente informações. Se não souber, diga que verificará com a equipe.`;
+- Se perguntarem, informe que é o assistente automático da equipe. Não se passe pelo expert.
+- Suporte sem resposta confirmada: use [TRANSICAO_HUMANA]. Não prometa contato, email ou notificação futura.
+- NUNCA invente informações ou anuncie uma ação antes da confirmação operacional.`;
 
                   // Fetch recent messages for history context — expanded to 20 messages for richer memory
                   const { data: dbHistory } = await supa
                     .from("imphq_ig_messages")
-                    .select("direction, content")
+                    .select("id,mid,direction,content,created_at")
                     .eq("conversation_id", conv.id)
                     .order("created_at", { ascending: false })
-                    .limit(20);
+                    .limit(40);
 
-                  const historyMsgs = (dbHistory || []).slice();
+                  const historyMsgs = dedupeHistory(dbHistory || []).slice(0, 20);
+                  if (lease) {
+                    const snapshot = historyMsgs.find(m => m.direction === "in");
+                    handledId = snapshot?.id || handledId;
+                    content = snapshot?.content || content;
+                  }
                   // Skip current message if already inserted
                   if (historyMsgs.length > 0 && historyMsgs[0].content === content && historyMsgs[0].direction === "in") {
                     historyMsgs.shift();
                   }
 
-                  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt + ragBlock }];
+                  const inboundContext = [content, ...historyMsgs.filter(m => m.direction === "in").slice(0, 2).map(m => m.content || "")].join("\n");
+                  const leadEmail = inboundContext.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0]?.toLowerCase() || "";
+                  const crmLookup = account.project_id === "jp_freitas" && leadEmail ? await jpLookupLead(leadEmail) : null;
+                  const jpSupportBlock = account.project_id === "jp_freitas" ? jpBuildContextBlock(crmLookup, leadEmail) + jpBuildInstructionsBlock(!!leadEmail) : "";
+                  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt + ragBlock + jpSupportBlock + await permanentJPRules(supa, account.project_id, conv.id) + jpConversationRules(account.project_id) + (account.project_id === "jp_freitas" ? productContext(typeof project?.data === "string" ? JSON.parse(project.data) : project?.data, account.project_id) : "") }];
                   [...historyMsgs].reverse().forEach((m) => {
                     messages.push({
                       role: m.direction === "in" ? "user" : "assistant",
@@ -718,6 +763,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                         "X-Title": "Imperio HQ",
                       },
                       body: JSON.stringify({ model: mdl, messages: formattedMessages, max_tokens: maxTokens, temperature, top_p }),
+                      signal: AbortSignal.timeout(25_000),
                     });
                   }
 
@@ -734,7 +780,26 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
 
                   if (aiRes && aiRes.ok) {
                     const aiData = await aiRes.json();
-                    const aiReply = aiData.choices?.[0]?.message?.content || "";
+                    let aiReply = aiData.choices?.[0]?.message?.content || "";
+                    if (account.project_id === "jp_freitas") {
+                      // Drafts must not execute support actions or mint login tokens.
+                      if (!aiConfig.draft_mode) {
+                        const prepared = await jpPrepareAccessReply(aiReply, leadEmail, inboundContext, content || "");
+                        aiReply = prepared.text;
+                        if (prepared.needsHandoff) {
+                          const { error: supportError } = await supa.from("imphq_notifications").insert({
+                            user_id: project?.user_id || null, title: "Suporte JP — Instagram",
+                            message: "Recuperação automática pendente. Verificar cadastro e acesso nesta conversa.",
+                            type: "warning", entity_type: "ig_conversation", entity_id: conv.id,
+                          });
+                          aiReply = "Não consegui concluir essa solicitação automaticamente.";
+                          if (!supportError) { aiReply += " Registrei o pedido para a equipe verificar."; supportPending = true; }
+                          else console.error("[ig-webhook] JP support ticket failed");
+                        }
+                      }
+                      const context = [...historyMsgs].reverse().map(m => m.content || "").join("\n") + "\n" + content;
+                      aiReply = guardJPReply(aiReply, typeof project?.data === "string" ? JSON.parse(project.data) : project?.data, account.project_id, context).replace(/\[(TRANSICAO_HUMANA|CHAMAR_HUMANO)\]/gi, "").trim();
+                    }
 
                     if (aiReply.trim()) {
                       if (aiConfig.draft_mode) {
@@ -749,6 +814,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                           status: "pending",
                         });
                         console.log(`[ig-webhook] AI draft saved for @${conv.participant_username || 'lead'}`);
+                        if (lease) await releaseIgReply(supa, conv.id, lease, handledId);
 
                         // Web push notification
                         if (project?.user_id) {
@@ -767,6 +833,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                         const delay = (aiConfig.response_delay_seconds || 3) * 1000;
                         if (delay > 0) await new Promise(r => setTimeout(r, Math.min(delay, 10000)));
 
+                        if (lease && !await validIgLease(supa, conv.id, lease)) return;
                         const replyRes = await supa.functions.invoke("instagram-api", {
                           body: {
                             action: "send_text",
@@ -780,6 +847,8 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                         if (replyData?.success) {
                           // instagram-api já grava a mensagem (com ai_generated=true) — não inserir de novo.
                           console.log(`[ig-webhook] AI direct reply sent successfully`);
+                          if (supportPending) await supa.from("imphq_ig_conversations").update({ ai_paused: true, ai_paused_reason: "jp_support_pending" }).eq("id", conv.id);
+                          if (lease) await releaseIgReply(supa, conv.id, lease, handledId);
                         } else {
                           console.error(`[ig-webhook] Failed to send AI direct reply:`, replyData?.error);
                         }
@@ -791,8 +860,11 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   }
                 } catch (innerErr: unknown) {
                   console.error("[ig-webhook] Async DM AI error:", errorMessage(innerErr));
+                } finally {
+                  if (lease) await releaseIgReply(supa, conv.id, lease, null);
                 }
               })();
+              EdgeRuntime.waitUntil(replyTask);
             } catch (triggerErr: unknown) {
               console.warn("[ig-webhook] Async DM AI trigger error:", errorMessage(triggerErr));
             }
@@ -971,10 +1043,10 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                     const sources = aiConfig.context_sources || [];
                     const d = typeof project.data === "string" ? JSON.parse(project.data) : (project.data || {});
                     if (sources.includes("briefing") && d.briefing) projectContext += `Briefing: ${JSON.stringify(d.briefing).slice(0, 600)}\n`;
-                    if (sources.includes("produtos") && d.produtos) projectContext += `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
+                    if (sources.includes("produtos") && d.produtos) projectContext += account.project_id === "jp_freitas" ? productContext(d, account.project_id) : `Produtos: ${JSON.stringify(d.produtos).slice(0, 600)}\n`;
                     if (sources.includes("avatar") && project.avatar) projectContext += `Avatar: ${JSON.stringify(project.avatar).slice(0, 400)}\n`;
                     if (sources.includes("branding") && project.brand_kit) projectContext += `Branding: ${JSON.stringify(project.brand_kit).slice(0, 400)}\n`;
-                    if (sources.includes("copy_arsenal")) {
+                    if (account.project_id !== "jp_freitas" && sources.includes("copy_arsenal")) {
                       const ca = d.copy_arsenal || (d.produtos?.[0]?.copy_arsenal);
                       if (ca) projectContext += `Copy Arsenal: ${JSON.stringify(ca).slice(0, 400)}\n`;
                     }
@@ -1027,19 +1099,19 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   const customInstr = aiConfig.custom_instructions;
                   const productFocus = aiConfig.product_focus;
 
-                  const systemPrompt = `${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
+                  const systemPrompt = `${jpConversationRules(account.project_id)}${expertPersona ? `PERSONA DO EXPERT (incorpore essa voz de forma natural):\n${expertPersona.slice(0, 600)}\n\n` : ""}${personalityPrompts[aiConfig.personality] || personalityPrompts.assistente}
 ${toneInstructions[aiConfig.tone] || toneInstructions.profissional}
 Você está respondendo a um comentário público no Instagram para a empresa "${project?.name || ""}".
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
 ${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
-${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr.slice(0, 600)}\n` : ""}
+${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr}\n` : ""}
 REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
 - Responda em português brasileiro de forma extremamente natural, amigável e muito curta (máximo 1-2 frases curtas). Comentários do Instagram devem ser super objetivos e chamativos!
-- Se o lead pedir informações, links, preços, etc. ou demonstrar forte interesse, responda de forma simpática dizendo que enviou os detalhes no Direct (DM) dele! Ex: "Te enviei tudo no direct! Confere lá 😉"
+- Não diga que enviou Direct sem envio confirmado. Se pedir informação privada, convide a pessoa a chamar no Direct.
 - NUNCA invente informações.`;
 
                   const messages = [
-                    { role: "system", content: systemPrompt + ragBlock },
+                    { role: "system", content: systemPrompt + ragBlock + await permanentJPRules(supa, account.project_id, commentId) + jpConversationRules(account.project_id) },
                     { role: "user", content: commentText }
                   ];
 
@@ -1077,7 +1149,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
 
                   if (aiRes && aiRes.ok) {
                     const aiData = await aiRes.json();
-                    const aiReply = aiData.choices?.[0]?.message?.content || "";
+                    const aiReply = guardJPReply(aiData.choices?.[0]?.message?.content || "", typeof project?.data === "string" ? JSON.parse(project.data) : project?.data, account.project_id, commentText);
 
                     if (aiReply.trim()) {
                       if (aiConfig.draft_mode) {

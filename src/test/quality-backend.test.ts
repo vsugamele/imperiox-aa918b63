@@ -477,7 +477,7 @@ it.each([0, 1])("Instagram LLM branch %s resolves its provider key in the active
   const end = source.indexOf("let aiRes:", start);
   const code = ts.transpileModule(source.slice(start, end), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const fetchMock = vi.fn(async () => new Response("{}"));
-  const run = new Function("Deno", "fetch", "aiConfig", `const formattedMessages = []; const messages = []; const temperature = 0.7; const top_p = 1; ${code}; return callLLM;`)({ env: { get: () => "mock-key" } }, fetchMock, { max_tokens: 123 }) as (model: string) => Promise<Response>;
+  const run = new Function("Deno", "fetch", "aiConfig", "AbortSignal", `const formattedMessages = []; const messages = []; const temperature = 0.7; const top_p = 1; ${code}; return callLLM;`)({ env: { get: () => "mock-key" } }, fetchMock, { max_tokens: 123 }, { timeout: () => new AbortController().signal }) as (model: string) => Promise<Response>;
   await run("test-model");
   expect(fetchMock).toHaveBeenCalledWith("https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer mock-key" }), body: expect.stringContaining('"max_tokens":123') }));
 });

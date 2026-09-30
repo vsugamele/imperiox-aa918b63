@@ -1,4 +1,6 @@
 import { record, text as stringValue, errorText } from "./value.ts";
+import { jpAccessStatus, verifiedMagicLink } from "./conversation-policy.ts";
+declare const Deno: { env: { get(name: string): string | undefined } };
 // CRM Bridge JP Freitas — escopo isolado para project_id === 'jp_freitas'.
 // Área de membros: https://jphaireducation.com.br
 // Endpoint único: https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/crm-bridge
@@ -29,15 +31,16 @@ async function callBridge(action: string, payload: Record<string, unknown>): Pro
         "x-crm-secret": secret,
       },
       body: JSON.stringify({ action, ...payload }),
+      signal: AbortSignal.timeout(15_000),
     });
     const text = await res.text();
     let json: Record<string, unknown> = {};
     try { json = text ? record(JSON.parse(text)) : {}; } catch { json = { raw: text }; }
     if (!res.ok) {
-      console.warn(`[crmBridgeJP] ${action} HTTP ${res.status}: ${text.slice(0, 200)}`);
-      return { ok: false, status: res.status, ...json };
+      console.warn(`[crmBridgeJP] ${action} HTTP ${res.status}`);
+      return { ...json, ok: false, status: res.status };
     }
-    return { ok: true, ...json };
+    return { ...json, ok: json.ok !== false && !json.error };
   } catch (e: unknown) {
     console.error(`[crmBridgeJP] ${action} fetch error: ${errorText(e)}`);
     return { ok: false, error: errorText(e) };
@@ -74,7 +77,7 @@ export async function jpResolveLead(opts: { email?: string; phone?: string }): P
   return { lookup: null, source: "none", emailFound: email };
 }
 
-export async function jpIssueMagicLink(email: string, redirect_path = "/home", create_if_missing = true) {
+export async function jpIssueMagicLink(email: string, redirect_path = "/home", create_if_missing = false) {
   if (!email) return null;
   return callBridge("issue_magic_link", { email, redirect_path, create_if_missing });
 }
@@ -104,10 +107,8 @@ export async function jpGrantAccess(email: string, program_ids?: string[], expir
 export function jpBuildContextBlock(lookup: Record<string, unknown> | null, email: string): string {
   if (!lookup || lookup.ok === false) return "";
   const data = record(lookup.data || lookup);
-  const has_account = data?.has_account ?? data?.user_exists ?? false;
-  const has_premium = data?.has_premium ?? data?.has_active_access ?? false;
+  const { hasAccount: has_account, hasAccess: has_premium, programs } = jpAccessStatus(lookup);
   const stage = data?.stage || data?.lead_stage || "";
-  const programs = Array.isArray(data?.active_programs) ? data.active_programs : (Array.isArray(data?.programs) ? data.programs : []);
   const lines = [
     `\n📚 STATUS NA ÁREA DE MEMBROS JP FREITAS (jphaireducation.com.br) — email do lead: ${email}`,
     `- Tem conta cadastrada: ${has_account ? "SIM" : "NÃO"}`,
@@ -124,45 +125,17 @@ export function jpBuildContextBlock(lookup: Record<string, unknown> | null, emai
  */
 export function jpBuildInstructionsBlock(leadEmailKnown: boolean): string {
   return `
-
-🎓 INTEGRAÇÃO ÁREA DE MEMBROS JP FREITAS — APENAS PARA ESTE PROJETO:
-A escola/área de membros oficial é https://jphaireducation.com.br (JP Hair Education). NUNCA confunda com outras áreas de membros de outros projetos. Se o aluno mencionar "área de membros", "plataforma", "login", "entrar no curso", "acessar aulas", refira-se SEMPRE a https://jphaireducation.com.br.
-
-VOCÊ TEM AÇÕES REAIS DISPONÍVEIS via tags secretas (o sistema executa e substitui antes de enviar ao lead):
-
-1. [JP_MAGIC_LINK:email@dominio.com] — Gera link mágico de acesso (passwordless) para o aluno entrar na área de membros. Use quando o aluno: (a) pedir o link de acesso, (b) disser que não consegue logar, (c) confirmou pagamento e quer entrar, (d) você quer enviar link de cortesia. O sistema cria conta se ainda não existir. A tag é substituída pelo link real antes do envio — escreva naturalmente, ex: "Aqui está seu acesso: [JP_MAGIC_LINK:${leadEmailKnown ? "EMAIL_DO_LEAD" : "email@que.elerespondeu"}]".
-
-2. [JP_TAG:email@dominio.com|tag1,tag2] — Marca o aluno com tags no CRM (ex: "interessado-curso-corte", "pediu-suporte-tecnico", "lead-quente-wpp"). Use silenciosamente após qualificar uma intenção — o lead não vê.
-
-3. [JP_LOG:email@dominio.com|nome_do_evento] — Registra evento no histórico do CRM (ex: "wpp_pediu_acesso", "wpp_duvida_curso_x"). Silencioso. Use sempre que houver intenção relevante.
-
-4. [JP_GRANT:email@dominio.com] — Libera acesso total como CORTESIA. USE APENAS quando explicitamente autorizado pela conversa/contexto (ex: aluno comprou e ficou sem acesso por erro, política de cortesia, etc). Em caso de dúvida, use [TRANSICAO_HUMANA] em vez disso.
-
-REGRAS:
-- ${leadEmailKnown ? "O email do lead JÁ É CONHECIDO (mostrado no STATUS acima). Use-o direto." : "Você AINDA NÃO TEM o email do lead. Antes de usar qualquer tag JP_*, peça o email gentilmente ('me passa o email que você usou pra eu te liberar o acesso?')."}
-- Se o STATUS mostra "Tem acesso ativo: SIM" e o lead pede acesso → use [JP_MAGIC_LINK:email] (ele tem direito).
-- Se "Tem acesso ativo: NÃO" e ele alega compra recente → peça comprovante OU adicione [TRANSICAO_HUMANA].
-- Em todas as tags JP_*, use o email EXATO do lead, sem aspas, sem placeholders, sem espaços extras.
-- Você pode incluir VÁRIAS tags na mesma resposta (ex: enviar link + tag + log).
-- ⛔ PROIBIDO enviar "https://jphaireducation.com.br" cru quando o email do lead é conhecido. SEMPRE embrulhe em [JP_MAGIC_LINK:email_do_lead] — o sistema converte no link mágico real e personalizado. Enviar o domínio raiz é falha grave de atendimento.
-- Exemplo correto quando o lead mandou o email agora e pediu acesso: "Prontinho! Aqui está seu acesso direto: [JP_MAGIC_LINK:email_do_lead] — é só clicar que entra sem precisar de senha."
-
-🏆 REGRA DE OURO — CONSULTE ANTES DE PERGUNTAR:
-- Se o STATUS acima mostra "Tem conta: SIM" COM "Programas ativos:" listados, você JÁ SABE o que ele comprou. É PROIBIDO perguntar "qual curso você comprou?", "qual dos dois?", "você comprou a Formação ou o Código dos Cortes Perfeitos?" — o bridge já respondeu por você. Cite o(s) programa(s) pelo nome ("vi aqui que você tem acesso ao [nome do programa]") e mande [JP_MAGIC_LINK:email] direto.
-- Se "Tem conta: SIM" e "Tem acesso ativo: SIM" → NUNCA peça comprovante. NUNCA peça email de compra de novo. Só mande o magic link com uma frase acolhedora.
-- Só peça comprovante quando "Tem conta: NÃO" OU ("Tem conta: SIM" E "Tem acesso ativo: NÃO"). Nos outros casos, pedir comprovante é falha grave — você já tem acesso ao CRM.
-- Pedir informação que o bridge já te deu = quebra de confiança e experiência ruim.
-
-🚫 PROIBIÇÃO ABSOLUTA — MASTER CUTS (NÃO EXISTE TURMA):
-- O Master Cuts (imersão presencial) NÃO EXISTE / NÃO TEM TURMAS ABERTAS no momento. É TERMINANTEMENTE PROIBIDO oferecer, sugerir ou tentar vender o Master Cuts ou ingressos presenciais.
-- Se o lead perguntar especificamente sobre curso presencial ou Master Cuts, avise com educação que a imersão presencial não possui turmas abertas, e apresente as opções de cursos online disponíveis (O Código dos Cortes Perfeitos ou a Formação JP Hair Education).
-
-✂️ AGENDAMENTO NO SALÃO / CORTAR CABELO (CANAL OFICIAL):
-- Se o lead perguntar sobre CORTAR CABELO, agendar horário no salão/estúdio do JP Freitas, saber valor de corte presencial ou avaliação de cachos:
-  Você DEVE pedir para falar no canal correto de agendamentos e enviar SEMPRE o link oficial:
-  👉 https://jpfreitas.com.br/agenda
-- NUNCA tente marcar horários pelo WhatsApp e NUNCA tente vender cursos/infoprodutos para quem só quer cortar o cabelo no salão. Direcione educadamente para https://jpfreitas.com.br/agenda.
+INTEGRAÇÃO REAL ÁREA DE MEMBROS JP FREITAS:
+- ${leadEmailKnown ? "Email do lead conhecido; use o email confirmado no cadastro." : "Peça o email usado na compra antes de recuperar acesso."}
+- Consulte o status do CRM. Uma conta cadastrada não significa compra/acesso ativo.
+- [JP_MAGIC_LINK:email] solicita recuperação apenas para acesso já confirmado. A mensagem final depende do resultado real.
+- [JP_TAG:email|tag] e [JP_LOG:email|evento] registram ações internas; não prometem notificação ao aluno.
+- Não conceda acesso/cortesia nem use JP_GRANT. Pagamento alegado exige verificação operacional.
+- Falha de consulta, aluno sem acesso confirmado ou erro ao gerar link: [TRANSICAO_HUMANA].
+- Não anuncie que entrou sem senha usando o domínio comum. Não afirme que liberou acesso ou enviou email.
+- Não peça qual curso comprou quando o CRM já identificou os acessos. Nunca anuncie nomes não retornados pelo CRM.
 `;
+
 }
 
 /**
@@ -189,15 +162,16 @@ export async function jpProcessTags(reply: string, fallbackEmail = ""): Promise<
   const magicRegex = /\[JP_MAGIC_LINK:\s*([^\]]+?)\s*\]/gi;
   for (const m of [...out.matchAll(magicRegex)]) {
     const email = resolveEmail(m[1]);
-    if (!email) { out = out.replace(m[0], "https://jphaireducation.com.br"); continue; }
+    if (!email || (fb && email !== fb)) throw new Error("JP_ACCESS_EMAIL_UNCONFIRMED");
+    const lookup = await jpLookupLead(email);
+    if (!jpAccessStatus(lookup).hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
     const res = await jpIssueMagicLink(email);
-    const link = res?.magic_link || res?.link || res?.url || record(res?.data).magic_link || record(res?.data).link;
-    if (typeof link === "string" && link) {
+    const link = verifiedMagicLink(res);
+    if (link) {
       out = out.replace(m[0], link);
-      console.log(`[crmBridgeJP] magic_link gerado para ${email}`);
+      console.log("[crmBridgeJP] magic_link confirmado");
     } else {
-      out = out.replace(m[0], "https://jphaireducation.com.br");
-      console.warn(`[crmBridgeJP] magic_link falhou para ${email} → fallback url`);
+      throw new Error("JP_MAGIC_LINK_FAILED");
     }
   }
 
@@ -222,10 +196,29 @@ export async function jpProcessTags(reply: string, fallbackEmail = ""): Promise<
   // 4. [JP_GRANT:email]
   const grantRegex = /\[JP_GRANT:\s*([^\]]+?)\s*\]/gi;
   for (const m of [...out.matchAll(grantRegex)]) {
-    const email = resolveEmail(m[1]);
-    if (email) jpGrantAccess(email).catch(() => {});
-    out = out.replace(m[0], "");
+    throw new Error("JP_GRANT_REQUIRES_VERIFIED_AUTHORIZATION");
   }
 
   return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Never announce account recovery until the CRM has verified access and issued a real token. */
+export async function jpPrepareAccessReply(reply: string, email: string, incomingContext: string, currentMessage = incomingContext): Promise<{ text: string; needsHandoff: boolean }> {
+  const accessPattern = /acess|login|senha|entrar.{0,30}(curso|aula|plataforma)|aulas.{0,30}(bloque|nao|não)/i;
+  const continuation = /@|não (deu|funcion|entrou)|nao (deu|funcion|entrou)|continua|ainda (não|nao)|^sim[.!\s]*$/i.test(currentMessage);
+  const accessIntent = accessPattern.test(currentMessage) || (continuation && accessPattern.test(incomingContext));
+  if (accessIntent && !email) return { text: "Qual é o email que você usou na compra? Vou consultar o cadastro para ajudar com o acesso.", needsHandoff: false };
+  try {
+    if (accessIntent) {
+      const lookup = await jpLookupLead(email);
+      if (!jpAccessStatus(lookup).hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
+      const link = verifiedMagicLink(await jpIssueMagicLink(email));
+      if (!link) throw new Error("JP_MAGIC_LINK_FAILED");
+      return { text: `Seu acesso está ativo no cadastro. Este é o link para entrar sem senha: ${link}`, needsHandoff: false };
+    }
+    return { text: await jpProcessTags(reply, email), needsHandoff: /\[(TRANSICAO_HUMANA|CHAMAR_HUMANO)\]/i.test(reply) };
+  } catch (error: unknown) {
+    console.warn("[crmBridgeJP] recovery failed:", errorText(error));
+    return { text: "Não consegui concluir a recuperação do seu acesso agora.", needsHandoff: true };
+  }
 }

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { databaseTable, type DatabasePort } from "./database-port.ts";
 import { record, errorText } from "./value.ts";
 // leadDataExtractor — Extrai dados explícitos do lead a partir de uma mensagem do WhatsApp
 // e persiste em imphq_leads sem sobrescrever dados existentes.
@@ -101,7 +101,7 @@ NÃO infira nada — só extraia o que está literal no texto.
 }
 
 export async function extractAndPersistLeadData(
-  supabase: SupabaseClient,
+  supabase: DatabasePort,
   lead: { id?: string; email?: string | null; phone?: string | null; nome?: string | null; lead_memory?: unknown },
   message: string,
 ): Promise<ExtractAndPersistResult> {
@@ -186,7 +186,7 @@ export async function extractAndPersistLeadData(
       update.updated_at = new Date().toISOString();
 
       try {
-        const { error } = await supabase.from("imphq_leads").update(update).eq("id", lead.id);
+        const { error } = await databaseTable(supabase, "imphq_leads").update(update).eq("id", lead.id);
         if (error) throw error;
         console.log(`[leadDataExtractor] lead=${lead.id} changed=${changedFields.join(",")}${emailDivergent ? " emailDivergent" : ""}`);
       } catch (e: unknown) {

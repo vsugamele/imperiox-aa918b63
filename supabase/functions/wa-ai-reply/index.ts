@@ -1,3 +1,4 @@
+import { productContext, jpConversationRules, guardJPReply, jpAccessStatus } from "../_shared/conversation-policy.ts";
 // wa-ai-reply — AI responder simples e robusto para WhatsApp
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { anglesPromptBlock } from "../_shared/creativeAngles.ts";
@@ -10,6 +11,7 @@ import {
   jpBuildInstructionsBlock,
   jpProcessTags,
   jpIssueMagicLink,
+  jpPrepareAccessReply,
   jpLogEvent,
 } from "../_shared/crmBridgeJP.ts";
 import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
@@ -22,7 +24,7 @@ function errorMessage(error: unknown): string { return error instanceof Error ? 
 interface LeadRow { id: string; email?: string | null; nome?: string | null; name?: string | null; phone?: string | null; campanha_id?: string | null; tags?: string[] | null; score?: number | null; dor_principal?: string | null; objecao_atual?: string | null; nivel_qualificacao?: string | null; lead_memory?: Record<string, unknown> | null; data?: Record<string, unknown> | null }
 interface ProjectRule { id: string; rule_text: string; rule_type: string; ab_group_id: string | null; ab_status: string | null }
 interface KnowledgeMatch { pergunta: string; resposta: string }
-interface ConversationUpdate { ai_last_reply_at: string; ai_lock_until: null; last_message: string; last_message_at: string; last_message_direction: string; message_count: number; last_pitch_at?: string; last_pitch_link?: string | null; pitch_followup_stage?: number; pitch_followup_last_at?: null; status?: string }
+interface ConversationUpdate { ai_last_reply_at: string; ai_lock_until: null; last_message: string; last_message_at: string; last_message_direction: string; message_count: number; last_pitch_at?: string; last_pitch_link?: string | null; pitch_followup_stage?: number; pitch_followup_last_at?: null; status?: string; ia_ativa?: boolean }
 const activeStepSchema = z.object({ tipo: z.string(), mensagem: z.string().nullish(), template: z.string().nullish(), texto: z.string().nullish(), template_b: z.string().nullish(), mensagem_b: z.string().nullish(), personality: z.string().nullish(), ia_model: z.string().nullish(), ia_routes: z.array(z.object({ name: z.string(), jump_steps: z.number().optional() }).passthrough()).nullish(), ia_search_web: z.boolean().nullish(), ia_search_files: z.boolean().nullish(), ia_vision: z.boolean().nullish(), ia_voice_response: z.boolean().nullish(), voice_provider: z.string().nullish(), voice_id: z.string().nullish(), voice_stability: z.number().nullish(), voice_clarity: z.number().nullish() }).passthrough();
 
 const corsHeaders = {
@@ -850,7 +852,7 @@ Deno.serve(async (req) => {
       // 7. Contexto do projeto
       const { data: project } = await supabase
         .from("imphq_projects")
-        .select("name, data, avatar, brand_kit")
+        .select("name, data, avatar, brand_kit, user_id")
         .eq("id", project_id)
         .maybeSingle();
 
@@ -1128,7 +1130,7 @@ Deno.serve(async (req) => {
             if (resolved.emailFound) jpEffectiveEmail = resolved.emailFound;
             jpCrmContextBlock = jpBuildContextBlock(resolved.lookup, jpEffectiveEmail);
             const data = record(resolved.lookup?.data || resolved.lookup);
-            jpHasAccount = !!(data?.has_account ?? data?.user_exists);
+            jpHasAccount = jpAccessStatus(resolved.lookup).hasAccess;
             console.log(`[wa-ai-reply] JP_FREITAS lookup ok via=${resolved.source} email=${jpEffectiveEmail}`);
           } else {
             console.log(`[wa-ai-reply] JP_FREITAS lookup vazio (email=${jpEffectiveEmail || "—"} phone=${phoneForLookup || "—"})`);
@@ -1214,7 +1216,7 @@ SUA CONDUTA OBRIGATÓRIA:
       const sources = aiConfig.context_sources || [];
       let ctx = "";
       if (sources.includes("briefing") && d.briefing) ctx += `Briefing: ${JSON.stringify(d.briefing).slice(0, 500)}\n`;
-      if (sources.includes("produtos") && d.produtos) ctx += `Produtos: ${JSON.stringify(d.produtos).slice(0, 500)}\n`;
+      if (sources.includes("produtos") && d.produtos) ctx += isJPProject(project_id) ? productContext(d, project_id) : `Produtos: ${JSON.stringify(d.produtos).slice(0, 500)}\n`;
       if (sources.includes("avatar") && project?.avatar) ctx += `Avatar: ${JSON.stringify(project.avatar).slice(0, 300)}\n`;
       if (sources.includes("expert")) {
         const ex = d.expert || d.especialista;
@@ -1444,7 +1446,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
 
       const expertPersona = aiConfig.expert_persona ? `PERSONA DO EXPERT:\n${String(aiConfig.expert_persona).slice(0, 600)}\n\n` : "";
       const productFocus = aiConfig.product_focus ? `\nOFERTA ATIVA: ${String(aiConfig.product_focus).slice(0, 400)}` : "";
-      const customInstr = aiConfig.custom_instructions ? `\nREGRAS GERAIS ADICIONAIS:\n${String(aiConfig.custom_instructions).slice(0, 600)}` : "";
+      const customInstr = aiConfig.custom_instructions ? `\nREGRAS GERAIS ADICIONAIS:\n${String(aiConfig.custom_instructions)}` : "";
       const bannedPhrases = Array.isArray(aiConfig.banned_phrases) ? aiConfig.banned_phrases.filter((p: unknown) => typeof p === "string" && p.trim()) : [];
       const bannedBlock = bannedPhrases.length
         ? `\n⛔ FRASES PROIBIDAS (NUNCA use estas frases exatas ou variações próximas — vícios da IA bloqueados pelo operador):\n${bannedPhrases.map((p: string) => `- "${p.trim()}"`).join("\n")}`
@@ -1531,6 +1533,8 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
         }
       }
 
+
+      if (isJPProject(project_id)) productLinkMapBlock = productContext(d, project_id);
 
       // Fallback checkout link from project data
       let fallbackLink = null;
@@ -1765,7 +1769,7 @@ Sua missão NESTA resposta:
 Máximo 6 linhas no total.
 ` : "";
 
-      const fullAutonomyBlock = isFullAutonomy ? `
+      const fullAutonomyBlock = isFullAutonomy && !isJPProject(project_id) ? `
 AUTONOMIA TOTAL E DESESCALADA DE CONFLITO (NUNCA PARE NO HUMANO):
 - Você NUNCA transfere ou sugere transferir para outro atendente humano. Você tem autonomia total para acolher, responder, negociar, desarmar qualquer estresse e resolver 100% da conversa com calma, autoridade e empatia.
 - SE O CLIENTE PERGUNTAR SE VOCÊ É UM ROBÔ / IA: Não entre em crise nem seja frio. Responda com naturalidade e acolhimento humano: "Sou da equipe de consultoria aqui pelo WhatsApp! Uso o teclado automático pra agilizar as mensagens porque são muitas pessoas chamando, mas estou lendo tudo o que você me manda com atenção. Me conta, o que você precisa?"
@@ -1789,7 +1793,7 @@ ESTRUTURA ADAPTATIVA — identifique o ESTADO do lead antes de responder:
 (A) LEAD QUE JÁ SABE O QUE QUER E EXPLICITAMENTE PEDIU AVANÇO (perguntou PREÇO, pediu LINK, disse "quero comprar"/"quero fechar", pediu PIX, mandou comprovante):
 → Vá DIRETO. Responda objetivamente e apresente o próximo passo (link, forma de pagamento).
 → NÃO valide com frase de empatia, NÃO faça triagem, NÃO termine com pergunta de avanço se a info já leva ele pro checkout.
-→ Ex: lead pergunta "qual o valor do Master Cuts?" → "R$ 1.997,00. Link: [URL]" — e PARA. Sem "Faz todo sentido querer saber...".
+→ Ex: lead pergunta o preço de um produto disponível → use somente o preço e o destino confirmados no catálogo — e PARA. Sem "Faz todo sentido querer saber...".
 → ATENÇÃO: apenas citar o nome de um curso/produto NÃO é modo A. "Quero informações sobre X" é modo B (descoberta), não modo A.
 
 (B) LEAD EM DESCOBERTA (mensagem genérica OU pediu informações sobre um curso/produto sem ainda perguntar preço/link: "oi", "quero saber mais", "como funciona", "me explica", "gostaria de informações sobre o curso X"):
@@ -1813,13 +1817,13 @@ REGRAS CRITICAS:
 - NUNCA use placeholders como [Link] ou [Nome do curso]. Se nao souber algo, diga que vai buscar.
 - NUNCA seja vago. Ex: ruim: "o curso e focado em corte". Bom: "o curso ensina 7 tecnicas de corte que funcionam em cabelos lisos e cacheados".
 - Respostas curtas no WhatsApp por padrão, MAS a regra de tamanho condicional por modo (A/B/C/D/E) descrita acima manda — em descoberta/objeção pode chegar a 6-8 frases com narrativa Sugamele.
-- Nunca revele que e IA.
+- Se perguntarem se é IA, seja transparente: você é o assistente automático da equipe.
 - Responda em portugues brasileiro natural seguindo as REGRAS SUGAMELE de estilo.
 ${sugameleStyleRules}
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? (jpBuildInstructionsBlock(jpEmailKnown) + jpBookingInstruction + jpMastercutsInstruction) : ""}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? (jpBuildInstructionsBlock(jpEmailKnown) + jpBookingInstruction + jpMastercutsInstruction + jpConversationRules(project_id)) : ""}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const msgs: { role: string; content: string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] }[] = [{ role: "system", content: systemPrompt }];
@@ -1918,19 +1922,19 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         })).catch((err) => console.error("[wa-ai-reply] DB log error:", errorMessage(err)));
 
         // Log to imphq_automacao_logs
-        await supabase.from("imphq_automacao_logs").insert({
+        await Promise.resolve(supabase.from("imphq_automacao_logs").insert({
           flow_id: "wa-ai-reply",
           project_id,
           status: "error",
           input_data: { conversation_id, phone, model },
           output_data: { error: `OpenRouter unreachable after 3 retries: ${errorMessage(fetchErr)}` },
-        }).catch((err) => console.error("[wa-ai-reply] automacao_logs error:", errorMessage(err)));
+        })).catch((err: unknown) => console.error("[wa-ai-reply] automacao_logs error:", errorMessage(err)));
 
         // Escalate conversation to human
-        await supabase.from("imphq_wa_conversations")
+        await Promise.resolve(supabase.from("imphq_wa_conversations")
           .update({ status: "escalated", needs_human: true })
-          .eq("id", conversation_id)
-          .catch((err) => console.error("[wa-ai-reply] escalate conversation error:", errorMessage(err)));
+          .eq("id", conversation_id))
+          .catch((err: unknown) => console.error("[wa-ai-reply] escalate conversation error:", errorMessage(err)));
 
         // Send fallback message to lead via Evolution API
         try {
@@ -2065,56 +2069,20 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
       let finalAiReply = cleaned.trim();
 
-      // JP FREITAS — processa tags [JP_MAGIC_LINK:...], [JP_TAG:...], [JP_LOG:...], [JP_GRANT:...]
-      if (isJPProject(project_id) && /\[JP_(MAGIC_LINK|TAG|LOG|GRANT):/i.test(finalAiReply)) {
-        try {
-          finalAiReply = await jpProcessTags(finalAiReply, jpEffectiveEmail);
-        } catch (e) {
-          console.error(`[wa-ai-reply] jpProcessTags error: ${errorMessage(e)}`);
-        }
-      }
-
-      // JP FREITAS — REDE DE SEGURANÇA: se sabemos o email e o lead pediu acesso mas
-      // a IA mandou o domínio cru (sem magic link real), gera o link e substitui.
-      if (isJPProject(project_id) && jpEffectiveEmail && finalAiReply) {
-        try {
-          const userMsg = String(message || "").toLowerCase();
-          const accessIntent = /(acesso|acessar|entrar|logar|login|senha|plataforma|área de membros|area de membros|curso|aula|não consigo|nao consigo)/i.test(userMsg);
-          const hasRawDomain = /https?:\/\/(www\.)?jphaireducation\.com\.br\/?(\s|$|[^/\w])/i.test(finalAiReply);
-          const hasMagicLink = /jphaireducation\.com\.br\/[^\s]+/i.test(finalAiReply) && !/jphaireducation\.com\.br\/?(\s|$)/i.test(finalAiReply.replace(/jphaireducation\.com\.br\/[a-z0-9\-_?=&%.]+/gi, "MAGIC"));
-          if (accessIntent && hasRawDomain && !hasMagicLink) {
-            const res = await jpIssueMagicLink(jpEffectiveEmail);
-            const link = res?.magic_link || res?.link || res?.url || record(res?.data).magic_link || record(res?.data).link;
-            if (link) {
-              finalAiReply = finalAiReply.replace(/https?:\/\/(www\.)?jphaireducation\.com\.br\/?/gi, String(link));
-              jpLogEvent(jpEffectiveEmail, "wpp_auto_magic_link_fallback", { source: "wa-ai-reply" }).catch(() => {});
-              console.log(`[wa-ai-reply] JP_FREITAS fallback magic_link injetado para ${jpEffectiveEmail}`);
-            } else {
-              console.warn(`[wa-ai-reply] JP_FREITAS fallback magic_link falhou para ${jpEffectiveEmail}`);
-            }
-          }
-        } catch (e) {
-          console.error(`[wa-ai-reply] JP_FREITAS fallback error: ${errorMessage(e)}`);
-        }
-      }
-
-      // JP FREITAS — REDE DE SEGURANÇA 2: se o lead JÁ TEM acesso ativo (bridge confirmou)
-      // e a IA ainda pediu comprovante / perguntou qual curso comprou / pediu email de novo,
-      // sobrescreve por resposta correta com magic link.
-      if (isJPProject(project_id) && jpHasAccount && jpEffectiveEmail && finalAiReply) {
-        try {
-          const badPatterns = /(comprovante|qual curso|qual dos dois|qual dos cursos|você comprou o|voce comprou o|me confirma.*compr|me passa.*email|qual email|passa.*e-?mail)/i;
-          if (badPatterns.test(finalAiReply)) {
-            const res = await jpIssueMagicLink(jpEffectiveEmail);
-            const link = res?.magic_link || res?.link || res?.url || record(res?.data).magic_link || record(res?.data).link;
-            if (link) {
-              finalAiReply = `Vi seu cadastro aqui e você já tem acesso ativo. Segue o link direto pra entrar sem senha: ${link}`;
-              jpLogEvent(jpEffectiveEmail, "wpp_override_pergunta_indevida", { source: "wa-ai-reply", original_snippet: finalAiReply.slice(0, 120) }).catch(() => {});
-              console.log(`[wa-ai-reply] JP_FREITAS override pergunta indevida para ${jpEffectiveEmail}`);
-            }
-          }
-        } catch (e) {
-          console.error(`[wa-ai-reply] JP_FREITAS override error: ${errorMessage(e)}`);
+      if (isJPProject(project_id)) {
+        const incomingContext = [message, ...(history || []).filter(m => m.direction === "incoming").slice(0, 2).map(m => m.content || "")].join("\n");
+        const prepared = await jpPrepareAccessReply(finalAiReply, jpEffectiveEmail, incomingContext, message);
+        finalAiReply = guardJPReply(prepared.text, d, project_id, [...(history || [])].reverse().map(m => m.content || "").join("\n") + "\n" + message);
+        if (prepared.needsHandoff) {
+          shouldTransitionToHuman = true;
+          handoffReason = "Recuperação de acesso ou suporte JP exige verificação operacional";
+          const { error: ticketError } = await supabase.from("imphq_notifications").insert({
+            user_id: project?.user_id || null, title: "Suporte JP — recuperação pendente",
+            message: "A recuperação automática não foi concluída. Verificar cadastro e acesso na conversa.",
+            type: "warning", entity_type: "wa_conversation", entity_id: conversation_id,
+          });
+          if (!ticketError) finalAiReply += " Registrei o pedido para a equipe verificar.";
+          else console.error("[wa-ai-reply] JP support ticket failed");
         }
       }
 
@@ -2598,6 +2566,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
         if (shouldTransitionToHuman) {
           updatePayload.status = "needs_human";
+          if (isJPProject(project_id)) updatePayload.ia_ativa = false;
         }
 
         await supabase.from("imphq_wa_conversations")

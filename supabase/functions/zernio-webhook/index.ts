@@ -418,6 +418,8 @@ Deno.serve(async (req) => {
         messaging: [{
           sender: envelopeSender,
           recipient: envelopeRecipient,
+          ingest_source: "zernio",
+          zernio_thread_id: conversationId,
           timestamp: new Date(message?.sentAt || data.timestamp || payload.timestamp || Date.now()).getTime(),
           message: msgPayload,
         }],
@@ -490,17 +492,20 @@ Deno.serve(async (req) => {
         const persistedMedia = remoteMedia
           ? await persistIgMedia(supa, remoteMedia, projectId, `dm/${directConv.id}/${messageId || Date.now()}`)
           : null;
-        const { error: msgErr } = await supa.from("imphq_ig_messages").insert({
-          conversation_id: directConv.id,
-          direction: isOutbound ? "out" : "in",
-          type: firstAttachment?.type || "text",
-          content: text || null,
-          media_url: persistedMedia || remoteMedia,
-          mid: messageId,
-          status: isOutbound ? "sent" : "received",
-          created_at: messageAt,
-          metadata: { source: "zernio-webhook-direct", zernio_conversation_id: conversationId },
-        });
+        const { error: msgErr } = projectId === "jp_freitas"
+          ? await supa.rpc("imphq_ingest_ig_message", {
+              p_conversation_id: directConv.id, p_direction: isOutbound ? "out" : "in",
+              p_type: firstAttachment?.type || "text", p_content: text || null,
+              p_media_url: persistedMedia || remoteMedia, p_mid: messageId || null,
+              p_source: "zernio", p_created_at: messageAt, p_ai_generated: false,
+              p_metadata: { zernio_conversation_id: conversationId },
+            })
+          : await supa.from("imphq_ig_messages").insert({
+              conversation_id: directConv.id, direction: isOutbound ? "out" : "in",
+              type: firstAttachment?.type || "text", content: text || null, media_url: persistedMedia || remoteMedia,
+              mid: messageId, status: isOutbound ? "sent" : "received", created_at: messageAt,
+              metadata: { source: "zernio-webhook-direct", zernio_conversation_id: conversationId },
+            });
         if (msgErr) throw msgErr;
       }
     }
