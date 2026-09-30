@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pushNotifyByPref, resolveProjectRecipients } from "../_shared/push-notify.ts";
+import { isHwPayload, parseHwPayload } from "../_shared/hw-order.ts";
 
 import { z } from "https://esm.sh/zod@3.25.76";
 
@@ -1860,6 +1861,62 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
   }
 }
 
+// H&W (checkout cc.<marca>.com / SPARK): caminho próprio e enxuto — registra aviso e venda com UTM e anúncio.
+// Não passa pelo fluxo geral (CAPI, notificações, recuperação), que foi feito para Ticto/Hotmart/Kiwify.
+async function processHwWebhook(input: unknown, projectIdInit: string | null) {
+  const supabase = makeClient();
+  try {
+    const { data: projects } = await supabase.from("imphq_projects").select("id, name");
+    const parsed = parseHwPayload(input, projects || [], projectIdInit);
+    const projectId = parsed.sales[0]?.projectId ?? projectIdInit;
+
+    await supabase.from("imphq_webhooks").insert({
+      project_id: projectId,
+      plataforma: "H&W",
+      evento: parsed.evento,
+      payload: record(input),
+      processado: true,
+    });
+
+    for (const sale of parsed.sales) {
+      const row = {
+        project_id: sale.projectId,
+        produto_nome: sale.produto,
+        produto_id_ext: sale.sku,
+        valor: sale.valor,
+        valor_liquido: sale.valorLiquido,
+        plataforma: "H&W",
+        status: sale.status,
+        data_venda: sale.dataVenda,
+        tipo_venda: sale.tipoVenda,
+        external_transaction_id: sale.externalId,
+        nome: sale.nome,
+        click_id: sale.clickId,
+        utm_source: sale.utms.source,
+        utm_medium: sale.utms.medium,
+        utm_campaign: sale.utms.campaign,
+        utm_content: sale.utms.content,
+        utm_term: sale.utms.term,
+        // comissao_produtor alimenta o gatilho trg_imphq_vendas_calc_valor_liquido (convenção do Império).
+        data: { fonte: "H&W", moeda: sale.moeda, pedido: sale.orderNumber, evento: parsed.evento, comissao_produtor: sale.valorLiquido, atribuicao: sale.atribuicao },
+      };
+      // Mesmo pedido chega várias vezes (PENDING → PAID): atualiza em vez de duplicar.
+      const { data: existing } = await supabase
+        .from("imphq_vendas")
+        .select("id")
+        .eq("plataforma", "H&W")
+        .eq("external_transaction_id", sale.externalId)
+        .maybeSingle();
+      const { error } = existing
+        ? await supabase.from("imphq_vendas").update(row).eq("id", existing.id)
+        : await supabase.from("imphq_vendas").insert({ id: crypto.randomUUID(), ...row });
+      if (error) console.error("[webhook-pagamento][H&W] erro ao gravar venda", sale.externalId, error.message);
+    }
+  } catch (err) {
+    console.error("[webhook-pagamento][H&W] erro:", errorMessage(err));
+  }
+}
+
 // Wrapper: responde 200 imediato e processa em background para não estourar
 // o timeout de 150s das plataformas (Hotmart, Kiwify, Eduzz, etc.)
 Deno.serve(async (req) => {
@@ -1877,7 +1934,7 @@ Deno.serve(async (req) => {
       body = await req.json();
     }
     // dispara em background (não bloqueia o response)
-    EdgeRuntime.waitUntil(processWebhook(req, body, projectIdInit));
+    EdgeRuntime.waitUntil(isHwPayload(body) ? processHwWebhook(body, projectIdInit) : processWebhook(req, body, projectIdInit));
     return new Response(
       JSON.stringify({ ok: true, queued: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
