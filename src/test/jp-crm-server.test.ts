@@ -5,9 +5,10 @@ import ts from "typescript";
 import { z } from "zod";
 import { record } from "@shared/value";
 
-function server(secret: string | undefined, profile = true) {
+function server(secret: string | undefined, profile = true, verificationStatus = 401) {
   let handler: (req: Request) => Promise<Response> = async () => new Response("uninitialized", {status:500});
   const listUsers = vi.fn(async () => ({ data: { users: [{id:"fixture-user",email:"fixture@example.test",phone:"+5511999999999",user_metadata:{}}] }, error:null }));
+  const verifyToken = vi.fn(async () => new Response("[]",{status:verificationStatus}));
   const from = vi.fn((table: string) => {
     const result = table === "areamembrojp_profiles" ? {data:profile ? {id:"fixture-user",email:"fixture@example.test",name:"Fixture"} : null,error:null}
       : table === "areamembrojp_user_entitlements" ? {data:[{scope:"program",program_id:"fixture-course",is_active:true}],error:null}
@@ -17,8 +18,8 @@ function server(secret: string | undefined, profile = true) {
   });
   const source = readFileSync(resolve(process.cwd(),"supabase/functions/crm-bridge/index.ts"),"utf8").replace(/^import .*;\r?\n/gm,"");
   const code = ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
-  new Function("Deno","createClient","z","record",code)({env:{get:(key:string)=>key==="JPFREITAS_CRM_BRIDGE_SECRET" ? secret : "test"},serve:(fn:typeof handler)=>{handler=fn;}},()=>({from,auth:{admin:{listUsers}}}),z,record);
-  return {handler,from,listUsers};
+  new Function("Deno","createClient","z","record","fetch","AbortSignal",code)({env:{get:(key:string)=>key==="JPFREITAS_CRM_BRIDGE_SECRET" ? secret : "test"},serve:(fn:typeof handler)=>{handler=fn;}},()=>({from,auth:{admin:{listUsers}}}),z,record,verifyToken,{timeout:()=>new AbortController().signal});
+  return {handler,from,listUsers,verifyToken};
 }
 describe("Published JP CRM request boundary",()=>{
   it("uses the existing environment secret when the database setting is absent",async()=>{
@@ -54,5 +55,13 @@ describe("Published JP CRM request boundary",()=>{
     const body=JSON.stringify({action:"lookup_lead",email:"fixture@example.test"});
     expect((await app.handler(new Request("https://example.test",{method:"POST",headers:{authorization:"Bearer test"},body}))).status).toBe(200);
     expect((await app.handler(new Request("https://example.test",{method:"POST",headers:{authorization:"Bearer invalid"},body}))).status).toBe(401);
+  });
+  it.each([200,401])("requires backend verification for a different service-role JWT: %s",async status=>{
+    const app=server("test-secret",true,status);
+    const token="e30."+btoa(JSON.stringify({role:"service_role"}))+".signature";
+    const response=await app.handler(new Request("https://example.test",{method:"POST",headers:{authorization:"Bearer "+token},body:JSON.stringify({action:"lookup_lead",email:"fixture@example.test"})}));
+    expect(response.status).toBe(status===200 ? 200 : 401);
+    expect(app.verifyToken).toHaveBeenCalled();
+    if(status===401) expect(app.from).not.toHaveBeenCalled();
   });
 });

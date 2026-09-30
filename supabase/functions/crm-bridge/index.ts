@@ -32,6 +32,24 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+async function isInternalService(req: Request): Promise<boolean> {
+  const authorization = req.headers.get("authorization") || "";
+  if (!SERVICE_ROLE || !authorization.startsWith("Bearer ")) return false;
+  if (authorization === `Bearer ${SERVICE_ROLE}`) return true;
+  // Legacy administrator JWTs can have different issuance timestamps. The role
+  // claim is only a prefilter; PostgREST must validate the signature and expiry.
+  try {
+    const token = authorization.slice(7);
+    const payload = token.split(".")[1] || "";
+    const claims = record(JSON.parse(atob(payload.replace(/-/g,"+").replace(/_/g,"/"))));
+    if (claims.role !== "service_role") return false;
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/areamembrojp_profiles?select=id&limit=0`, {
+      headers: { apikey: SERVICE_ROLE, Authorization: authorization }, signal: AbortSignal.timeout(5000),
+    });
+    return response.ok;
+  } catch { return false; }
+}
+
 // ---------- helpers ----------
 async function getStoredSecret(): Promise<string | null> {
   const configured = Deno.env.get("JPFREITAS_CRM_BRIDGE_SECRET");
@@ -351,7 +369,7 @@ Deno.serve(async (req) => {
   const provided = req.headers.get("x-crm-secret") ?? "";
   // Same-project service role already has administrator access to these records.
   // External CRM clients continue to require the dedicated CRM secret.
-  const internalService = !!SERVICE_ROLE && req.headers.get("authorization") === `Bearer ${SERVICE_ROLE}`;
+  const internalService = await isInternalService(req);
   if (!internalService) {
     const expected = await getStoredSecret();
     if (!expected) return json({ error: "CRM bridge não configurado (segredo ausente)" }, 503);
@@ -389,4 +407,3 @@ Deno.serve(async (req) => {
     return json({ error: msg }, 500);
   }
 });
-
