@@ -107,15 +107,16 @@ export async function getCachedEmbedding(
       const emb = await callEmbeddingApi(normalized, model, dimensions);
       if (!emb) return null;
 
-      // Write-through (fire-and-forget)
-      supabase.from("imphq_embedding_cache").insert({
+      // Write-through (fire-and-forget com upsert para concorrência)
+      supabase.from("imphq_embedding_cache").upsert({
         text_hash: hash,
         model,
         dimensions,
         embedding: emb,
         text_preview: normalized.slice(0, 200),
         hits: 1,
-      }).then(() => {}, (e: unknown) => console.warn(`[embeddings] cache insert failed: ${errorText(e)}`));
+      }, { onConflict: "text_hash,model,dimensions", ignoreDuplicates: true })
+      .then(() => {}, (e: unknown) => console.warn(`[embeddings] cache upsert failed: ${errorText(e)}`));
 
       return emb;
     } catch (e: unknown) {

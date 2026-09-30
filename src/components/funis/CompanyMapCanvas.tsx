@@ -25,9 +25,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, Flame, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowBrainDrawer } from "@/components/funis/FlowBrainDrawer";
+import { CompanyInfraToolsModal } from "@/components/funis/CompanyInfraToolsModal";
+import { CompanyMapTacticalBar, type TacticalLens, JOURNEY_SCENARIOS, type JourneyScenario } from "@/components/funis/CompanyMapTacticalBar";
+import { GrowthCopilotModal } from "@/components/projeto/GrowthCopilotModal";
 import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
 import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
@@ -178,11 +181,71 @@ async function uploadMapImage(mapId: string, file: File): Promise<string | null>
   return data.signedUrl;
 }
 
+function matchesLens(node: { label: string; kind: string; notes?: string | null; description?: string | null }, lens: TacticalLens): boolean {
+  if (lens === "all") return true;
+  const text = `${node.label} ${node.description || ""} ${node.notes || ""}`.toLowerCase();
+  if (lens === "jp") {
+    return text.includes("jp") || text.includes("corte") || text.includes("barbeiro") || text.includes("webinar") || text.includes("formação") || text.includes("10k");
+  }
+  if (lens === "bifi") {
+    return text.includes("bifi") || text.includes("linfa") || text.includes("slimsoda") || text.includes("suplement") || text.includes("pdp") || text.includes("advertorial") || text.includes("vsl");
+  }
+  if (lens === "geelark") {
+    return text.includes("geelark") || text.includes("phone") || text.includes("celular") || text.includes("perfil") || text.includes("instagram") || text.includes("tiktok") || text.includes("reel") || text.includes("orgânic");
+  }
+  if (lens === "infra") {
+    return text.includes("evolution") || text.includes("zernio") || text.includes("n8n") || text.includes("kiwify") || text.includes("ticto") || text.includes("webhook") || text.includes("api") || text.includes("openrouter");
+  }
+  return true;
+}
+
+function getDynamicEdgeStyle(sourceLabel: string, targetLabel: string, isDashed: boolean, isSimulatedActive: boolean) {
+  const text = `${sourceLabel} ${targetLabel}`.toLowerCase();
+  let stroke = "#c9922a";
+  let glow = "none";
+
+  if (text.includes("whatsapp") || text.includes("evolution")) {
+    stroke = "#10B981";
+    glow = "drop-shadow(0 0 5px rgba(16,185,129,0.7))";
+  } else if (text.includes("checkout") || text.includes("venda") || text.includes("kiwify") || text.includes("ticto") || text.includes("formação")) {
+    stroke = "#D6FF4B";
+    glow = "drop-shadow(0 0 6px rgba(214,255,75,0.8))";
+  } else if (text.includes("geelark") || text.includes("instagram") || text.includes("reel") || text.includes("phone")) {
+    stroke = "#06B6D4";
+    glow = "drop-shadow(0 0 5px rgba(6,182,212,0.7))";
+  } else if (text.includes("ads") || text.includes("anúncio") || text.includes("meta")) {
+    stroke = "#F59E0B";
+    glow = "drop-shadow(0 0 5px rgba(245,158,11,0.7))";
+  } else if (text.includes("zernio") || text.includes("webhook") || text.includes("n8n")) {
+    stroke = "#8B5CF6";
+    glow = "drop-shadow(0 0 5px rgba(139,92,246,0.7))";
+  }
+
+  if (isSimulatedActive) {
+    return {
+      stroke: "#D6FF4B",
+      strokeWidth: 4,
+      filter: "drop-shadow(0 0 10px rgba(214,255,75,0.95))",
+      cursor: "pointer",
+    };
+  }
+
+  return {
+    stroke,
+    strokeWidth: 2,
+    filter: glow,
+    strokeDasharray: isDashed ? "6 4" : undefined,
+    cursor: "pointer",
+  };
+}
+
 interface MapNodeData extends MapNode {
  onGenerateCopy?: (id: string) => void; onDuplicate?: (id: string) => void; onDelete?: (id: string) => void;
  onToggleItem?: (id: string, itemId: string, done: boolean) => void;
  waInfo?: { phone?: string; instance?: string; provider: string; conversations?: number } | null;
  liveStats?: NodeStats | null;
+ activeLens?: TacticalLens;
+ isSimulatedActive?: boolean;
 }
 function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean }) {
   const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
@@ -196,15 +259,36 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
   const sizeCfg = SIZE_PRESETS[data.size || "M"] || SIZE_PRESETS.M;
   const url: string | null = data.url || null;
   const hasCustomSize = !!(data.width && data.height);
+  const activeLens = data.activeLens || "all";
+  const isLensMatch = matchesLens(data, activeLens);
+  const isSimulated = !!data.isSimulatedActive;
+
+  const isPhoneNode = data.kind === "smartphone" || data.kind === "app" || data.label.toLowerCase().includes("phone") || data.label.toLowerCase().includes("geelark");
+  const isProductNode = data.kind === "oferta" || data.label.includes("LinfaFlow") || data.label.includes("Formação") || data.label.includes("Cortes") || data.label.includes("SlimSoda");
+  const isInfraTool = data.label.includes("Evolution") || data.label.includes("Zernio") || data.label.includes("N8N") || data.label.includes("Kiwify") || data.label.includes("Ticto");
+
+  const ticketBadge = data.label.includes("Formação") ? "R$ 1.997" : data.label.includes("Cortes") ? "R$ 47" : "R$ 197";
+
   return (
     <div
-      className="group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all cursor-pointer overflow-hidden"
+      className={cn(
+        "group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden",
+        !isLensMatch && "opacity-20 grayscale filter blur-[0.4px] pointer-events-none scale-95",
+        isLensMatch && activeLens !== "all" && "ring-2 ring-lime-400 shadow-[0_0_25px_rgba(214,255,75,0.45)] scale-[1.02]",
+        isSimulated && "ring-4 ring-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.85)] scale-105 z-30 animate-pulse border-amber-400"
+      )}
       style={
         hasCustomSize
-          ? { borderColor: data.color, width: "100%", height: "100%" }
-          : { borderColor: data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }
+          ? { borderColor: isSimulated ? "#f59e0b" : data.color, width: "100%", height: "100%" }
+          : { borderColor: isSimulated ? "#f59e0b" : data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }
       }
     >
+      {isSimulated && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black font-black text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-1 z-20 animate-bounce">
+          <Flame className="h-3 w-3 fill-black text-black" />
+          <span>LEAD AQUI AGORA</span>
+        </div>
+      )}
       <NodeResizer
         isVisible={selected}
         minWidth={140}
@@ -281,11 +365,46 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
       </div>
 
 
-      <div className="flex items-center gap-2 mb-1">
-        <div className="p-1 rounded" style={{ background: `${data.color}20`, color: data.color }}>
-          <Icon className="h-3.5 w-3.5" />
+      {/* Device Phone Rack Skin */}
+      {isPhoneNode && (
+        <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 mb-1.5">
+          <span className="flex items-center gap-1">📱 Proxy SP 4G 🟢</span>
+          <span>🔋 98%</span>
         </div>
-        <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{preset.label}</span>
+      )}
+
+      {/* Product 3D Ticket Mockup Skin */}
+      {isProductNode && (
+        <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 mb-1.5">
+          <span>🏷️ {ticketBadge}</span>
+          <span className="text-lime-400 font-bold">✓ Checkout Ativo</span>
+        </div>
+      )}
+
+      {/* Tool API Webhook Skin */}
+      {isInfraTool && (
+        <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-purple-300 mb-1.5">
+          <span>⚡ Webhook 200 OK</span>
+          <span className="text-purple-400">12ms ping</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-1.5">
+          <div className="p-1 rounded" style={{ background: `${data.color}20`, color: data.color }}>
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{preset.label}</span>
+        </div>
+
+        {/* Heartbeat Status LED */}
+        <div className="flex items-center gap-1 text-[8px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-1.5 py-0.5 rounded-full shadow-sm">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+          </span>
+          <span>LIVE</span>
+        </div>
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
       {data.kind === "imagem" && data.image_url && (
@@ -571,6 +690,12 @@ function InnerMap({
   // Gerador de Fluxo por IA
   const [aiFlowModalOpen, setAiFlowModalOpen] = useState(false);
   const [showFlowBrain, setShowFlowBrain] = useState(false);
+  const [infraToolsOpen, setInfraToolsOpen] = useState(false);
+  const [activeLens, setActiveLens] = useState<TacticalLens>("all");
+  const [growthCopilotOpen, setGrowthCopilotOpen] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [activeScenario, setActiveScenario] = useState<JourneyScenario | null>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [aiFlowPreset, setAiFlowPreset] = useState<string>("vsl_perpetuo");
   const [aiFlowCustomText, setAiFlowCustomText] = useState("");
   const [aiFlowProduct, setAiFlowProduct] = useState("");
@@ -677,6 +802,102 @@ function InnerMap({
   }, []);
   const { setCenter, screenToFlowPosition, fitView } = useReactFlow();
   const navigate = useNavigate();
+
+  const handleLensChange = useCallback((newLens: TacticalLens) => {
+    setActiveLens(newLens);
+    if (newLens === "all") {
+      fitView({ duration: 800 });
+      return;
+    }
+    const matching = rawNodes.filter(n => matchesLens(n, newLens));
+    if (matching.length > 0) {
+      const avgX = matching.reduce((acc, n) => acc + (n.position?.x || 0), 0) / matching.length;
+      const avgY = matching.reduce((acc, n) => acc + (n.position?.y || 0), 0) / matching.length;
+      setCenter(avgX + 100, avgY + 50, { zoom: 0.85, duration: 600 });
+    }
+  }, [rawNodes, fitView, setCenter]);
+
+  const handleStartSimulation = useCallback((scenario: JourneyScenario) => {
+    setActiveScenario(scenario);
+    setCurrentStepIndex(0);
+    setIsSimulating(true);
+    const firstStep = scenario.steps[0];
+    if (firstStep) {
+      const target = rawNodes.find(n => firstStep.nodeMatch.some(m => n.label.toLowerCase().includes(m.toLowerCase())));
+      if (target) {
+        setCenter(target.position.x + 100, target.position.y + 50, { zoom: 1.25, duration: 600 });
+      }
+    }
+  }, [rawNodes, setCenter]);
+
+  const handleStopSimulation = useCallback(() => {
+    setIsSimulating(false);
+    setActiveScenario(null);
+    setCurrentStepIndex(0);
+  }, []);
+
+  const handleNextStep = useCallback(() => {
+    if (!activeScenario) return;
+    const nextIdx = Math.min(activeScenario.steps.length - 1, currentStepIndex + 1);
+    setCurrentStepIndex(nextIdx);
+    const step = activeScenario.steps[nextIdx];
+    if (step) {
+      const target = rawNodes.find(n => step.nodeMatch.some(m => n.label.toLowerCase().includes(m.toLowerCase())));
+      if (target) {
+        setCenter(target.position.x + 100, target.position.y + 50, { zoom: 1.25, duration: 600 });
+      }
+    }
+  }, [activeScenario, currentStepIndex, rawNodes, setCenter]);
+
+  const handlePrevStep = useCallback(() => {
+    if (!activeScenario) return;
+    const prevIdx = Math.max(0, currentStepIndex - 1);
+    setCurrentStepIndex(prevIdx);
+    const step = activeScenario.steps[prevIdx];
+    if (step) {
+      const target = rawNodes.find(n => step.nodeMatch.some(m => n.label.toLowerCase().includes(m.toLowerCase())));
+      if (target) {
+        setCenter(target.position.x + 100, target.position.y + 50, { zoom: 1.25, duration: 600 });
+      }
+    }
+  }, [activeScenario, currentStepIndex, rawNodes, setCenter]);
+
+  // Sync activeLens and simulation state down to nodes and edges
+  useEffect(() => {
+    const currentStep = activeScenario?.steps[currentStepIndex];
+    setNodes(nds => nds.map(n => {
+      if (n.id.startsWith(ANN_PREFIX)) return n;
+      const isSimulatedActive = isSimulating && !!currentStep && currentStep.nodeMatch.some(m =>
+        (n.data.label as string || "").toLowerCase().includes(m.toLowerCase())
+      );
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          activeLens,
+          isSimulatedActive,
+        }
+      };
+    }));
+  }, [activeLens, isSimulating, currentStepIndex, activeScenario]);
+
+  useEffect(() => {
+    const currentStep = activeScenario?.steps[currentStepIndex];
+    setEdges(eds => eds.map(e => {
+      const sourceNode = rawNodes.find(r => r.id === e.source);
+      const targetNode = rawNodes.find(r => r.id === e.target);
+      const sLabel = sourceNode?.label || "";
+      const tLabel = targetNode?.label || "";
+      const isSimulatedActive = isSimulating && !!currentStep && (
+        currentStep.nodeMatch.some(m => sLabel.toLowerCase().includes(m.toLowerCase())) ||
+        currentStep.nodeMatch.some(m => tLabel.toLowerCase().includes(m.toLowerCase()))
+      );
+      return {
+        ...e,
+        style: getDynamicEdgeStyle(sLabel, tLabel, e.style?.strokeDasharray !== undefined, isSimulatedActive),
+      };
+    }));
+  }, [activeLens, isSimulating, currentStepIndex, activeScenario, rawNodes]);
   useEffect(() => {
     localStorage.setItem("funis:palette-collapsed", String(paletteCollapsed));
   }, [paletteCollapsed]);
@@ -839,17 +1060,21 @@ function InnerMap({
       });
       return [...baseNodes, ...annNodes];
     });
-    setEdges((eds || []).map((e) => ({
-      id: e.id,
-      source: e.source_kind === "annotation" ? `${ANN_PREFIX}${e.source_id}` : e.source_id,
-      target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
-      sourceHandle: e.source_handle || undefined,
-      targetHandle: e.target_handle || undefined,
-      animated: e.style !== "dashed",
-      label: e.label || undefined,
-      interactionWidth: 24,
-      style: { stroke: "#c9922a", strokeWidth: 2, strokeDasharray: e.style === "dashed" ? "6 4" : undefined, cursor: "pointer" },
-    })));
+    setEdges((eds || []).map((e) => {
+      const sNode = list.find(n => n.id === e.source_id);
+      const tNode = list.find(n => n.id === e.target_id);
+      return {
+        id: e.id,
+        source: e.source_kind === "annotation" ? `${ANN_PREFIX}${e.source_id}` : e.source_id,
+        target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
+        sourceHandle: e.source_handle || undefined,
+        targetHandle: e.target_handle || undefined,
+        animated: e.style !== "dashed",
+        label: e.label || undefined,
+        interactionWidth: 24,
+        style: getDynamicEdgeStyle(sNode?.label || "", tNode?.label || "", e.style === "dashed", false),
+      };
+    }));
   }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, setAnnotations]);
 
   loadMapRef.current = loadMap;
@@ -1331,8 +1556,21 @@ function InnerMap({
       .insert({ map_id: mapId, source_id, target_id, source_kind: srcIsAnn ? "annotation" : "node", target_kind: tgtIsAnn ? "annotation" : "node", source_handle: conn.sourceHandle || null, target_handle: conn.targetHandle || null })
       .select().single();
     if (error) { toast.error("Erro ao conectar"); return; }
-    if (data) setEdges(eds => addEdge({ id: data.id, source: conn.source!, target: conn.target!, sourceHandle: conn.sourceHandle || undefined, targetHandle: conn.targetHandle || undefined, animated: true, interactionWidth: 24, style: { stroke: "#c9922a", strokeWidth: 2, cursor: "pointer" } }, eds));
-  }, [mapId]);
+    if (data) {
+      const sNode = rawNodes.find(r => r.id === source_id);
+      const tNode = rawNodes.find(r => r.id === target_id);
+      setEdges(eds => addEdge({
+        id: data.id,
+        source: conn.source!,
+        target: conn.target!,
+        sourceHandle: conn.sourceHandle || undefined,
+        targetHandle: conn.targetHandle || undefined,
+        animated: true,
+        interactionWidth: 24,
+        style: getDynamicEdgeStyle(sNode?.label || "", tNode?.label || "", false, false),
+      }, eds));
+    }
+  }, [mapId, rawNodes]);
 
   const deleteEdgeById = useCallback(async (edgeId: string) => {
     setEdges(eds => eds.filter(e => e.id !== edgeId));
@@ -2158,6 +2396,14 @@ function InnerMap({
         >
           <Brain className="h-3.5 w-3.5" /> Flow Brain (Auditar com IA)
         </Button>
+        <Button
+          size="sm"
+          onClick={() => setInfraToolsOpen(true)}
+          className="h-7 px-2.5 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-semibold gap-1.5 shadow-sm transition-all"
+          title="Ver aparelhos GeeLark, perfis de redes sociais, ajustar acessos de ferramentas e produtos"
+        >
+          <Smartphone className="h-3.5 w-3.5 text-cyan-400" /> Infra, Perfis & Acessos
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
           <LayoutGrid className="h-3 w-3" /> Organizar
         </Button>
@@ -2230,6 +2476,22 @@ function InnerMap({
 
 
       </div>
+
+      {/* Barra Tática de Lentes, Telemetria e Simulador Interativo ("Play Flow") */}
+      <CompanyMapTacticalBar
+        activeLens={activeLens}
+        onLensChange={handleLensChange}
+        isSimulating={isSimulating}
+        activeScenario={activeScenario}
+        currentStepIndex={currentStepIndex}
+        onStartSimulation={handleStartSimulation}
+        onStopSimulation={handleStopSimulation}
+        onNextStep={handleNextStep}
+        onPrevStep={handlePrevStep}
+        onOpenGrowthCopilot={() => setGrowthCopilotOpen(true)}
+        onOpenInfraTools={() => setInfraToolsOpen(true)}
+        nodeCount={rawNodes.length}
+      />
 
       {/* Palette (grouped by category) */}
       <div
@@ -3611,6 +3873,23 @@ function InnerMap({
           navigate("/skills");
           toast.info(`Navegando para o arsenal de skills (${skillId})`);
         }}
+      />
+
+      {/* Central de Infraestrutura, GeeLark & Acessos */}
+      <CompanyInfraToolsModal
+        open={infraToolsOpen}
+        onOpenChange={setInfraToolsOpen}
+        mapId={mapId}
+        onNodeInjected={() => {
+          if (mapId) loadMap(mapId);
+        }}
+      />
+
+      {/* Growth Copilot Modal acionado diretamente do mapa */}
+      <GrowthCopilotModal
+        open={growthCopilotOpen}
+        onOpenChange={setGrowthCopilotOpen}
+        projects={projects as any}
       />
 
     </div>

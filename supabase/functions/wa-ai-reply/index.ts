@@ -58,6 +58,49 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { conversation_id, project_id, phone, push_name } = body;
+
+    // ── Guard Anti-Grupos / Broadcasts / Canais ──
+    const isGroupJid = Boolean(
+      phone && (
+        phone.startsWith("120363") ||
+        phone.includes("@g.us") ||
+        phone.includes("@broadcast") ||
+        phone.replace(/\D/g, "").length > 15
+      )
+    );
+    if (isGroupJid) {
+      console.log(`[wa-ai-reply] Ignorando mensagem de grupo WhatsApp (${phone})`);
+      return new Response(JSON.stringify({ ok: true, skipped: "group_message_ignored" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Early check: se a conversa já estiver com IA desativada ou for grupo no banco
+    if (conversation_id) {
+      try {
+        const { data: convEarly } = await supabase
+          .from("imphq_wa_conversations")
+          .select("ia_ativa, phone, jid_suffix")
+          .eq("id", conversation_id)
+          .maybeSingle();
+
+        if (convEarly?.ia_ativa === false && !body.message?.toLowerCase().includes("#testeia")) {
+          return new Response(JSON.stringify({ ok: true, skipped: "ia_desativada" }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (convEarly?.jid_suffix === "g.us" || convEarly?.phone?.startsWith("120363")) {
+          return new Response(JSON.stringify({ ok: true, skipped: "group_conversation_ignored" }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (e) {
+        console.warn("[wa-ai-reply] early conv check error:", errorMessage(e));
+      }
+    }
     let provider_id = body.provider_id;
     // Fallback: callers como wa-ai-pending-flush não passam provider_id.
     // Busca da conversa para não cair em "Missing required fields".
