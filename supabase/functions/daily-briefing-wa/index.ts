@@ -29,8 +29,30 @@ function normalizePhone(raw: string) {
   const trimmed = (raw || "").trim();
   if (trimmed.endsWith("@g.us")) return trimmed;
   let p = trimmed.replace(/\D/g, "");
-  if (p.length === 10 || p.length === 11) p = "55" + p;
+  if (!p.startsWith("55") && (p.length === 10 || p.length === 11)) p = "55" + p;
   return p;
+}
+
+function formatBrPhoneForWa(raw: string): string {
+  let clean = (raw || "").replace(/\D/g, "");
+  if (!clean) return "";
+  if (clean.length === 10) {
+    clean = "55" + clean.slice(0, 2) + "9" + clean.slice(2);
+  } else if (clean.length === 11) {
+    if (clean.startsWith("55")) {
+      const ddd = clean.slice(2, 4);
+      const rest = clean.slice(4);
+      if (rest.length === 7) clean = `55${ddd}9${rest}`;
+      else if (rest.length === 8 && !rest.startsWith("9")) clean = `55${ddd}9${rest}`;
+    } else {
+      clean = "55" + clean;
+    }
+  } else if (clean.length === 12 && clean.startsWith("55")) {
+    const ddd = clean.slice(2, 4);
+    const rest = clean.slice(4);
+    if (!rest.startsWith("9")) clean = `55${ddd}9${rest}`;
+  }
+  return clean;
 }
 
 const PROJECT_EMOJIS: Record<string, string> = {
@@ -86,8 +108,7 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
     const rawP = lead?.phone || a.data?.phone || a.data?.telefone;
     if (rawP) {
-      let clean = String(rawP).replace(/\D/g, "");
-      if (clean.length === 10 || clean.length === 11) clean = "55" + clean;
+      const clean = formatBrPhoneForWa(rawP);
       if (clean) phoneList.push(clean);
     }
   });
@@ -213,8 +234,7 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
         const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
         const nome = lead?.nome || a.nome || a.data?.nome || "Lead";
         const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
-        let cleanPhone = String(rawPhone).replace(/\D/g, "");
-        if (cleanPhone.length === 10 || cleanPhone.length === 11) cleanPhone = "55" + cleanPhone;
+        const cleanPhone = formatBrPhoneForWa(rawPhone);
         const conv = cleanPhone ? activeConvsMap[cleanPhone] : null;
         const x1Tag = conv ? "🟢 No X1" : "⚠️ Fora do X1";
         lines.push(`  └ *${nome}* (${a.produto_nome || "Produto"}) — ${x1Tag}${cleanPhone ? ` → wa.me/${cleanPhone}` : ""}`);
@@ -280,8 +300,7 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
       const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
       const nome = lead?.nome || a.nome || a.data?.nome || a.data?.name || "Cliente sem nome";
       const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
-      let cleanPhone = String(rawPhone).replace(/\D/g, "");
-      if (cleanPhone.length === 10 || cleanPhone.length === 11) cleanPhone = "55" + cleanPhone;
+      const cleanPhone = formatBrPhoneForWa(rawPhone);
 
       const email = lead?.email || a.data?.email || null;
       const produto = a.produto_nome || "Produto";
