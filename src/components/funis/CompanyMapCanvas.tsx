@@ -14,7 +14,6 @@ import {
 
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
-import { readAgentNotes, writeAgentNotes, type AgentNotes } from "@shared/map-steps";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +39,8 @@ import { annotationNodeTypes } from "@/components/funis/map-annotation-registry"
 import { ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "@/components/funis/map-annotation-data";
 import { StrategicGapsPanel } from "@/components/funis/StrategicGapsPanel";
 import { KIND_CATEGORIES, KIND_PRESETS } from "@/components/funis/map-element-presets";
+import { extractAgentData, type AgentExecutionData } from "@/components/funis/map-agent-data";
+export type { AgentExecutionData } from "@/components/funis/map-agent-data";
 import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
 import { PresenceCursors } from "@/components/funis/PresenceCursors";
@@ -70,10 +71,30 @@ function setProductIdInNotes(notes: string | null | undefined, prodName: string 
   return current ? `${current}\n[product_name:${prodName}]` : `[product_name:${prodName}]`;
 }
 
-// Leitura/escrita das marcações [agent_*] vem da regra única compartilhada com a tela Hoje e o MCP.
-export type AgentExecutionData = AgentNotes;
-const extractAgentData = readAgentNotes;
-const updateAgentDataInNotes = writeAgentNotes;
+function updateAgentDataInNotes(notes: string | null | undefined, data: Partial<AgentExecutionData>): string {
+  let text = notes || "";
+  text = text.replace(/\[agent_executor:[^\]]*\]/g, "")
+             .replace(/\[agent_skill:[^\]]*\]/g, "")
+             .replace(/\[agent_status:[^\]]*\]/g, "")
+             .replace(/\[agent_output:[^\]]*\]/g, "")
+             .replace(/\[agent_prompt:[^\]]*\]/g, "")
+             .replace(/\[agent_prompt_start\][\s\S]*?\[agent_prompt_end\]/g, "")
+             .trim();
+
+  const current = extractAgentData(notes);
+  const updated: AgentExecutionData = { ...current, ...data };
+
+  const tags: string[] = [];
+  if (updated.executor && updated.executor !== "human_general") tags.push(`[agent_executor:${updated.executor}]`);
+  if (updated.skill && updated.skill !== "none") tags.push(`[agent_skill:${updated.skill}]`);
+  if (updated.status && updated.status !== "pending") tags.push(`[agent_status:${updated.status}]`);
+  if (updated.output_url) tags.push(`[agent_output:${updated.output_url}]`);
+  if (updated.prompt) tags.push(`[agent_prompt_start]\n${updated.prompt.trim()}\n[agent_prompt_end]`);
+
+  if (tags.length === 0) return text;
+  return text ? `${text}\n\n${tags.join("\n")}` : tags.join("\n");
+}
+
 
 const SIZE_PRESETS: Record<string, { min: number; max: number; label: string }> = {
   S: { min: 160, max: 200, label: "Pequeno" },
@@ -219,7 +240,7 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
   const isProductNode = data.kind === "oferta" || data.label.includes("LinfaFlow") || data.label.includes("Formação") || data.label.includes("Cortes") || data.label.includes("SlimSoda");
   const isInfraTool = data.label.includes("Evolution") || data.label.includes("Zernio") || data.label.includes("N8N") || data.label.includes("Kiwify") || data.label.includes("Ticto");
 
-  const ticketBadge = data.label.includes("Formação") ? "R$ 1.997" : data.label.includes("Cortes") ? "R$ 47" : "R$ 197";
+  const ticketBadge = "Oferta cadastrada";
 
   return (
     <div
@@ -283,7 +304,7 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
           className="p-1 rounded hover:bg-purple-500/20 text-muted-foreground hover:text-purple-400"
           onClick={(e) => {
             e.stopPropagation();
-            const ag = extractAgentData(data.notes);
+            const ag = extractAgentData(data.notes, data);
             const pName = (data.notes || "").match(/\[product_name:([^\]]+)\]/)?.[1] || "";
             const textToCopy = ag.prompt || `Ação: ${data.label}\nDescrição: ${data.description || ""}${pName ? `\nProduto: ${pName}` : ""}`;
             navigator.clipboard.writeText(textToCopy);
@@ -320,8 +341,8 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
       {/* Device Phone Rack Skin */}
       {isPhoneNode && (
         <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 mb-1.5">
-          <span className="flex items-center gap-1">📱 Proxy SP 4G 🟢</span>
-          <span>🔋 98%</span>
+          <span className="flex items-center gap-1">📱 Aparelho / perfil</span>
+          <span>Saúde não verificada</span>
         </div>
       )}
 
@@ -329,15 +350,15 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
       {isProductNode && (
         <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 mb-1.5">
           <span>🏷️ {ticketBadge}</span>
-          <span className="text-lime-400 font-bold">✓ Checkout Ativo</span>
+          <span>Checkout não verificado</span>
         </div>
       )}
 
       {/* Tool API Webhook Skin */}
       {isInfraTool && (
         <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-purple-300 mb-1.5">
-          <span>⚡ Webhook 200 OK</span>
-          <span className="text-purple-400">12ms ping</span>
+          <span>⚡ Integração</span>
+          <span className="text-purple-400">Execução não verificada</span>
         </div>
       )}
 
@@ -352,10 +373,9 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
         {/* Heartbeat Status LED */}
         <div className="flex items-center gap-1 text-[8px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-1.5 py-0.5 rounded-full shadow-sm">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
           </span>
-          <span>LIVE</span>
+          <span>CADASTRO</span>
         </div>
       </div>
       <p className="text-sm font-medium leading-snug">{data.label}</p>
@@ -388,7 +408,7 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
 
       {/* Agent Execution Pill */}
       {(() => {
-        const ag = extractAgentData(data.notes);
+        const ag = extractAgentData(data.notes, data);
         if (ag.executor === "human_general" && !ag.prompt && !ag.output_url) return null;
 
         const execName =
@@ -427,10 +447,10 @@ function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean
                 ag.status === "in_progress" ? "bg-blue-500/20 text-blue-300 animate-pulse" :
                 ag.status === "ready_review" ? "bg-amber-500/20 text-amber-300" :
                 "bg-zinc-800 text-zinc-400"
-              )}>
-                {ag.status === "done" ? "✓ Pronto" :
-                 ag.status === "in_progress" ? "Executando" :
-                 ag.status === "ready_review" ? "Revisar" : "Pendente"}
+              )} title="Status declarado; checklist e entregável não comprovam funcionamento.">
+                {ag.status === "done" ? "Concluído · declarado" :
+                 ag.status === "in_progress" ? "Em execução · declarado" :
+                 ag.status === "ready_review" ? "Revisar · declarado" : ag.status_source === "notes" ? "Pendente · declarado" : "Não declarado"}
               </span>
             </div>
           </div>
@@ -2393,7 +2413,7 @@ function InnerMap({
             title="Ver tarefas pendentes hoje para rodar tráfego"
           >
             <span className={totalDone === totalItems ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
-              {totalDone === totalItems ? "🟢 Pronto para Tráfego" : `🟡 ${totalItems - totalDone} tarefas hoje`}
+              {totalDone === totalItems ? "Checklist do dia preenchido" : `🟡 ${totalItems - totalDone} tarefas hoje`}
             </span>
           </div>
         )}
@@ -3325,7 +3345,7 @@ function InnerMap({
 
               {/* ───────── CENTRAL DO AGENTE & EXECUÇÃO (SOP / RUNBOOK) ───────── */}
               {(() => {
-                const agent = extractAgentData(selected.notes);
+                const agent = extractAgentData(selected.notes, selected);
                 const handleUpdateAgent = (partial: Partial<AgentExecutionData>) => {
                   const newNotes = updateAgentDataInNotes(selected.notes, partial);
                   setSelected({ ...selected, notes: newNotes });

@@ -29,6 +29,11 @@ Pedido (01/10/2026): finalizar o mapa, o visual e os fluxos para operar no dia a
 - [x] Fora do menu (rotas seguem no ar): Cockpit Tri-Modo, Master Redesign, Custos IA · Chat.
 - [x] Testes: `src/test/hoje.test.tsx` e link do mapa em `src/test/mapa-empresa.test.tsx`.
 
+## Integração com o trabalho do Codex (MAP1.18, 01/10)
+- A `main` recebeu em paralelo o contrato do mapa do Codex (`map-contract.ts`, `map-agent-data.ts`, jornadas de oferta). Decisão dele mantida: **status só vale quando declarado** (`[agent_status:…]`, ignorando exemplos dentro de prompts); checklist completa não prova execução.
+- Para não sobrescrever a decisão: canvas e MCP ficaram com o leitor do Codex; `map-steps.ts` passou a usar `readAgentStatus` e o quadro Hoje ganhou o grupo **Confirmar status** (checklist completa sem declaração) em vez de marcar como feito sozinho.
+- Filtro padrão `open` do MCP mantido (a fazer, em andamento e revisar).
+
 ## File List
 - supabase/functions/_shared/map-steps.ts
 - supabase/functions/project-mcp/index.ts

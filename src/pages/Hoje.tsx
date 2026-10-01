@@ -36,7 +36,7 @@ export default function Hoje() {
   }, [companyMaps]);
 
   const totals = useMemo(() => ({
-    waiting: boards.reduce((n, b) => n + b.waitingYou.length + b.review.length, 0),
+    waiting: boards.reduce((n, b) => n + b.waitingYou.length + b.review.length + b.toConfirm.length, 0),
     ai: boards.reduce((n, b) => n + b.aiReady.length, 0),
     sales: boards.reduce((n, b) => n + b.salesToday.count, 0),
     leads: boards.reduce((n, b) => n + b.leadsToday, 0),
@@ -60,7 +60,7 @@ export default function Hoje() {
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Esperando você" value={totals.waiting} tone={totals.waiting ? "text-warning" : undefined} hint="a fazer ou para revisar" />
+        <Stat label="Esperando você" value={totals.waiting} tone={totals.waiting ? "text-warning" : undefined} hint="a fazer, revisar ou confirmar" />
         <Stat label="IA pode executar" value={totals.ai} hint="pendentes com skill ou automação" />
         <Stat label="Vendas hoje" value={totals.sales} tone={totals.sales ? "text-success" : undefined} />
         <Stat label="Leads hoje" value={totals.leads} />
@@ -130,6 +130,13 @@ function ProjectCard({ board, critical }: { board: ProjectBoard; critical: MapGa
       )}
 
       <StepGroup title="Para revisar" icon={Eye} steps={board.review} empty={null} />
+      <StepGroup
+        title="Confirmar status"
+        icon={CheckCircle2}
+        steps={board.toConfirm}
+        empty={null}
+        hint="Checklist completa, mas ninguém marcou como feita. Confirme ou ajuste."
+      />
       <StepGroup title="Esperando você" icon={User} steps={board.waitingYou} empty="Nada pendente com o time." />
       <StepGroup title="IA pode executar" icon={Bot} steps={board.aiReady} empty="Nenhuma etapa de IA pendente." canCopy />
       <StepGroup title="Em andamento" icon={Loader2} steps={board.inProgress} empty={null} />
@@ -137,12 +144,13 @@ function ProjectCard({ board, critical }: { board: ProjectBoard; critical: MapGa
   );
 }
 
-function StepGroup({ title, icon: Icon, steps, empty, canCopy }: {
+function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint }: {
   title: string;
   icon: typeof User;
   steps: BoardStep[];
   empty: string | null;
   canCopy?: boolean;
+  hint?: string;
 }) {
   if (!steps.length && empty === null) return null;
   const shown = steps.slice(0, MAX_ROWS);
@@ -151,6 +159,7 @@ function StepGroup({ title, icon: Icon, steps, empty, canCopy }: {
       <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-subtle">
         <Icon className="h-3.5 w-3.5" /> {title} <span className="font-mono text-muted-foreground">{steps.length}</span>
       </div>
+      {hint && steps.length > 0 && <p className="mb-1.5 text-xs text-muted-foreground">{hint}</p>}
       {!steps.length && <p className="text-sm text-muted-foreground">{empty}</p>}
       <ul className="divide-y divide-border rounded-md border border-border">
         {shown.map((step) => <StepRow key={step.id} step={step} canCopy={canCopy} />)}

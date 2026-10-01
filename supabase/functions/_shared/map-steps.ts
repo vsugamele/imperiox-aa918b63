@@ -1,6 +1,8 @@
-// Regra única de "etapa executável" do mapa: status, quem executa, prompt e progresso.
-// TS puro e sem dependências: usada pela tela Hoje, pelo canvas (/funis) e pelo project-mcp.
-// O estado da execução mora nas notas da etapa em marcações [agent_*] e na checklist.
+// Leitura de "etapa executável" do mapa para o quadro diário: status, quem executa, prompt e progresso.
+// TS puro e sem dependências externas: usado pela tela Hoje e testável no vitest.
+// O estado mora nas notas da etapa em marcações [agent_*]. Status só vale quando declarado (contrato do
+// mapa, MAP1.18): checklist completa não prova execução, apenas pede que alguém confirme.
+import { readAgentStatus } from "./map-contract.ts";
 
 export type StepStatus = "pending" | "in_progress" | "ready_review" | "done";
 export type ExecutorGroup = "ia" | "automatico" | "ferramenta" | "humano";
@@ -22,24 +24,21 @@ export interface StepNode {
   linked_skill_id?: string | null;
 }
 
-const STATUSES: StepStatus[] = ["pending", "in_progress", "ready_review", "done"];
-
 /** Lê as marcações [agent_*] das notas. Sem marcação: executor "human_general", skill "none", status "pending". */
 export function readAgentNotes(notes?: string | null): AgentNotes {
   const text = notes || "";
-  const rawStatus = text.match(/\[agent_status:([^\]]+)\]/)?.[1] as StepStatus | undefined;
   const multi = text.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
   const single = text.match(/\[agent_prompt:([^\]]+)\]/);
   return {
     executor: text.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general",
     skill: text.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none",
-    status: rawStatus && STATUSES.includes(rawStatus) ? rawStatus : "pending",
+    status: readAgentStatus(notes).status,
     prompt: (multi?.[1] ?? single?.[1] ?? "").trim(),
     output_url: text.match(/\[agent_output:([^\]]+)\]/)?.[1] || "",
   };
 }
 
-/** Regrava as marcações [agent_*] preservando o texto livre das notas. */
+/** Regrava as marcações [agent_*] preservando o texto livre das notas (mesmo formato do canvas). */
 export function writeAgentNotes(notes: string | null | undefined, data: Partial<AgentNotes>): string {
   const text = (notes || "")
     .replace(/\[agent_executor:[^\]]*\]/g, "")
@@ -69,17 +68,16 @@ export function checklistProgress(value: unknown): { done: number; total: number
   return { done: list.filter((c) => c.done === true).length, total: list.length };
 }
 
-/**
- * Status da etapa: marcação explícita nas notas vence; sem ela, a checklist decide
- * (toda feita = done, parte feita = in_progress); sem checklist = pending.
- */
+/** Status declarado nas notas ([agent_status:…], ignorando exemplos dentro de prompts). Sem declaração = pending. */
 export function stepStatus(node: StepNode): StepStatus {
-  const marked = (node.notes || "").match(/\[agent_status:([^\]]+)\]/)?.[1] as StepStatus | undefined;
-  if (marked && STATUSES.includes(marked)) return marked;
+  return readAgentStatus(node.notes).status;
+}
+
+/** Etapa sem status declarado com a checklist toda marcada: alguém precisa confirmar se está feita. */
+export function needsConfirmation(node: StepNode): boolean {
+  if (readAgentStatus(node.notes).status_source === "notes") return false;
   const { done, total } = checklistProgress(node.checklist);
-  if (total > 0 && done === total) return "done";
-  if (done > 0) return "in_progress";
-  return "pending";
+  return total > 0 && done === total;
 }
 
 /** Quem executa, agrupado. Aceita os vários vocabulários já gravados (AI_SKILL, agente_ia, ai_higgsfield, humano...). */

@@ -41,7 +41,9 @@ describe("today board", () => {
     expect(board.aiReady[0].skill).toBe("angulos-criativos");
     expect(board.waitingYou.map((s) => s.id)).toEqual(["e", "b"]);
     expect(board.review.map((s) => s.id)).toEqual(["c"]);
-    expect(board.done).toBe(1);
+    // Pixel tem a checklist completa mas ninguém declarou: vai para confirmar, não para feito.
+    expect(board.toConfirm.map((s) => s.id)).toEqual(["d"]);
+    expect(board.done).toBe(0);
     expect(board.total).toBe(5);
     expect(board.salesToday).toEqual({ count: 2, byCurrency: { USD: 37.49 } });
     expect(board.leadsToday).toBe(1);

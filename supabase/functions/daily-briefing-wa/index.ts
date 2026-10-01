@@ -2,6 +2,43 @@
 // e cuja hora preferida bate com a hora atual (BRT), ou on-demand via target_jid.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+interface RecoveryData {
+  phone?: string | null;
+  telefone?: string | null;
+  nome?: unknown;
+  name?: unknown;
+  email?: unknown;
+}
+
+interface BriefingSale {
+  id: string;
+  project_id: string | null;
+  valor: number | null;
+  status: string | null;
+  produto_nome: string | null;
+  data_venda: string | null;
+  created_at: string | null;
+  nome: string | null;
+  lead_id: string | null;
+  data: RecoveryData | null;
+}
+
+interface RecoveryLead {
+  id: string;
+  nome: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+interface RecoveryConversation {
+  id: string;
+  phone: string;
+  status: string;
+  last_message_at: string | null;
+  ia_ativa: boolean | null;
+  message_count: number;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -29,8 +66,30 @@ function normalizePhone(raw: string) {
   const trimmed = (raw || "").trim();
   if (trimmed.endsWith("@g.us")) return trimmed;
   let p = trimmed.replace(/\D/g, "");
-  if (p.length === 10 || p.length === 11) p = "55" + p;
+  if (!p.startsWith("55") && (p.length === 10 || p.length === 11)) p = "55" + p;
   return p;
+}
+
+function formatBrPhoneForWa(raw: string): string {
+  let clean = (raw || "").replace(/\D/g, "");
+  if (!clean) return "";
+  if (clean.length === 10) {
+    clean = "55" + clean.slice(0, 2) + "9" + clean.slice(2);
+  } else if (clean.length === 11) {
+    if (clean.startsWith("55")) {
+      const ddd = clean.slice(2, 4);
+      const rest = clean.slice(4);
+      if (rest.length === 7) clean = `55${ddd}9${rest}`;
+      else if (rest.length === 8 && !rest.startsWith("9")) clean = `55${ddd}9${rest}`;
+    } else {
+      clean = "55" + clean;
+    }
+  } else if (clean.length === 12 && clean.startsWith("55")) {
+    const ddd = clean.slice(2, 4);
+    const rest = clean.slice(4);
+    if (!rest.startsWith("9")) clean = `55${ddd}9${rest}`;
+  }
+  return clean;
 }
 
 const PROJECT_EMOJIS: Record<string, string> = {
@@ -54,11 +113,54 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
 
   const coreIds = ["jp_freitas", "linfaflow", "slimsoda"];
 
-  // 2. Vendas nas últimas 24h
-  const { data: vendas24h } = await supabase
+  // 2. Vendas recentes (considerando data_venda real para não puxar reprocessamento histórico antigo)
+  const { data: rawVendas } = await supabase
     .from("imphq_vendas")
-    .select("project_id, valor, status, produto_nome")
-    .gte("created_at", last24h);
+    .select("id, project_id, valor, status, produto_nome, data_venda, created_at, nome, lead_id, data")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const vendas24h: BriefingSale[] = (rawVendas || []).filter((v: BriefingSale) => {
+    const rawTs = v.data_venda || v.created_at;
+    const ts = rawTs ? new Date(rawTs).getTime() : 0;
+    return ts >= (now.getTime() - 24 * 60 * 60 * 1000);
+  });
+
+  // Mapeamento enriquecido de abandonos nas 24h
+  const abandonos24h = vendas24h.filter(
+    (v: BriefingSale) => v.status === "carrinho_abandonado" || v.status === "pix_gerado"
+  );
+  const leadIds = abandonos24h.map((a: BriefingSale) => a.lead_id).filter(Boolean);
+  const leadsInfoMap: Record<string, RecoveryLead | undefined> = {};
+  if (leadIds.length > 0) {
+    const { data: lData } = await supabase
+      .from("imphq_leads")
+      .select("id, nome, phone, email")
+      .in("id", leadIds);
+    (lData || []).forEach((l: RecoveryLead) => { leadsInfoMap[l.id] = l; });
+  }
+
+  const phoneList: string[] = [];
+  abandonos24h.forEach((a: BriefingSale) => {
+    const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
+    const rawP = lead?.phone || a.data?.phone || a.data?.telefone;
+    if (rawP) {
+      const clean = formatBrPhoneForWa(rawP);
+      if (clean) phoneList.push(clean);
+    }
+  });
+
+  const activeConvsMap: Record<string, RecoveryConversation | undefined> = {};
+  if (phoneList.length > 0) {
+    const { data: cData } = await supabase
+      .from("imphq_wa_conversations")
+      .select("id, phone, status, last_message_at, ia_ativa, message_count")
+      .in("phone", phoneList);
+    (cData || []).forEach((c: RecoveryConversation) => {
+      const clean = (c.phone || "").replace(/\D/g, "");
+      activeConvsMap[clean] = c;
+    });
+  }
 
   // 3. Leads nas últimas 24h
   const { data: leads24h } = await supabase
@@ -165,6 +267,15 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     
     if (abandonos.length > 0) {
       lines.push(`• Recuperação: ⚠️ ${abandonos.length} abandonos/pix pendentes`);
+      abandonos.slice(0, 3).forEach((a: BriefingSale) => {
+        const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
+        const nome = lead?.nome || a.nome || a.data?.nome || "Lead";
+        const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
+        const cleanPhone = formatBrPhoneForWa(rawPhone);
+        const conv = cleanPhone ? activeConvsMap[cleanPhone] : null;
+        const x1Tag = conv ? "🟢 No X1" : "⚠️ Fora do X1";
+        lines.push(`  └ *${nome}* (${a.produto_nome || "Produto"}) — ${x1Tag}${cleanPhone ? ` → wa.me/${cleanPhone}` : ""}`);
+      });
       actions.push(`[${proj.name}] Recuperar ${abandonos.length} carrinho(s) abandonado(s) de hoje.`);
     }
 
@@ -215,7 +326,47 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     });
   }
 
-  return lines.join("\n");
+  // Constrói mensagem dedicada de recuperação caso haja abandonos
+  let recoveryMessage: string | null = null;
+  if (abandonos24h.length > 0) {
+    const rLines: string[] = [];
+    rLines.push("🎯 *Ficha de Recuperação de Carrinho (Últimas 24h)*");
+    rLines.push("");
+
+    abandonos24h.slice(0, 8).forEach((a: BriefingSale, idx: number) => {
+      const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
+      const nome = lead?.nome || a.nome || a.data?.nome || a.data?.name || "Cliente sem nome";
+      const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
+      const cleanPhone = formatBrPhoneForWa(rawPhone);
+
+      const email = lead?.email || a.data?.email || null;
+      const produto = a.produto_nome || "Produto";
+      const valor = Number(a.valor || 0) > 0 ? ` (R$ ${Number(a.valor).toFixed(2)})` : "";
+      const conv = cleanPhone ? activeConvsMap[cleanPhone] : null;
+
+      rLines.push(`*${idx + 1}. ${nome}*`);
+      rLines.push(`   📦 *Produto:* ${produto}${valor}`);
+      if (conv) {
+        const iaDesc = conv.ia_ativa ? "IA ativa respondendo" : "Atendimento manual";
+        rLines.push(`   💬 *Status no X1:* 🟢 *Em conversa ativa* (${iaDesc})`);
+      } else {
+        rLines.push(`   💬 *Status no X1:* ⚠️ *NÃO está no WhatsApp* (Sem conversa iniciada)`);
+      }
+
+      if (cleanPhone) {
+        rLines.push(`   📱 *Iniciar X1:* https://wa.me/${cleanPhone}`);
+      }
+      if (email) {
+        rLines.push(`   📧 *E-mail:* ${email}`);
+      }
+      rLines.push("");
+    });
+
+    rLines.push("_💡 Toque no link wa.me para abrir o WhatsApp e abordar o lead agora!_");
+    recoveryMessage = rLines.join("\n");
+  }
+
+  return { briefingText: lines.join("\n"), recoveryMessage };
 }
 
 Deno.serve(async (req) => {
@@ -248,8 +399,8 @@ Deno.serve(async (req) => {
 
     const results: Array<{user_id:string} & ({error:string}|{status:number;send:unknown})> = [];
 
-    // Constrói o briefing pontuado por projeto
-    const message = await buildOperationalBriefing(supabase, Boolean(targetJid));
+    // Constrói o briefing pontuado por projeto + ficha de recuperação
+    const { briefingText, recoveryMessage } = await buildOperationalBriefing(supabase, Boolean(targetJid));
 
     // Provider global ativo para disparo
     const { data: provider } = await supabase
@@ -277,16 +428,26 @@ Deno.serve(async (req) => {
         const sendRes = await fetch(sendUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: provider.api_key },
-          body: JSON.stringify({ number: phone, text: message }),
+          body: JSON.stringify({ number: phone, text: briefingText }),
         });
         const sendJson = await sendRes.json().catch(() => ({}));
         results.push({ user_id: pref.user_id, status: sendRes.status, send: sendJson });
+
+        // Se houver abandonos e mensagem detalhada de recuperação, envia logo em seguida
+        if (recoveryMessage) {
+          await new Promise((r) => setTimeout(r, 1200));
+          await fetch(sendUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey: provider.api_key },
+            body: JSON.stringify({ number: phone, text: recoveryMessage }),
+          }).catch((e) => console.warn("[daily-briefing-wa] recovery msg send error:", e));
+        }
       } catch (err) {
         results.push({ user_id: pref.user_id, error: err instanceof Error ? err.message : String(err) });
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, hour, count: results.length, results, message_preview: message }), {
+    return new Response(JSON.stringify({ ok: true, hour, count: results.length, results, message_preview: briefingText, recovery_preview: recoveryMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

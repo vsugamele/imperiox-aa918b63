@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProjectMap, type ProjectMapInput } from "@shared/project-map";
+import { buildProjectMap, PROJECT_MAP_INTERPRETATION, readProjectArea, type ProjectMapInput } from "@shared/project-map";
 
 const noActivity: ProjectMapInput["activity"] = {
   approvedSales30dByProduct: {},
@@ -24,6 +24,17 @@ function input(project: Partial<ProjectMapInput["project"]>, extra: Partial<Proj
 const section = (map: ReturnType<typeof buildProjectMap>, area: string) => map.sections.find((s) => s.area === area)!;
 
 describe("buildProjectMap", () => {
+  it("preserves event-driven status and gives UI/MCP an explicit interpretation without certifying success", () => {
+    const map = buildProjectMap(input({}, { activity: { ...noActivity, funnelEvents7d: 1 } }));
+    const reading = readProjectArea(map, "funil");
+    expect(reading.section?.status).toBe("rodando");
+    expect(map.interpretation).toEqual(PROJECT_MAP_INTERPRETATION);
+    expect(reading.verify).toContain("eventos brutos não comprovam");
+    expect(reading.nextAction).toBe(reading.gaps[0]?.action ?? reading.verify);
+    expect(reading.gaps.every(gap => gap.area === "funil")).toBe(true);
+    expect(readProjectArea({ ...map, sections: [] }, "funil").section).toBeNull();
+  });
+
   it("reads the new format (link_checkout, vsl object, links array) as built", () => {
     const map = buildProjectMap(input({
       data: {

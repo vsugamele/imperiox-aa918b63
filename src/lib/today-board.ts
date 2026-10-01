@@ -1,5 +1,5 @@
 import {
-  checklistProgress, executorGroup, readAgentNotes, stepSkill, stepStatus,
+  checklistProgress, executorGroup, needsConfirmation, readAgentNotes, stepSkill, stepStatus,
   type ExecutorGroup, type StepStatus,
 } from "@shared/map-steps";
 
@@ -30,6 +30,8 @@ export interface BoardStep {
   executor: ExecutorGroup;
   skill: string | null;
   progress: { done: number; total: number };
+  /** Checklist completa sem status declarado: precisa de alguém confirmar. */
+  toConfirm: boolean;
   prompt: string;
 }
 
@@ -37,6 +39,8 @@ export interface ProjectBoard {
   projectId: string;
   projectName: string;
   mapIds: string[];
+  /** Checklist completa, mas ninguém declarou que está feita. */
+  toConfirm: BoardStep[];
   /** Pendentes que dependem de alguém do time (humano ou ferramenta externa). */
   waitingYou: BoardStep[];
   /** Pendentes que uma IA ou automação executa. */
@@ -88,6 +92,7 @@ export function toStep(n: BoardNode): BoardStep {
     executor: executorGroup(n),
     skill: stepSkill(n),
     progress: checklistProgress(n.checklist),
+    toConfirm: needsConfirmation(n),
     prompt: agent.prompt || `Executar a etapa "${n.label}". Objetivo: ${n.description || n.label}`,
   };
 }
@@ -123,7 +128,7 @@ export function buildTodayBoard(input: {
       .sort((a, b) => pos(a.position).x - pos(b.position).x || pos(a.position).y - pos(b.position).y);
     if (!nodes.length) continue;
     const steps = nodes.map(toStep).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
-    const pending = steps.filter((s) => s.status === "pending");
+    const pending = steps.filter((s) => s.status === "pending" && !s.toConfirm);
 
     const byCurrency: Record<string, number> = {};
     let count = 0;
@@ -138,6 +143,7 @@ export function buildTodayBoard(input: {
       projectId: project.id,
       projectName: project.name,
       mapIds: [...new Set(nodes.map((n) => n.map_id))],
+      toConfirm: steps.filter((s) => s.toConfirm),
       waitingYou: pending.filter((s) => s.executor === "humano" || s.executor === "ferramenta"),
       aiReady: pending.filter((s) => s.executor === "ia" || s.executor === "automatico"),
       inProgress: steps.filter((s) => s.status === "in_progress"),
@@ -148,7 +154,8 @@ export function buildTodayBoard(input: {
       leadsToday: input.leadsToday.filter((l) => l.project_id === project.id).length,
     });
   }
-  return boards.sort((a, b) => (b.review.length + b.waitingYou.length) - (a.review.length + a.waitingYou.length));
+  const attention = (b: ProjectBoard) => b.review.length + b.toConfirm.length + b.waitingYou.length;
+  return boards.sort((a, b) => attention(b) - attention(a));
 }
 
 /** Abre o canvas já no mapa e na etapa (lido por /funis via ?map= e ?node=). */

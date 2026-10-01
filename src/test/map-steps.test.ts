@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { executorGroup, readAgentNotes, stepSkill, stepStatus, writeAgentNotes } from "@shared/map-steps";
+import { executorGroup, needsConfirmation, readAgentNotes, stepSkill, stepStatus, writeAgentNotes } from "@shared/map-steps";
 
 describe("map steps", () => {
   it("reads and rewrites agent markers without losing free text", () => {
@@ -15,13 +15,16 @@ describe("map steps", () => {
     expect(readAgentNotes("[agent_status:quase]").status).toBe("pending");
   });
 
-  it("derives status from marker first, then checklist", () => {
+  it("only trusts a declared status; a full checklist asks for confirmation instead", () => {
     const list = (done: boolean[]) => done.map((d, i) => ({ id: String(i), text: "x", done: d }));
     expect(stepStatus({ notes: "[agent_status:ready_review]", checklist: list([true, true]) })).toBe("ready_review");
-    expect(stepStatus({ checklist: list([true, true]) })).toBe("done");
-    expect(stepStatus({ checklist: list([true, false]) })).toBe("in_progress");
-    expect(stepStatus({ checklist: list([false]) })).toBe("pending");
-    expect(stepStatus({ checklist: null })).toBe("pending");
+    expect(stepStatus({ checklist: list([true, true]) })).toBe("pending");
+    expect(needsConfirmation({ checklist: list([true, true]) })).toBe(true);
+    expect(needsConfirmation({ checklist: list([true, false]) })).toBe(false);
+    expect(needsConfirmation({ notes: "[agent_status:done]", checklist: list([true]) })).toBe(false);
+    expect(needsConfirmation({ checklist: [] })).toBe(false);
+    // Marcação dentro de um prompt de exemplo não conta como declaração.
+    expect(stepStatus({ notes: "[agent_prompt_start]\nUse [agent_status:done] ao terminar\n[agent_prompt_end]" })).toBe("pending");
   });
 
   it("groups every executor vocabulary already saved in the maps", () => {

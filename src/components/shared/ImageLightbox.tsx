@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Download, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
@@ -27,10 +27,10 @@ export function ImageLightbox({ open, onClose, url, prompt, label, createdAt }: 
   };
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[95vw] w-[95vw] bg-[#0a0608] border-border/60 p-0 overflow-hidden">
+      <DialogContent aria-describedby={undefined} className="max-w-[95vw] w-[95vw] bg-[#0a0608] border-border/60 p-0 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border/40">
           <div className="text-xs">
-            <div className="font-semibold text-pink-200">{label || "Imagem"}</div>
+            <DialogTitle className="text-xs font-semibold text-pink-200">{label || "Imagem"}</DialogTitle>
             {createdAt && <div className="text-[10px] text-muted-foreground">{new Date(createdAt).toLocaleString("pt-BR")}</div>}
           </div>
           <div className="flex items-center gap-1">
