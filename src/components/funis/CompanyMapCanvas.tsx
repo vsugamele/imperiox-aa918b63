@@ -863,8 +863,10 @@ function InnerMap({
   // load maps list
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("imphq_company_maps").select("id,name").order("created_at");
-      const list = data || [];
+      const { data } = await supabase.from("imphq_company_maps").select("id,name,updated_at").is("archived_at", null).order("created_at");
+      const list = (data || []).map(({ id, name }) => ({ id, name }));
+      // Sem mapa pedido: abre o mexido mais recentemente (antes abria o mais antigo).
+      const latest = [...(data || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
       const preferred = initialMapId ? list.find(m => m.id === initialMapId) : undefined;
       if (preferred) {
         setMaps(list);
@@ -895,7 +897,7 @@ function InnerMap({
           if (created) { setMaps([created]); setMapId(created.id); }
         } else {
           setMaps(list);
-          setMapId(list[0].id);
+          setMapId(latest?.id ?? list[0].id);
         }
       }
     })();

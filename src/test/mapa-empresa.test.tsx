@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import MapaEmpresa from "@/pages/MapaEmpresa";
 import { buildProjectMap, type ProjectMapInput } from "@shared/project-map";
@@ -37,6 +39,13 @@ vi.mock("@/hooks/useCompanyMap", () => ({
   useCompanyMap: () => ({ data: maps, isLoading: false, isFetching: false, error: null, refetch: vi.fn() }),
 }));
 
+// Só o Projeto Vendendo tem mapa de operação no canvas.
+vi.mock("@/hooks/useTodayBoard", () => ({
+  useTodayBoard: () => ({ data: [{ projectId: "vende", mapIds: ["map-vende"] }] }),
+}));
+
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+
 describe("MapaEmpresa", () => {
   it("lists projects with critical gaps first and opens the project detail", () => {
     render(<MapaEmpresa />);
@@ -47,6 +56,13 @@ describe("MapaEmpresa", () => {
     fireEvent.click(within(rows[0]).getByText("Projeto Vazio"));
     expect(screen.getByText("Nenhum produto cadastrado no projeto.")).toBeInTheDocument();
     expect(screen.getByText(/skill: avatar-architect-v8/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Montar mapa de operação/ })).toHaveAttribute("href", "/funis?view=mapa");
+  });
+
+  it("links a project to its operation map", () => {
+    render(<MapaEmpresa />);
+    fireEvent.click(screen.getAllByText("Projeto Vendendo")[0]);
+    expect(screen.getByRole("link", { name: /Abrir mapa de operação/ })).toHaveAttribute("href", "/funis?view=mapa&map=map-vende");
   });
 
   it("filters to projects with critical gaps", () => {

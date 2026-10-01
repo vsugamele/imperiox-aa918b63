@@ -19,9 +19,15 @@ Pedido (01/10/2026): finalizar o mapa, o visual e os fluxos para operar no dia a
 - JP: sincronização do Facebook com erro desde junho (último gasto 19/08); só 34 de 71 vendas com UTM; checkout fora do cadastro em Master Cuts, Cortes Descomplicados, Mentoria, Assinatura e JP Hair Education.
 - SlimSoda: PDP e VSL da raiz (`/slimtide-vsl/`) no ar sem tracker do Império; `quiz-slimsoda.html` dá 404.
 
-## Próximas etapas
-- [ ] Etapa 3: status do projeto e canvas na mesma tela.
-- [ ] Etapa 4: menu enxuto e mapas vazios arquivados.
+## Etapa 3 — Status e canvas ligados
+- [x] Detalhe do projeto em `/mapa` abre o mapa de operação dele (ou leva a montar um) e o Hoje.
+- [x] Canvas abre no mapa mexido mais recentemente quando nenhum é pedido.
+
+## Etapa 4 — Limpeza
+- [x] Coluna `imphq_company_maps.archived_at`: mapa arquivado some da lista sem apagar nada.
+- [x] Arquivados (01/10): EQUILIBREON (vazio), Referencias (vazio), Inteligencia Artificial (1 etapa), Redes Sociais (5), Igaming (3). Para voltar: limpar `archived_at`.
+- [x] Fora do menu (rotas seguem no ar): Cockpit Tri-Modo, Master Redesign, Custos IA · Chat.
+- [x] Testes: `src/test/hoje.test.tsx` e link do mapa em `src/test/mapa-empresa.test.tsx`.
 
 ## File List
 - supabase/functions/_shared/map-steps.ts
@@ -38,4 +44,10 @@ Pedido (01/10/2026): finalizar o mapa, o visual e os fluxos para operar no dia a
 - src/App.tsx
 - src/test/map-steps.test.ts
 - src/test/today-board.test.ts
+- src/test/hoje.test.tsx
+- src/test/mapa-empresa.test.tsx
+- src/components/mapa/ProjectMapDetail.tsx
+- src/components/empresa/AddAccountToMapDialog.tsx
+- src/integrations/supabase/types.ts
+- supabase/migrations/20261001_imphq_company_maps_archived_at.sql
 - docs/stories/MAP2.1-tela-hoje-e-mapas-operacionais.md

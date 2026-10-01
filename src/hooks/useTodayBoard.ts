@@ -11,19 +11,21 @@ function startOfToday(): string {
 
 async function loadTodayBoard(): Promise<ProjectBoard[]> {
   const since = startOfToday();
-  const [projectsRes, nodesRes, salesRes, leadsRes] = await Promise.all([
+  const [projectsRes, nodesRes, salesRes, leadsRes, archivedRes] = await Promise.all([
     supabase.from("imphq_projects").select("id, name").or("is_archived.eq.false,is_archived.is.null").order("name"),
     supabase.from("imphq_company_map_nodes")
       .select("id, map_id, label, kind, description, notes, checklist, position, executor_type, linked_skill_id, linked_project_id, stage_role"),
     supabase.from("imphq_vendas").select("project_id, valor, data").eq("status", "aprovado").gte("data_venda", since),
     supabase.from("imphq_leads").select("project_id").gte("created_at", since),
+    supabase.from("imphq_company_maps").select("id").not("archived_at", "is", null),
   ]);
-  for (const res of [projectsRes, nodesRes, salesRes, leadsRes]) {
+  for (const res of [projectsRes, nodesRes, salesRes, leadsRes, archivedRes]) {
     if (res.error) throw res.error;
   }
+  const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
   return buildTodayBoard({
     projects: projectsRes.data ?? [],
-    nodes: nodesRes.data ?? [],
+    nodes: (nodesRes.data ?? []).filter((n) => !archived.has(n.map_id)),
     salesToday: salesRes.data ?? [],
     leadsToday: leadsRes.data ?? [],
   });

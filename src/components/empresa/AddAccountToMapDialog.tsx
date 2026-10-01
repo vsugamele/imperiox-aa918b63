@@ -28,6 +28,7 @@ export function AddAccountToMapDialog({ accountId, accountLabel, open, onOpenCha
     (async () => {
       const { data } = await supabase.from("imphq_company_maps")
         .select("id, name")
+        .is("archived_at", null)
         .order("updated_at", { ascending: false });
       const list = (data || []) as { id: string; name: string }[];
       setMaps(list);

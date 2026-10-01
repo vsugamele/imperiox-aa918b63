@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { STATUS_LABEL, type MapArea, type MapStatus, type ProjectMap } from "@shared/project-map";
 import { useCompanyMap } from "@/hooks/useCompanyMap";
+import { useTodayBoard } from "@/hooks/useTodayBoard";
 import { StatusPill } from "@/components/mapa/StatusPill";
 import { ProjectMapDetail } from "@/components/mapa/ProjectMapDetail";
 import { STATUS_DOT } from "@/components/mapa/map-styles";
@@ -29,6 +30,7 @@ const statusOf = (map: ProjectMap, area: MapArea) => map.sections.find((s) => s.
 
 export default function MapaEmpresa() {
   const { data: maps = [], isLoading, isFetching, error, refetch } = useCompanyMap();
+  const { data: boards = [] } = useTodayBoard();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [onlyCritical, setOnlyCritical] = useState(false);
 
@@ -146,7 +148,11 @@ export default function MapaEmpresa() {
         </>
       )}
 
-      <ProjectMapDetail map={selected} onOpenChange={(open) => !open && setSelectedId(null)} />
+      <ProjectMapDetail
+        map={selected}
+        operationMapId={boards.find((b) => b.projectId === selectedId)?.mapIds[0] ?? null}
+        onOpenChange={(open) => !open && setSelectedId(null)}
+      />
     </div>
   );
 }

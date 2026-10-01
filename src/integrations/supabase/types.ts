@@ -20890,6 +20890,7 @@ export type Database = {
       }
       imphq_company_maps: {
         Row: {
+          archived_at: string | null
           created_at: string
           id: string
           name: string
@@ -20899,6 +20900,7 @@ export type Database = {
           viewport: Json
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -20908,6 +20910,7 @@ export type Database = {
           viewport?: Json
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           id?: string
           name?: string

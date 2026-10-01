@@ -5,7 +5,7 @@ import {
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
   Inbox, Pencil, Workflow, Globe, Coins,
-  Palette, Layers, Map as MapIcon, CalendarCheck,
+  Layers, Map as MapIcon, CalendarCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/auth-context";
@@ -51,12 +51,10 @@ const capitalItems = [
   { title: "Atribuição",       url: "/atribuicao",        icon: Radio },
   { title: "Finanças",         url: "/financas",          icon: DollarSign },
   { title: "Custos IA",        url: "/custos-ia",         icon: Coins },
-  { title: "Custos IA · Chat", url: "/openrouter-custos", icon: Coins },
 ];
 
+// Fora do menu (rotas seguem no ar): /cockpit e /redesign (experimentos) e /openrouter-custos (repete Custos IA).
 const acervoItems = [
-  { title: "Cockpit Tri-Modo", url: "/cockpit", icon: LayoutDashboard },
-  { title: "Master Redesign", url: "/redesign", icon: Palette },
   { title: "Referências",  url: "/referencias", icon: Library },
   { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
   { title: "Docs / KB",    url: "/docs",        icon: FileText },

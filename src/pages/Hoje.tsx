@@ -147,7 +147,7 @@ function StepGroup({ title, icon: Icon, steps, empty, canCopy }: {
   if (!steps.length && empty === null) return null;
   const shown = steps.slice(0, MAX_ROWS);
   return (
-    <div>
+    <div role="group" aria-label={title}>
       <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-subtle">
         <Icon className="h-3.5 w-3.5" /> {title} <span className="font-mono text-muted-foreground">{steps.length}</span>
       </div>

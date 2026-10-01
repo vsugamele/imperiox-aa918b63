@@ -1,4 +1,7 @@
+import { Link } from "react-router-dom";
+import { CalendarCheck, Map as MapIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { GapSeverity, ProjectMap } from "@shared/project-map";
@@ -7,12 +10,14 @@ import { FORMAT_LABEL, SEVERITY_CLASS, SEVERITY_LABEL } from "@/components/mapa/
 
 interface ProjectMapDetailProps {
   map: ProjectMap | null;
+  /** Mapa de operação do projeto no canvas, quando existe. */
+  operationMapId?: string | null;
   onOpenChange: (open: boolean) => void;
 }
 
 const SEVERITIES: GapSeverity[] = ["critica", "importante", "sugestao"];
 
-export function ProjectMapDetail({ map, onOpenChange }: ProjectMapDetailProps) {
+export function ProjectMapDetail({ map, operationMapId, onOpenChange }: ProjectMapDetailProps) {
   return (
     <Sheet open={!!map} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl p-0">
@@ -24,6 +29,21 @@ export function ProjectMapDetail({ map, onOpenChange }: ProjectMapDetailProps) {
                 <SheetTitle className="section-title">{map.projectName}</SheetTitle>
                 <SheetDescription className="text-xs">{FORMAT_LABEL[map.dataFormat]}</SheetDescription>
               </SheetHeader>
+
+              <div className="flex flex-wrap gap-2">
+                {operationMapId ? (
+                  <Button asChild size="sm">
+                    <Link to={`/funis?view=mapa&map=${operationMapId}`}><MapIcon className="mr-2 h-3.5 w-3.5" /> Abrir mapa de operação</Link>
+                  </Button>
+                ) : (
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/funis?view=mapa"><MapIcon className="mr-2 h-3.5 w-3.5" /> Montar mapa de operação</Link>
+                  </Button>
+                )}
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/hoje"><CalendarCheck className="mr-2 h-3.5 w-3.5" /> Ver no Hoje</Link>
+                </Button>
+              </div>
 
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">O que falta ({map.gaps.length})</h3>
