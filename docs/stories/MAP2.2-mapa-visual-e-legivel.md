@@ -28,6 +28,7 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - [x] Menu "Mais" em 4 grupos: Criar (Desenhar com IA, modelo, gerar do negócio, gerar de projeto), Adicionar ao mapa (Reel, Cronograma), Ferramentas (Flow Brain, Infra), Este mapa (Renomear, Arquivar, Excluir de vez).
 - [x] Novo: Arquivar mapa (some da lista sem apagar), ao lado do Excluir.
 - [x] Paleta de elementos desceu para baixo das barras (antes cobria os botões).
+- [x] "Organizar" saiu da barra: agora é "Reorganizar automaticamente…" em Mais → Este mapa, com confirmação e cópia do mapa (`imphq_snapshot_company_map`) antes de mexer.
 
 ## 4. Contrato de cada etapa para as IAs
 - [x] Contrato completo nas 52 etapas (SlimSoda 23, JP 29), na descrição, uma seção por linha: O QUÊ, ENTRADA, SAÍDA, PRONTO QUANDO, MÉTRICAS, DEPENDE DE, FREQUÊNCIA, SE FALHAR. Escrito a partir do conteúdo dos mapas, do banco e dos sites; avisos (marca de terceiros, aprovação humana, links que faltam) dentro do contrato. Cópia antes em `imphq_company_map_snapshots`.

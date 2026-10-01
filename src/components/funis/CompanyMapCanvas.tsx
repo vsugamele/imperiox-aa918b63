@@ -1479,12 +1479,17 @@ function InnerMap({
 
 
   const runAutoLayout = async () => {
+    if (!mapId) return;
+    if (!confirm("Reorganizar automaticamente reposiciona todas as etapas e desfaz as seções do mapa. Uma cópia do mapa atual é guardada antes. Continuar?")) return;
+    // Cópia de segurança antes de mexer em todas as posições (volta pela tabela imphq_company_map_snapshots).
+    const { error: snapErr } = await supabase.rpc("imphq_snapshot_company_map", { p_map_id: mapId, p_reason: "Antes de reorganizar automaticamente (canvas)" });
+    if (snapErr) { toast.error("Não consegui guardar a cópia do mapa; nada foi alterado"); return; }
     const next = autoLayout(nodes, edges);
     setNodes(next);
     await Promise.all(next.map(n =>
       supabase.from("imphq_company_map_nodes").update({ position: n.position }).eq("id", n.id)
     ));
-    toast.success("Organizado");
+    toast.success("Reorganizado (cópia anterior guardada)");
   };
 
   const handleTemplate = async (tplId: string) => {
@@ -2013,9 +2018,6 @@ function InnerMap({
         <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setPresenting(true)} title="Só o mapa, em tela cheia">
           <Maximize2 className="h-3.5 w-3.5" /> Apresentar
         </Button>
-        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={runAutoLayout} title="Reorganiza as posições automaticamente (desfaz as seções)">
-          <LayoutGrid className="h-3.5 w-3.5" /> Organizar
-        </Button>
         <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setChecklistPanel(true)} title="Itens de checklist do mapa">
           <ListChecks className="h-3.5 w-3.5" /> Checklist
           {totalItems > 0 && (
@@ -2111,6 +2113,7 @@ function InnerMap({
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Este mapa</DropdownMenuLabel>
             <DropdownMenuItem onClick={renameMap}><Pencil className="mr-2 h-3.5 w-3.5" /> Renomear</DropdownMenuItem>
+            <DropdownMenuItem onClick={runAutoLayout}><LayoutGrid className="mr-2 h-3.5 w-3.5" /> Reorganizar automaticamente…</DropdownMenuItem>
             <DropdownMenuItem onClick={archiveMap}><Archive className="mr-2 h-3.5 w-3.5" /> Arquivar (esconde, não apaga)</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={deleteMap}><Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir de vez</DropdownMenuItem>
           </DropdownMenuContent>

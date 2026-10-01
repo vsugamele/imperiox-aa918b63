@@ -55573,6 +55573,10 @@ export type Database = {
       }
     }
     Functions: {
+      imphq_snapshot_company_map: {
+        Args: { p_map_id: string; p_reason: string }
+        Returns: string
+      }
       adicionar_creditos_ia: {
         Args: {
           p_descricao: string
