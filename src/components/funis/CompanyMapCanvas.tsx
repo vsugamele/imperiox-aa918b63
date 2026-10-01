@@ -9,7 +9,7 @@ import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges, ConnectionMode, SelectionMode,
   type Node, type NodeProps, type NodePositionChange, type Edge, type Connection, type NodeChange, type EdgeChange,
-  Handle, Position, useReactFlow, NodeResizer, ViewportPortal,
+  useReactFlow, ViewportPortal,
 } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
@@ -25,7 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Phone, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, Flame, type LucideIcon } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowBrainDrawer } from "@/components/funis/FlowBrainDrawer";
 import { CompanyInfraToolsModal } from "@/components/funis/CompanyInfraToolsModal";
@@ -33,13 +33,15 @@ import { CompanyMapTacticalBar, type TacticalLens, JOURNEY_SCENARIOS, type Journ
 import { GrowthCopilotModal } from "@/components/projeto/GrowthCopilotModal";
 import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
-import { useCompanyMapLiveStats, pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
+import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 import { NodeCopyDialog } from "@/components/funis/NodeCopyDialog";
 import { annotationNodeTypes } from "@/components/funis/map-annotation-registry";
 import { ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "@/components/funis/map-annotation-data";
 import { StrategicGapsPanel } from "@/components/funis/StrategicGapsPanel";
 import { KIND_CATEGORIES, KIND_PRESETS } from "@/components/funis/map-element-presets";
 import { extractAgentData, type AgentExecutionData } from "@/components/funis/map-agent-data";
+import { MapNodeCard } from "@/components/funis/MapNodeCard";
+import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNode, type MapNodeData } from "@/components/funis/map-node-model";
 export type { AgentExecutionData } from "@/components/funis/map-agent-data";
 import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
@@ -96,37 +98,12 @@ function updateAgentDataInNotes(notes: string | null | undefined, data: Partial<
 }
 
 
-const SIZE_PRESETS: Record<string, { min: number; max: number; label: string }> = {
-  S: { min: 160, max: 200, label: "Pequeno" },
-  M: { min: 200, max: 260, label: "Médio" },
-  L: { min: 260, max: 340, label: "Grande" },
-  XL:{ min: 340, max: 440, label: "Extra" },
-};
-
 const COLOR_PALETTE = [
   "#c9922a", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#64748b",
   "#ec4899", "#f97316", "#06b6d4", "#84cc16", "#fbbf24", "#22c55e",
   "#f43f5e", "#818cf8", "#eab308", "#a855f7", "#0ea5e9", "#f59e0b",
   "#25d366", "#e1306c", "#1877f2", "#ff0000",
 ];
-
-interface ChecklistItem { id: string; text: string; done: boolean; }
-interface MapNode {
-  id: string; map_id: string; label: string; kind: string; color: string;
-  description?: string | null; notes?: string | null; url?: string | null;
-  image_url?: string | null;
-  position: { x: number; y: number }; size: string;
-  width?: number | null; height?: number | null;
-  checklist: ChecklistItem[];
-  show_live_kpis?: boolean;
-  linked_funnel_id?: string | null; linked_project_id?: string | null; linked_flow_id?: string | null;
-  linked_wa_provider_id?: string | null;
-  stage_role?: string | null;
-  executor_type?: string | null;
-  linked_skill_id?: string | null;
-  api_binding?: Json | null;
-  metrics_target?: Json | null;
-}
 
 // Helpers for image nodes
 async function pickImageFile(): Promise<File | null> {
@@ -152,24 +129,6 @@ async function uploadMapImage(mapId: string, file: File): Promise<string | null>
     .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
   if (error || !data?.signedUrl) { toast.error("Erro ao gerar URL da imagem"); return null; }
   return data.signedUrl;
-}
-
-function matchesLens(node: { label: string; kind: string; notes?: string | null; description?: string | null }, lens: TacticalLens): boolean {
-  if (lens === "all") return true;
-  const text = `${node.label} ${node.description || ""} ${node.notes || ""}`.toLowerCase();
-  if (lens === "jp") {
-    return text.includes("jp") || text.includes("corte") || text.includes("barbeiro") || text.includes("webinar") || text.includes("formação") || text.includes("10k");
-  }
-  if (lens === "bifi") {
-    return text.includes("bifi") || text.includes("linfa") || text.includes("slimsoda") || text.includes("suplement") || text.includes("pdp") || text.includes("advertorial") || text.includes("vsl");
-  }
-  if (lens === "geelark") {
-    return text.includes("geelark") || text.includes("phone") || text.includes("celular") || text.includes("perfil") || text.includes("instagram") || text.includes("tiktok") || text.includes("reel") || text.includes("orgânic");
-  }
-  if (lens === "infra") {
-    return text.includes("evolution") || text.includes("zernio") || text.includes("n8n") || text.includes("kiwify") || text.includes("ticto") || text.includes("webhook") || text.includes("api") || text.includes("openrouter");
-  }
-  return true;
 }
 
 function getDynamicEdgeStyle(sourceLabel: string, targetLabel: string, isDashed: boolean, isSimulatedActive: boolean) {
@@ -210,351 +169,6 @@ function getDynamicEdgeStyle(sourceLabel: string, targetLabel: string, isDashed:
     strokeDasharray: isDashed ? "6 4" : undefined,
     cursor: "pointer",
   };
-}
-
-interface MapNodeData extends MapNode {
- onGenerateCopy?: (id: string) => void; onDuplicate?: (id: string) => void; onDelete?: (id: string) => void;
- onToggleItem?: (id: string, itemId: string, done: boolean) => void;
- waInfo?: { phone?: string; instance?: string; provider: string; conversations?: number } | null;
- liveStats?: NodeStats | null;
- activeLens?: TacticalLens;
- isSimulatedActive?: boolean;
-}
-function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean }) {
-  const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
-  const Icon = preset.icon;
-  const checklist: ChecklistItem[] = data.checklist || [];
-  const done = checklist.filter((c) => c.done).length;
-  const total = checklist.length;
-  const preview = checklist.slice(0, 3);
-  const rest = Math.max(0, total - preview.length);
-  const waInfo = data.waInfo; // { phone, instance, provider, conversations }
-  const sizeCfg = SIZE_PRESETS[data.size || "M"] || SIZE_PRESETS.M;
-  const url: string | null = data.url || null;
-  const hasCustomSize = !!(data.width && data.height);
-  const activeLens = data.activeLens || "all";
-  const isLensMatch = matchesLens(data, activeLens);
-  const isSimulated = !!data.isSimulatedActive;
-
-  const isPhoneNode = data.kind === "smartphone" || data.kind === "app" || data.label.toLowerCase().includes("phone") || data.label.toLowerCase().includes("geelark");
-  const isProductNode = data.kind === "oferta" || data.label.includes("LinfaFlow") || data.label.includes("Formação") || data.label.includes("Cortes") || data.label.includes("SlimSoda");
-  const isInfraTool = data.label.includes("Evolution") || data.label.includes("Zernio") || data.label.includes("N8N") || data.label.includes("Kiwify") || data.label.includes("Ticto");
-
-  const ticketBadge = "Oferta cadastrada";
-
-  return (
-    <div
-      className={cn(
-        "group relative rounded-xl border-2 bg-card/95 backdrop-blur px-3 py-2 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden",
-        !isLensMatch && "opacity-20 grayscale filter blur-[0.4px] pointer-events-none scale-95",
-        isLensMatch && activeLens !== "all" && "ring-2 ring-lime-400 shadow-[0_0_25px_rgba(214,255,75,0.45)] scale-[1.02]",
-        isSimulated && "ring-4 ring-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.85)] scale-105 z-30 animate-pulse border-amber-400"
-      )}
-      style={
-        hasCustomSize
-          ? { borderColor: isSimulated ? "#f59e0b" : data.color, width: "100%", height: "100%" }
-          : { borderColor: isSimulated ? "#f59e0b" : data.color, minWidth: sizeCfg.min, maxWidth: sizeCfg.max }
-      }
-    >
-      {isSimulated && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black font-black text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-1 z-20 animate-bounce">
-          <Flame className="h-3 w-3 fill-black text-black" />
-          <span>LEAD AQUI AGORA</span>
-        </div>
-      )}
-      <NodeResizer
-        isVisible={selected}
-        minWidth={140}
-        minHeight={60}
-        lineClassName="!border-primary/70 !border-2"
-        handleClassName="!w-3 !h-3 !rounded-sm !bg-primary !border-2 !border-background"
-      />
-      {/* Handles em todos os lados — source+target sobrepostos, target embaixo (recebe drop), source acima (inicia drag). Área de hit ampliada. */}
-      {[Position.Top, Position.Right, Position.Bottom, Position.Left].map((pos) => {
-        const baseStyle: React.CSSProperties = {
-          width: 18, height: 18, background: data.color, border: "2px solid #080607",
-          borderRadius: 999, opacity: 0.9, transition: "opacity 120ms, transform 120ms",
-          pointerEvents: "auto",
-        };
-        return (
-          <div key={`h-${pos}`}>
-            <Handle
-              id={`${pos}-t`}
-              type="target"
-              position={pos}
-              style={{ ...baseStyle, zIndex: 10, background: "transparent", border: "none", opacity: 0 }}
-              isConnectableStart={false}
-            />
-            <Handle
-              id={`${pos}-s`}
-              type="source"
-              position={pos}
-              style={{ ...baseStyle, zIndex: 11 }}
-              className="hover:!opacity-100 hover:!scale-125"
-              title="Arraste para conectar"
-            />
-          </div>
-        );
-      })}
-
-
-      {/* Quick actions on hover */}
-      <div className="nodrag absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card border border-border/60 rounded-md shadow-lg p-0.5 z-10">
-        <button
-          className="p-1 rounded hover:bg-purple-500/20 text-muted-foreground hover:text-purple-400"
-          onClick={(e) => {
-            e.stopPropagation();
-            const ag = extractAgentData(data.notes, data);
-            const pName = (data.notes || "").match(/\[product_name:([^\]]+)\]/)?.[1] || "";
-            const textToCopy = ag.prompt || `Ação: ${data.label}\nDescrição: ${data.description || ""}${pName ? `\nProduto: ${pName}` : ""}`;
-            navigator.clipboard.writeText(textToCopy);
-            toast.success("Playbook do Agente copiado para área de transferência!");
-          }}
-          title="Copiar Playbook do Agente para Claude/Codex/Antigravity"
-        >
-          <Bot className="h-3 w-3" />
-        </button>
-        <button
-          className="p-1 rounded hover:bg-pink-500/20 text-muted-foreground hover:text-pink-400"
-          onClick={(e) => { e.stopPropagation(); data.onGenerateCopy?.(data.id); }}
-          title="Gerar copy IA para este nó"
-        >
-          <Sparkles className="h-3 w-3" />
-        </button>
-        <button
-          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-          onClick={(e) => { e.stopPropagation(); data.onDuplicate?.(data.id); }}
-          title="Duplicar"
-        >
-          <Copy className="h-3 w-3" />
-        </button>
-        <button
-          className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-400"
-          onClick={(e) => { e.stopPropagation(); data.onDelete?.(data.id); }}
-          title="Excluir"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
-      </div>
-
-
-      {/* Device Phone Rack Skin */}
-      {isPhoneNode && (
-        <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 mb-1.5">
-          <span className="flex items-center gap-1">📱 Aparelho / perfil</span>
-          <span>Saúde não verificada</span>
-        </div>
-      )}
-
-      {/* Product 3D Ticket Mockup Skin */}
-      {isProductNode && (
-        <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 mb-1.5">
-          <span>🏷️ {ticketBadge}</span>
-          <span>Checkout não verificado</span>
-        </div>
-      )}
-
-      {/* Tool API Webhook Skin */}
-      {isInfraTool && (
-        <div className="flex items-center justify-between text-[8px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 text-purple-300 mb-1.5">
-          <span>⚡ Integração</span>
-          <span className="text-purple-400">Execução não verificada</span>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <div className="flex items-center gap-1.5">
-          <div className="p-1 rounded" style={{ background: `${data.color}20`, color: data.color }}>
-            <Icon className="h-3.5 w-3.5" />
-          </div>
-          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{preset.label}</span>
-        </div>
-
-        {/* Heartbeat Status LED */}
-        <div className="flex items-center gap-1 text-[8px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-1.5 py-0.5 rounded-full shadow-sm">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-          </span>
-          <span>CADASTRO</span>
-        </div>
-      </div>
-      <p className="text-sm font-medium leading-snug">{data.label}</p>
-      {data.kind === "imagem" && data.image_url && (
-        <img
-          src={data.image_url}
-          alt={data.label}
-          onClick={(e) => {
-            e.stopPropagation();
-            window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url: data.image_url, label: data.label } }));
-          }}
-          className={cn(
-            "mt-2 w-full rounded border border-border/30 object-cover cursor-zoom-in",
-            hasCustomSize ? "flex-1 h-auto max-h-full" : "max-h-64"
-          )}
-          draggable={false}
-        />
-      )}
-      {data.description && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{data.description}</p>}
-      {url && (
-        <a
-          href={url} target="_blank" rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="nodrag mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline truncate max-w-full"
-        >
-          <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-          <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
-        </a>
-      )}
-
-      {/* Agent Execution Pill */}
-      {(() => {
-        const ag = extractAgentData(data.notes, data);
-        if (ag.executor === "human_general" && !ag.prompt && !ag.output_url) return null;
-
-        const execName =
-          ag.executor === "ai_higgsfield" ? "🤖 Higgsfield IA" :
-          ag.executor === "ai_google_flow" ? "🌐 Google Flow" :
-          ag.executor === "ai_copywriter" ? "✍️ Copywriter IA" :
-          ag.executor === "openflow" ? "⚡ OpenFlow WA" :
-          ag.executor === "human_traffic" ? "👤 JP / Tráfego" :
-          ag.executor === "human_design" ? "🎨 Design / Vídeo" : "👥 Time Humano";
-
-        return (
-          <div className="mt-2 pt-1.5 border-t border-border/30 flex items-center justify-between gap-1 text-[9px] font-mono">
-            <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/25 truncate font-semibold"
-              title={ag.skill && ag.skill !== "none" ? `Skill: ${ag.skill}` : undefined}
-            >
-              <Bot className="h-2.5 w-2.5 shrink-0 text-purple-400" />
-              {execName}
-            </span>
-            <div className="flex items-center gap-1 shrink-0">
-              {ag.output_url && (
-                <a
-                  href={ag.output_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:underline flex items-center gap-0.5 text-[8px]"
-                  title="Abrir entregável"
-                >
-                  <ExternalLink className="h-2 w-2" /> Output
-                </a>
-              )}
-              <span className={cn(
-                "px-1 py-0.5 rounded text-[8px] uppercase tracking-wider font-semibold",
-                ag.status === "done" ? "bg-emerald-500/20 text-emerald-300" :
-                ag.status === "in_progress" ? "bg-blue-500/20 text-blue-300 animate-pulse" :
-                ag.status === "ready_review" ? "bg-amber-500/20 text-amber-300" :
-                "bg-zinc-800 text-zinc-400"
-              )} title="Status declarado; checklist e entregável não comprovam funcionamento.">
-                {ag.status === "done" ? "Concluído · declarado" :
-                 ag.status === "in_progress" ? "Em execução · declarado" :
-                 ag.status === "ready_review" ? "Revisar · declarado" : ag.status_source === "notes" ? "Pendente · declarado" : "Não declarado"}
-              </span>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Flow Brain Semantic Badges */}
-      {(data.stage_role || data.linked_skill_id || (data.executor_type && data.executor_type !== "HUMAN_OPERATOR")) && (
-        <div className="mt-2 pt-1.5 border-t border-border/30 flex flex-wrap items-center gap-1 text-[9px] font-mono">
-          {data.stage_role && (
-            <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-lime-400/10 text-lime-400 border border-lime-400/25 font-semibold truncate max-w-[130px]"
-              title={`Papel Semântico: ${data.stage_role}`}
-            >
-              <Target className="h-2.5 w-2.5 shrink-0 text-lime-400" />
-              {data.stage_role}
-            </span>
-          )}
-          {data.linked_skill_id && (
-            <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/25 font-semibold truncate max-w-[140px]"
-              title={`Skill Vinculada: ${data.linked_skill_id}`}
-            >
-              <Sparkles className="h-2.5 w-2.5 shrink-0 text-purple-400" />
-              {data.linked_skill_id}
-            </span>
-          )}
-          {data.executor_type && data.executor_type !== "HUMAN_OPERATOR" && (
-            <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/25 font-semibold"
-              title={`Executor: ${data.executor_type}`}
-            >
-              <Bot className="h-2.5 w-2.5 shrink-0 text-blue-400" />
-              {data.executor_type === "API_AUTONOMOUS" ? "API Autônoma" :
-               data.executor_type === "AI_SKILL" ? "IA Skill" :
-               data.executor_type === "EXTERNAL_TOOL" ? "Tool Externa" : data.executor_type}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* WhatsApp channel enrichment */}
-      {waInfo && (
-        <div className="mt-2 pt-2 border-t border-border/40 space-y-0.5">
-          {waInfo.phone && (
-            <div className="flex items-center gap-1 text-[10px] text-emerald-400">
-              <Phone className="h-2.5 w-2.5" /> {waInfo.phone}
-            </div>
-          )}
-          {waInfo.instance && (
-            <div className="text-[9px] text-muted-foreground truncate">📱 {waInfo.instance}</div>
-          )}
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-muted-foreground">{waInfo.provider || "wa"}</span>
-            {typeof waInfo.conversations === "number" && (
-              <Badge variant="outline" className="h-4 px-1 text-[9px]">{waInfo.conversations} conv.</Badge>
-            )}
-          </div>
-        </div>
-      )}
-
-      {total > 0 && (
-        <div className="mt-2 pt-2 border-t border-border/40">
-          <div className="flex items-center justify-between text-[10px] mb-1">
-            <span className="text-muted-foreground flex items-center gap-1"><ListChecks className="h-3 w-3" /> Checklist</span>
-            <Badge variant="outline" className="text-[9px] h-4 px-1">{done}/{total}</Badge>
-          </div>
-          <div className="space-y-0.5 nodrag">
-            {preview.map((c) => (
-              <label
-                key={c.id}
-                className="flex items-start gap-1.5 text-[10px] leading-tight cursor-pointer hover:bg-white/5 rounded px-1 py-0.5"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Checkbox
-                  checked={c.done}
-                  className="h-3 w-3 mt-0.5"
-                  onCheckedChange={(v) => data.onToggleItem?.(data.id, c.id, !!v)}
-                />
-                <span className={c.done ? "line-through text-muted-foreground" : ""}>{c.text || "—"}</span>
-              </label>
-            ))}
-            {rest > 0 && <div className="text-[9px] text-muted-foreground pl-5">+{rest} itens</div>}
-          </div>
-        </div>
-      )}
-      {(() => {
-        const kpi = pickKpiForKind(data.kind, data.liveStats);
-        if (!kpi) return null;
-        const toneClass = kpi.tone === "good" ? "text-emerald-400" : kpi.tone === "warn" ? "text-amber-400" : kpi.tone === "bad" ? "text-red-400" : "text-muted-foreground";
-        const dotClass = kpi.tone === "good" ? "bg-emerald-400" : kpi.tone === "warn" ? "bg-amber-400" : kpi.tone === "bad" ? "bg-red-400" : "bg-muted-foreground";
-        return (
-          <div className="mt-1.5 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
-            <span className={`${toneClass} font-medium flex items-center gap-1`}>
-              <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotClass}`} />
-              {kpi.primary}
-            </span>
-            <span className="text-muted-foreground">{kpi.secondary}</span>
-          </div>
-        );
-      })()}
-
-    </div>
-  );
 }
 
 const nodeTypes = Object.freeze({
