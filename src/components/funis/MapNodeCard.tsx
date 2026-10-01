@@ -50,11 +50,13 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
   const total = checklist.length;
   const pendingItems = checklist.filter((c) => !c.done).slice(0, 2);
   const sizeCfg = SIZE_PRESETS[data.size || "M"] || SIZE_PRESETS.M;
-  const hasCustomSize = !!(data.width && data.height);
+  const isImageNode = data.kind === "imagem";
+  // Etapas usam só a largura salva (altura pelo conteúdo); imagem usa largura e altura.
+  const hasCustomWidth = !!data.width;
+  const hasCustomSize = isImageNode && !!(data.width && data.height);
   const activeLens = data.activeLens || "all";
   const isLensMatch = matchesLens(data, activeLens);
   const isSimulated = !!data.isSimulatedActive;
-  const isImageNode = data.kind === "imagem";
 
   const agent = extractAgentData(data.notes, data);
   const status = agent.status_source === "notes" ? STATUS_STYLE[agent.status] : STATUS_STYLE.not_declared;
@@ -73,7 +75,7 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
         isLensMatch && activeLens !== "all" && "ring-2 ring-primary shadow-[0_0_24px_hsl(var(--primary)/0.35)]",
         isSimulated && "ring-4 ring-warning scale-105 z-30 animate-pulse",
       )}
-      style={hasCustomSize ? { width: "100%", height: "100%" } : { minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
+      style={hasCustomSize ? { width: "100%", height: "100%" } : hasCustomWidth ? { width: "100%" } : { minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
     >
       {/* Faixa de cor do tipo da etapa */}
       <div className="h-1 w-full shrink-0" style={{ background: data.color }} />
@@ -165,7 +167,7 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
         {data.image_url && (
           <button
             type="button"
-            className={cn("nodrag relative overflow-hidden rounded-md border border-border bg-muted/40 text-left", isImageNode && hasCustomSize && "flex-1 min-h-0")}
+            className={cn("nodrag relative overflow-hidden rounded-md border border-border bg-muted/40 text-left", isImageNode && hasCustomSize ? "flex-1 min-h-0" : "shrink-0")}
             onClick={(e) => { e.stopPropagation(); openImage(data.image_url!, data.label); }}
             title="Ampliar"
           >

@@ -9,7 +9,7 @@ import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   addEdge, applyEdgeChanges, applyNodeChanges, ConnectionMode, SelectionMode,
   type Node, type NodeProps, type NodePositionChange, type Edge, type Connection, type NodeChange, type EdgeChange,
-  useReactFlow, ViewportPortal,
+  useReactFlow, ViewportPortal, MarkerType,
 } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
@@ -25,7 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
+import { Maximize2, Minimize2, Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowBrainDrawer } from "@/components/funis/FlowBrainDrawer";
 import { CompanyInfraToolsModal } from "@/components/funis/CompanyInfraToolsModal";
@@ -41,6 +41,7 @@ import { StrategicGapsPanel } from "@/components/funis/StrategicGapsPanel";
 import { KIND_CATEGORIES, KIND_PRESETS } from "@/components/funis/map-element-presets";
 import { extractAgentData, type AgentExecutionData } from "@/components/funis/map-agent-data";
 import { MapNodeCard } from "@/components/funis/MapNodeCard";
+import { orderSteps } from "@shared/map-order";
 import { StepPrints } from "@/components/funis/StepPrints";
 import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNode, type MapNodeData } from "@/components/funis/map-node-model";
 export type { AgentExecutionData } from "@/components/funis/map-agent-data";
@@ -135,23 +136,17 @@ async function uploadMapImage(mapId: string, file: File): Promise<string | null>
 function getDynamicEdgeStyle(sourceLabel: string, targetLabel: string, isDashed: boolean, isSimulatedActive: boolean) {
   const text = `${sourceLabel} ${targetLabel}`.toLowerCase();
   let stroke = "#c9922a";
-  let glow = "none";
 
   if (text.includes("whatsapp") || text.includes("evolution")) {
     stroke = "#10B981";
-    glow = "drop-shadow(0 0 5px rgba(16,185,129,0.7))";
   } else if (text.includes("checkout") || text.includes("venda") || text.includes("kiwify") || text.includes("ticto") || text.includes("formação")) {
     stroke = "#D6FF4B";
-    glow = "drop-shadow(0 0 6px rgba(214,255,75,0.8))";
   } else if (text.includes("geelark") || text.includes("instagram") || text.includes("reel") || text.includes("phone")) {
     stroke = "#06B6D4";
-    glow = "drop-shadow(0 0 5px rgba(6,182,212,0.7))";
   } else if (text.includes("ads") || text.includes("anúncio") || text.includes("meta")) {
     stroke = "#F59E0B";
-    glow = "drop-shadow(0 0 5px rgba(245,158,11,0.7))";
   } else if (text.includes("zernio") || text.includes("webhook") || text.includes("n8n")) {
     stroke = "#8B5CF6";
-    glow = "drop-shadow(0 0 5px rgba(139,92,246,0.7))";
   }
 
   if (isSimulatedActive) {
@@ -165,10 +160,25 @@ function getDynamicEdgeStyle(sourceLabel: string, targetLabel: string, isDashed:
 
   return {
     stroke,
-    strokeWidth: 2,
-    filter: glow,
+    strokeWidth: 1.75,
+    opacity: 0.9,
     strokeDasharray: isDashed ? "6 4" : undefined,
     cursor: "pointer",
+  };
+}
+
+/** Visual das setas: degrau ortogonal, ponta de flecha, rótulo legível; animação só na simulação. */
+function edgeVisual(sourceLabel: string, targetLabel: string, isDashed: boolean, isSimulatedActive: boolean) {
+  const style = getDynamicEdgeStyle(sourceLabel, targetLabel, isDashed, isSimulatedActive);
+  return {
+    type: "smoothstep",
+    animated: isSimulatedActive,
+    markerEnd: { type: MarkerType.ArrowClosed, color: style.stroke, width: 16, height: 16 },
+    style,
+    labelStyle: { fill: "hsl(var(--foreground))", fontSize: 12, fontWeight: 500 },
+    labelBgStyle: { fill: "hsl(var(--card))", fillOpacity: 0.95 },
+    labelBgPadding: [6, 3] as [number, number],
+    labelBgBorderRadius: 6,
   };
 }
 
@@ -377,6 +387,8 @@ function InnerMap({
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [commentsTarget, setCommentsTarget] = useState<{ id: string; label?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
+  // Modo apresentação: só o mapa em tela cheia (sem barras e paleta), para ler o fluxo e mostrar ao time.
+  const [presenting, setPresenting] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
   const paletteGroups = useMemo(() => {
     const q = paletteQuery.trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -394,6 +406,13 @@ function InnerMap({
     return () => window.removeEventListener("open-image-lightbox", h);
   }, []);
   const { setCenter, screenToFlowPosition, fitView } = useReactFlow();
+  useEffect(() => {
+    if (!presenting) return;
+    const timer = window.setTimeout(() => fitView({ duration: 500, padding: 0.08 }), 80);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPresenting(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.clearTimeout(timer); window.removeEventListener("keydown", onKey); };
+  }, [presenting, fitView]);
   const navigate = useNavigate();
 
   const handleLensChange = useCallback((newLens: TacticalLens) => {
@@ -487,7 +506,7 @@ function InnerMap({
       );
       return {
         ...e,
-        style: getDynamicEdgeStyle(sLabel, tLabel, e.style?.strokeDasharray !== undefined, isSimulatedActive),
+        ...edgeVisual(sLabel, tLabel, e.style?.strokeDasharray !== undefined, isSimulatedActive),
       };
     }));
   }, [activeLens, isSimulating, currentStepIndex, activeScenario, rawNodes]);
@@ -653,7 +672,12 @@ function InnerMap({
         return {
           id: n.id, type: "mapnode",
           position: n.position || { x: 0, y: 0 },
-          ...(n.width && n.height ? { width: n.width, height: n.height, style: { width: n.width, height: n.height } } : {}),
+          // Etapa: só a largura salva vale; a altura acompanha o conteúdo (print, checklist). Imagem: tamanho livre.
+          ...(n.width && n.height
+            ? n.kind === "imagem"
+              ? { width: n.width, height: n.height, style: { width: n.width, height: n.height } }
+              : { width: n.width, style: { width: n.width } }
+            : {}),
           data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
         } as Node;
       });
@@ -668,10 +692,9 @@ function InnerMap({
         target: e.target_kind === "annotation" ? `${ANN_PREFIX}${e.target_id}` : e.target_id,
         sourceHandle: e.source_handle || undefined,
         targetHandle: e.target_handle || undefined,
-        animated: e.style !== "dashed",
         label: e.label || undefined,
         interactionWidth: 24,
-        style: getDynamicEdgeStyle(sNode?.label || "", tNode?.label || "", e.style === "dashed", false),
+        ...edgeVisual(sNode?.label || "", tNode?.label || "", e.style === "dashed", false),
       };
     }));
   }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, setAnnotations]);
@@ -712,6 +735,25 @@ function InnerMap({
       return { ...n, data: { ...n.data, liveStats: stats } };
     }));
   }, [liveStats]);
+
+  // Número de cada etapa na ordem do fluxo (setas primeiro, depois posição) — mesma regra do MCP.
+  const stepNumbers = useMemo(
+    () => orderSteps(rawNodes, edges.map(e => ({ source: e.source, target: e.target }))),
+    [rawNodes, edges],
+  );
+  useEffect(() => {
+    setNodes(nds => {
+      let changed = false;
+      const out = nds.map(n => {
+        if (n.type !== "mapnode") return n;
+        const num = stepNumbers.get(n.id) ?? null;
+        if (n.data.stepNumber === num) return n;
+        changed = true;
+        return { ...n, data: { ...n.data, stepNumber: num } };
+      });
+      return changed ? out : nds;
+    });
+  }, [stepNumbers, setNodes]);
 
   useEffect(() => {
     if (!mapId) return;
@@ -1116,6 +1158,9 @@ function InnerMap({
             setAnnotations(list => list.map(a => a.id === rawId ? { ...a, ...patch } : a));
             await supabase.from(annTable).update(patch).eq("id", rawId);
           } else {
+            // Etapa: só grava quando a pessoa termina de redimensionar. Medição automática (altura pelo conteúdo)
+            // chega com resizing indefinido e não deve sobrescrever o tamanho salvo a cada abertura do mapa.
+            if (c.resizing !== false) return;
             const cur = currRaws.find(r => r.id === c.id);
             if (nearlyEq(cur?.width, width) && nearlyEq(cur?.height, height)) return;
             setRawNodes(list => list.map(r => r.id === c.id ? { ...r, width, height } : r));
@@ -1164,9 +1209,8 @@ function InnerMap({
         target: conn.target!,
         sourceHandle: conn.sourceHandle || undefined,
         targetHandle: conn.targetHandle || undefined,
-        animated: true,
         interactionWidth: 24,
-        style: getDynamicEdgeStyle(sNode?.label || "", tNode?.label || "", false, false),
+        ...edgeVisual(sNode?.label || "", tNode?.label || "", false, false),
       }, eds));
     }
   }, [mapId, rawNodes]);
@@ -1939,9 +1983,9 @@ function InnerMap({
   };
 
   return (
-    <div className="relative h-[calc(100vh-200px)] border border-border/40 rounded-lg overflow-hidden bg-[#0a0809]">
+    <div className={cn("overflow-hidden bg-[#0a0809]", presenting ? "fixed inset-0 z-[70] h-screen" : "relative h-[calc(100vh-200px)] border border-border/40 rounded-lg")}>
       {/* Top toolbar */}
-      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-card/80 backdrop-blur border border-border/40 rounded-lg p-1.5">
+      <div className={cn("absolute top-3 left-3 z-10 flex items-center gap-2 bg-card/80 backdrop-blur border border-border/40 rounded-lg p-1.5", presenting && "hidden")}>
         <Select value={mapId || ""} onValueChange={setMapId}>
           <SelectTrigger className="h-7 text-xs w-[180px] border-0"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -2032,6 +2076,9 @@ function InnerMap({
             </span>
           </div>
         )}
+        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setPresenting(true)} title="Só o mapa, em tela cheia">
+          <Maximize2 className="h-3 w-3" /> Apresentar
+        </Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
           <Download className="h-3 w-3" /> PNG
         </Button>
@@ -2088,7 +2135,7 @@ function InnerMap({
       </div>
 
       {/* Barra Tática de Lentes, Telemetria e Simulador Interativo ("Play Flow") */}
-      <CompanyMapTacticalBar
+      {!presenting && <CompanyMapTacticalBar
         activeLens={activeLens}
         onLensChange={handleLensChange}
         isSimulating={isSimulating}
@@ -2101,12 +2148,13 @@ function InnerMap({
         onOpenGrowthCopilot={() => setGrowthCopilotOpen(true)}
         onOpenInfraTools={() => setInfraToolsOpen(true)}
         nodeCount={rawNodes.length}
-      />
+      />}
 
       {/* Palette (grouped by category) */}
       <div
         className={cn(
           "absolute top-3 right-3 z-10 flex flex-col bg-card/80 backdrop-blur border border-border/40 rounded-lg transition-all",
+          presenting && "hidden",
           paletteCollapsed
             ? "w-9 h-9 p-1 overflow-hidden items-center justify-center cursor-pointer"
             : "p-2 gap-2 w-[210px] max-h-[calc(100vh-260px)] overflow-y-auto"
@@ -2239,9 +2287,20 @@ function InnerMap({
         </div>
       )}
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none">
+      <div className={cn("absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[11px] text-muted-foreground bg-card/80 backdrop-blur px-3 py-1 rounded-full border border-border/40 pointer-events-none", presenting && "hidden")}>
         Arraste no vazio = selecionar em área · Ctrl/Cmd + clique = adicionar · Botão direito = anotações · Duplo-clique em card com projeto vinculado = abrir Hub
       </div>
+      {presenting && (
+        <div className="pointer-events-none absolute left-4 right-4 top-4 z-20 flex items-start justify-between gap-3">
+          <div className="pointer-events-auto rounded-lg border border-border bg-card/90 px-4 py-2 backdrop-blur">
+            <p className="text-sm font-semibold text-foreground">{maps.find(m => m.id === mapId)?.name}</p>
+            <p className="text-xs text-muted-foreground">{stepNumbers.size} etapas numeradas na ordem do fluxo · clique numa etapa para ver o detalhe</p>
+          </div>
+          <Button size="sm" variant="outline" className="pointer-events-auto gap-1.5" onClick={() => setPresenting(false)}>
+            <Minimize2 className="h-3.5 w-3.5" /> Sair (Esc)
+          </Button>
+        </div>
+      )}
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
@@ -2306,7 +2365,7 @@ function InnerMap({
       >
         <Background color="#1f1d1e" gap={20} />
         <Controls className="!bg-card !border-border" />
-        <MiniMap className="!bg-card !border-border" nodeColor={miniMapNodeColor} />
+        {!presenting && <MiniMap className="!bg-card !border-border" nodeColor={miniMapNodeColor} />}
         {(guides.v.length > 0 || guides.h.length > 0) && (
           <ViewportPortal>
             <svg style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none" }}>

@@ -17,9 +17,11 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - [x] Painel da etapa mostra print de computador e celular, data e o comando para atualizar (`StepPrints.tsx`).
 
 ## 3. Fluxo legível
-- [ ] Numeração automática seguindo as setas.
-- [ ] Setas com rótulo e estilo pelo tipo do que passa.
-- [ ] Modo apresentação (sem paleta e barras) e exportação do mapa.
+- [x] Numeração automática seguindo as setas (`_shared/map-order.ts`, testes em `src/test/map-order.test.ts`): Kahn com desempate por faixa de cima e esquerda→direita; ciclo destrava pela etapa mais acima; centro do projeto, área e imagem sem número. SlimSoda: 23 etapas numeradas na ordem inteligência → orgânico/X1 → criativos → ads → páginas → checkout → compra → métricas → análise.
+- [x] Setas: degrau ortogonal, ponta de flecha, sem brilho, animação só na simulação, rótulo com fundo do tema.
+- [x] Modo apresentação: tela cheia só com o mapa, nome, total de etapas e Sair (Esc); sem barras, paleta e minimapa. Exportar PNG já existia.
+- [x] Cartão de etapa com altura pelo conteúdo (print não fica espremido); tamanho só é gravado quando a pessoa termina de redimensionar (antes a medição automática regravava todas as etapas ao abrir o mapa).
+- [x] Seções de SlimSoda e JP com 580px e 640px de passo; etapas do JP de volta às seções depois de um "Organizar" às 20:03 de 01/10 (cópias em `imphq_company_map_snapshots`). 0 cartões sobrepostos.
 
 ## 4. Contrato de cada etapa para as IAs
 - [ ] Objetivo, entrada, saída, pronto quando, métrica e se falhar em todas as etapas de SlimSoda e JP.
@@ -35,4 +37,6 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - supabase/migrations/20261001_map_prints.sql
 - src/integrations/supabase/types.ts
 - .gitignore
+- supabase/functions/_shared/map-order.ts
+- src/test/map-order.test.ts
 - docs/stories/MAP2.2-mapa-visual-e-legivel.md
