@@ -24,8 +24,11 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - [x] Seções de SlimSoda e JP com 580px e 640px de passo; etapas do JP de volta às seções depois de um "Organizar" às 20:03 de 01/10 (cópias em `imphq_company_map_snapshots`). 0 cartões sobrepostos.
 
 ## 4. Contrato de cada etapa para as IAs
-- [ ] Objetivo, entrada, saída, pronto quando, métrica e se falhar em todas as etapas de SlimSoda e JP.
-- [ ] MCP devolve etapa numerada + contrato + print.
+- [x] Contrato completo nas 52 etapas (SlimSoda 23, JP 29), na descrição, uma seção por linha: O QUÊ, ENTRADA, SAÍDA, PRONTO QUANDO, MÉTRICAS, DEPENDE DE, FREQUÊNCIA, SE FALHAR. Escrito a partir do conteúdo dos mapas, do banco e dos sites; avisos (marca de terceiros, aprovação humana, links que faltam) dentro do contrato. Cópia antes em `imphq_company_map_snapshots`.
+- [x] Formato conferido contra o leitor `readStageContract` (`src/test/stage-contract-format.test.ts`); o leitor tira o ponto final de cada seção, sem efeito na leitura.
+- [x] Notas do JP com `
+` literal convertidas em quebra de linha.
+- [x] `get_executable_steps` (MCP) devolve as etapas já na ordem do fluxo (`step_number`), com `stage_role`, contrato e `print` (desktop, mobile, data). Publicado; teste do transporte em `src/test/map-agent-status-mcp.test.ts`.
 
 ## File List
 - src/components/funis/MapNodeCard.tsx
@@ -39,4 +42,7 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - .gitignore
 - supabase/functions/_shared/map-order.ts
 - src/test/map-order.test.ts
+- src/test/stage-contract-format.test.ts
+- src/test/map-agent-status-mcp.test.ts
+- supabase/functions/project-mcp/index.ts
 - docs/stories/MAP2.2-mapa-visual-e-legivel.md

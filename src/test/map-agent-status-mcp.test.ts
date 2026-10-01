@@ -3,18 +3,20 @@ import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import * as maps from "@shared/project-map";
 import * as capabilities from "@shared/capabilities";
+import * as mapOrder from "@shared/map-order";
 import { checkMcpKey } from "@shared/mcp-auth";
 
 type Handler = (req: Request) => Promise<Response>;
 type Transport = "mcp" | "rest_post" | "rest_get";
-interface Reading { pendingCount: number; totalSteps: number; steps: Array<maps.AgentStatusReading & { node_id: string; executor: string; skill: string; checklist: unknown[]; output_url: string | null }> }
+interface Reading { pendingCount: number; totalSteps: number; steps: Array<maps.AgentStatusReading & { node_id: string; executor: string; skill: string; checklist: unknown[]; output_url: string | null; step_number?: number | null; print?: unknown }> }
 const key = "imp_mcp_test_map_status_readonly";
 const nodes = [
   { id: "full", notes: "", checklist: [{ text: "Feito", done: true }] },
   { id: "explicit", notes: "[agent_status:done]\n[agent_output:https://output.test/file]", checklist: [] },
   { id: "invalid", notes: "[agent_status:unexpected]", checklist: [{ text: "Feito", done: true }] },
   { id: "example", notes: "[agent_prompt_start]\n[agent_status:done]\n[agent_prompt_end]", checklist: [] },
-].map(node => ({ ...node, label: node.id, kind: "processo", executor_type: "AI_SKILL", linked_skill_id: "fixture-method", url: null }));
+// Posições da esquerda para a direita: o MCP devolve as etapas na ordem do fluxo (map-order).
+].map((node, index) => ({ ...node, label: node.id, kind: "processo", executor_type: "AI_SKILL", linked_skill_id: "fixture-method", url: null, position: { x: index * 300, y: 0 } }));
 
 function runtime() {
   let handler: Handler | undefined;
@@ -22,7 +24,7 @@ function runtime() {
     const records: unknown[] = table === "imphq_projects" ? [{ id: "p", name: "Fixture", data: {}, avatar: {} }]
       : table === "imphq_company_map_nodes" ? structuredClone(nodes) : [];
     const query = {
-      select: () => query, eq: () => query, or: () => query,
+      select: () => query, eq: () => query, or: () => query, in: () => query,
       single: () => Promise.resolve({ data: records[0], error: null }),
       then: (resolve: (response: { data: unknown[]; error: null }) => unknown) => Promise.resolve({ data: records, error: null }).then(resolve),
     };
@@ -31,7 +33,7 @@ function runtime() {
   });
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   if (!handler) throw new Error("Missing handler");
   const invoke = (transport: Transport, status = "all", authorized = true) => {
@@ -70,6 +72,11 @@ describe("actual executable-step transports share declarative status", () => {
       expect(reading.steps[0].checklist).toEqual(nodes[0].checklist);
       expect(reading.steps[1].output_url).toBe("https://output.test/file");
     }
+  });
+  it("numbers the MCP steps in flow order and returns the page print slot", async () => {
+    const reading = await runtime().read("mcp");
+    expect(reading.steps.map(step => [step.node_id, step.step_number])).toEqual([["full", 1], ["explicit", 2], ["invalid", 3], ["example", 4]]);
+    expect(reading.steps.every(step => step.print === null)).toBe(true);
   });
   it.each(["mcp", "rest_post"] as const)("keeps untagged full checklists in the pending filter of %s", async transport => {
     const app = runtime();

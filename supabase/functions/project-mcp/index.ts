@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { buildProjectMap, readStageContract, readAgentStatus } from "../_shared/project-map.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
 import { CAPABILITY_TASKS, pickCapabilities, tasksForKind, type Capability } from "../_shared/capabilities.ts";
+import { orderSteps } from "../_shared/map-order.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -666,7 +667,7 @@ const MCP_TOOLS = [
   },
   {
     name: "get_executable_steps",
-    description: "Lista as etapas operacionais do funil do projeto que são executáveis por IA (ex: criativos no Higgsfield, copy VSL no Claude, automação OpenFlow, Google Flow) ou que aguardam ação humana (subir tráfego JP). Retorna o prompt exato, a skill vinculada e o status.",
+    description: "Lista as etapas do mapa de operação do projeto, já na ordem do fluxo (step_number), executáveis por IA ou que aguardam ação humana. Cada etapa traz o contrato (objetivo, entrada, saída, pronto quando, métricas, dependências, frequência, se falhar), o prompt, a skill, o status declarado, o print da página e as ferramentas sugeridas.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1259,6 +1260,18 @@ Deno.serve(async (req) => {
             if (nodeErr) throw nodeErr;
             const caps = await loadCapabilities(supabase);
 
+            // Número de cada etapa na ordem do fluxo (mesma regra do canvas: setas primeiro, depois posição).
+            const stepMapIds = [...new Set((rawNodes || []).map(n => n.map_id))];
+            const { data: rawEdges } = stepMapIds.length
+              ? await supabase.from("imphq_company_map_edges").select("source_id, target_id, source_kind, target_kind").in("map_id", stepMapIds)
+              : { data: [] };
+            const stepOrder = orderSteps(
+              (rawNodes || []).map(n => ({ id: n.id, kind: n.kind, position: n.position })),
+              (rawEdges || [])
+                .filter(e => e.source_kind !== "annotation" && e.target_kind !== "annotation")
+                .map(e => ({ source: e.source_id, target: e.target_id })),
+            );
+
             const parsedSteps = (rawNodes || []).map(n => {
               const notes = n.notes || "";
               // Ordem: marcação nas notas → campo da etapa (canvas / Flow Brain) → palpite pelo tipo.
@@ -1283,10 +1296,13 @@ Deno.serve(async (req) => {
 
               const output_url = notes.match(/\[agent_output:([^\]]+)\]/)?.[1] || n.url || null;
 
+              const printMeta = n.print_meta && typeof n.print_meta === "object" ? n.print_meta : null;
               return {
+                step_number: stepOrder.get(n.id) ?? null,
                 node_id: n.id,
                 label: n.label,
                 kind: n.kind,
+                stage_role: n.stage_role || null,
                 executor: nExec,
                 skill: nSkill,
                 ...executionStatus,
@@ -1295,9 +1311,11 @@ Deno.serve(async (req) => {
                 output_url,
                 product_context: primaryProd,
                 contract: readStageContract(n),
+                // Print da página da etapa (scripts/map-prints.mjs): mostra como ela está hoje.
+                print: printMeta ? { desktop: printMeta.desktop ?? null, mobile: printMeta.mobile ?? null, captured_at: printMeta.captured_at ?? null } : null,
                 ferramentas: toolsForStep(caps, n.kind),
               };
-            });
+            }).sort((a, b) => (a.step_number ?? 9999) - (b.step_number ?? 9999));
 
             let filtered = parsedSteps;
             if (status && status !== "all") {
