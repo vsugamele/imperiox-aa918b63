@@ -1559,7 +1559,11 @@ export default function Funis() {
       {viewMode === "hub" ? (
         <ProductHubCanvas projects={projects} onProjectsReload={load} initialProjectId={hubProjectId} />
       ) : viewMode === "mapa" ? (
-        <CompanyMapCanvas projects={projects} />
+        <CompanyMapCanvas
+          projects={projects}
+          initialMapId={searchParams.get("map") ?? undefined}
+          focusNodeId={searchParams.get("node") ?? undefined}
+        />
       ) : viewMode === "jornada" ? (
         <JourneyCanvas projects={projects} initialProjectId={hubProjectId} />
       ) : viewMode === "funis" ? (

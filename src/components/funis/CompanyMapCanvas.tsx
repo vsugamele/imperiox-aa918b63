@@ -14,6 +14,7 @@ import {
 
 import "@xyflow/react/dist/style.css";
 import { supabase } from "@/integrations/supabase/client";
+import { readAgentNotes, writeAgentNotes, type AgentNotes } from "@shared/map-steps";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,59 +70,10 @@ function setProductIdInNotes(notes: string | null | undefined, prodName: string 
   return current ? `${current}\n[product_name:${prodName}]` : `[product_name:${prodName}]`;
 }
 
-export interface AgentExecutionData {
-  executor: string;
-  skill: string;
-  status: "pending" | "in_progress" | "ready_review" | "done";
-  prompt: string;
-  output_url: string;
-}
-
-function extractAgentData(notes?: string | null): AgentExecutionData {
-  if (!notes) {
-    return { executor: "human_general", skill: "none", status: "pending", prompt: "", output_url: "" };
-  }
-  const executor = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || "human_general";
-  const skill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || "none";
-  const status = (notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending") as AgentExecutionData["status"];
-  const output_url = notes.match(/\[agent_output:([^\]]+)\]/)?.[1] || "";
-
-  let prompt = "";
-  const multiMatch = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
-  if (multiMatch) {
-    prompt = multiMatch[1].trim();
-  } else {
-    const singleMatch = notes.match(/\[agent_prompt:([^\]]+)\]/);
-    if (singleMatch) prompt = singleMatch[1].trim();
-  }
-
-  return { executor, skill, status, prompt, output_url };
-}
-
-function updateAgentDataInNotes(notes: string | null | undefined, data: Partial<AgentExecutionData>): string {
-  let text = notes || "";
-  text = text.replace(/\[agent_executor:[^\]]*\]/g, "")
-             .replace(/\[agent_skill:[^\]]*\]/g, "")
-             .replace(/\[agent_status:[^\]]*\]/g, "")
-             .replace(/\[agent_output:[^\]]*\]/g, "")
-             .replace(/\[agent_prompt:[^\]]*\]/g, "")
-             .replace(/\[agent_prompt_start\][\s\S]*?\[agent_prompt_end\]/g, "")
-             .trim();
-
-  const current = extractAgentData(notes);
-  const updated: AgentExecutionData = { ...current, ...data };
-
-  const tags: string[] = [];
-  if (updated.executor && updated.executor !== "human_general") tags.push(`[agent_executor:${updated.executor}]`);
-  if (updated.skill && updated.skill !== "none") tags.push(`[agent_skill:${updated.skill}]`);
-  if (updated.status && updated.status !== "pending") tags.push(`[agent_status:${updated.status}]`);
-  if (updated.output_url) tags.push(`[agent_output:${updated.output_url}]`);
-  if (updated.prompt) tags.push(`[agent_prompt_start]\n${updated.prompt.trim()}\n[agent_prompt_end]`);
-
-  if (tags.length === 0) return text;
-  return text ? `${text}\n\n${tags.join("\n")}` : tags.join("\n");
-}
-
+// Leitura/escrita das marcações [agent_*] vem da regra única compartilhada com a tela Hoje e o MCP.
+export type AgentExecutionData = AgentNotes;
+const extractAgentData = readAgentNotes;
+const updateAgentDataInNotes = writeAgentNotes;
 
 const SIZE_PRESETS: Record<string, { min: number; max: number; label: string }> = {
   S: { min: 160, max: 200, label: "Pequeno" },
@@ -651,10 +603,16 @@ interface WaProvider {
 function InnerMap({
   projects,
   initialProjectId,
+  initialMapId,
+  focusNodeId,
   onNavigateTab,
 }: {
   projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[];
   initialProjectId?: string;
+  /** Mapa a abrir (ex.: link da tela Hoje). */
+  initialMapId?: string;
+  /** Etapa a selecionar e centralizar depois que o mapa carregar. */
+  focusNodeId?: string;
   onNavigateTab?: (tab: string) => void;
 }) {
   const annotationsRef = useRef<MapAnnotation[]>([]);
@@ -907,7 +865,11 @@ function InnerMap({
     (async () => {
       const { data } = await supabase.from("imphq_company_maps").select("id,name").order("created_at");
       const list = data || [];
-      if (initialProjectId) {
+      const preferred = initialMapId ? list.find(m => m.id === initialMapId) : undefined;
+      if (preferred) {
+        setMaps(list);
+        setMapId(preferred.id);
+      } else if (initialProjectId) {
         const curProj = projects.find(p => p.id === initialProjectId);
         const projMapName = curProj ? `Mapa · ${curProj.name}` : `Mapa · ${initialProjectId}`;
         const existingMap = list.find(m =>
@@ -941,7 +903,7 @@ function InnerMap({
     supabase.from("imphq_flows").select("id,nome").then(({ data }) => setFlows((data || []).map(d => ({ id: d.id, name: d.nome }))));
     supabase.from("imphq_wa_providers").select("id,project_id,provider,display_name,instance_name,phone_number_id,twilio_from,is_active")
       .then(({ data }) => setWaProviders((data || []) as WaProvider[]));
-  }, [initialProjectId, projects]);
+  }, [initialProjectId, initialMapId, projects]);
 
   // conversation counts per provider (best-effort — grouped by project)
   useEffect(() => {
@@ -1651,6 +1613,17 @@ function InnerMap({
     setMapId(next[0]?.id || null);
     toast.success("Mapa excluído");
   };
+
+  // Abre a etapa pedida pela URL uma única vez por etapa, assim que ela aparece no mapa carregado.
+  const focusedNodeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusNodeId || focusedNodeRef.current === focusNodeId) return;
+    const target = rawNodes.find(r => r.id === focusNodeId);
+    if (!target) return;
+    focusedNodeRef.current = focusNodeId;
+    setSelected({ ...target, checklist: target.checklist || [] });
+    setCenter(target.position.x + 100, target.position.y + 50, { zoom: 1.1, duration: 600 });
+  }, [focusNodeId, rawNodes, setCenter]);
 
   const onNodeClick = (_: React.MouseEvent, node: Node) => {
     // Se há multi-seleção ativa, não abrir painel (permitir mover em grupo)
@@ -3901,10 +3874,14 @@ function InnerMap({
 export function CompanyMapCanvas({
   projects,
   initialProjectId,
+  initialMapId,
+  focusNodeId,
   onNavigateTab,
 }: {
   projects: Pick<Tables<"imphq_projects">, "id" | "name" | "data">[];
   initialProjectId?: string;
+  initialMapId?: string;
+  focusNodeId?: string;
   onNavigateTab?: (tab: string) => void;
 }) {
   return (
@@ -3912,6 +3889,8 @@ export function CompanyMapCanvas({
       <InnerMap
         projects={projects}
         initialProjectId={initialProjectId}
+        initialMapId={initialMapId}
+        focusNodeId={focusNodeId}
         onNavigateTab={onNavigateTab}
       />
     </ReactFlowProvider>

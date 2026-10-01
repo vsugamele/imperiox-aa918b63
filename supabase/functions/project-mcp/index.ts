@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { buildProjectMap } from "../_shared/project-map.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
 import { CAPABILITY_TASKS, pickCapabilities, tasksForKind, type Capability } from "../_shared/capabilities.ts";
+import { stepStatus } from "../_shared/map-steps.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -673,8 +674,8 @@ const MCP_TOOLS = [
         project_id: { type: "string", description: "ID único do projeto" },
         status: {
           type: "string",
-          enum: ["pending", "in_progress", "ready_review", "done", "all"],
-          description: "Filtrar por status da etapa (padrão: 'pending')",
+          enum: ["open", "pending", "in_progress", "ready_review", "done", "all"],
+          description: "Filtrar por status da etapa. Padrão 'open' = tudo que não está feito (a fazer, em andamento, revisar).",
         },
         executor: {
           type: "string",
@@ -1234,7 +1235,7 @@ Deno.serve(async (req) => {
           }
 
           if (name === "get_executable_steps") {
-            const { project_id, status = "pending", executor } = args || {};
+            const { project_id, status = "open", executor } = args || {};
             if (!project_id) throw new Error("project_id é obrigatório");
 
             const { data: proj } = await supabase.from("imphq_projects").select("id, name, data").eq("id", project_id).single();
@@ -1274,8 +1275,7 @@ Deno.serve(async (req) => {
                  nExec === "openflow" ? "roteiros-virais-comment-to-dm" :
                  nExec === "human_traffic" ? "briefing-gestor-trafego" : "none");
 
-              const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
-                (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c) => c.done) ? "done" : "pending");
+              const nStatus = stepStatus(n);
 
               const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
               const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
@@ -1301,7 +1301,7 @@ Deno.serve(async (req) => {
 
             let filtered = parsedSteps;
             if (status && status !== "all") {
-              filtered = filtered.filter(s => s.status === status);
+              filtered = filtered.filter(s => status === "open" ? s.status !== "done" : s.status === status);
             }
             if (executor) {
               filtered = filtered.filter(s => s.executor.toLowerCase().includes(executor.toLowerCase()));
@@ -1482,7 +1482,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "executable_steps" && projectId) {
-      const { status = "pending", executor } = body;
+      const { status = "open", executor } = body;
       const { data: proj } = await supabase.from("imphq_projects").select("id, name").eq("id", projectId).single();
       const expectedMapName = proj ? `Mapa · ${proj.name}` : "";
       const { data: maps } = await supabase.from("imphq_company_maps").select("id, name");
@@ -1501,8 +1501,7 @@ Deno.serve(async (req) => {
         const notes = n.notes || "";
         const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
         const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
-        const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
-          (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c) => c.done) ? "done" : "pending");
+        const nStatus = stepStatus(n);
         const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
         const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
         const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
@@ -1523,7 +1522,7 @@ Deno.serve(async (req) => {
       });
 
       let filtered = parsedSteps;
-      if (status && status !== "all") filtered = filtered.filter(s => s.status === status);
+      if (status && status !== "all") filtered = filtered.filter(s => status === "open" ? s.status !== "done" : s.status === status);
       if (executor) filtered = filtered.filter(s => s.executor.toLowerCase().includes(executor.toLowerCase()));
 
       return json({
@@ -1658,7 +1657,7 @@ Deno.serve(async (req) => {
       const notes = n.notes || "";
       const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
       const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
-      const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending";
+      const nStatus = stepStatus(n);
       const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
       const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
       const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;

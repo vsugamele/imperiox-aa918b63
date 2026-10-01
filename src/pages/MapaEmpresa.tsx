@@ -10,6 +10,7 @@ import { useCompanyMap } from "@/hooks/useCompanyMap";
 import { StatusPill } from "@/components/mapa/StatusPill";
 import { ProjectMapDetail } from "@/components/mapa/ProjectMapDetail";
 import { STATUS_DOT } from "@/components/mapa/map-styles";
+import { Stat } from "@/components/mapa/Stat";
 
 const AREAS: Array<{ area: MapArea; label: string }> = [
   { area: "produtos", label: "Produtos" },
@@ -146,15 +147,6 @@ export default function MapaEmpresa() {
       )}
 
       <ProjectMapDetail map={selected} onOpenChange={(open) => !open && setSelectedId(null)} />
-    </div>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
-  return (
-    <div className="rounded-md border border-border bg-card p-3">
-      <div className="text-[10px] uppercase tracking-wider text-subtle">{label}</div>
-      <div className={cn("mt-1 font-mono text-xl text-foreground", tone)}>{value}</div>
     </div>
   );
 }
