@@ -15,12 +15,14 @@ import {
   jpLogEvent,
 } from "../_shared/crmBridgeJP.ts";
 import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
+import { BUYING_RE, EMOTIONAL_RE, cachedAudioUrl, decideVoice, inQuotaCooldown, isQuotaError, voiceTextHash, type VoiceLogEntry, type VoiceLogStatus, type VoiceTrigger } from "../_shared/voice-policy.ts";
 
 
 import { z } from "https://esm.sh/zod@3.25.76";
 function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function records(value: unknown): Record<string, unknown>[] { return Array.isArray(value) ? value.map(record) : []; }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+interface VoiceLogInsert { project_id: string | null; conversation_id: string | null; kind: "tts" | "stt"; status: VoiceLogStatus; provider?: string | null; voice_id?: string | null; text_hash?: string | null; chars?: number | null; reason?: string | null; audio_url?: string | null; error?: string | null }
 interface LeadRow { id: string; email?: string | null; nome?: string | null; name?: string | null; phone?: string | null; campanha_id?: string | null; tags?: string[] | null; score?: number | null; dor_principal?: string | null; objecao_atual?: string | null; nivel_qualificacao?: string | null; lead_memory?: Record<string, unknown> | null; data?: Record<string, unknown> | null }
 interface ProjectRule { id: string; rule_text: string; rule_type: string; ab_group_id: string | null; ab_status: string | null }
 interface KnowledgeMatch { pergunta: string; resposta: string }
@@ -56,6 +58,20 @@ Deno.serve(async (req) => {
   const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  // Registro de voz (TTS/STT): base das travas de saldo, falhas seguidas, limite por conversa e cache de áudio.
+  const logVoice = async (entry: VoiceLogInsert) => {
+    try { await supabase.from("imphq_wa_voice_log").insert(entry); } catch (e) { console.warn("[wa-ai-reply] voice log skip:", errorMessage(e)); }
+  };
+  const recentVoiceLog = async (projectId: string | null): Promise<VoiceLogEntry[]> => {
+    if (!projectId) return [];
+    const { data } = await supabase.from("imphq_wa_voice_log")
+      .select("kind, status, conversation_id, text_hash, voice_id, audio_url, created_at")
+      .eq("project_id", projectId)
+      .gte("created_at", new Date(Date.now() - 24 * 3600000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(100);
+    return (data || []) as VoiceLogEntry[];
+  };
 
   try {
     const body = await req.json();
@@ -304,12 +320,14 @@ Deno.serve(async (req) => {
     if (isAudio && body.media_url) {
       // Reutiliza transcript já persistido por wa-audio-transcribe (evita duplo custo)
       try {
+        // Casa pelo arquivo do áudio atual (antes pegava o último áudio da conversa, que podia ser outro).
         const { data: existingMsg } = await supabase
           .from("imphq_wa_messages")
           .select("id, transcript")
           .eq("conversation_id", conversation_id)
           .eq("direction", "incoming")
           .eq("message_type", "audio")
+          .eq("media_url", body.media_url)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -323,7 +341,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (isAudio && body.media_url && !audioTranscription) {
+    // Saldo da ElevenLabs esgotado há menos de 1h: não tenta transcrever de novo (mesma conta do TTS).
+    const sttQuotaCooling = isAudio && body.media_url && !audioTranscription && inQuotaCooldown(await recentVoiceLog(project_id), new Date());
+    if (sttQuotaCooling) console.warn("[wa-ai-reply] STT pulado: saldo do provedor esgotado na última hora");
+
+    if (isAudio && body.media_url && !audioTranscription && !sttQuotaCooling) {
       console.log(`[wa-ai-reply] Audio message detected: ${body.media_url}. Transcribing via ElevenLabs Scribe v2...`);
       const elevenSttKey = Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
       if (elevenSttKey) {
@@ -350,6 +372,7 @@ Deno.serve(async (req) => {
               message = transcribed || message;
               audioTranscription = transcribed || null;
               console.log(`[wa-ai-reply] ElevenLabs Scribe transcribed: "${message}"`);
+              await logVoice({ project_id, conversation_id, kind: "stt", status: "transcribed", provider: "elevenlabs", chars: transcribed.length });
 
               // Update the latest incoming audio message's transcript in DB
               try {
@@ -359,6 +382,7 @@ Deno.serve(async (req) => {
                   .eq("conversation_id", conversation_id)
                   .eq("direction", "incoming")
                   .eq("message_type", "audio")
+                  .eq("media_url", body.media_url)
                   .order("created_at", { ascending: false })
                   .limit(1)
                   .maybeSingle();
@@ -392,7 +416,9 @@ Deno.serve(async (req) => {
                 }
               }
             } else {
-              console.error("[wa-ai-reply] ElevenLabs STT returned error:", sttRes.status, await sttRes.text());
+              const sttErr = await sttRes.text();
+              console.error("[wa-ai-reply] ElevenLabs STT returned error:", sttRes.status, sttErr);
+              await logVoice({ project_id, conversation_id, kind: "stt", status: isQuotaError(sttRes.status, sttErr) ? "quota_exceeded" : "stt_failed", provider: "elevenlabs", error: `${sttRes.status} ${sttErr.slice(0, 300)}` });
             }
           } else {
             console.error("[wa-ai-reply] Failed to fetch audio file:", audioFetch.status);
@@ -2148,28 +2174,23 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       let responseAudioUrl: string | null = null;
       let voiceReplyEnabled = false;
       let audioTriggerReason = "";
+      let voiceMeta: { provider: string; voice: string; hash: string } | null = null;
 
+      // Gatilho do momento (regras de @shared/voice-policy); a decisão final passa pelas travas abaixo.
+      let voiceTrigger: VoiceTrigger | null = null;
       if (activeStep?.ia_voice_response === true) {
-        voiceReplyEnabled = true;
-        audioTriggerReason = "flow_step_forced";
+        voiceTrigger = "flow_step_forced";
       } else if (isAudio) {
-        voiceReplyEnabled = true;
-        audioTriggerReason = "lead_sent_audio_mirror";
+        voiceTrigger = "lead_sent_audio_mirror";
       } else if (aiConfig.voice_reply_enabled === true) {
-        // Avalia o momento estratégico
         try {
-          const [recentMsgsRes, convRes] = await Promise.all([
+          const [recentMsgsRes] = await Promise.all([
             supabase
               .from("imphq_wa_messages")
               .select("message_type, media_url, direction, created_at")
               .eq("conversation_id", conversation_id)
               .order("created_at", { ascending: false })
               .limit(10),
-            supabase
-              .from("imphq_wa_conversations")
-              .select("created_at")
-              .eq("id", conversation_id)
-              .maybeSingle(),
           ]);
 
           const recentMsgs = recentMsgsRes.data || [];
@@ -2194,30 +2215,37 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             : 999;
           const isReturnAfterSilence = hoursSilent > 6;
 
-          // Critério 4: Mensagem carregada emocionalmente / situação pessoal
-          const emotionalKeywords = /\b(problema|dificuldade|perdi|perda|não consigo|desempregad|dívida|medo|ansiedade|filho|esposa|marido|família|separad|câncer|doença|preciso muito|desesperado|ajuda|socorro|urgente|prazo|amanhã|hoje)\b/i;
-          const isEmotional = emotionalKeywords.test(message);
+          // Critérios 4 e 5: emoção/situação pessoal e intenção de compra (listas enxutas, sem palavras de rotina/suporte)
+          const isEmotional = EMOTIONAL_RE.test(message);
+          const isHot = BUYING_RE.test(message);
 
-          // Critério 5: Lead quente — próximo de comprar
-          const buyingKeywords = /\b(quanto|preço|valor|parcela|desconto|forma de pagamento|pix|boleto|cartão|comprar|fechar|garantia|acesso|entrar)\b/i;
-          const isHot = buyingKeywords.test(message);
-
-          if (leadSentAudioRecently) {
-            voiceReplyEnabled = true; audioTriggerReason = "lead_audio_recent";
-          } else if (isFirstContact) {
-            voiceReplyEnabled = true; audioTriggerReason = "first_contact";
-          } else if (isReturnAfterSilence) {
-            voiceReplyEnabled = true; audioTriggerReason = "return_after_silence";
-          } else if (isEmotional) {
-            voiceReplyEnabled = true; audioTriggerReason = "emotional_moment";
-          } else if (isHot) {
-            voiceReplyEnabled = true; audioTriggerReason = "hot_lead_buying";
-          }
+          if (leadSentAudioRecently) voiceTrigger = "lead_audio_recent";
+          else if (isFirstContact) voiceTrigger = "first_contact";
+          else if (isReturnAfterSilence) voiceTrigger = "return_after_silence";
+          else if (isEmotional) voiceTrigger = "emotional_moment";
+          else if (isHot) voiceTrigger = "hot_lead_buying";
         } catch (_) {
-          voiceReplyEnabled = false;
+          voiceTrigger = null;
         }
       }
 
+      // Travas: rascunho, grupo, provedor sem áudio, saldo esgotado, 3 falhas seguidas e 2 áudios/conversa/dia.
+      const voiceLog = voiceTrigger ? await recentVoiceLog(project_id) : [];
+      const voiceDecision = decideVoice({
+        trigger: voiceTrigger,
+        draftMode: aiConfig.draft_mode === true,
+        isGroupOrBroadcast: isGroupJid,
+        providerSupportsAudio: provider?.provider === "evolution",
+        conversationId: conversation_id,
+        recentLog: voiceLog,
+        now: new Date(),
+      });
+      voiceReplyEnabled = voiceDecision.useVoice;
+      audioTriggerReason = voiceTrigger || "";
+      if (voiceTrigger && !voiceDecision.useVoice) {
+        console.log(`[wa-ai-reply] Voz bloqueada (${voiceDecision.blockedBy}) para o gatilho ${voiceTrigger}: resposta vai em texto`);
+        await logVoice({ project_id, conversation_id, kind: "tts", status: "skipped", reason: `${voiceTrigger}:${voiceDecision.blockedBy}` });
+      }
       if (voiceReplyEnabled) {
         console.log(`[wa-ai-reply] Audio triggered: ${audioTriggerReason}`);
       }
@@ -2231,6 +2259,29 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         const openaiKey = Deno.env.get("OPENAI_API_KEY");
         // Prefer key from saved AI config (set via UI), fallback to env var
         const elevenKey = aiConfig.elevenlabs_api_key || Deno.env.get("ELEVENLABS_API_KEY") || Deno.env.get("ELEVEN_API_KEY");
+
+        // Reaproveita áudio já gerado para o mesmo texto e voz (uma nova tentativa não paga outra síntese).
+        const voiceHash = voiceTextHash(`${voiceProvider}:${voiceName}`, finalAiReply);
+        let ttsQuotaExceeded = false;
+        let ttsError = "";
+        try {
+          const { data: cacheRows } = await supabase.from("imphq_wa_voice_log")
+            .select("kind, status, conversation_id, text_hash, voice_id, audio_url, created_at")
+            .eq("text_hash", voiceHash)
+            .not("audio_url", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          const cached = cachedAudioUrl((cacheRows || []) as VoiceLogEntry[], voiceHash, new Date());
+          if (cached) {
+            responseAudioUrl = cached;
+            console.log(`[wa-ai-reply] Áudio reaproveitado do cache: ${cached}`);
+            await logVoice({ project_id, conversation_id, kind: "tts", status: "reused", provider: voiceProvider, voice_id: voiceName, text_hash: voiceHash, chars: finalAiReply.length, reason: audioTriggerReason, audio_url: cached });
+          }
+        } catch (cacheErr) {
+          console.warn("[wa-ai-reply] voice cache skip:", errorMessage(cacheErr));
+        }
+        const audioWasCached = !!responseAudioUrl;
+        voiceMeta = { provider: voiceProvider, voice: voiceName, hash: voiceHash };
 
         if (!responseAudioUrl && voiceProvider === "elevenlabs" && elevenKey) {
           console.log(`[wa-ai-reply] Generating voice response via ElevenLabs...`);
@@ -2277,7 +2328,10 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
                 console.error("[wa-ai-reply] Storage upload error for ElevenLabs audio:", uploadErr.message);
               }
             } else {
-              console.error("[wa-ai-reply] ElevenLabs TTS failed:", await ttsRes.text());
+              const ttsErrBody = await ttsRes.text();
+              console.error("[wa-ai-reply] ElevenLabs TTS failed:", ttsErrBody);
+              ttsError = `${ttsRes.status} ${ttsErrBody.slice(0, 300)}`;
+              if (isQuotaError(ttsRes.status, ttsErrBody)) ttsQuotaExceeded = true;
             }
           } catch (ttsErr) {
             console.error("[wa-ai-reply] ElevenLabs TTS error:", errorMessage(ttsErr));
@@ -2393,6 +2447,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             console.error("[wa-ai-reply] OpenAI TTS error:", errorMessage(ttsErr));
           }
         }
+
+        if (responseAudioUrl && !audioWasCached) {
+          await logVoice({ project_id, conversation_id, kind: "tts", status: "generated", provider: voiceProvider, voice_id: voiceName, text_hash: voiceHash, chars: finalAiReply.length, reason: audioTriggerReason, audio_url: responseAudioUrl });
+        } else if (!responseAudioUrl) {
+          await logVoice({ project_id, conversation_id, kind: "tts", status: ttsQuotaExceeded ? "quota_exceeded" : "tts_failed", provider: voiceProvider, voice_id: voiceName, text_hash: voiceHash, chars: finalAiReply.length, reason: audioTriggerReason, error: ttsError || "nenhum provedor gerou o áudio" });
+        }
       }
 
       // 10. Draft mode
@@ -2448,13 +2508,14 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         return merged;
       }
 
-      const messageParts = responseAudioUrl ? [finalAiReply] : splitIntoMessages(finalAiReply);
+      let messageParts = responseAudioUrl ? [finalAiReply] : splitIntoMessages(finalAiReply);
       console.log(`[wa-ai-reply] Sending ${messageParts.length} message part(s)`);
 
       let sendSuccess = false;
       let partialSend = false;
       const confirmedParts: string[] = [];
       let outMsgId: string | null = null;
+      let audioSent = false;
 
       if (provider.provider === "evolution") {
         const base = provider.api_url.replace(/\/+$/, "");
@@ -2468,16 +2529,29 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             options: { delay: 1000, presence: "composing" }
           };
           console.log(`[wa-ai-reply] Enviando ÁUDIO via Evolution: ${url} → ${phone}`);
-          const sendRes = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", apikey: provider.api_key },
-            body: JSON.stringify(bodyPayload),
-          });
-          const sendData = await sendRes.json().catch(() => ({}));
-          console.log(`[wa-ai-reply] Evolution audio status=${sendRes.status}`);
-          if (sendRes.ok && !sendData?.error && sendData?.success !== false && sendData?.ok !== false) { sendSuccess = true; confirmedParts.push(finalAiReply); outMsgId = sendData?.key?.id || null; }
-          else console.error(`[wa-ai-reply] Evolution API rejeitou áudio: ${sendRes.status}`);
-        } else {
+          let audioError = "";
+          try {
+            const sendRes = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: provider.api_key },
+              body: JSON.stringify(bodyPayload),
+            });
+            const sendData = await sendRes.json().catch(() => ({}));
+            console.log(`[wa-ai-reply] Evolution audio status=${sendRes.status}`);
+            if (sendRes.ok && !sendData?.error && sendData?.success !== false && sendData?.ok !== false) { sendSuccess = true; audioSent = true; confirmedParts.push(finalAiReply); outMsgId = sendData?.key?.id || null; }
+            else { audioError = `${sendRes.status} ${JSON.stringify(sendData).slice(0, 300)}`; console.error(`[wa-ai-reply] Evolution API rejeitou áudio: ${sendRes.status}`); }
+          } catch (audioSendErr) {
+            audioError = errorMessage(audioSendErr);
+            console.error("[wa-ai-reply] Audio send failed:", audioError);
+          }
+          await logVoice({ project_id, conversation_id, kind: "tts", status: audioSent ? "sent" : "send_failed", provider: voiceMeta?.provider ?? null, voice_id: voiceMeta?.voice ?? null, text_hash: voiceMeta?.hash ?? null, chars: finalAiReply.length, reason: audioTriggerReason, audio_url: responseAudioUrl, error: audioSent ? null : audioError });
+          // Áudio recusado: o lead recebe a mesma resposta em texto em vez de ficar sem nada.
+          if (!audioSent) {
+            console.warn("[wa-ai-reply] Áudio recusado: enviando a resposta em texto");
+            messageParts = splitIntoMessages(finalAiReply);
+          }
+        }
+        if (!audioSent) {
           // Send each part sequentially with a short typing delay between them
           for (let i = 0; i < messageParts.length; i++) {
             const part = messageParts[i];
@@ -2525,11 +2599,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       if (sendSuccess) {
         await supabase.from("imphq_wa_messages").insert({
           conversation_id, direction: "outgoing", phone,
-          content: finalAiReply, message_type: "text",
+          content: finalAiReply, message_type: audioSent ? "audio" : "text",
+          media_url: audioSent ? responseAudioUrl : null,
           project_id, provider: provider.provider,
           provider_message_id: outMsgId,
           status: "sent", sent_by: "ai",
-          metadata: { source: "wa-ai-reply", model },
+          metadata: audioSent ? { source: "wa-ai-reply", model, voice_reason: audioTriggerReason, voice_provider: voiceMeta?.provider ?? null } : { source: "wa-ai-reply", model },
         });
 
         const { data: freshConv } = await supabase
