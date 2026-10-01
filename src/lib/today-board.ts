@@ -53,6 +53,9 @@ export interface ProjectBoard {
   leadsToday: number;
 }
 
+/** Cartões que só organizam o mapa (centro do projeto, área do time); não são tarefa do dia. */
+const STRUCTURAL_KINDS = new Set(["vertical", "area"]);
+
 const STATUS_ORDER: Record<StepStatus, number> = { ready_review: 0, in_progress: 1, pending: 2, done: 3 };
 
 function pos(value: unknown): { x: number; y: number } {
@@ -115,7 +118,7 @@ export function buildTodayBoard(input: {
   const byProject = new Map<string, BoardNode[]>();
   for (const n of input.nodes) {
     const pid = mapProject.get(n.map_id);
-    if (!pid) continue;
+    if (!pid || STRUCTURAL_KINDS.has(n.kind)) continue;
     const list = byProject.get(pid) ?? [];
     list.push(n);
     byProject.set(pid, list);

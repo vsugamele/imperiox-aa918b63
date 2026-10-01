@@ -25,6 +25,7 @@ describe("today board", () => {
       node({ id: "c", label: "Copy VSL", executor_type: "AI_SKILL", notes: "[agent_status:ready_review]", position: { x: 200, y: 0 } }),
       node({ id: "d", label: "Pixel", executor_type: "EXTERNAL_TOOL", checklist: [{ id: "1", text: "ok", done: true }], position: { x: 100, y: 0 } }),
       node({ id: "e", label: "Checkout", executor_type: "EXTERNAL_TOOL", position: { x: 300, y: 0 } }),
+      node({ id: "hub", label: "SlimSoda", kind: "vertical", position: { x: 50, y: 0 } }),
     ];
     const [board] = buildTodayBoard({
       projects: [{ id: "slimsoda", name: "SlimSoda" }, { id: "memoflow", name: "MemoFlow" }],
