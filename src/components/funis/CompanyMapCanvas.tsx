@@ -41,6 +41,7 @@ import { StrategicGapsPanel } from "@/components/funis/StrategicGapsPanel";
 import { KIND_CATEGORIES, KIND_PRESETS } from "@/components/funis/map-element-presets";
 import { extractAgentData, type AgentExecutionData } from "@/components/funis/map-agent-data";
 import { MapNodeCard } from "@/components/funis/MapNodeCard";
+import { StepPrints } from "@/components/funis/StepPrints";
 import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNode, type MapNodeData } from "@/components/funis/map-node-model";
 export type { AgentExecutionData } from "@/components/funis/map-agent-data";
 import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
@@ -2587,6 +2588,9 @@ function InnerMap({
                   onChange={e => setSelected({ ...selected, url: e.target.value })}
                 />
               </div>
+              {selected.url && selected.kind !== "imagem" && (
+                <StepPrints nodeId={selected.id} label={selected.label} printMeta={selected.print_meta} />
+              )}
               {selected.kind === "imagem" && (
                 <div>
                   <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Imagem</Label>

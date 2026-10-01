@@ -10,9 +10,11 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - [x] Testes: `src/test/map-node-card.test.tsx`.
 
 ## 2. Prints automáticos
-- [ ] Bucket público `map-prints` + campo `print_meta` na etapa.
-- [ ] `scripts/map-prints.mjs` (CLI): abre cada URL de etapa com Playwright, print de computador e celular, sem disparar pixel/tracker, envia ao Storage e liga à etapa.
-- [ ] Rodar em SlimSoda e JP.
+- [x] Bucket público `map-prints` + campo `print_meta` na etapa (migração `20261001_map_prints.sql`).
+- [x] `scripts/map-prints.mjs` (CLI): abre cada URL de etapa com Playwright, print de computador (1366×900) e celular (iPhone 13), bloqueando pixel/CAPI/trackers, envia ao Storage e liga à etapa. `--map`, `--node`, `--dry-run`. Fecha o convite do Instagram antes do print.
+- [x] `image_url` só recebe o print se estava vazio ou já era o print anterior (imagem posta à mão fica).
+- [x] Rodado em SlimSoda e JP: 15 etapas com print, 0 erro (01/10). O print do quiz mostra o 404 e o da buy page mostra o topo com imagem da Oprah.
+- [x] Painel da etapa mostra print de computador e celular, data e o comando para atualizar (`StepPrints.tsx`).
 
 ## 3. Fluxo legível
 - [ ] Numeração automática seguindo as setas.
@@ -28,4 +30,9 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - src/components/funis/map-node-model.ts
 - src/components/funis/CompanyMapCanvas.tsx
 - src/test/map-node-card.test.tsx
+- src/components/funis/StepPrints.tsx
+- scripts/map-prints.mjs
+- supabase/migrations/20261001_map_prints.sql
+- src/integrations/supabase/types.ts
+- .gitignore
 - docs/stories/MAP2.2-mapa-visual-e-legivel.md

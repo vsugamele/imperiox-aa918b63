@@ -19,6 +19,8 @@ export interface MapNode {
   linked_skill_id?: string | null;
   api_binding?: Json | null;
   metrics_target?: Json | null;
+  /** Último print automático da página (scripts/map-prints.mjs). */
+  print_meta?: Json | null;
 }
 
 export interface MapNodeData extends MapNode {

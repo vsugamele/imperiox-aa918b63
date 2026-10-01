@@ -20781,6 +20781,7 @@ export type Database = {
       }
       imphq_company_map_nodes: {
         Row: {
+          print_meta: Json | null
           api_binding: Json | null
           checklist: Json
           color: string
@@ -20809,6 +20810,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          print_meta?: Json | null
           api_binding?: Json | null
           checklist?: Json
           color?: string
@@ -20837,6 +20839,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          print_meta?: Json | null
           api_binding?: Json | null
           checklist?: Json
           color?: string
