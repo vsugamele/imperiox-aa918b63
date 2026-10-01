@@ -39,6 +39,15 @@ function whatItDoes(data: MapNodeData): string | null {
   return data.description ? firstSentence(data.description) : null;
 }
 
+/** Texto preto em cor clara, branco em cor escura (ex.: TikTok #000) para o número da etapa ficar legível. */
+function readableOn(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "#000";
+  const n = parseInt(m[1], 16);
+  const luminance = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return luminance > 0.55 ? "#000" : "#fff";
+}
+
 const openImage = (url: string, label: string) =>
   window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url, label } }));
 
@@ -141,7 +150,7 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
         {/* Cabeçalho: número, tipo, status */}
         <div className="flex items-center gap-2 pr-1">
           {data.stepNumber ? (
-            <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 font-mono text-xs font-bold text-black" style={{ background: data.color }}>
+            <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 font-mono text-xs font-bold" style={{ background: data.color, color: readableOn(data.color) }}>
               {data.stepNumber}
             </span>
           ) : null}
