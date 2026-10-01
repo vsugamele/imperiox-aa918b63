@@ -173,6 +173,8 @@ export interface Acao {
   voice_id?: string;
   voice_stability?: number;
   voice_clarity?: number;
+  /** Áudio pré-gravado sugerido pelo template (ex.: SlimSoda X1 / Dana). Ainda só indicação: o runtime não toca este arquivo. */
+  audio_url?: string;
   tag?: string;
   next_id?: string;
   true_next_id?: string;

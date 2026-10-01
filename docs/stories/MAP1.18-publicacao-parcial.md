@@ -14,8 +14,8 @@ Não chamar prova de execução a checklist/status/URL. Ausência de vínculo n�
 
 - [x] Pacote implementado e revisão independente.
 - [x] Lint/typecheck/test/build completos.
-- [ ] Commit e PR pelo fluxo DevOps.
-- [ ] SHA publicado e deploy READY verificados.
+- [x] Commit e PR pelo fluxo DevOps (PR #1, merge b7e60e79).
+- [x] SHA publicado e deploy READY verificados (01/10, integrado à MAP2.1 por Claude; Codex encerrado e o mapa segue com Claude).
 - [ ] Paridade leitor remoto e limitação visual registradas.
 
 ## File List
