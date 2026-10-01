@@ -2,6 +2,43 @@
 // e cuja hora preferida bate com a hora atual (BRT), ou on-demand via target_jid.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+interface RecoveryData {
+  phone?: string | null;
+  telefone?: string | null;
+  nome?: unknown;
+  name?: unknown;
+  email?: unknown;
+}
+
+interface BriefingSale {
+  id: string;
+  project_id: string | null;
+  valor: number | null;
+  status: string | null;
+  produto_nome: string | null;
+  data_venda: string | null;
+  created_at: string | null;
+  nome: string | null;
+  lead_id: string | null;
+  data: RecoveryData | null;
+}
+
+interface RecoveryLead {
+  id: string;
+  nome: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+interface RecoveryConversation {
+  id: string;
+  phone: string;
+  status: string;
+  last_message_at: string | null;
+  ia_ativa: boolean | null;
+  message_count: number;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -83,7 +120,7 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     .order("created_at", { ascending: false })
     .limit(100);
 
-  const vendas24h = (rawVendas || []).filter((v: any) => {
+  const vendas24h: BriefingSale[] = (rawVendas || []).filter((v: BriefingSale) => {
     const rawTs = v.data_venda || v.created_at;
     const ts = rawTs ? new Date(rawTs).getTime() : 0;
     return ts >= (now.getTime() - 24 * 60 * 60 * 1000);
@@ -91,20 +128,20 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
 
   // Mapeamento enriquecido de abandonos nas 24h
   const abandonos24h = vendas24h.filter(
-    (v: any) => v.status === "carrinho_abandonado" || v.status === "pix_gerado"
+    (v: BriefingSale) => v.status === "carrinho_abandonado" || v.status === "pix_gerado"
   );
-  const leadIds = abandonos24h.map((a: any) => a.lead_id).filter(Boolean);
-  const leadsInfoMap: Record<string, any> = {};
+  const leadIds = abandonos24h.map((a: BriefingSale) => a.lead_id).filter(Boolean);
+  const leadsInfoMap: Record<string, RecoveryLead | undefined> = {};
   if (leadIds.length > 0) {
     const { data: lData } = await supabase
       .from("imphq_leads")
       .select("id, nome, phone, email")
       .in("id", leadIds);
-    (lData || []).forEach((l: any) => { leadsInfoMap[l.id] = l; });
+    (lData || []).forEach((l: RecoveryLead) => { leadsInfoMap[l.id] = l; });
   }
 
   const phoneList: string[] = [];
-  abandonos24h.forEach((a: any) => {
+  abandonos24h.forEach((a: BriefingSale) => {
     const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
     const rawP = lead?.phone || a.data?.phone || a.data?.telefone;
     if (rawP) {
@@ -113,13 +150,13 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     }
   });
 
-  const activeConvsMap: Record<string, any> = {};
+  const activeConvsMap: Record<string, RecoveryConversation | undefined> = {};
   if (phoneList.length > 0) {
     const { data: cData } = await supabase
       .from("imphq_wa_conversations")
       .select("id, phone, status, last_message_at, ia_ativa, message_count")
       .in("phone", phoneList);
-    (cData || []).forEach((c: any) => {
+    (cData || []).forEach((c: RecoveryConversation) => {
       const clean = (c.phone || "").replace(/\D/g, "");
       activeConvsMap[clean] = c;
     });
@@ -230,7 +267,7 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     
     if (abandonos.length > 0) {
       lines.push(`• Recuperação: ⚠️ ${abandonos.length} abandonos/pix pendentes`);
-      abandonos.slice(0, 3).forEach((a: any) => {
+      abandonos.slice(0, 3).forEach((a: BriefingSale) => {
         const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
         const nome = lead?.nome || a.nome || a.data?.nome || "Lead";
         const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
@@ -296,7 +333,7 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     rLines.push("🎯 *Ficha de Recuperação de Carrinho (Últimas 24h)*");
     rLines.push("");
 
-    abandonos24h.slice(0, 8).forEach((a: any, idx: number) => {
+    abandonos24h.slice(0, 8).forEach((a: BriefingSale, idx: number) => {
       const lead = a.lead_id ? leadsInfoMap[a.lead_id] : null;
       const nome = lead?.nome || a.nome || a.data?.nome || a.data?.name || "Cliente sem nome";
       const rawPhone = lead?.phone || a.data?.phone || a.data?.telefone || "";
