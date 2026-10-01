@@ -23,9 +23,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Maximize2, Minimize2, Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
+import { Archive, Maximize2, Minimize2, MoreHorizontal, Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowBrainDrawer } from "@/components/funis/FlowBrainDrawer";
 import { CompanyInfraToolsModal } from "@/components/funis/CompanyInfraToolsModal";
@@ -1295,6 +1295,20 @@ function InnerMap({
     toast.success("Mapa excluído");
   };
 
+  // Arquivar: some da lista sem apagar etapas, conexões ou anotações (volta limpando archived_at).
+  const archiveMap = async () => {
+    if (!mapId) return;
+    if (maps.length <= 1) { toast.error("Mantenha pelo menos 1 mapa"); return; }
+    const cur = maps.find(m => m.id === mapId);
+    if (!confirm(`Arquivar o mapa "${cur?.name}"? Ele some da lista, mas nada é apagado.`)) return;
+    const { error } = await supabase.from("imphq_company_maps").update({ archived_at: new Date().toISOString() }).eq("id", mapId);
+    if (error) { toast.error("Não consegui arquivar"); return; }
+    const next = maps.filter(m => m.id !== mapId);
+    setMaps(next);
+    setMapId(next[0]?.id || null);
+    toast.success("Mapa arquivado");
+  };
+
   // Abre a etapa pedida pela URL uma única vez por etapa, assim que ela aparece no mapa carregado.
   const focusedNodeRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1984,114 +1998,42 @@ function InnerMap({
 
   return (
     <div className={cn("overflow-hidden bg-[#0a0809]", presenting ? "fixed inset-0 z-[70] h-screen" : "relative h-[calc(100vh-200px)] border border-border/40 rounded-lg")}>
-      {/* Top toolbar */}
-      <div className={cn("absolute top-3 left-3 z-10 flex items-center gap-2 bg-card/80 backdrop-blur border border-border/40 rounded-lg p-1.5", presenting && "hidden")}>
+      {/* Top toolbar: o essencial à vista; criação, ferramentas e ações do mapa no menu "Mais". */}
+      <div className={cn("absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-card/90 backdrop-blur border border-border rounded-lg p-1.5 shadow-sm", presenting && "hidden")}>
         <Select value={mapId || ""} onValueChange={setMapId}>
-          <SelectTrigger className="h-7 text-xs w-[180px] border-0"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[240px] border-0 text-xs font-medium"><SelectValue /></SelectTrigger>
           <SelectContent>
             {maps.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={renameMap} title="Renomear mapa">
-          <Pencil className="h-3 w-3" />
+        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={createMap} title="Criar um mapa novo">
+          <Plus className="h-3.5 w-3.5" /> Novo
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400" onClick={deleteMap} title="Excluir mapa">
-          <Trash2 className="h-3 w-3" />
+        <div className="mx-0.5 h-5 w-px bg-border" />
+        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setPresenting(true)} title="Só o mapa, em tela cheia">
+          <Maximize2 className="h-3.5 w-3.5" /> Apresentar
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={createMap}>
-          <Plus className="h-3 w-3" /> Novo mapa
+        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={runAutoLayout} title="Reorganiza as posições automaticamente (desfaz as seções)">
+          <LayoutGrid className="h-3.5 w-3.5" /> Organizar
         </Button>
-        <div className="w-px h-5 bg-border/40 mx-1" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
-              <Sparkles className="h-3 w-3" /> Template
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[260px]">
-            {MAP_TEMPLATES.map(t => (
-              <DropdownMenuItem key={t.id} onClick={() => handleTemplate(t.id)} className="flex-col items-start gap-0.5">
-                <span className="text-sm font-medium">{t.name}</span>
-                <span className="text-[10px] text-muted-foreground">{t.description}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleAutopopulate}>
-          <Wand2 className="h-3 w-3" /> Gerar do meu negócio
+        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setChecklistPanel(true)} title="Itens de checklist do mapa">
+          <ListChecks className="h-3.5 w-3.5" /> Checklist
+          {totalItems > 0 && (
+            <Badge variant="outline" className={cn("ml-1 h-5 px-1.5 text-[11px]", totalDone === totalItems ? "text-success" : "text-warning")}>
+              {totalDone}/{totalItems}
+            </Badge>
+          )}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
-              <Wand2 className="h-3 w-3" /> Gerar do projeto
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[240px] max-h-[400px] overflow-y-auto">
-            {projects.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum projeto</div>}
-            {projects.map(p => (
-              <DropdownMenuItem key={p.id} onClick={() => handleAutopopulateProject(p.id)}>
-                {p.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          size="sm"
-          onClick={() => setAiFlowModalOpen(true)}
-          className="h-7 px-2.5 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold gap-1.5 shadow-sm transition-all"
-        >
-          <Sparkles className="h-3.5 w-3.5" /> Desenhar com IA
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => setShowFlowBrain(true)}
-          className="h-7 px-2.5 text-xs bg-lime-400 hover:bg-lime-500 text-black font-semibold gap-1.5 shadow-sm transition-all border border-lime-400/30"
-          title="Auditar integridade, atribuir executores e skills ao fluxo"
-        >
-          <Brain className="h-3.5 w-3.5" /> Flow Brain (Auditar com IA)
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => setInfraToolsOpen(true)}
-          className="h-7 px-2.5 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-semibold gap-1.5 shadow-sm transition-all"
-          title="Ver aparelhos GeeLark, perfis de redes sociais, ajustar acessos de ferramentas e produtos"
-        >
-          <Smartphone className="h-3.5 w-3.5 text-cyan-400" /> Infra, Perfis & Acessos
-        </Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={runAutoLayout}>
-          <LayoutGrid className="h-3 w-3" /> Organizar
-        </Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setChecklistPanel(true)}>
-          <ListChecks className="h-3 w-3" /> Checklist
-          {totalItems > 0 && <Badge variant="outline" className="h-4 px-1 text-[9px] ml-1">{totalDone}/{totalItems}</Badge>}
-        </Button>
-        {totalItems > 0 && (
-          <div
-            onClick={() => setChecklistPanel(true)}
-            className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono cursor-pointer transition-colors bg-secondary/70 hover:bg-secondary border border-border/40"
-            title="Ver tarefas pendentes hoje para rodar tráfego"
-          >
-            <span className={totalDone === totalItems ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
-              {totalDone === totalItems ? "Checklist do dia preenchido" : `🟡 ${totalItems - totalDone} tarefas hoje`}
-            </span>
-          </div>
-        )}
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setPresenting(true)} title="Só o mapa, em tela cheia">
-          <Maximize2 className="h-3 w-3" /> Apresentar
-        </Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExport}>
-          <Download className="h-3 w-3" /> PNG
-        </Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={handleExportJson}>
-          <Download className="h-3 w-3" /> JSON
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary">
-              <Share2 className="h-3 w-3" /> Compartilhar
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs">
+              <Download className="h-3.5 w-3.5" /> Exportar
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[240px]">
+            <DropdownMenuItem onClick={handleExport}><Download className="mr-2 h-3.5 w-3.5" /> Imagem (PNG)</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportJson}><Download className="mr-2 h-3.5 w-3.5" /> Dados (JSON)</DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={async () => {
               if (!mapId) return;
               const { data: cur } = await supabase.from("imphq_company_maps").select("share_token").eq("id", mapId).maybeSingle();
@@ -2105,33 +2047,74 @@ function InnerMap({
               try { await navigator.clipboard.writeText(url); toast.success("Link copiado! Envie para seu sócio."); }
               catch { prompt("Copie o link:", url); }
             }}>
-              <Copy className="h-3 w-3 mr-2" /> Copiar link público
+              <Share2 className="mr-2 h-3.5 w-3.5" /> Copiar link público
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-400" onClick={async () => {
+            <DropdownMenuItem className="text-destructive" onClick={async () => {
               if (!mapId) return;
               if (!confirm("Revogar o link atual? Quem já tem não conseguirá mais abrir.")) return;
               const { error } = await supabase.from("imphq_company_maps").update({ share_token: null }).eq("id", mapId);
               if (error) { toast.error("Erro"); return; }
               toast.success("Link revogado");
             }}>
-              <X className="h-3 w-3 mr-2" /> Revogar link
+              <X className="mr-2 h-3.5 w-3.5" /> Revogar link público
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary" onClick={() => {
-          const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-          setReelDialog({ x: c.x, y: c.y });
-        }}>
-          <Film className="h-3 w-3" /> Reel
-        </Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-blue-400" onClick={() => {
-          const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-          addAnnotation("schedule", c.x, c.y);
-        }}>
-          <CalendarClock className="h-3 w-3" /> Cronograma
-        </Button>
-
-
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" title="Criar, adicionar, ferramentas e ações do mapa">
+              <MoreHorizontal className="h-3.5 w-3.5" /> Mais
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[260px]">
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Criar</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setAiFlowModalOpen(true)}><Sparkles className="mr-2 h-3.5 w-3.5 text-warning" /> Desenhar com IA</DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Sparkles className="mr-2 h-3.5 w-3.5" /> A partir de um modelo</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-[260px]">
+                {MAP_TEMPLATES.map(t => (
+                  <DropdownMenuItem key={t.id} onClick={() => handleTemplate(t.id)} className="flex-col items-start gap-0.5">
+                    <span className="text-sm font-medium">{t.name}</span>
+                    <span className="text-[11px] text-muted-foreground">{t.description}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem onClick={handleAutopopulate}><Wand2 className="mr-2 h-3.5 w-3.5" /> Gerar do meu negócio</DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Wand2 className="mr-2 h-3.5 w-3.5" /> Gerar de um projeto</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-[400px] w-[240px] overflow-y-auto">
+                {projects.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum projeto</div>}
+                {projects.map(p => (
+                  <DropdownMenuItem key={p.id} onClick={() => handleAutopopulateProject(p.id)}>{p.name}</DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Adicionar ao mapa</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => {
+              const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+              setReelDialog({ x: c.x, y: c.y });
+            }}>
+              <Film className="mr-2 h-3.5 w-3.5" /> Reel
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              const c = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+              addAnnotation("schedule", c.x, c.y);
+            }}>
+              <CalendarClock className="mr-2 h-3.5 w-3.5" /> Cronograma
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Ferramentas</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setShowFlowBrain(true)}><Brain className="mr-2 h-3.5 w-3.5 text-primary" /> Flow Brain (auditar com IA)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setInfraToolsOpen(true)}><Smartphone className="mr-2 h-3.5 w-3.5" /> Infra, perfis e acessos</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">Este mapa</DropdownMenuLabel>
+            <DropdownMenuItem onClick={renameMap}><Pencil className="mr-2 h-3.5 w-3.5" /> Renomear</DropdownMenuItem>
+            <DropdownMenuItem onClick={archiveMap}><Archive className="mr-2 h-3.5 w-3.5" /> Arquivar (esconde, não apaga)</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={deleteMap}><Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir de vez</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Barra Tática de Lentes, Telemetria e Simulador Interativo ("Play Flow") */}
@@ -2153,11 +2136,12 @@ function InnerMap({
       {/* Palette (grouped by category) */}
       <div
         className={cn(
-          "absolute top-3 right-3 z-10 flex flex-col bg-card/80 backdrop-blur border border-border/40 rounded-lg transition-all",
+          // Abaixo da barra superior e da barra tática (não cobre os botões).
+          "absolute top-[124px] right-3 z-10 flex flex-col bg-card/80 backdrop-blur border border-border/40 rounded-lg transition-all",
           presenting && "hidden",
           paletteCollapsed
             ? "w-9 h-9 p-1 overflow-hidden items-center justify-center cursor-pointer"
-            : "p-2 gap-2 w-[210px] max-h-[calc(100vh-260px)] overflow-y-auto"
+            : "p-2 gap-2 w-[210px] max-h-[calc(100%-136px)] overflow-y-auto"
         )}
         onClick={() => paletteCollapsed && setPaletteCollapsed(false)}
         title={paletteCollapsed ? "Adicionar nó" : undefined}

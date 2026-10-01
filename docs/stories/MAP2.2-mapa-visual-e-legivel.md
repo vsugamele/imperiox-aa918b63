@@ -23,6 +23,12 @@ Pedido (01/10/2026): melhorar o desenho dos mapas, fluxo, imagens e prints, deix
 - [x] Cartão de etapa com altura pelo conteúdo (print não fica espremido); tamanho só é gravado quando a pessoa termina de redimensionar (antes a medição automática regravava todas as etapas ao abrir o mapa).
 - [x] Seções de SlimSoda e JP com 580px e 640px de passo; etapas do JP de volta às seções depois de um "Organizar" às 20:03 de 01/10 (cópias em `imphq_company_map_snapshots`). 0 cartões sobrepostos.
 
+## 3b. Barra do canvas enxuta (pedido de 01/10)
+- [x] À vista: mapa atual, Novo, Apresentar, Organizar, Checklist (feito/total) e Exportar (PNG, JSON, link público, revogar link).
+- [x] Menu "Mais" em 4 grupos: Criar (Desenhar com IA, modelo, gerar do negócio, gerar de projeto), Adicionar ao mapa (Reel, Cronograma), Ferramentas (Flow Brain, Infra), Este mapa (Renomear, Arquivar, Excluir de vez).
+- [x] Novo: Arquivar mapa (some da lista sem apagar), ao lado do Excluir.
+- [x] Paleta de elementos desceu para baixo das barras (antes cobria os botões).
+
 ## 4. Contrato de cada etapa para as IAs
 - [x] Contrato completo nas 52 etapas (SlimSoda 23, JP 29), na descrição, uma seção por linha: O QUÊ, ENTRADA, SAÍDA, PRONTO QUANDO, MÉTRICAS, DEPENDE DE, FREQUÊNCIA, SE FALHAR. Escrito a partir do conteúdo dos mapas, do banco e dos sites; avisos (marca de terceiros, aprovação humana, links que faltam) dentro do contrato. Cópia antes em `imphq_company_map_snapshots`.
 - [x] Formato conferido contra o leitor `readStageContract` (`src/test/stage-contract-format.test.ts`); o leitor tira o ponto final de cada seção, sem efeito na leitura.
