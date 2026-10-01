@@ -3,6 +3,12 @@
 // Nunca inventa valores: o que não está no banco vira lacuna, nunca um default.
 import { FUNNEL_PHASES, phaseOf } from "./map-elements.ts";
 import { analyzeGaps } from "./funnel-gaps.ts";
+import { readOfferJourneys, readPublicAssetUrl, type OfferJourneyReading, type JourneyNode } from "./offer-journey.ts";
+export type { OfferJourneyReading, OfferJourney, OfferJourneyStep, OfferReviewTask } from "./offer-journey.ts";
+export { readOfferReviewTasks } from "./offer-journey.ts";
+export { readStageContract, readMapHierarchy, readProfileRoutines, readAgentStatus } from "./map-contract.ts";
+export type { AgentStatusReading } from "./map-contract.ts";
+export type { ContractNode, HierarchyMap, HierarchyNode, RoutineAnnotation } from "./map-contract.ts";
 
 export type MapStatus = "falta" | "desenhado" | "construido" | "rodando";
 export type ItemStatus = MapStatus | "pausado";
@@ -40,12 +46,71 @@ export interface ProjectMap {
   score: number;
   sections: MapSection[];
   gaps: MapGap[];
+  interpretation?: { score: string; running: string };
+  offerJourneys?: OfferJourneyReading;
+}
+
+export const PROJECT_MAP_INTERPRETATION = {
+  score: "Maturidade mede a cobertura ponderada dos cadastros e sinais de atividade. Não mede metas atingidas, rentabilidade ou execução completa do funil.",
+  running: "Rodando indica o sinal previsto na regra de cada área. Eventos, status de anúncio e mensagens não comprovam, por si só, sucesso de uma operação ou ação da IA.",
+};
+
+/** Describes the existing rules, not a second evaluator or an operational configuration. */
+const AREA_READING: Record<MapArea, { criterion: string; source: string; period: string; verify: string }> = {
+  produtos: {
+    criterion: "Oferta, preço e links cadastrados formam o diagnóstico. Venda aprovada por nome nos últimos 30 dias pode marcar um produto como Rodando.",
+    source: "Cadastro do projeto e vendas aprovadas por produto",
+    period: "Cadastro atual; vendas nos últimos 30 dias",
+    verify: "Conferir oferta, preço e fonte; testar o percurso até pagamento e entrega de acesso, com atribuição à oferta correta.",
+  },
+  avatar: {
+    criterion: "Campos preenchidos de problemas, desejos, objeções e linguagem sustentam o status; não comprovam pesquisa ou aderência ao público real.",
+    source: "Avatar e público-alvo cadastrados no projeto",
+    period: "Cadastro lido nesta consulta; data da pesquisa não disponível nesta leitura",
+    verify: "Confrontar as hipóteses do avatar com referências, conversas e resultados; registrar o que foi validado e a fonte.",
+  },
+  mecanismo: {
+    criterion: "Conteúdo e extensão da explicação cadastrada sustentam o diagnóstico; preenchimento não valida a promessa ou a eficácia.",
+    source: "Mecanismo no projeto, avatar e produtos",
+    period: "Cadastro lido nesta consulta; validação da promessa não disponível nesta leitura",
+    verify: "Conferir explicação, demonstração e evidências da promessa antes de aplicar o mecanismo na copy.",
+  },
+  concorrentes: {
+    criterion: "Concorrentes cadastrados e seus campos de oferta e funil sustentam o status; quantidade não comprova atualidade ou qualidade da análise.",
+    source: "Concorrentes vinculados ao projeto",
+    period: "Cadastro lido nesta consulta; data da análise não disponível nesta leitura",
+    verify: "Revisar ofertas e páginas reais, registrar a fonte e as diferenças úteis para a próxima hipótese criativa.",
+  },
+  funil: {
+    criterion: "Um ou mais eventos nos últimos 7 dias já marcam Rodando. Sem eventos, etapas e proporção de links definem o status estrutural.",
+    source: "Etapas vinculadas ao projeto e eventos de funil",
+    period: "Etapas cadastradas; eventos nos últimos 7 dias",
+    verify: "Conferir aquisição → página → checkout → pagamento → obrigado/acesso. Medir sessões e vendas únicas; eventos brutos não comprovam a jornada.",
+  },
+  ativos: {
+    criterion: "Página, copy e criativos são avaliados juntos. ACTIVE/ACTIVE_CAMPAIGN no cadastro pode marcar um criativo Rodando; o status da área segue o item menos completo.",
+    source: "Páginas, copy e criativos cadastrados no projeto e avatar",
+    period: "Cadastro lido nesta consulta; última sincronização de anúncios não disponível nesta leitura",
+    verify: "Conferir páginas e prints reais, criativos finais, sincronização e métricas por criativo antes de decidir manter, pausar ou ampliar.",
+  },
+  atendimento: {
+    criterion: "Configuração construída e tráfego em conversas individuais podem marcar Rodando. Contagem de mensagens não identifica quem respondeu nem comprova conversão.",
+    source: "Provedores, configuração da IA e mensagens individuais de WhatsApp",
+    period: "Configuração atual; mensagens nos últimos 30 dias, excluindo grupos",
+    verify: "Conferir entrega e autoria das respostas, tratamento do lead, acesso e ascensão; relacionar o resultado à oferta e ao histórico de ações.",
+  },
+};
+
+export function readProjectArea(map: ProjectMap, area: MapArea) {
+  const section = map.sections.find(item => item.area === area) ?? null;
+  const gaps = map.gaps.filter(gap => gap.area === area).sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  return { ...AREA_READING[area], section, gaps, nextAction: gaps[0]?.action ?? AREA_READING[area].verify };
 }
 
 export interface ProjectMapInput {
   project: { id: string; name: string; data: unknown; avatar: unknown };
   competitors: ReadonlyArray<Record<string, unknown>>;
-  mapNodes: ReadonlyArray<{ label?: string | null; url?: string | null; kind?: string | null }>;
+  mapNodes: ReadonlyArray<{ label?: string | null; url?: string | null; kind?: string | null; image_url?: string | null }>;
   activity: {
     /** Vendas aprovadas nos últimos 30 dias, por `produto_nome`. */
     approvedSales30dByProduct: Record<string, number>;
@@ -116,12 +181,13 @@ function normalizeName(value: string): string {
   return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 }
 
-interface LinkRef { url: string; kind: "checkout" | "pagina" | "outro"; label: string }
+interface LinkRef { url: string; kind: "checkout" | "pagina" | "outro"; label: string; role?: string; source?: string }
 
 const CHECKOUT_HINT = /checkout|pay\.|\/pay\b|ticto|hotmart|kiwify|perfectpay|eduzz|monetizze|braip|whop|stripe|cart/i;
 
 function classifyUrl(url: string, tipo: string, label: string): LinkRef["kind"] {
   const t = tipo.toLowerCase();
+  if (["obrigado", "area_membros", "email", "email_avulso", "grupo_whatsapp"].includes(t)) return "outro";
   if (t === "checkout") return "checkout";
   if (["vsl", "lp", "captura", "vercel", "pagina", "site"].includes(t)) return CHECKOUT_HINT.test(url) ? "checkout" : "pagina";
   if (CHECKOUT_HINT.test(url) || /checkout/i.test(label)) return "checkout";
@@ -131,26 +197,27 @@ function classifyUrl(url: string, tipo: string, label: string): LinkRef["kind"] 
 /** URL absoluta; aceita domínio sem protocolo ("site.com/x"). Vazio quando não é link. */
 function asUrl(value: unknown): string {
   const raw = text(value);
-  if (/^https?:\/\/\S+$/i.test(raw)) return raw;
-  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(raw)) return `https://${raw}`;
+  if (/^https?:\/\/\S+$/i.test(raw)) return readPublicAssetUrl(raw);
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(raw)) return readPublicAssetUrl(`https://${raw}`);
   return "";
 }
 
 /** Aceita string[], {url,tipo,label|nome}[] ou objeto {site, "0": {url,label}}. */
-function collectLinks(value: unknown): LinkRef[] {
-  const entries: unknown[] = Array.isArray(value) ? value : Object.values(record(value));
+function collectLinks(value: unknown, source = "links"): LinkRef[] {
+  const entries = Object.entries(Array.isArray(value) ? value : record(value));
   const links: LinkRef[] = [];
-  for (const entry of entries) {
+  for (const [key, entry] of entries) {
+    const path = `${source}[${Array.isArray(value) ? key : JSON.stringify(key)}]`;
     if (typeof entry === "string") {
       const url = asUrl(entry);
-      if (url) links.push({ url, kind: classifyUrl(url, "", ""), label: "" });
+      if (url) links.push({ url, kind: classifyUrl(url, "", ""), label: "", source: path });
       continue;
     }
     const obj = record(entry);
     const url = asUrl(obj.url);
     if (!url || obj.ativo === false) continue;
     const label = text(obj.label) || text(obj.nome);
-    links.push({ url, kind: classifyUrl(url, text(obj.tipo), label), label });
+    links.push({ url, kind: classifyUrl(url, text(obj.tipo), label), label, role: text(obj.tipo), source: path });
   }
   return links;
 }
@@ -168,6 +235,7 @@ function detectFormat(data: Record<string, unknown>): DataFormat {
 // ── produtos ────────────────────────────────────────────────────────────
 
 interface NormalizedProduct {
+  source: string;
   name: string;
   price: string;
   paused: boolean;
@@ -181,15 +249,17 @@ function normalizeProducts(data: Record<string, unknown>): NormalizedProduct[] {
   if (Array.isArray(data.produtos)) {
     return data.produtos.map((raw, index) => {
       const p = record(raw);
-      const links = collectLinks(p.links);
+      const source = `data.produtos[${index}]`;
+      const links = collectLinks(p.links, `${source}.links`);
       for (const key of ["link_checkout", "checkout_url"]) {
         const url = asUrl(p[key]);
-        if (url) links.push({ url, kind: "checkout", label: key });
+        if (url) links.push({ url, kind: "checkout", label: key, source: `${source}.${key}` });
       }
       const single = asUrl(p.link);
-      if (single) links.push({ url: single, kind: classifyUrl(single, "", ""), label: "link" });
+      if (single) links.push({ url: single, kind: classifyUrl(single, "", ""), label: "link", source: `${source}.link` });
       const status = normalizeName(text(p.status));
       return {
+        source,
         name: text(p.nome) || text(p.name) || (typeof raw === "string" ? raw.trim() : "") || `Produto ${index + 1}`,
         price: text(p.preco) || text(p.valor) || text(p.ticket) || text(p.preco_por) || text(p.price),
         paused: p.ativo === false || ["inativo", "pausado", "arquivado"].includes(status),
@@ -201,14 +271,16 @@ function normalizeProducts(data: Record<string, unknown>): NormalizedProduct[] {
     });
   }
   if (filled(data.produto)) {
+    const product = record(data.produto);
     const checkout = asUrl(data.checkout_url);
     const page = asUrl(data.vsl_url);
     return [{
+      source: "data.produto",
       name: text(data.produto) || text(record(data.produto).nome),
       price: text(data.preco),
-      paused: false,
-      checkout: checkout ? [{ url: checkout, kind: "checkout", label: "checkout_url" }] : [],
-      pages: page ? [{ url: page, kind: "pagina", label: "vsl_url" }] : [],
+      paused: product.ativo === false || ["inativo", "pausado", "arquivado"].includes(normalizeName(text(product.status))),
+      checkout: checkout ? [{ url: checkout, kind: "checkout", label: "checkout_url", source: "data.checkout_url" }] : [],
+      pages: page ? [{ url: page, kind: "pagina", label: "vsl_url", source: "data.vsl_url" }] : [],
       mecanismo: undefined,
       copy: undefined,
     }];
@@ -217,6 +289,11 @@ function normalizeProducts(data: Record<string, unknown>): NormalizedProduct[] {
 }
 
 const productKey = (name: string) => normalizeName(name).replace(/^(o|a|os|as)\s+/, "");
+
+/** Recorte mínimo para aprofundar ofertas sem ler tokens, vendas ou contatos. Mesma regra de buildProjectMap. */
+export function buildOfferJourneys(data: unknown, nodes: ReadonlyArray<JourneyNode> = []): OfferJourneyReading {
+  return readOfferJourneys(normalizeProducts(record(data)), nodes);
+}
 
 /**
  * Atribui cada nome de venda a UM produto: nome igual primeiro; senão, o nome que contém/está contido
@@ -500,5 +577,7 @@ export function buildProjectMap(input: ProjectMapInput): ProjectMap {
     score,
     sections,
     gaps,
+    interpretation: { ...PROJECT_MAP_INTERPRETATION },
+    offerJourneys: readOfferJourneys(products, input.mapNodes),
   };
 }

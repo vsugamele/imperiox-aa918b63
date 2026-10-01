@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { GapSeverity, ProjectMap } from "@shared/project-map";
 import { StatusPill } from "@/components/mapa/StatusPill";
+import { OfferJourneys } from "@/components/mapa/OfferJourneys";
 import { FORMAT_LABEL, SEVERITY_CLASS, SEVERITY_LABEL } from "@/components/mapa/map-styles";
 
 interface ProjectMapDetailProps {
@@ -25,6 +26,8 @@ export function ProjectMapDetail({ map, onOpenChange }: ProjectMapDetailProps) {
                 <SheetDescription className="text-xs">{FORMAT_LABEL[map.dataFormat]}</SheetDescription>
               </SheetHeader>
 
+              {map.interpretation && <p className="text-xs text-muted-foreground">{map.interpretation.score} {map.interpretation.running}</p>}
+              {map.offerJourneys && <OfferJourneys key={map.projectId} reading={map.offerJourneys} compact />}
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">O que falta ({map.gaps.length})</h3>
                 {map.gaps.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma lacuna encontrada.</p>}

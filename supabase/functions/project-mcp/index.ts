@@ -3,7 +3,7 @@
 // Suporta Claude Desktop, Cursor, Agentes autônomos e scripts externos.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
-import { buildProjectMap } from "../_shared/project-map.ts";
+import { buildProjectMap, readStageContract, readAgentStatus } from "../_shared/project-map.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
 import { CAPABILITY_TASKS, pickCapabilities, tasksForKind, type Capability } from "../_shared/capabilities.ts";
 
@@ -988,7 +988,7 @@ Deno.serve(async (req) => {
             const [projRes, compRes, nodesRes, salesRes, provRes, aiRes] = await Promise.all([
               supabase.from("imphq_projects").select("id, name, data, avatar").eq("id", projectId).maybeSingle(),
               supabase.from("imphq_competitors").select("name, url, oferta_principal, preco, mecanismo_unico, headline, paginas_funil").eq("project_id", projectId),
-              supabase.from("imphq_company_map_nodes").select("label, url, kind").eq("linked_project_id", projectId),
+              supabase.from("imphq_company_map_nodes").select("label, url, kind, image_url").eq("linked_project_id", projectId),
               supabase.from("imphq_vendas").select("produto_nome").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", since30d),
               supabase.from("imphq_wa_providers").select("is_active").eq("project_id", projectId),
               supabase.from("imphq_wa_ai_config").select("enabled, draft_mode").eq("project_id", projectId),
@@ -1274,8 +1274,7 @@ Deno.serve(async (req) => {
                  nExec === "openflow" ? "roteiros-virais-comment-to-dm" :
                  nExec === "human_traffic" ? "briefing-gestor-trafego" : "none");
 
-              const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
-                (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c) => c.done) ? "done" : "pending");
+              const executionStatus = readAgentStatus(notes);
 
               const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
               const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
@@ -1290,11 +1289,12 @@ Deno.serve(async (req) => {
                 kind: n.kind,
                 executor: nExec,
                 skill: nSkill,
-                status: nStatus,
+                ...executionStatus,
                 prompt,
                 checklist: n.checklist || [],
                 output_url,
                 product_context: primaryProd,
+                contract: readStageContract(n),
                 ferramentas: toolsForStep(caps, n.kind),
               };
             });
@@ -1501,8 +1501,7 @@ Deno.serve(async (req) => {
         const notes = n.notes || "";
         const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
         const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
-        const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] ||
-          (Array.isArray(n.checklist) && n.checklist.length > 0 && n.checklist.every((c) => c.done) ? "done" : "pending");
+        const executionStatus = readAgentStatus(notes);
         const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
         const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
         const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
@@ -1514,10 +1513,11 @@ Deno.serve(async (req) => {
           kind: n.kind,
           executor: nExec,
           skill: nSkill,
-          status: nStatus,
+          ...executionStatus,
           prompt,
           checklist: n.checklist || [],
           output_url,
+          contract: readStageContract(n),
           ferramentas: toolsForStep(caps, n.kind),
         };
       });
@@ -1658,7 +1658,7 @@ Deno.serve(async (req) => {
       const notes = n.notes || "";
       const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
       const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
-      const nStatus = notes.match(/\[agent_status:([^\]]+)\]/)?.[1] || "pending";
+      const executionStatus = readAgentStatus(notes);
       const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
       const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
       const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
@@ -1670,10 +1670,11 @@ Deno.serve(async (req) => {
         kind: n.kind,
         executor: nExec,
         skill: nSkill,
-        status: nStatus,
+        ...executionStatus,
         prompt,
         checklist: n.checklist || [],
         output_url,
+        contract: readStageContract(n),
         ferramentas: toolsForStep(caps, n.kind),
       };
     });
