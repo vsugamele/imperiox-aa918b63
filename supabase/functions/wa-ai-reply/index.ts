@@ -1,4 +1,6 @@
 import { productContext, jpConversationRules, guardJPReply, jpAccessStatus } from "../_shared/conversation-policy.ts";
+import { jpLoadServiceState, jpRecordSupportAction, jpSupportActionFromReply } from "../_shared/jp-service-store.ts";
+import { jpDecision, jpServiceContext, type JPSupportAction } from "../_shared/jp-service-policy.ts";
 // wa-ai-reply — AI responder simples e robusto para WhatsApp
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { anglesPromptBlock } from "../_shared/creativeAngles.ts";
@@ -826,7 +828,7 @@ Deno.serve(async (req) => {
         "quero fechar", "bora fechar", "vou comprar", "quero sim", "pode ser", "ta bom",
         "fechado", "vou entrar",
       ];
-      const hasBuyIntent = BUY_INTENT_KEYWORDS.some(kw => lc.includes(kw)) || conv?.buy_intent_detected === true;
+      const hasBuyIntent = isJPProject(project_id) ? jpDecision(message).purchase_signal === "explicit" : BUY_INTENT_KEYWORDS.some(kw => lc.includes(kw)) || conv?.buy_intent_detected === true;
       if (hasBuyIntent) {
         console.log(`[wa-ai-reply] 🔥 BUY INTENT detected: "${message.slice(0, 60)}"`);
         // Update conversation temperature
@@ -856,7 +858,7 @@ Deno.serve(async (req) => {
       // 6. Histórico da conversa (com recheck: pega SEMPRE o mais recente antes de gerar)
       const { data: history } = await supabase
         .from("imphq_wa_messages")
-        .select("direction, content, created_at")
+        .select("id, direction, content, created_at")
         .eq("conversation_id", conversation_id)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -922,7 +924,7 @@ Deno.serve(async (req) => {
           if (desires.length > 0) leadContextBlock += `\n- Desejos & Metas: ${desires.join(", ")}`;
           if (seekings.length > 0) leadContextBlock += `\n- O que busca: ${seekings.join(", ")}`;
           if (schwartz) leadContextBlock += `\n- Desejo de Schwartz: ${schwartz}`;
-          if (lead.score) leadContextBlock += `\n- Score de Engajamento: ${lead.score}/100`;
+          if (lead.score && !isJPProject(project_id)) leadContextBlock += `\n- Score de Engajamento: ${lead.score}/100`;
           leadContextBlock += `\n`;
         }
       } catch (err) {
@@ -1009,7 +1011,9 @@ Deno.serve(async (req) => {
             lines.push("  DIMENSÕES AINDA NÃO DESCOBERTAS (faça UMA pergunta natural para descobrir a próxima, nunca 2 juntas):");
             lines.push(...qMissing);
           }
-          lines.push(`  REGRA DE OURO: só envie link de checkout depois de ter AO MENOS 2 dimensões preenchidas E confirmar encaixe. Antes disso, priorize descoberta consultiva.`);
+          lines.push(isJPProject(project_id)
+            ? "  Use as informações já conhecidas. Faça uma pergunta relevante apenas se ajudar; pedido de preço/link dispensa qualificação obrigatória."
+            : "  REGRA DE OURO: só envie link de checkout depois de ter AO MENOS 2 dimensões preenchidas E confirmar encaixe. Antes disso, priorize descoberta consultiva.");
         }
 
 
@@ -1020,7 +1024,7 @@ Deno.serve(async (req) => {
               .from("imphq_vendas")
               .select("produto_nome, status, valor, created_at")
               .eq("lead_id", lead.id)
-              .in("status", ["paga", "aprovada", "approved", "paid"])
+              .in("status", ["paga", "aprovada", "aprovado", "approved", "paid"])
               .order("created_at", { ascending: false })
               .limit(3);
             if (pastVendas && pastVendas.length) {
@@ -1342,12 +1346,12 @@ SUA CONDUTA OBRIGATÓRIA:
       try {
         const { data: lastTriage } = await supabase
           .from("imphq_wa_triage")
-          .select("intent")
+          .select("intent,raw_message,created_at")
           .eq("conversation_id", conversation_id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (lastTriage) {
+        if (lastTriage && (!isJPProject(project_id) || (lastTriage.raw_message === message && Date.now() - Date.parse(lastTriage.created_at) < 24 * 60 * 60 * 1000))) {
           triageIntent = lastTriage.intent || "";
         }
       } catch (e) {
@@ -1587,7 +1591,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
       const closerEnabled = aiConfig.closer_mode_enabled !== false; // default true
       const leadScore = lead?.score || 0;
       const HOT_SCORE_THRESHOLD = 70;
-      const isHotLead = leadScore >= HOT_SCORE_THRESHOLD;
+      const isHotLead = !isJPProject(project_id) && leadScore >= HOT_SCORE_THRESHOLD;
       const closerActivated = (hasBuyIntent || isHotLead) && closerEnabled && !isConsultiveProductQuery;
 
       if (isHotLead && !hasBuyIntent) {
@@ -1600,7 +1604,7 @@ A mensagem do lead foi classificada como fora do assunto principal. Responda de 
         ? `\nCHAVE PIX OFICIAL (única chave válida — use EXATAMENTE esta se o lead pedir Pix): ${pixKey}`
         : `\nPIX: Se o lead mencionar Pix ou forma de pagamento, NUNCA invente chave, CNPJ ou dados bancários. Oriente-o a acessar a página de vendas/checkout${paymentLink ? ` (${paymentLink})` : ""} e refazer a compra por lá — o checkout aceita todas as formas de pagamento, incluindo Pix. Seja natural e positivo, ex: "O pagamento é feito direto pelo nosso checkout, que já aceita Pix! Acessa aqui: [link]". Se não houver link disponível, adicione [TRANSICAO_HUMANA] no final.`;
       const closerBlock = closerActivated
-        ? `
+        ? isJPProject(project_id) ? "\nPEDIDO EXPLÍCITO DE COMPRA: responda com preço/destino confirmado do produto identificado; esclareça a dúvida real e facilite o próximo passo, sem pressão, prova inventada ou promessas.\n" : `
 
 ❗ MODO CLOSER ATIVADO — MISSAO CRITICA:
 ${isHotLead && !hasBuyIntent
@@ -1854,7 +1858,9 @@ ${offTopicBlock}
 ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? (jpBuildInstructionsBlock(jpEmailKnown) + jpBookingInstruction + jpMastercutsInstruction + jpConversationRules(project_id)) : ""}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
-      const msgs: { role: string; content: string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] }[] = [{ role: "system", content: systemPrompt }];
+      const jpServiceState = isJPProject(project_id) ? await jpLoadServiceState(supabase, "whatsapp", conversation_id) : {};
+      const jpServiceBlock = isJPProject(project_id) ? jpServiceContext(message, jpServiceState) : "";
+      const msgs: { role: string; content: string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] }[] = [{ role: "system", content: systemPrompt + jpServiceBlock }];
       const ordered = [...(history || [])].reverse();
       let lastRole: string | null = null;
 
@@ -2096,10 +2102,12 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
       cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 
       let finalAiReply = cleaned.trim();
+      let jpSupportAction: JPSupportAction | null = null;
 
       if (isJPProject(project_id)) {
         const incomingContext = [message, ...(history || []).filter(m => m.direction === "incoming").slice(0, 2).map(m => m.content || "")].join("\n");
-        const prepared = await jpPrepareAccessReply(finalAiReply, jpEffectiveEmail, incomingContext, message);
+        const prepared = await jpPrepareAccessReply(finalAiReply, jpEffectiveEmail, incomingContext, message, jpServiceState.support_status === "awaiting_confirmation");
+        jpSupportAction = jpSupportActionFromReply(prepared.text, prepared.needsHandoff);
         finalAiReply = guardJPReply(prepared.text, d, project_id, [...(history || [])].reverse().map(m => m.content || "").join("\n") + "\n" + message);
         if (prepared.needsHandoff) {
           shouldTransitionToHuman = true;
@@ -2110,7 +2118,8 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
             type: "warning", entity_type: "wa_conversation", entity_id: conversation_id,
           });
           if (!ticketError) finalAiReply += " Registrei o pedido para a equipe verificar.";
-          else console.error("[wa-ai-reply] JP support ticket failed");
+          else jpSupportAction = null;
+          if (ticketError) console.error("[wa-ai-reply] JP support ticket failed");
         }
       }
 
@@ -2599,6 +2608,11 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
       if (partialSend) finalAiReply = confirmedParts.join("\n\n");
       if (sendSuccess) {
+        if (isJPProject(project_id) && !isTestMode && jpSupportAction && (!partialSend || jpSupportActionFromReply(finalAiReply, false) === jpSupportAction)) {
+          const sourceId = (history || []).find(row => row.direction === "incoming")?.id || null;
+          try { await jpRecordSupportAction(supabase, "whatsapp", conversation_id, sourceId, jpSupportAction); }
+          catch { console.error("[wa-ai-reply] JP support result recording failed"); }
+        }
         await supabase.from("imphq_wa_messages").insert({
           conversation_id, direction: "outgoing", phone,
           content: finalAiReply, message_type: audioSent ? "audio" : "text",
@@ -2710,7 +2724,7 @@ MOTIVO_HANDOFF: ${shouldTransitionToHuman ? handoffReason : "N/A"}`;
 
             const convUpdate: { current_intent?: string; intent_updated_at?: string; handoff_summary?: object; handoff_at?: string } = {};
             if (parsed.current_intent && typeof parsed.current_intent === "string") {
-              convUpdate.current_intent = parsed.current_intent.slice(0, 40);
+              convUpdate.current_intent = isJPProject(project_id) ? jpDecision(message).intent : parsed.current_intent.slice(0, 40);
               convUpdate.intent_updated_at = new Date().toISOString();
             }
             if (shouldTransitionToHuman && parsed.handoff_summary && typeof parsed.handoff_summary === "object") {

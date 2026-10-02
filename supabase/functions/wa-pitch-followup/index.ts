@@ -16,6 +16,8 @@ import { z } from "https://esm.sh/zod@3.25.76";
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { isWithinSendWindow } from "../_shared/send-window.ts";
+import { jpLoadServiceState } from "../_shared/jp-service-store.ts";
+import { jpMayFollowUp } from "../_shared/jp-service-policy.ts";
 
 const EntryProduct = z.object({ id: z.string().nullish(), nome: z.string().nullish(), name: z.string().nullish(), preco: z.union([z.string(), z.number()]).nullish(), price: z.union([z.string(), z.number()]).nullish() }).passthrough();
 function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
@@ -105,6 +107,7 @@ Deno.serve(async (req) => {
         } catch (_) { /* tabela pode não existir nesse projeto */ }
 
         for (const conv of conversations) {
+          if (project_id === "jp_freitas" && !jpMayFollowUp(await jpLoadServiceState(supabase, "whatsapp", conv.id))) { results.skipped++; continue; }
           if (inFlow.has(conv.id)) { results.skipped++; continue; }
           if (!isWithinSendWindow(conv.phone)) { results.skipped++; continue; }
 

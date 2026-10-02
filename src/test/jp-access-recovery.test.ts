@@ -42,6 +42,12 @@ describe("JP operational recovery contract", () => {
     expect((await jpPrepareAccessReply("Disponha!",email,"Obrigada\nQuero acessar as aulas","Obrigada")).text).toBe("Disponha!");
     expect(fetch).not.toHaveBeenCalled();
   });
+  it("hands off a failed sent link without spending another recovery request", async () => {
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const result = await jpPrepareAccessReply("Vou mandar de novo", email, "Não consigo acessar", "Ainda não consegui entrar", true);
+    expect(result.needsHandoff).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("refuses a model-generated courtesy instead of granting all courses", async () => {
     const fetch = vi.fn();vi.stubGlobal("fetch",fetch);
     expect((await jpPrepareAccessReply(`[JP_GRANT:${email}] Acesso liberado!`,email,"Meu pagamento não apareceu")).needsHandoff).toBe(true);

@@ -1,5 +1,7 @@
 // WhatsApp AI Triage — classifica msgs antes de responder + escalona
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { jpDecision } from "../_shared/jp-service-policy.ts";
+import { record } from "../_shared/value.ts";
 
 function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
 
@@ -17,7 +19,8 @@ async function classifyMessage(
   lastMessages: string[] = [],
   openrouterKey: string,
   triageStages: { id: string; label: string; description?: string | null }[] | null = null,
-  triagePrompt: string | null = null
+  triagePrompt: string | null = null,
+  jp = false
 ) {
   const stages = Array.isArray(triageStages) && triageStages.length > 0
     ? triageStages
@@ -82,7 +85,7 @@ Nível de consciência (awareness_level — Eugene Schwartz):
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
       messages: [
-        { role: "system", content: sys },
+        { role: "system", content: sys + (jp ? `\nPRIORIDADE JP: classifique somente a mensagem atual, usando histórico recente apenas para continuação. Pergunta de preço é duvida, não compra_quente. Suporte urgente NÃO é compra. Não inferir profissão, objetivo, orçamento, cidade ou produto. Em extracted_profile use null quando desconhecido. Inclua profile_evidence com as mesmas chaves e uma citação literal da mensagem ATUAL que comprova cada extração. Não use paráfrase como evidência. fit_score é desconhecido sem necessidade e produto confirmado; não invente precisão. Saudação/reação social não é off_topic comercial.` : "") },
         { role: "user", content: `Mensagem: "${message}"${ctx}` },
       ],
       response_format: { type: "json_object" },
@@ -100,10 +103,46 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { message, message_id, conversation_id, lead_id, projeto_id } = await req.json();
+    const { message, message_id, conversation_id, lead_id, projeto_id, channel = "whatsapp" } = await req.json();
 
     if (!message) throw new Error("message obrigatório");
     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured in Supabase environment secrets");
+
+    // JP uses channel-correct source rows and an idempotent, non-accumulating decision trail.
+    // Legacy behavior for other projects remains below.
+    if (projeto_id === "jp_freitas") {
+      if (!["whatsapp", "instagram"].includes(channel) || !conversation_id) throw new Error("JP_SOURCE_REQUIRED");
+      const { data: owned, error: ownerError } = channel === "instagram"
+        ? await supabase.from("imphq_ig_conversations").select("id,imphq_ig_accounts!inner(project_id)").eq("id", conversation_id).eq("imphq_ig_accounts.project_id", "jp_freitas").maybeSingle()
+        : await supabase.from("imphq_wa_conversations").select("id").eq("id", conversation_id).eq("project_id", "jp_freitas").eq("jid_suffix", "s.whatsapp.net").maybeSingle();
+      if (ownerError || !owned) throw new Error("JP_SOURCE_UNVERIFIED");
+      const table = channel === "instagram" ? "imphq_ig_messages" : "imphq_wa_messages";
+      let sourceQuery = supabase.from(table).select("id,content,created_at").eq("conversation_id", conversation_id);
+      sourceQuery = channel === "instagram" ? sourceQuery.eq("direction", "in") : sourceQuery.eq("from_me", false);
+      sourceQuery = message_id ? sourceQuery.eq("id", message_id) : sourceQuery.eq("content", message);
+      const { data: source, error: sourceError } = await sourceQuery.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1).maybeSingle();
+      if (sourceError || !source || source.content !== message) return new Response(JSON.stringify({ ok: true, skipped: "source_unavailable" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: cached } = await supabase.from("imphq_jp_conversation_events").select("evidence").eq("channel", channel).eq("source_message_id", source.id).eq("kind", "turn").maybeSingle();
+      if (cached) return new Response(JSON.stringify({ ok: true, classification: cached.evidence, cached: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: state, error: stateError } = await supabase.from("imphq_jp_conversation_state").select("*").eq("channel", channel).eq("conversation_id", conversation_id).maybeSingle();
+      if (stateError) throw new Error("JP_SERVICE_MEMORY_UNAVAILABLE");
+      let historyQuery = supabase.from(table).select("content,created_at").eq("conversation_id", conversation_id)
+        .gte("created_at", new Date(Date.parse(source.created_at) - 24 * 60 * 60 * 1000).toISOString()).lt("created_at", source.created_at);
+      historyQuery = channel === "instagram" ? historyQuery.eq("direction", "in") : historyQuery.eq("from_me", false);
+      const { data: recent } = await historyQuery.order("created_at", { ascending: false }).limit(3);
+      const raw = record(await classifyMessage(message, (recent || []).map(row => row.content).filter(Boolean), OPENROUTER_API_KEY, null, null, true));
+      const decision = jpDecision(message, raw, state);
+      const { data: stored, error: storeError } = await supabase.rpc("jp_record_conversation_event", { p_channel: channel, p_conversation_id: conversation_id,
+        p_message_id: source.id, p_kind: "turn", p_evidence: { ...decision, fit_status: "unknown", policy_version: "JP1.5" } });
+      if (storeError) throw new Error("JP_DECISION_NOT_RECORDED");
+      if (record(stored).recorded === true) {
+        const { error: auditError } = await supabase.from("imphq_wa_triage").insert({ message_id: source.id, conversation_id, lead_id: state?.lead_id || null,
+          projeto_id, intent: decision.intent, sentiment: ["positivo", "neutro", "negativo"].includes(String(raw.sentiment)) ? raw.sentiment : "neutro",
+          urgency: decision.urgency, fit_score: null, raw_message: message, escalated: false });
+        if (auditError) console.warn("[triage] JP legacy audit unavailable; canonical event recorded");
+      }
+      return new Response(JSON.stringify({ ok: true, classification: decision, suggestedReply: null, escalated: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Busca configurações de triage personalizadas do projeto
     let triageStages = null;

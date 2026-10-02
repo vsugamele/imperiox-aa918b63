@@ -17,8 +17,16 @@ Deno.serve(async (req) => {
     const { data: decisions, error } = await supa.rpc("evaluate_wa_rules_ab", { p_min_sample: min_sample });
     if (error) throw error;
 
-    const results: Array<{group_id:string} & ({decided:false;reason:"tie"}|{decided:true;winner:string;loser:string})> = [];
+    const results: Array<{group_id:string} & ({decided:false;reason:"tie"|"semantic_review_required"}|{decided:true;winner:string;loser:string})> = [];
     for (const d of (decisions || [])) {
+      const { data: candidate, error: candidateError } = await supa.from("imphq_wa_project_rules").select("project_id").eq("id", d.winner_id).maybeSingle();
+      if (candidateError || !candidate) throw new Error("AB_PROJECT_UNVERIFIED");
+      // Historic counters include non-approved payments. JP promotion requires semantic review
+      // and the new approved-payment report, not an automatic rank from these counters.
+      if (candidate.project_id === "jp_freitas") {
+        results.push({ group_id: d.group_id, decided: false, reason: "semantic_review_required" });
+        continue;
+      }
       // Empate ou diferença < 1pp → ignora
       if (Math.abs((d.winner_rate || 0) - (d.loser_rate || 0)) < 0.01) {
         results.push({ group_id: d.group_id, decided: false, reason: "tie" });

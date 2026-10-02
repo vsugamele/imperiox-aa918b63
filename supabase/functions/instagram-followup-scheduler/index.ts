@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
       let lease: string | null = null;
       try {
         if (projectId === "jp_freitas") {
+          if (!jpMayFollowUp(await jpLoadServiceState(supa, "instagram", conv.id))) continue;
           lease = await acquireIgReply(supa, conv.id, null);
           if (!lease) continue;
         }
@@ -343,3 +344,5 @@ REGRAS DO FOLLOW-UP:
     });
   }
 });
+import { jpLoadServiceState } from "../_shared/jp-service-store.ts";
+import { jpMayFollowUp } from "../_shared/jp-service-policy.ts";

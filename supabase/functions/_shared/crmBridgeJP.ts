@@ -203,10 +203,12 @@ export async function jpProcessTags(reply: string, fallbackEmail = ""): Promise<
 }
 
 /** Never announce account recovery until the CRM has verified access and issued a real token. */
-export async function jpPrepareAccessReply(reply: string, email: string, incomingContext: string, currentMessage = incomingContext): Promise<{ text: string; needsHandoff: boolean }> {
+export async function jpPrepareAccessReply(reply: string, email: string, incomingContext: string, currentMessage = incomingContext, previousLinkSent = false): Promise<{ text: string; needsHandoff: boolean }> {
   const accessPattern = /acess|login|senha|entrar.{0,30}(curso|aula|plataforma)|aulas.{0,30}(bloque|nao|não)/i;
   const continuation = /@|não (deu|funcion|entrou)|nao (deu|funcion|entrou)|continua|ainda (não|nao)|^sim[.!\s]*$/i.test(currentMessage);
   const accessIntent = accessPattern.test(currentMessage) || (continuation && accessPattern.test(incomingContext));
+  if (previousLinkSent && /(?:não|nao) (?:deu|funcion|entrou|consigo|consegui)|continua.{0,20}(?:bloque|erro)|link.{0,20}(?:não|nao|erro)/i.test(currentMessage))
+    return { text: "O link não resolveu o acesso. Preciso que a equipe verifique o cadastro para concluir isso.", needsHandoff: true };
   if (accessIntent && !email) return { text: "Qual é o email que você usou na compra? Vou consultar o cadastro para ajudar com o acesso.", needsHandoff: false };
   try {
     if (accessIntent) {
@@ -214,7 +216,7 @@ export async function jpPrepareAccessReply(reply: string, email: string, incomin
       if (!jpAccessStatus(lookup).hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
       const link = verifiedMagicLink(await jpIssueMagicLink(email));
       if (!link) throw new Error("JP_MAGIC_LINK_FAILED");
-      return { text: `Seu acesso está ativo no cadastro. Este é o link para entrar sem senha: ${link}`, needsHandoff: false };
+      return { text: `Seu acesso está ativo no cadastro. Este é o link para entrar sem senha: ${link}\n\nMe avisa se conseguiu entrar.`, needsHandoff: false };
     }
     return { text: await jpProcessTags(reply, email), needsHandoff: /\[(TRANSICAO_HUMANA|CHAMAR_HUMANO)\]/i.test(reply) };
   } catch (error: unknown) {

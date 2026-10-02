@@ -1,6 +1,8 @@
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { acquireIgReply, validIgLease, releaseIgReply } from "../_shared/ig-reply-lease.ts";
 import { jpPrepareAccessReply, jpBuildInstructionsBlock, jpLookupLead, jpBuildContextBlock } from "../_shared/crmBridgeJP.ts";
+import { jpLoadServiceState, jpRecordSupportAction, jpSupportActionFromReply } from "../_shared/jp-service-store.ts";
+import { jpServiceContext, type JPSupportAction } from "../_shared/jp-service-policy.ts";
 import { productContext, jpConversationRules, guardJPReply, dedupeHistory, recentJPHistory, jpWelcomeMessage, permanentJPRules } from "../_shared/conversation-policy.ts";
 // Instagram webhook receiver — Meta envia POST com mensagens, comentários, menções
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -415,6 +417,7 @@ Deno.serve(async (req) => {
                 let lease: string | null = null;
                 let handledId: string | null = null;
                 let supportPending = false;
+                let jpSupportAction: JPSupportAction | null = null;
                 try {
                   if (account.project_id === "jp_freitas") {
                     lease = await acquireIgReply(supa, conv.id, storedMessageId);
@@ -598,7 +601,7 @@ Deno.serve(async (req) => {
                     lastIgTriage = account.project_id === "jp_freitas" && tr?.raw_message !== content ? null : tr;
                   } catch (_) { /* Triage enrichment is optional. */ }
                   supa.functions.invoke("wa-ai-triage", {
-                    body: { message: content, conversation_id: conv.id, projeto_id: account.project_id },
+                    body: { message: content, message_id: handledId || storedMessageId, conversation_id: conv.id, projeto_id: account.project_id, channel: "instagram" },
                   }).catch(() => {});
 
                   // Build project context
@@ -726,7 +729,8 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                   const inboundContext = [content, ...historyMsgs.filter(m => m.direction === "in").slice(0, 2).map(m => m.content || "")].join("\n");
                   const leadEmail = inboundContext.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0]?.toLowerCase() || "";
                   const crmLookup = account.project_id === "jp_freitas" && leadEmail ? await jpLookupLead(leadEmail) : null;
-                  const jpSupportBlock = account.project_id === "jp_freitas" ? jpBuildContextBlock(crmLookup, leadEmail) + jpBuildInstructionsBlock(!!leadEmail) : "";
+                  const jpServiceState = account.project_id === "jp_freitas" ? await jpLoadServiceState(supa, "instagram", conv.id) : {};
+                  const jpSupportBlock = account.project_id === "jp_freitas" ? jpBuildContextBlock(crmLookup, leadEmail) + jpBuildInstructionsBlock(!!leadEmail) + jpServiceContext(content, jpServiceState) : "";
                   const messages: ChatMessage[] = [{ role: "system", content: systemPrompt + ragBlock + jpSupportBlock + await permanentJPRules(supa, account.project_id, conv.id) + jpConversationRules(account.project_id) + (account.project_id === "jp_freitas" ? productContext(typeof project?.data === "string" ? JSON.parse(project.data) : project?.data, account.project_id) : "") }];
                   [...historyMsgs].reverse().forEach((m) => {
                     messages.push({
@@ -789,7 +793,8 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                     if (account.project_id === "jp_freitas") {
                       // Drafts must not execute support actions or mint login tokens.
                       if (!aiConfig.draft_mode) {
-                        const prepared = await jpPrepareAccessReply(aiReply, leadEmail, inboundContext, content || "");
+                        const prepared = await jpPrepareAccessReply(aiReply, leadEmail, inboundContext, content || "", jpServiceState.support_status === "awaiting_confirmation");
+                        jpSupportAction = jpSupportActionFromReply(prepared.text, prepared.needsHandoff);
                         aiReply = prepared.text;
                         if (prepared.needsHandoff) {
                           const { error: supportError } = await supa.from("imphq_notifications").insert({
@@ -799,7 +804,7 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                           });
                           aiReply = "Não consegui concluir essa solicitação automaticamente.";
                           if (!supportError) { aiReply += " Registrei o pedido para a equipe verificar."; supportPending = true; }
-                          else console.error("[ig-webhook] JP support ticket failed");
+                          else { jpSupportAction = null; console.error("[ig-webhook] JP support ticket failed"); }
                         }
                       }
                       const context = [...historyMsgs].reverse().map(m => m.content || "").join("\n") + "\n" + content;
@@ -850,6 +855,10 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                         });
                         const replyData = await replyRes.data;
                         if (replyData?.success) {
+                          if (account.project_id === "jp_freitas") {
+                            try { await jpRecordSupportAction(supa, "instagram", conv.id, handledId || storedMessageId, jpSupportAction); }
+                            catch { console.error("[ig-webhook] JP support result recording failed"); }
+                          }
                           // instagram-api já grava a mensagem (com ai_generated=true) — não inserir de novo.
                           console.log(`[ig-webhook] AI direct reply sent successfully`);
                           if (supportPending) await supa.from("imphq_ig_conversations").update({ ai_paused: true, ai_paused_reason: "jp_support_pending" }).eq("id", conv.id);
