@@ -16,6 +16,7 @@ import { useSetStepAssignment, useSetStepStatus, useTodayBoard } from "@/hooks/u
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCompanyMap } from "@/hooks/useCompanyMap";
 import { Stat } from "@/components/mapa/Stat";
+import { PageSkeleton } from "@/components/PageSkeleton";
 
 const STEP_STATUSES: StepStatus[] = ["pending", "in_progress", "ready_review", "done"];
 const MAX_ROWS = 6;
@@ -112,11 +113,7 @@ export default function Hoje() {
         <Stat label="Leads hoje" value={totals.leads} />
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Lendo os mapas...
-        </div>
-      )}
+      {isLoading && <PageSkeleton variant="cards" label="Lendo os mapas" />}
 
       {error && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">

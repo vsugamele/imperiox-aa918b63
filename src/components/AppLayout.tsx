@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PushOptIn } from "@/components/PushOptIn";
 import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
+import { SaleWatcher } from "@/components/SaleWatcher";
 import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
@@ -184,6 +185,7 @@ export function AppLayout() {
 
               <CommandPalette />
               <ActionInbox />
+              <SaleWatcher />
               <PushOptIn />
               <ProactiveAlertsBell />
               <NotificationBell />

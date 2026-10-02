@@ -8,6 +8,7 @@ import { FAMILY_COLOR, FAMILY_LABEL, type Playbook, type PlaybookFamily, type Pl
 import { metricKey } from "@shared/metric-keys";
 import { executorGroup, EXECUTOR_LABEL, type ExecutorGroup } from "@shared/map-steps";
 import { ApplyPlaybookDialog } from "@/components/estrategias/ApplyPlaybookDialog";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import { useProjectsAndMaps, usePlaybooks, type PlaybookApplication } from "@/hooks/usePlaybooks";
 
 const FAMILIES = Object.keys(FAMILY_LABEL) as PlaybookFamily[];
@@ -46,7 +47,7 @@ export default function Estrategias() {
         ))}
       </div>
 
-      {isLoading && <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando estratégias...</div>}
+      {isLoading && <PageSkeleton variant="grid" label="Carregando estratégias" />}
       {error && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {errorMessage(error)}

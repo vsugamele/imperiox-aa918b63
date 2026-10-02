@@ -3,7 +3,8 @@ import { Bot, Copy, ExternalLink, Flame, ImageIcon, Phone, Sparkles, Trash2, Use
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { EXECUTOR_LABEL, executorGroup, type ExecutorGroup } from "@shared/map-steps";
+import { motion, useReducedMotion } from "framer-motion";
+import { dueState, EXECUTOR_LABEL, executorGroup, localDate, type ExecutorGroup } from "@shared/map-steps";
 import { readStageContract } from "@shared/project-map";
 import { pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
 import { KIND_PRESETS } from "@/components/funis/map-element-presets";
@@ -71,6 +72,9 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
   const agent = extractAgentData(data.notes, data);
   const status = agent.status_source !== "not_declared" ? STATUS_STYLE[agent.status] : STATUS_STYLE.not_declared;
   const group = executorGroup(data);
+  const reduceMotion = useReducedMotion();
+  // Atrasada: borda vermelha pulsando (sem movimento para quem pediu menos animação).
+  const overdue = !isImageNode && dueState(data.due_date, localDate(), agent.status) === "atrasada";
   const ExecIcon = EXECUTOR_ICON[group];
   const skill = agent.skill !== "none" ? agent.skill : null;
   const summary = isImageNode ? null : whatItDoes(data);
@@ -87,6 +91,13 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
       )}
       style={hasCustomSize ? { width: "100%", height: "100%" } : hasCustomWidth ? { width: "100%" } : { minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
     >
+      {overdue && (
+        <motion.span aria-hidden data-testid="overdue-pulse"
+          className="pointer-events-none absolute inset-0 z-20 rounded-xl border-2 border-destructive"
+          animate={reduceMotion ? undefined : { opacity: [0.95, 0.25, 0.95] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }} />
+      )}
+
       {/* Faixa de cor do tipo da etapa */}
       <div className="h-1 w-full shrink-0" style={{ background: data.color }} />
 

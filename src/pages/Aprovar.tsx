@@ -9,6 +9,7 @@ import { errorMessage } from "@/lib/error-message";
 import { SOURCE_LABEL, waitingFor, type ApprovalItem, type ApprovalSource } from "@shared/approval-queue";
 import { useApprovals, useDecideApproval, type ApprovalDecision } from "@/hooks/useApprovals";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
+import { PageSkeleton } from "@/components/PageSkeleton";
 
 const SOURCES: ApprovalSource[] = ["rascunho", "etapa", "acao_ia", "conteudo"];
 const SOURCE_ICON: Record<ApprovalSource, typeof Bot> = { rascunho: MessageSquareReply, etapa: FileCheck2, acao_ia: Bot, conteudo: Film };
@@ -54,7 +55,7 @@ export default function Aprovar() {
         })}
       </div>
 
-      {isLoading && <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Juntando o que espera aprovação...</div>}
+      {isLoading && <PageSkeleton variant="list" label="Juntando o que espera aprovação" />}
       {error && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {errorMessage(error)}

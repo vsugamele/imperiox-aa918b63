@@ -35,6 +35,9 @@ import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useMapFlowVolume } from "@/hooks/useMapFlowVolume";
+import { FlowEdge, type FlowEdgeData } from "@/components/funis/FlowEdge";
+import { edgeVolume, nodeVolumes } from "@shared/flow-volume";
 import { NodeCopyDialog } from "@/components/funis/NodeCopyDialog";
 import { annotationNodeTypes } from "@/components/funis/map-annotation-registry";
 import { ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "@/components/funis/map-annotation-data";
@@ -172,7 +175,8 @@ function getDynamicEdgeStyle(sourceLabel: string, targetLabel: string, isDashed:
 function edgeVisual(sourceLabel: string, targetLabel: string, isDashed: boolean, isSimulatedActive: boolean) {
   const style = getDynamicEdgeStyle(sourceLabel, targetLabel, isDashed, isSimulatedActive);
   return {
-    type: "smoothstep",
+    // Seta com partículas pelo volume real (FlowEdge, UX1.4); o desenho continua smoothstep.
+    type: "flow",
     animated: isSimulatedActive,
     markerEnd: { type: MarkerType.ArrowClosed, color: style.stroke, width: 16, height: 16 },
     style,
@@ -182,6 +186,8 @@ function edgeVisual(sourceLabel: string, targetLabel: string, isDashed: boolean,
     labelBgBorderRadius: 6,
   };
 }
+
+const edgeTypes = Object.freeze({ flow: FlowEdge });
 
 const nodeTypes = Object.freeze({
   mapnode: MapNodeCard,
@@ -726,6 +732,27 @@ function InnerMap({
   );
   const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
   const { data: team } = useTeamMembers();
+  const { data: flowData } = useMapFlowVolume(liveProjectIds);
+
+  // Volume real de 7 dias em cada seta: só reescreve as setas cujo volume mudou.
+  useEffect(() => {
+    if (!flowData) return;
+    const volumes = nodeVolumes(rawNodes, {
+      sessions: flowData.sessions, byProject: flowData.byProject,
+      mapProjectId: liveProjectIds.length === 1 ? liveProjectIds[0] : null,
+    });
+    setEdges((eds) => {
+      let changed = false;
+      const next = eds.map((e) => {
+        const volume = edgeVolume(volumes, e.source, e.target);
+        const current = (e.data as FlowEdgeData | undefined)?.volume ?? null;
+        if (current?.value === volume?.value && current?.metric === volume?.metric) return e;
+        changed = true;
+        return { ...e, data: { ...e.data, volume } };
+      });
+      return changed ? next : eds;
+    });
+  }, [flowData, rawNodes, liveProjectIds, setEdges]);
 
   // re-inject live stats only (avoid full data replace to prevent flicker during drag)
   useEffect(() => {
@@ -2295,7 +2322,7 @@ function InnerMap({
         </div>
       )}
       <ReactFlow
-        nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+        nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
         connectionMode={ConnectionMode.Loose}
         connectionRadius={40}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
