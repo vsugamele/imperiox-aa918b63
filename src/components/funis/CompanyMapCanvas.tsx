@@ -34,6 +34,7 @@ import { GrowthCopilotModal } from "@/components/projeto/GrowthCopilotModal";
 import { MAP_TEMPLATES } from "@/components/funis/mapTemplates";
 import { applyTemplate, autopopulateFromBusiness, autopopulateFromProject, autoLayout, exportMapPng } from "@/components/funis/companyMapHelpers";
 import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { NodeCopyDialog } from "@/components/funis/NodeCopyDialog";
 import { annotationNodeTypes } from "@/components/funis/map-annotation-registry";
 import { ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "@/components/funis/map-annotation-data";
@@ -724,6 +725,7 @@ function InnerMap({
     [rawNodes]
   );
   const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
+  const { data: team } = useTeamMembers();
 
   // re-inject live stats only (avoid full data replace to prevent flicker during drag)
   useEffect(() => {
@@ -1420,6 +1422,10 @@ function InnerMap({
       linked_skill_id: node.linked_skill_id || null,
       api_binding: toJson(node.api_binding || {}),
       metrics_target: toJson(node.metrics_target || {}),
+      step_status: node.step_status ?? null,
+      owner_member_id: node.owner_member_id ?? null,
+      due_date: node.due_date ?? null,
+      ...(node.status_changed_at ? { status_changed_at: node.status_changed_at, status_changed_by: node.status_changed_by ?? "canvas" } : {}),
     }).eq("id", node.id);
     if (error) {
       if (!opts?.silent) toast.error("Erro ao salvar");
@@ -3012,7 +3018,11 @@ function InnerMap({
                 const agent = extractAgentData(selected.notes, selected);
                 const handleUpdateAgent = (partial: Partial<AgentExecutionData>) => {
                   const newNotes = updateAgentDataInNotes(selected.notes, partial);
-                  setSelected({ ...selected, notes: newNotes });
+                  // Status mora na coluna (fonte); a marcação nas notas fica por compatibilidade.
+                  const statusPatch = partial.status
+                    ? { step_status: partial.status, status_changed_at: new Date().toISOString(), status_changed_by: "canvas" }
+                    : {};
+                  setSelected({ ...selected, notes: newNotes, ...statusPatch });
                 };
 
                 return (
@@ -3035,6 +3045,36 @@ function InnerMap({
                           <SelectItem value="done" className="text-xs">🟢 Concluído</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Responsável</Label>
+                        <Select
+                          value={selected.owner_member_id || "none"}
+                          onValueChange={(v) => setSelected({ ...selected, owner_member_id: v === "none" ? null : v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-secondary mt-1" aria-label="Responsável">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border-border">
+                            {(team?.members ?? []).map((m) => (
+                              <SelectItem key={m.id} value={m.id} className="text-xs">{m.name}</SelectItem>
+                            ))}
+                            <SelectItem value="none" className="text-xs">Sem responsável</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground">Prazo</Label>
+                        <Input
+                          type="date"
+                          aria-label="Prazo"
+                          className="h-8 text-xs bg-secondary mt-1"
+                          value={selected.due_date ?? ""}
+                          onChange={(e) => setSelected({ ...selected, due_date: e.target.value || null })}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">

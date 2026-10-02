@@ -1,8 +1,9 @@
 // Leitura de "etapa executável" do mapa para o quadro diário: status, quem executa, prompt e progresso.
 // TS puro e sem dependências externas: usado pela tela Hoje e testável no vitest.
-// O estado mora nas notas da etapa em marcações [agent_*]. Status só vale quando declarado (contrato do
-// mapa, MAP1.18): checklist completa não prova execução, apenas pede que alguém confirme.
-import { readAgentStatus } from "./map-contract.ts";
+// Status, dono e prazo moram em colunas da etapa (UX1.1); executor, skill e prompt nas marcações [agent_*]
+// das notas. Status só vale quando declarado (contrato do mapa, MAP1.18): checklist completa não prova
+// execução, apenas pede que alguém confirme.
+import { readAgentStatus, readStepStatus } from "./map-contract.ts";
 
 export type StepStatus = "pending" | "in_progress" | "ready_review" | "done";
 export type ExecutorGroup = "ia" | "automatico" | "ferramenta" | "humano";
@@ -19,6 +20,7 @@ export interface ChecklistEntry { id?: string; text?: string; done?: boolean }
 
 export interface StepNode {
   notes?: string | null;
+  step_status?: string | null;
   checklist?: unknown;
   executor_type?: string | null;
   linked_skill_id?: string | null;
@@ -68,14 +70,14 @@ export function checklistProgress(value: unknown): { done: number; total: number
   return { done: list.filter((c) => c.done === true).length, total: list.length };
 }
 
-/** Status declarado nas notas ([agent_status:…], ignorando exemplos dentro de prompts). Sem declaração = pending. */
+/** Status declarado: coluna step_status, senão a marcação nas notas (ignorando exemplos em prompts). Sem declaração = pending. */
 export function stepStatus(node: StepNode): StepStatus {
-  return readAgentStatus(node.notes).status;
+  return readStepStatus(node).status;
 }
 
 /** Etapa sem status declarado com a checklist toda marcada: alguém precisa confirmar se está feita. */
 export function needsConfirmation(node: StepNode): boolean {
-  if (readAgentStatus(node.notes).status_source === "notes") return false;
+  if (readStepStatus(node).status_source !== "not_declared") return false;
   const { done, total } = checklistProgress(node.checklist);
   return total > 0 && done === total;
 }
@@ -111,3 +113,39 @@ export const STATUS_LABEL_STEP: Record<StepStatus, string> = {
   ready_review: "Revisar",
   done: "Feito",
 };
+
+// ── Dono e prazo (UX1.1) ─────────────────────────────────────────────────────
+
+export interface TeamMember { id: string; name: string; email?: string | null; user_id?: string | null }
+
+export type DueState = "atrasada" | "hoje" | "em_breve" | "futura";
+
+/** Situação do prazo em relação a hoje (datas "AAAA-MM-DD"). Etapa feita não atrasa. */
+export function dueState(due: string | null | undefined, today: string, status?: StepStatus): DueState | null {
+  if (!due || status === "done") return null;
+  const d = due.slice(0, 10);
+  if (d < today) return "atrasada";
+  if (d === today) return "hoje";
+  const diff = (Date.parse(`${d}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000;
+  return diff <= 3 ? "em_breve" : "futura";
+}
+
+export const DUE_LABEL: Record<DueState, string> = { atrasada: "Atrasada", hoje: "Vence hoje", em_breve: "Vence em breve", futura: "No prazo" };
+
+/** Data local "AAAA-MM-DD" (o prazo é dia do calendário, não instante). */
+export function localDate(date: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+}
+
+/** Soma dias a uma data "AAAA-MM-DD". */
+export function addDays(day: string, days: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Primeiro nome para chips e avatares. */
+export function firstName(name: string | null | undefined): string {
+  return (name ?? "").trim().split(/\s+/)[0] ?? "";
+}

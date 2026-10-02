@@ -20832,6 +20832,11 @@ export type Database = {
       }
       imphq_company_map_nodes: {
         Row: {
+          due_date: string | null
+          owner_member_id: string | null
+          status_changed_at: string | null
+          status_changed_by: string | null
+          step_status: string | null
           print_meta: Json | null
           api_binding: Json | null
           checklist: Json
@@ -20861,6 +20866,11 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          due_date?: string | null
+          owner_member_id?: string | null
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          step_status?: string | null
           print_meta?: Json | null
           api_binding?: Json | null
           checklist?: Json
@@ -20890,6 +20900,11 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          due_date?: string | null
+          owner_member_id?: string | null
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          step_status?: string | null
           print_meta?: Json | null
           api_binding?: Json | null
           checklist?: Json

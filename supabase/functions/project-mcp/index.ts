@@ -3,7 +3,8 @@
 // Suporta Claude Desktop, Cursor, Agentes autônomos e scripts externos.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
-import { buildProjectMap, readStageContract, readAgentStatus } from "../_shared/project-map.ts";
+import { buildProjectMap, readStageContract, readStepStatus } from "../_shared/project-map.ts";
+import { dueState, localDate, type TeamMember } from "../_shared/map-steps.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
 import { CAPABILITY_TASKS, capabilitiesForSkill, pickCapabilities, pickStepCapabilities, type Capability } from "../_shared/capabilities.ts";
 import { orderSteps } from "../_shared/map-order.ts";
@@ -27,13 +28,39 @@ function json(data: unknown, status = 200) {
   });
 }
 
-type Supabase = ReturnType<typeof createClient>;
+// Tipo do cliente como ele é criado aqui (o genérico padrão de createClient não aceita o cliente real).
+const makeAdminClient = () => createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+type Supabase = ReturnType<typeof makeAdminClient>;
 
 /** Catálogo ativo (imphq_capabilities). Falha de leitura vira lista vazia: sugestão de ferramenta nunca derruba a etapa. */
 async function loadCapabilities(supabase: Supabase): Promise<Capability[]> {
   const { data, error } = await supabase.from("imphq_capabilities").select("*").eq("ativo", true);
   if (error) console.error("imphq_capabilities", error.message);
   return (data || []) as Capability[];
+}
+
+/** Time ativo: quem pode ser responsável por etapa. Falha de leitura vira lista vazia. */
+async function loadTeam(supabase: Supabase): Promise<TeamMember[]> {
+  const { data, error } = await supabase.from("imphq_team_members").select("id, name, email, user_id").or("is_active.eq.true,is_active.is.null");
+  if (error) console.error("imphq_team_members", error.message);
+  return (data || []) as TeamMember[];
+}
+
+/** Acha o membro por id, e-mail ou primeiro nome (sem acento, sem caixa). */
+function findMember(team: TeamMember[], who: string): TeamMember | null {
+  const norm = (v: string) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  const w = norm(who);
+  return team.find((m) => m.id === who || norm(m.email || "") === w || norm(m.name) === w || norm(m.name).split(/\s+/)[0] === w) ?? null;
+}
+
+/** Responsável e prazo da etapa no formato das respostas do MCP. */
+function ownerFields(n: { owner_member_id?: string | null; due_date?: string | null }, team: TeamMember[], status: string) {
+  const owner = n.owner_member_id ? team.find((m) => m.id === n.owner_member_id) : null;
+  return {
+    responsavel: owner ? { id: owner.id, nome: owner.name } : null,
+    prazo: n.due_date ?? null,
+    situacao_prazo: dueState(n.due_date, localDate(), status as "pending" | "in_progress" | "ready_review" | "done"),
+  };
 }
 
 /** Ferramentas sugeridas para uma etapa: as ligadas à skill dela primeiro, depois as do tipo no mapa. */
@@ -683,6 +710,10 @@ const MCP_TOOLS = [
           type: "string",
           description: "Filtrar por executor (ex: 'ai_higgsfield', 'ai_copywriter', 'openflow', 'human_traffic')",
         },
+        responsavel: {
+          type: "string",
+          description: "Só as etapas desta pessoa (nome, e-mail ou id do time) ou 'sem_dono'.",
+        },
       },
       required: ["project_id"],
     },
@@ -726,6 +757,19 @@ const MCP_TOOLS = [
         confirmar: { type: "boolean", description: "true grava no mapa; padrão false = só o plano" },
       },
       required: ["project_id", "playbook_id"],
+    },
+  },
+  {
+    name: "assign_step",
+    description: "Define o responsável (alguém do time) e/ou o prazo de uma etapa do mapa. A etapa passa a aparecer no 'Meu dia' da pessoa na tela Hoje.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        node_id: { type: "string", description: "ID da etapa no mapa" },
+        responsavel: { type: "string", description: "Nome, e-mail ou id do membro do time; 'ninguem' tira o responsável" },
+        prazo: { type: "string", description: "Data AAAA-MM-DD; vazio tira o prazo" },
+      },
+      required: ["node_id"],
     },
   },
   {
@@ -1366,7 +1410,7 @@ Deno.serve(async (req) => {
           }
 
           if (name === "get_executable_steps") {
-            const { project_id, status = "open", executor } = args || {};
+            const { project_id, status = "open", executor, responsavel } = args || {};
             if (!project_id) throw new Error("project_id é obrigatório");
 
             const { data: proj } = await supabase.from("imphq_projects").select("id, name, data").eq("id", project_id).single();
@@ -1389,7 +1433,7 @@ Deno.serve(async (req) => {
 
             const { data: rawNodes, error: nodeErr } = await q;
             if (nodeErr) throw nodeErr;
-            const caps = await loadCapabilities(supabase);
+            const [caps, team] = await Promise.all([loadCapabilities(supabase), loadTeam(supabase)]);
 
             // Número de cada etapa na ordem do fluxo (mesma regra do canvas: setas primeiro, depois posição).
             const stepMapIds = [...new Set((rawNodes || []).map(n => n.map_id))];
@@ -1418,7 +1462,7 @@ Deno.serve(async (req) => {
                  nExec === "openflow" ? "roteiros-virais-comment-to-dm" :
                  nExec === "human_traffic" ? "briefing-gestor-trafego" : "none");
 
-              const executionStatus = readAgentStatus(notes);
+              const executionStatus = readStepStatus(n);
 
               const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
               const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
@@ -1437,6 +1481,7 @@ Deno.serve(async (req) => {
                 executor: nExec,
                 skill: nSkill,
                 ...executionStatus,
+                ...ownerFields(n, team, executionStatus.status),
                 prompt,
                 checklist: n.checklist || [],
                 output_url,
@@ -1455,6 +1500,12 @@ Deno.serve(async (req) => {
             if (executor) {
               filtered = filtered.filter(s => s.executor.toLowerCase().includes(executor.toLowerCase()));
             }
+            if (responsavel) {
+              const who = String(responsavel);
+              const member = who === "sem_dono" ? null : findMember(team, who);
+              if (who !== "sem_dono" && !member) throw new Error(`Responsável '${who}' não está no time (imphq_team_members)`);
+              filtered = filtered.filter(s => (member ? s.responsavel?.id === member.id : !s.responsavel));
+            }
 
             const responsePayload = {
               projectId: project_id,
@@ -1469,6 +1520,36 @@ Deno.serve(async (req) => {
               id,
               result: { content: [{ type: "text", text: JSON.stringify(responsePayload, null, 2) }] },
             });
+          }
+
+          if (name === "assign_step") {
+            const { node_id, responsavel, prazo } = args || {};
+            if (!node_id) throw new Error("node_id é obrigatório");
+            if (responsavel === undefined && prazo === undefined) throw new Error("Informe responsavel e/ou prazo");
+            const patch: Record<string, unknown> = {};
+            let team: TeamMember[] = [];
+            if (responsavel !== undefined) {
+              const who = String(responsavel).trim();
+              if (!who || who.toLowerCase() === "ninguem" || who.toLowerCase() === "ninguém") patch.owner_member_id = null;
+              else {
+                team = await loadTeam(supabase);
+                const member = findMember(team, who);
+                if (!member) throw new Error(`Responsável '${who}' não está no time. Time: ${team.map((m) => m.name).join(", ")}`);
+                patch.owner_member_id = member.id;
+              }
+            }
+            if (prazo !== undefined) {
+              const day = String(prazo).trim();
+              if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("prazo deve ser AAAA-MM-DD");
+              patch.due_date = day || null;
+            }
+            const { data: updated, error: updErr } = await supabase.from("imphq_company_map_nodes").update(patch).eq("id", node_id)
+              .select("id, label, owner_member_id, due_date, step_status").maybeSingle();
+            if (updErr) throw updErr;
+            if (!updated) throw new Error(`Etapa '${node_id}' não encontrada`);
+            if (!team.length) team = await loadTeam(supabase);
+            const payload = { success: true, etapa: updated.label, ...ownerFields(updated, team, updated.step_status || "pending") };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] } });
           }
 
           if (name === "complete_step") {
@@ -1492,6 +1573,9 @@ Deno.serve(async (req) => {
             const updatePayload: Record<string, unknown> = {
               notes: notes.trim(),
               checklist: updatedChecklist,
+              step_status: status,
+              status_changed_at: new Date().toISOString(),
+              status_changed_by: "mcp",
             };
             if (output_url && !node.url) {
               updatePayload.url = output_url;
@@ -1645,12 +1729,12 @@ Deno.serve(async (req) => {
       }
 
       const { data: rawNodes } = await q;
-      const caps = await loadCapabilities(supabase);
+      const [caps, team] = await Promise.all([loadCapabilities(supabase), loadTeam(supabase)]);
       const parsedSteps = (rawNodes || []).map(n => {
         const notes = n.notes || "";
         const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
         const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
-        const executionStatus = readAgentStatus(notes);
+        const executionStatus = readStepStatus(n);
         const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
         const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
         const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
@@ -1663,6 +1747,7 @@ Deno.serve(async (req) => {
           executor: nExec,
           skill: nSkill,
           ...executionStatus,
+                ...ownerFields(n, team, executionStatus.status),
           prompt,
           checklist: n.checklist || [],
           output_url,
@@ -1701,7 +1786,10 @@ Deno.serve(async (req) => {
         updatedChecklist = node.checklist.map((c) => ({ ...c, done: true }));
       }
 
-      const updatePayload: Record<string, unknown> = { notes: notes.trim(), checklist: updatedChecklist };
+      const updatePayload: Record<string, unknown> = {
+        notes: notes.trim(), checklist: updatedChecklist,
+        step_status: status, status_changed_at: new Date().toISOString(), status_changed_by: "mcp",
+      };
       if (output_url && !node.url) updatePayload.url = output_url;
 
       const { data: updatedNode, error: updateErr } = await supabase
@@ -1802,12 +1890,12 @@ Deno.serve(async (req) => {
   // Retorna Etapas Executáveis por IA (Agentic SOP / Runbook)
   if (action === "executable_steps") {
     const { data: mapNodes } = await supabase.from("imphq_company_map_nodes").select("*").eq("linked_project_id", projectId);
-    const caps = await loadCapabilities(supabase);
+    const [caps, team] = await Promise.all([loadCapabilities(supabase), loadTeam(supabase)]);
     const parsedSteps = (mapNodes || []).map(n => {
       const notes = n.notes || "";
       const nExec = notes.match(/\[agent_executor:([^\]]+)\]/)?.[1] || n.executor_type || "human_general";
       const nSkill = notes.match(/\[agent_skill:([^\]]+)\]/)?.[1] || n.linked_skill_id || "none";
-      const executionStatus = readAgentStatus(notes);
+      const executionStatus = readStepStatus(n);
       const multiPrompt = notes.match(/\[agent_prompt_start\]([\s\S]*?)\[agent_prompt_end\]/);
       const singlePrompt = notes.match(/\[agent_prompt:([^\]]+)\]/);
       const prompt = multiPrompt ? multiPrompt[1].trim() : singlePrompt ? singlePrompt[1].trim() : n.description || n.label;
@@ -1820,6 +1908,7 @@ Deno.serve(async (req) => {
         executor: nExec,
         skill: nSkill,
         ...executionStatus,
+                ...ownerFields(n, team, executionStatus.status),
         prompt,
         checklist: n.checklist || [],
         output_url,

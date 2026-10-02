@@ -9,6 +9,7 @@ import { pickKpiForKind } from "@/hooks/useCompanyMapLiveStats";
 import { KIND_PRESETS } from "@/components/funis/map-element-presets";
 import { extractAgentData } from "@/components/funis/map-agent-data";
 import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNodeData } from "@/components/funis/map-node-model";
+import { StepOwnerChips } from "@/components/funis/StepOwnerChips";
 
 const EXECUTOR_ICON: Record<ExecutorGroup, typeof Bot> = { ia: Bot, automatico: Zap, ferramenta: Wrench, humano: User };
 
@@ -68,7 +69,7 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
   const isSimulated = !!data.isSimulatedActive;
 
   const agent = extractAgentData(data.notes, data);
-  const status = agent.status_source === "notes" ? STATUS_STYLE[agent.status] : STATUS_STYLE.not_declared;
+  const status = agent.status_source !== "not_declared" ? STATUS_STYLE[agent.status] : STATUS_STYLE.not_declared;
   const group = executorGroup(data);
   const ExecIcon = EXECUTOR_ICON[group];
   const skill = agent.skill !== "none" ? agent.skill : null;
@@ -211,6 +212,11 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
               </a>
             )}
           </div>
+        )}
+
+        {/* Dono e prazo */}
+        {!isImageNode && (data.owner_member_id || data.due_date) && (
+          <StepOwnerChips ownerId={data.owner_member_id} due={data.due_date} status={agent.status} />
         )}
 
         {/* Checklist: progresso e o que falta */}

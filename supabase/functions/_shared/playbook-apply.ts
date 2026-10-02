@@ -55,6 +55,7 @@ export interface NodeInsert {
   executor_type: string; linked_skill_id: string | null; stage_role: string; linked_project_id: string;
   checklist: Array<{ id: string; text: string; done: boolean }>; metrics_target: { key: string; meta?: string } | null;
   position: { x: number; y: number }; show_live_kpis: boolean;
+  step_status: "pending"; status_changed_by: string;
 }
 export interface ApplicationInsert { playbook_id: string; project_id: string; map_id: string; node_ids: string[]; params: Record<string, string>; aplicado_por: string }
 
@@ -97,6 +98,7 @@ export async function writePlaybookPlan(plan: PlaybookPlan, ctx: ApplyContext, w
       executor_type: n.executor_type, linked_skill_id: n.linked_skill_id, stage_role: n.stage_role, linked_project_id: ctx.projectId,
       checklist: n.checklist.map((c) => ({ id: ctx.newId(), text: c.text, done: false })),
       metrics_target: n.metrics_target, position: n.position, show_live_kpis: true,
+      step_status: "pending", status_changed_by: `playbook:${ctx.playbook.id}`,
     });
     idByOrdem.set(n.stepOrdem, id);
   }

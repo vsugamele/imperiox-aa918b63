@@ -8,7 +8,7 @@ export interface ContractNode {
 export interface ContractField { key: string; label: string; value: string | null; source: string | null }
 export interface AgentStatusReading {
   status: "pending" | "in_progress" | "ready_review" | "done";
-  status_source: "notes" | "not_declared";
+  status_source: "column" | "notes" | "not_declared";
   operationalEvidence: "unverified";
 }
 
@@ -34,6 +34,16 @@ export function readAgentStatus(notes?: string | null): AgentStatusReading {
   const value = declarations.match(/\[agent_status:([^\]]+)\]/)?.[1];
   const valid = value === "pending" || value === "in_progress" || value === "ready_review" || value === "done";
   return { status: valid ? value : "pending", status_source: valid ? "notes" : "not_declared", operationalEvidence: "unverified" };
+}
+
+const STEP_STATUSES = new Set(["pending", "in_progress", "ready_review", "done"]);
+
+/** Status da etapa: coluna step_status primeiro; sem ela, a marcação declarada nas notas (legado). */
+export function readStepStatus(node: { step_status?: string | null; notes?: string | null }): AgentStatusReading {
+  if (node.step_status && STEP_STATUSES.has(node.step_status)) {
+    return { status: node.step_status as AgentStatusReading["status"], status_source: "column", operationalEvidence: "unverified" };
+  }
+  return readAgentStatus(node.notes);
 }
 
 const MARKERS = {

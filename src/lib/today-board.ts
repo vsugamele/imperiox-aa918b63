@@ -1,6 +1,6 @@
 import {
-  checklistProgress, executorGroup, needsConfirmation, readAgentNotes, stepSkill, stepStatus,
-  type ExecutorGroup, type StepStatus,
+  checklistProgress, dueState, executorGroup, localDate, needsConfirmation, readAgentNotes, stepSkill, stepStatus,
+  type DueState, type ExecutorGroup, type StepStatus,
 } from "@shared/map-steps";
 
 export interface BoardNode {
@@ -16,6 +16,9 @@ export interface BoardNode {
   linked_skill_id?: string | null;
   linked_project_id?: string | null;
   stage_role?: string | null;
+  step_status?: string | null;
+  owner_member_id?: string | null;
+  due_date?: string | null;
 }
 
 export interface BoardSale { project_id: string | null; valor: number | null; data: unknown }
@@ -33,6 +36,9 @@ export interface BoardStep {
   /** Checklist completa sem status declarado: precisa de alguém confirmar. */
   toConfirm: boolean;
   prompt: string;
+  ownerId: string | null;
+  due: string | null;
+  dueState: DueState | null;
 }
 
 export interface ProjectBoard {
@@ -57,6 +63,8 @@ export interface ProjectBoard {
 const STRUCTURAL_KINDS = new Set(["vertical", "area"]);
 
 const STATUS_ORDER: Record<StepStatus, number> = { ready_review: 0, in_progress: 1, pending: 2, done: 3 };
+const DUE_ORDER: Record<DueState, number> = { atrasada: 0, hoje: 1, em_breve: 2, futura: 3 };
+const dueRank = (s: BoardStep) => (s.dueState ? DUE_ORDER[s.dueState] : 4);
 
 function pos(value: unknown): { x: number; y: number } {
   if (value && typeof value === "object") {
@@ -83,20 +91,24 @@ export function projectOfMaps(nodes: ReadonlyArray<BoardNode>): Map<string, stri
   return result;
 }
 
-export function toStep(n: BoardNode): BoardStep {
+export function toStep(n: BoardNode, today: string = localDate()): BoardStep {
   const agent = readAgentNotes(n.notes);
+  const status = stepStatus(n);
   return {
     id: n.id,
     mapId: n.map_id,
     label: n.label,
     kind: n.kind,
     stage: n.stage_role || null,
-    status: stepStatus(n),
+    status,
     executor: executorGroup(n),
     skill: stepSkill(n),
     progress: checklistProgress(n.checklist),
     toConfirm: needsConfirmation(n),
     prompt: agent.prompt || `Executar a etapa "${n.label}". Objetivo: ${n.description || n.label}`,
+    ownerId: n.owner_member_id ?? null,
+    due: n.due_date ?? null,
+    dueState: dueState(n.due_date, today, status),
   };
 }
 
@@ -113,7 +125,9 @@ export function buildTodayBoard(input: {
   nodes: ReadonlyArray<BoardNode>;
   salesToday: ReadonlyArray<BoardSale>;
   leadsToday: ReadonlyArray<{ project_id: string | null }>;
+  today?: string;
 }): ProjectBoard[] {
+  const today = input.today ?? localDate();
   const mapProject = projectOfMaps(input.nodes);
   const byProject = new Map<string, BoardNode[]>();
   for (const n of input.nodes) {
@@ -130,7 +144,8 @@ export function buildTodayBoard(input: {
       .slice()
       .sort((a, b) => pos(a.position).x - pos(b.position).x || pos(a.position).y - pos(b.position).y);
     if (!nodes.length) continue;
-    const steps = nodes.map(toStep).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+    // Dentro de cada status, o que está atrasado ou vence antes vem primeiro.
+    const steps = nodes.map((n) => toStep(n, today)).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || dueRank(a) - dueRank(b));
     const pending = steps.filter((s) => s.status === "pending" && !s.toConfirm);
 
     const byCurrency: Record<string, number> = {};
@@ -159,6 +174,22 @@ export function buildTodayBoard(input: {
   }
   const attention = (b: ProjectBoard) => b.review.length + b.toConfirm.length + b.waitingYou.length;
   return boards.sort((a, b) => attention(b) - attention(a));
+}
+
+/** Filtro por pessoa: "todos", "sem_dono" (etapas do time sem responsável) ou o id de um membro. */
+export type OwnerFilter = "todos" | "sem_dono" | string;
+
+export function matchesOwner(step: BoardStep, filter: OwnerFilter): boolean {
+  if (filter === "todos") return true;
+  if (filter === "sem_dono") return !step.ownerId && (step.executor === "humano" || step.executor === "ferramenta");
+  return step.ownerId === filter;
+}
+
+/** Mesmo quadro só com as etapas da pessoa; progresso, vendas e leads do projeto não mudam. */
+export function filterBoardByOwner(board: ProjectBoard, filter: OwnerFilter): ProjectBoard {
+  if (filter === "todos") return board;
+  const keep = (list: BoardStep[]) => list.filter((s) => matchesOwner(s, filter));
+  return { ...board, toConfirm: keep(board.toConfirm), waitingYou: keep(board.waitingYou), aiReady: keep(board.aiReady), inProgress: keep(board.inProgress), review: keep(board.review) };
 }
 
 /** Abre o canvas já no mapa e na etapa (lido por /funis via ?map= e ?node=). */

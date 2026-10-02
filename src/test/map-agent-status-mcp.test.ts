@@ -6,6 +6,7 @@ import * as capabilities from "@shared/capabilities";
 import * as mapOrder from "@shared/map-order";
 import * as playbooks from "@shared/playbooks";
 import * as playbookApply from "@shared/playbook-apply";
+import * as mapSteps from "@shared/map-steps";
 import { checkMcpKey } from "@shared/mcp-auth";
 
 type Handler = (req: Request) => Promise<Response>;
@@ -35,7 +36,7 @@ function runtime() {
   });
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   if (!handler) throw new Error("Missing handler");
   const invoke = (transport: Transport, status = "all", authorized = true) => {

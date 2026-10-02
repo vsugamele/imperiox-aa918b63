@@ -6,7 +6,7 @@ import { analyzeGaps } from "./funnel-gaps.ts";
 import { readOfferJourneys, readPublicAssetUrl, type OfferJourneyReading, type JourneyNode } from "./offer-journey.ts";
 export type { OfferJourneyReading, OfferJourney, OfferJourneyStep, OfferReviewTask } from "./offer-journey.ts";
 export { readOfferReviewTasks } from "./offer-journey.ts";
-export { readStageContract, readMapHierarchy, readProfileRoutines, readAgentStatus } from "./map-contract.ts";
+export { readStageContract, readMapHierarchy, readProfileRoutines, readAgentStatus, readStepStatus } from "./map-contract.ts";
 export type { AgentStatusReading } from "./map-contract.ts";
 export type { ContractNode, HierarchyMap, HierarchyNode, RoutineAnnotation } from "./map-contract.ts";
 

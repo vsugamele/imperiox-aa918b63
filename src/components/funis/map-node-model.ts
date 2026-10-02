@@ -21,6 +21,12 @@ export interface MapNode {
   metrics_target?: Json | null;
   /** Último print automático da página (scripts/map-prints.mjs). */
   print_meta?: Json | null;
+  /** Status declarado (null = não declarado), dono e prazo — UX1.1. */
+  step_status?: string | null;
+  owner_member_id?: string | null;
+  due_date?: string | null;
+  status_changed_at?: string | null;
+  status_changed_by?: string | null;
 }
 
 export interface MapNodeData extends MapNode {

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Bot, CheckCircle2, ClipboardCopy, Eye, Loader2, Map as MapIcon, RefreshCw, User } from "lucide-react";
+import { AlertTriangle, Bot, CalendarClock, CheckCircle2, ClipboardCopy, Eye, Loader2, Map as MapIcon, RefreshCw, User, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,15 +9,33 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
-import { EXECUTOR_LABEL, STATUS_LABEL_STEP, type StepStatus } from "@shared/map-steps";
+import { addDays, DUE_LABEL, EXECUTOR_LABEL, firstName, localDate, STATUS_LABEL_STEP, type DueState, type StepStatus, type TeamMember } from "@shared/map-steps";
 import type { MapGap } from "@shared/project-map";
-import { formatMoney, mapLink, type BoardStep, type ProjectBoard } from "@/lib/today-board";
-import { useSetStepStatus, useTodayBoard } from "@/hooks/useTodayBoard";
+import { filterBoardByOwner, formatMoney, mapLink, type BoardStep, type OwnerFilter, type ProjectBoard } from "@/lib/today-board";
+import { useSetStepAssignment, useSetStepStatus, useTodayBoard } from "@/hooks/useTodayBoard";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCompanyMap } from "@/hooks/useCompanyMap";
 import { Stat } from "@/components/mapa/Stat";
 
 const STEP_STATUSES: StepStatus[] = ["pending", "in_progress", "ready_review", "done"];
 const MAX_ROWS = 6;
+const OWNER_FILTER_KEY = "hoje.owner-filter";
+
+const DUE_TONE: Record<DueState, string> = {
+  atrasada: "border-destructive/40 bg-destructive/10 text-destructive",
+  hoje: "border-warning/40 bg-warning/10 text-warning",
+  em_breve: "border-primary/30 bg-primary/5 text-primary",
+  futura: "border-border text-muted-foreground",
+};
+
+function readStoredFilter(): OwnerFilter {
+  try { return localStorage.getItem(OWNER_FILTER_KEY) || "todos"; } catch { return "todos"; }
+}
+
+function formatDue(day: string): string {
+  const [y, m, d] = day.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
 
 const STATUS_TONE: Record<StepStatus, string> = {
   pending: "border-border text-muted-foreground",
@@ -28,6 +47,16 @@ const STATUS_TONE: Record<StepStatus, string> = {
 export default function Hoje() {
   const { data: boards = [], isLoading, isFetching, error, refetch } = useTodayBoard();
   const { data: companyMaps = [] } = useCompanyMap();
+  const { data: team } = useTeamMembers();
+  const members = useMemo(() => team?.members ?? [], [team]);
+  const [ownerFilter, setOwnerFilterState] = useState<OwnerFilter>(readStoredFilter);
+  const setOwnerFilter = (f: OwnerFilter) => {
+    setOwnerFilterState(f);
+    try { localStorage.setItem(OWNER_FILTER_KEY, f); } catch { /* preferência só deste navegador */ }
+  };
+  // Filtro salvo de alguém que saiu do time volta para "todos".
+  const activeFilter: OwnerFilter = !team || ownerFilter === "todos" || ownerFilter === "sem_dono" || members.some((m) => m.id === ownerFilter) ? ownerFilter : "todos";
+  const shown = useMemo(() => boards.map((b) => filterBoardByOwner(b, activeFilter)), [boards, activeFilter]);
 
   const criticalByProject = useMemo(() => {
     const result: Record<string, MapGap[]> = {};
@@ -36,11 +65,12 @@ export default function Hoje() {
   }, [companyMaps]);
 
   const totals = useMemo(() => ({
-    waiting: boards.reduce((n, b) => n + b.waitingYou.length + b.review.length + b.toConfirm.length, 0),
-    ai: boards.reduce((n, b) => n + b.aiReady.length, 0),
+    waiting: shown.reduce((n, b) => n + b.waitingYou.length + b.review.length + b.toConfirm.length, 0),
+    ai: shown.reduce((n, b) => n + b.aiReady.length, 0),
+    overdue: shown.reduce((n, b) => n + [...b.waitingYou, ...b.review, ...b.toConfirm, ...b.inProgress, ...b.aiReady].filter((s) => s.dueState === "atrasada").length, 0),
     sales: boards.reduce((n, b) => n + b.salesToday.count, 0),
     leads: boards.reduce((n, b) => n + b.leadsToday, 0),
-  }), [boards]);
+  }), [boards, shown]);
 
   const today = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
@@ -59,8 +89,24 @@ export default function Hoje() {
         </Button>
       </header>
 
+      {members.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="De quem">
+          {([
+            { key: "todos", label: "Tudo" },
+            ...members.map((m) => ({ key: m.id, label: m.id === team?.me?.id ? `Meu dia (${firstName(m.name)})` : firstName(m.name) })),
+            { key: "sem_dono", label: "Sem dono" },
+          ] as Array<{ key: OwnerFilter; label: string }>).map((f) => (
+            <button key={f.key} role="tab" aria-selected={activeFilter === f.key} onClick={() => setOwnerFilter(f.key)}
+              className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                activeFilter === f.key ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Esperando você" value={totals.waiting} tone={totals.waiting ? "text-warning" : undefined} hint="a fazer, revisar ou confirmar" />
+        <Stat label="Esperando você" value={totals.waiting} tone={totals.waiting ? "text-warning" : undefined} hint={totals.overdue ? `${totals.overdue} atrasada(s)` : "a fazer, revisar ou confirmar"} />
         <Stat label="IA pode executar" value={totals.ai} hint="pendentes com skill ou automação" />
         <Stat label="Vendas hoje" value={totals.sales} tone={totals.sales ? "text-success" : undefined} />
         <Stat label="Leads hoje" value={totals.leads} />
@@ -86,15 +132,15 @@ export default function Hoje() {
       )}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {boards.map((board) => (
-          <ProjectCard key={board.projectId} board={board} critical={criticalByProject[board.projectId] ?? []} />
+        {shown.map((board) => (
+          <ProjectCard key={board.projectId} board={board} critical={criticalByProject[board.projectId] ?? []} members={members} />
         ))}
       </div>
     </div>
   );
 }
 
-function ProjectCard({ board, critical }: { board: ProjectBoard; critical: MapGap[] }) {
+function ProjectCard({ board, critical, members }: { board: ProjectBoard; critical: MapGap[]; members: TeamMember[] }) {
   const pct = board.total ? Math.round((board.done / board.total) * 100) : 0;
   const money = Object.entries(board.salesToday.byCurrency).map(([cur, v]) => formatMoney(v, cur)).join(" + ");
 
@@ -129,23 +175,24 @@ function ProjectCard({ board, critical }: { board: ProjectBoard; critical: MapGa
         </div>
       )}
 
-      <StepGroup title="Para revisar" icon={Eye} steps={board.review} empty={null} />
+      <StepGroup title="Para revisar" icon={Eye} steps={board.review} members={members} empty={null} />
       <StepGroup
         title="Confirmar status"
         icon={CheckCircle2}
-        steps={board.toConfirm}
+        steps={board.toConfirm} members={members}
         empty={null}
         hint="Checklist completa, mas ninguém marcou como feita. Confirme ou ajuste."
       />
-      <StepGroup title="Esperando você" icon={User} steps={board.waitingYou} empty="Nada pendente com o time." />
-      <StepGroup title="IA pode executar" icon={Bot} steps={board.aiReady} empty="Nenhuma etapa de IA pendente." canCopy />
-      <StepGroup title="Em andamento" icon={Loader2} steps={board.inProgress} empty={null} />
+      <StepGroup title="Esperando você" icon={User} steps={board.waitingYou} members={members} empty="Nada pendente com o time." />
+      <StepGroup title="IA pode executar" icon={Bot} steps={board.aiReady} members={members} empty="Nenhuma etapa de IA pendente." canCopy />
+      <StepGroup title="Em andamento" icon={Loader2} steps={board.inProgress} members={members} empty={null} />
     </section>
   );
 }
 
-function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint }: {
+function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint, members }: {
   title: string;
+  members: TeamMember[];
   icon: typeof User;
   steps: BoardStep[];
   empty: string | null;
@@ -161,8 +208,10 @@ function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint }: {
       </div>
       {hint && steps.length > 0 && <p className="mb-1.5 text-xs text-muted-foreground">{hint}</p>}
       {!steps.length && <p className="text-sm text-muted-foreground">{empty}</p>}
-      <ul className="divide-y divide-border rounded-md border border-border">
-        {shown.map((step) => <StepRow key={step.id} step={step} canCopy={canCopy} />)}
+      <ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
+        <AnimatePresence initial={false}>
+          {shown.map((step) => <StepRow key={step.id} step={step} canCopy={canCopy} members={members} />)}
+        </AnimatePresence>
       </ul>
       {steps.length > MAX_ROWS && (
         <p className="mt-1 text-xs text-muted-foreground">+ {steps.length - MAX_ROWS} no mapa</p>
@@ -171,8 +220,24 @@ function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint }: {
   );
 }
 
-function StepRow({ step, canCopy }: { step: BoardStep; canCopy?: boolean }) {
+function StepRow({ step, canCopy, members }: { step: BoardStep; canCopy?: boolean; members: TeamMember[] }) {
   const setStatus = useSetStepStatus();
+  const assign = useSetStepAssignment();
+  const owner = members.find((m) => m.id === step.ownerId) ?? null;
+  const today = localDate();
+  const dueOptions = [
+    { label: "Hoje", value: today },
+    { label: "Amanhã", value: addDays(today, 1) },
+    { label: "Em 3 dias", value: addDays(today, 3) },
+    { label: "Em 1 semana", value: addDays(today, 7) },
+  ];
+
+  const saveAssignment = (change: { ownerId?: string | null; due?: string | null }, message: string) => {
+    assign.mutate({ nodeId: step.id, ...change }, {
+      onSuccess: () => toast.success(message),
+      onError: (err) => toast.error(`Não salvou: ${errorMessage(err) || "erro desconhecido"}`),
+    });
+  };
 
   const copyPrompt = async () => {
     const text = [step.prompt, step.skill ? `Skill: ${step.skill}` : null].filter(Boolean).join("\n\n");
@@ -192,7 +257,8 @@ function StepRow({ step, canCopy }: { step: BoardStep; canCopy?: boolean }) {
   };
 
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
+    <motion.li layout initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
       <div className="min-w-0 flex-1">
         <Link to={mapLink(step)} className="block truncate text-sm font-medium text-foreground hover:text-primary">{step.label}</Link>
         <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
@@ -203,6 +269,41 @@ function StepRow({ step, canCopy }: { step: BoardStep; canCopy?: boolean }) {
         </div>
       </div>
       <div className="flex items-center gap-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", step.dueState ? DUE_TONE[step.dueState] : "border-dashed border-border text-subtle")}
+              title={step.dueState ? DUE_LABEL[step.dueState] : "Definir prazo"} aria-label={step.due ? `Prazo ${formatDue(step.due)}` : "Definir prazo"} disabled={assign.isPending}>
+              <CalendarClock className="h-3 w-3" />{step.due ? formatDue(step.due) : null}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel className="text-xs">Prazo</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {dueOptions.map((o) => (
+              <DropdownMenuItem key={o.label} onSelect={() => saveAssignment({ due: o.value }, `"${step.label}" → prazo ${formatDue(o.value)}`)}>{o.label}</DropdownMenuItem>
+            ))}
+            {step.due && <DropdownMenuItem onSelect={() => saveAssignment({ due: null }, `"${step.label}" sem prazo`)}>Sem prazo</DropdownMenuItem>}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn("flex h-6 min-w-6 items-center justify-center rounded-full border px-1.5 text-[11px] font-semibold",
+                owner ? "border-primary/40 bg-primary/10 text-primary" : "border-dashed border-border text-subtle")}
+              title={owner ? `Responsável: ${owner.name}` : "Definir responsável"} aria-label={owner ? `Responsável ${firstName(owner.name)}` : "Definir responsável"} disabled={assign.isPending}>
+              {owner ? firstName(owner.name).slice(0, 2).toUpperCase() : <UserPlus className="h-3 w-3" />}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel className="text-xs">Responsável</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {members.map((m) => (
+              <DropdownMenuItem key={m.id} disabled={m.id === step.ownerId} onSelect={() => saveAssignment({ ownerId: m.id }, `"${step.label}" → ${firstName(m.name)}`)}>{m.name}</DropdownMenuItem>
+            ))}
+            {owner && <DropdownMenuItem onSelect={() => saveAssignment({ ownerId: null }, `"${step.label}" sem responsável`)}>Sem responsável</DropdownMenuItem>}
+          </DropdownMenuContent>
+        </DropdownMenu>
         {canCopy && (
           <Button variant="ghost" size="sm" className="h-7 px-2" onClick={copyPrompt} title="Copiar prompt para a IA">
             <ClipboardCopy className="h-3.5 w-3.5" />
@@ -229,6 +330,6 @@ function StepRow({ step, canCopy }: { step: BoardStep; canCopy?: boolean }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </li>
+    </motion.li>
   );
 }
