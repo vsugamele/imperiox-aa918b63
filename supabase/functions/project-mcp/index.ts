@@ -4,12 +4,15 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { buildProjectMap, readStageContract, readStepStatus } from "../_shared/project-map.ts";
-import { dueState, localDate, type TeamMember } from "../_shared/map-steps.ts";
+import { dueState, localDate, writeAgentNotes, type TeamMember } from "../_shared/map-steps.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
 import { CAPABILITY_TASKS, capabilitiesForSkill, pickCapabilities, pickStepCapabilities, type Capability } from "../_shared/capabilities.ts";
 import { orderSteps } from "../_shared/map-order.ts";
 import { FAMILY_LABEL, planPlaybook } from "../_shared/playbooks.ts";
 import { findProjectMap, playbookFromRows, writePlaybookPlan, type PlaybookRow, type PlaybookStepRow } from "../_shared/playbook-apply.ts";
+import { buildApprovalQueue, SOURCE_LABEL, type AiActionRow, type ApprovalItem, type ApprovalSource, type ContentRow, type DraftRow, type ReviewStepRow } from "../_shared/approval-queue.ts";
+import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions } from "../_shared/project-briefing.ts";
+import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -791,7 +794,166 @@ const MCP_TOOLS = [
       required: ["node_id"],
     },
   },
+  {
+    name: "get_approvals",
+    description: "Fila única 'Aprovar' (mesma da tela /aprovar): etapas para revisar, ações propostas pela IA, conteúdo pronto e respostas da IA para clientes. Mais urgente primeiro. Cada item traz a 'key' usada em decide_approval e o que o MCP pode decidir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "Filtra por projeto (opcional; sem ele, todos)" },
+        limit: { type: "number", description: "Máximo de itens (padrão 30)" },
+      },
+    },
+  },
+  {
+    name: "decide_approval",
+    description: "Aprova ou reprova um item da fila 'Aprovar'. Etapa: aprovar = feita, reprovar = volta para em andamento. Conteúdo: aprovado/reprovado. Ação da IA: só reprovar (aprovar executa mudança real e é feito na tela). Resposta para cliente: só na tela /rascunhos.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "Chave do item vinda de get_approvals (ex.: 'etapa:<id>', 'conteudo:<id>', 'acao_ia:<id>')" },
+        decision: { type: "string", enum: ["approve", "reject"], description: "approve ou reject" },
+        motivo: { type: "string", description: "Motivo (opcional; vai para as notas da etapa)" },
+      },
+      required: ["key", "decision"],
+    },
+  },
+  {
+    name: "get_briefing",
+    description: "Resumo do projeto em uma chamada: vendas, faturamento e leads de hoje, faturamento do mês, leads quentes, etapas do dia (revisar, confirmar, esperando o time, prontas para IA, atrasadas, com responsável e prazo) e a fila de aprovações do projeto.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID único do projeto" },
+      },
+      required: ["project_id"],
+    },
+  },
 ];
+
+/** Fila "Aprovar" com as mesmas consultas do hook useApprovals (tela /aprovar). */
+async function loadApprovals(supabase: Supabase, projectId?: string | null): Promise<ApprovalItem[]> {
+  const [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes] = await Promise.all([
+    supabase.from("imphq_company_map_nodes")
+      .select("id, map_id, label, description, linked_project_id, status_changed_at, updated_at, image_url")
+      .eq("step_status", "ready_review"),
+    supabase.from("imphq_ai_actions")
+      .select("id, kind, title, reason, risk_level, impact_brl, projeto_id, created_at")
+      .eq("status", "proposed").order("created_at").limit(100),
+    supabase.from("imphq_content_items")
+      .select("id, project_id, title, hook, cover_url, media_url, batch, updated_at, created_at")
+      .eq("status", "pronto").limit(100),
+    supabase.from("imphq_v_ai_drafts")
+      .select("id, project_id, contact_name, incoming_text, suggested_text, created_at")
+      .eq("status", "pending").limit(100),
+    supabase.from("imphq_company_maps").select("id").not("archived_at", "is", null),
+  ]);
+  for (const res of [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes]) if (res.error) throw res.error;
+  const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
+  const items = buildApprovalQueue({
+    steps: ((stepsRes.data ?? []) as ReviewStepRow[]).filter((s) => !archived.has(s.map_id)),
+    actions: (actionsRes.data ?? []) as AiActionRow[],
+    contents: (contentsRes.data ?? []) as ContentRow[],
+    drafts: (draftsRes.data ?? []) as DraftRow[],
+  });
+  return projectId ? items.filter((i) => i.projectId === projectId) : items;
+}
+
+/** Decide um item da fila com a mesma ação da tela /aprovar (useDecideApproval), nos limites de mcpDecisions. */
+async function decideApproval(supabase: Supabase, key: string, decision: "approve" | "reject", motivo?: string) {
+  const [source, ...rest] = key.split(":");
+  const itemId = rest.join(":");
+  if (!itemId || !(source in SOURCE_LABEL)) throw new Error(`key inválida: '${key}'. Use a key de get_approvals.`);
+  const allowed = mcpDecisions({ source: source as ApprovalSource, inline: source !== "rascunho" });
+  if (!allowed.includes(decision)) {
+    throw new Error(source === "acao_ia"
+      ? "Aprovar ação da IA executa uma mudança real: aprove na tela /aprovar. Pelo MCP só dá para reprovar."
+      : "Resposta para cliente é decidida na tela /rascunhos.");
+  }
+  const now = new Date().toISOString();
+
+  if (source === "etapa") {
+    const { data: node, error } = await supabase.from("imphq_company_map_nodes").select("label, notes, step_status").eq("id", itemId).single();
+    if (error || !node) throw new Error(`Etapa '${itemId}' não encontrada`);
+    if (node.step_status !== "ready_review") throw new Error(`A etapa '${node.label}' não está esperando revisão (status: ${node.step_status ?? "pending"}).`);
+    const status = decision === "approve" ? "done" : "in_progress";
+    let notes = writeAgentNotes(node.notes, { status });
+    if (motivo) notes = `${notes}\n\n${decision === "approve" ? "Aprovada" : "Reprovada"} pelo MCP: ${motivo}`;
+    const { error: upd } = await supabase.from("imphq_company_map_nodes")
+      .update({ step_status: status, status_changed_at: now, status_changed_by: "mcp", notes }).eq("id", itemId);
+    if (upd) throw upd;
+    return { key, titulo: node.label, resultado: status === "done" ? "Etapa marcada como feita" : "Etapa voltou para em andamento" };
+  }
+
+  if (source === "conteudo") {
+    const { data: item, error } = await supabase.from("imphq_content_items").select("title, status").eq("id", itemId).single();
+    if (error || !item) throw new Error(`Conteúdo '${itemId}' não encontrado`);
+    if (item.status !== "pronto") throw new Error(`Este conteúdo não está esperando aprovação (status: ${item.status}).`);
+    const { error: upd } = await supabase.from("imphq_content_items")
+      .update(decision === "approve" ? { status: "aprovado", approved_at: now, updated_at: now } : { status: "reprovado", updated_at: now })
+      .eq("id", itemId);
+    if (upd) throw upd;
+    return { key, titulo: item.title, resultado: decision === "approve" ? "Conteúdo aprovado" : "Conteúdo reprovado" };
+  }
+
+  // acao_ia, só reprovar
+  const { data: action, error } = await supabase.from("imphq_ai_actions").select("title, status").eq("id", itemId).single();
+  if (error || !action) throw new Error(`Ação '${itemId}' não encontrada`);
+  if (action.status !== "proposed") throw new Error(`Esta ação não está proposta (status: ${action.status}).`);
+  const { error: upd } = await supabase.from("imphq_ai_actions").update({ status: "rejected" }).eq("id", itemId);
+  if (upd) throw upd;
+  return { key, titulo: action.title, resultado: "Ação da IA reprovada" };
+}
+
+/** Início do dia em Brasília (UTC-3), em ISO. */
+function brtDayStart(daysAgo = 0): string {
+  const brt = new Date(Date.now() - 3 * 3600000);
+  const day = brt.toISOString().slice(0, 10);
+  return new Date(Date.parse(`${day}T03:00:00.000Z`) - daysAgo * 86400000).toISOString();
+}
+
+function byCurrency(rows: ReadonlyArray<{ valor: number | null; data: unknown }>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    const d = r.data && typeof r.data === "object" ? (r.data as { moeda?: unknown }).moeda : null;
+    const cur = typeof d === "string" && d.trim() ? d.trim().toUpperCase() : "BRL";
+    out[cur] = Math.round(((out[cur] ?? 0) + Number(r.valor || 0)) * 100) / 100;
+  }
+  return out;
+}
+
+async function loadBriefing(supabase: Supabase, projectId: string) {
+  const { data: project } = await supabase.from("imphq_projects").select("id, name").eq("id", projectId).single();
+  if (!project) throw new Error(`Projeto '${projectId}' não encontrado`);
+  const dayStart = brtDayStart();
+  const monthStart = `${dayStart.slice(0, 7)}-01T03:00:00.000Z`;
+  const twoHoursAgo = new Date(Date.now() - 2 * 3600000).toISOString();
+
+  const [nodesRes, archivedRes, salesRes, leadsRes, monthRes, hotRes, team, approvals] = await Promise.all([
+    supabase.from("imphq_company_map_nodes")
+      .select("id, map_id, label, kind, description, notes, checklist, position, executor_type, linked_skill_id, linked_project_id, stage_role, step_status, owner_member_id, due_date"),
+    supabase.from("imphq_company_maps").select("id").not("archived_at", "is", null),
+    supabase.from("imphq_vendas").select("project_id, valor, data").eq("project_id", projectId).eq("status", "aprovado").gte("data_venda", dayStart),
+    supabase.from("imphq_leads").select("project_id").eq("project_id", projectId).gte("created_at", dayStart),
+    supabase.from("imphq_vendas").select("valor, data").eq("project_id", projectId).eq("status", "aprovado").gte("data_venda", monthStart),
+    supabase.from("imphq_vendas").select("id", { count: "exact", head: true }).eq("project_id", projectId).neq("status", "aprovado").gte("data->>last_intent_at", twoHoursAgo),
+    loadTeam(supabase),
+    loadApprovals(supabase, projectId),
+  ]);
+  for (const res of [nodesRes, archivedRes, salesRes, leadsRes, monthRes]) if (res.error) throw res.error;
+  const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
+  const [board] = buildTodayBoard({
+    projects: [project],
+    nodes: ((nodesRes.data ?? []) as BoardNode[]).filter((n) => !archived.has(n.map_id)),
+    salesToday: (salesRes.data ?? []) as BoardSale[],
+    leadsToday: leadsRes.data ?? [],
+    today: dayStart.slice(0, 10),
+  });
+  return buildProjectBriefing({
+    project, board: board ?? null, approvals, team,
+    numbers: { revenueMonth: byCurrency(monthRes.data ?? []), hotLeads: hotRes.count ?? 0 },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -1607,6 +1769,26 @@ Deno.serve(async (req) => {
                 }],
               },
             });
+          }
+
+          if (name === "get_approvals") {
+            const items = await loadApprovals(supabase, args?.project_id || null);
+            const limit = Math.max(1, Math.min(Number(args?.limit) || 30, 200));
+            const result = { total: items.length, por_origem: approvalCounts(items), itens: items.slice(0, limit).map((i) => approvalLine(i)) };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "decide_approval") {
+            const { key, decision, motivo } = args || {};
+            if (!key || (decision !== "approve" && decision !== "reject")) throw new Error("key e decision ('approve' ou 'reject') são obrigatórios");
+            const result = await decideApproval(supabase, String(key), decision, motivo ? String(motivo) : undefined);
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ success: true, ...result }, null, 2) }] } });
+          }
+
+          if (name === "get_briefing") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const result = await loadBriefing(supabase, String(args.project_id));
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 
           throw new Error(`Ferramenta desconhecida: ${name}`);
