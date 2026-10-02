@@ -36,7 +36,7 @@ npx supabase functions deploy <function-name> --project-ref tkbivipqiewkfnhktmqq
 - **Sócios:** Vinicius Sugamele (Tech/Copy) e Bruno - Macete Mental (Negócio/Operações).
 - **Grupo de Comando WhatsApp:** `Imperio X` (JID: `120363409438175766@g.us`).
 - **Projetos Principais:**
-  - `jp_freitas`: Infoprodutos do expert JP Freitas (*Código dos Cortes Perfeitos* R$ 47, *Finalização Express* R$ 27, *JP Hair Education* R$ 797, *Master Cuts*).
+  - `jp_freitas`: Infoprodutos do expert JP Freitas (*Código dos Cortes Perfeitos* R$ 47, *Finalização Express* R$ 37, *JP Hair Education* R$ 797, *Master Cuts*).
   - `linfaflow`: DTC Saúde (*LinfaFlow X1*, *Care Room*).
   - `slimsoda`: DTC E-commerce (Whop).
 
