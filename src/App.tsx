@@ -34,6 +34,7 @@ const Mentes = lazyWithRetry(() => import("./pages/Mentes"));
 const Funis = lazyWithRetry(() => import("./pages/Funis"));
 const MapaEmpresa = lazyWithRetry(() => import("./pages/MapaEmpresa"));
 const Hoje = lazyWithRetry(() => import("./pages/Hoje"));
+const Estrategias = lazyWithRetry(() => import("./pages/Estrategias"));
 const CinnaShieldX1 = lazyWithRetry(() => import("@/pages/CinnaShieldNative"));
 const OpenFlow = lazyWithRetry(() => import("./pages/OpenFlow"));
 const AgentesIA = lazyWithRetry(() => import("./pages/AgentesIA"));
@@ -148,6 +149,7 @@ const App = () => (
                 {/* Smart landing — Dashboard Operacional */}
                 <Route index element={<Navigate to="/hoje" replace />} />
                 <Route path="hoje" element={<Hoje />} />
+                <Route path="estrategias" element={<Estrategias />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="mapa" element={<MapaEmpresa />} />
                 <Route path="dashboard-classic" element={<DashboardClassic />} />

@@ -25821,6 +25821,157 @@ export type Database = {
           },
         ]
       }
+      imphq_playbook_applications: {
+        Row: {
+          aplicado_por: string | null
+          created_at: string
+          id: string
+          map_id: string
+          node_ids: string[]
+          params: Json
+          playbook_id: string
+          project_id: string
+          status: string
+        }
+        Insert: {
+          aplicado_por?: string | null
+          created_at?: string
+          id?: string
+          map_id: string
+          node_ids?: string[]
+          params?: Json
+          playbook_id: string
+          project_id: string
+          status?: string
+        }
+        Update: {
+          aplicado_por?: string | null
+          created_at?: string
+          id?: string
+          map_id?: string
+          node_ids?: string[]
+          params?: Json
+          playbook_id?: string
+          project_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_playbook_applications_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_playbook_steps: {
+        Row: {
+          checklist: string[]
+          contrato: Json
+          depende_de: number[]
+          executor_type: string
+          id: string
+          kind: string
+          label: string
+          metrica: Json | null
+          ordem: number
+          playbook_id: string
+          secao: string
+          skill: string | null
+        }
+        Insert: {
+          checklist?: string[]
+          contrato?: Json
+          depende_de?: number[]
+          executor_type?: string
+          id?: string
+          kind: string
+          label: string
+          metrica?: Json | null
+          ordem: number
+          playbook_id: string
+          secao: string
+          skill?: string | null
+        }
+        Update: {
+          checklist?: string[]
+          contrato?: Json
+          depende_de?: number[]
+          executor_type?: string
+          id?: string
+          kind?: string
+          label?: string
+          metrica?: Json | null
+          ordem?: number
+          playbook_id?: string
+          secao?: string
+          skill?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_playbook_steps_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_playbooks: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          familia: string
+          fonte: string | null
+          horizonte: string | null
+          id: string
+          kpis: Json
+          nome: string
+          north_star: string | null
+          quando_evitar: string | null
+          quando_usar: string | null
+          resumo: string
+          riscos: string[]
+          updated_at: string
+          versao: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          familia: string
+          fonte?: string | null
+          horizonte?: string | null
+          id: string
+          kpis?: Json
+          nome: string
+          north_star?: string | null
+          quando_evitar?: string | null
+          quando_usar?: string | null
+          resumo: string
+          riscos?: string[]
+          updated_at?: string
+          versao?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          familia?: string
+          fonte?: string | null
+          horizonte?: string | null
+          id?: string
+          kpis?: Json
+          nome?: string
+          north_star?: string | null
+          quando_evitar?: string | null
+          quando_usar?: string | null
+          resumo?: string
+          riscos?: string[]
+          updated_at?: string
+          versao?: number
+        }
+        Relationships: []
+      }
       imphq_processes: {
         Row: {
           category: string

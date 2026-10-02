@@ -7,6 +7,8 @@ import { buildProjectMap, readStageContract, readAgentStatus } from "../_shared/
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
 import { CAPABILITY_TASKS, capabilitiesForSkill, pickCapabilities, pickStepCapabilities, type Capability } from "../_shared/capabilities.ts";
 import { orderSteps } from "../_shared/map-order.ts";
+import { FAMILY_LABEL, planPlaybook } from "../_shared/playbooks.ts";
+import { findProjectMap, playbookFromRows, writePlaybookPlan, type PlaybookRow, type PlaybookStepRow } from "../_shared/playbook-apply.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -699,6 +701,34 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "list_playbooks",
+    description: "Biblioteca de estratégias de marketing (X1, anúncio direto, webinar, lançamento pago e gratuito, canal orgânico, SEO): quando usar, quando evitar, métrica principal, KPIs com meta e riscos. Com 'id', devolve as etapas com contrato, executor, skill e métrica. Consulte antes de propor uma estratégia para um projeto.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Slug do playbook para ver as etapas (opcional)" },
+        familia: { type: "string", enum: Object.keys(FAMILY_LABEL), description: "Só esta família (opcional)" },
+      },
+    },
+  },
+  {
+    name: "apply_playbook",
+    description: "Desenha um playbook no mapa de operação do projeto: uma seção por fase, etapas com contrato, executor, skill, métrica e checklist, e setas na ordem. Etapas equivalentes que já existem no mapa são ligadas, não duplicadas. Sem confirmar=true só mostra o plano; com confirmar=true faz backup do mapa e grava.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID do projeto" },
+        playbook_id: { type: "string", description: "Slug do playbook (ver list_playbooks)" },
+        map_id: { type: "string", description: "Mapa de destino (opcional; padrão: o mapa de operação do projeto)" },
+        produto: { type: "string", description: "Nome do produto nas etapas (opcional; padrão: o nome do projeto)" },
+        plataforma: { type: "string", description: "Plataforma do canal (ex.: Instagram, TikTok) — para o canal orgânico" },
+        conta: { type: "string", description: "@ da conta — para o canal orgânico" },
+        confirmar: { type: "boolean", description: "true grava no mapa; padrão false = só o plano" },
+      },
+      required: ["project_id", "playbook_id"],
+    },
+  },
+  {
     name: "complete_step",
     description: "Atualiza o status de execução de uma etapa do funil no mapa, anexa o entregável gerado (ex: URL do vídeo gerado no Higgsfield, link do Google Drive, doc da copy) e marca tarefas da checklist.",
     inputSchema: {
@@ -975,6 +1005,101 @@ Deno.serve(async (req) => {
               ferramentas: caps.map((c) => ({ id: c.id, nome: c.nome, url: c.url, categoria: c.categoria, quando_usar: c.quando_usar, serve_para: c.serve_para, skills: c.skills || [], prioridade: c.prioridade, licenca: c.licenca_nota })),
             };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] } });
+          }
+
+          if (name === "list_playbooks") {
+            const { id: playbookId, familia } = args || {};
+            if (playbookId) {
+              const [pbRes, stRes, apRes] = await Promise.all([
+                supabase.from("imphq_playbooks").select("*").eq("id", playbookId).maybeSingle(),
+                supabase.from("imphq_playbook_steps").select("*").eq("playbook_id", playbookId).order("ordem"),
+                supabase.from("imphq_playbook_applications").select("project_id, map_id, status, created_at").eq("playbook_id", playbookId),
+              ]);
+              for (const res of [pbRes, stRes, apRes]) if (res.error) throw res.error;
+              if (!pbRes.data) throw new Error(`Playbook '${playbookId}' não encontrado`);
+              const pb = playbookFromRows(pbRes.data as PlaybookRow, (stRes.data || []) as PlaybookStepRow[]);
+              return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ ...pb, aplicacoes: apRes.data || [] }, null, 2) }] } });
+            }
+            let q = supabase.from("imphq_playbooks").select("id, nome, familia, resumo, quando_usar, quando_evitar, horizonte, north_star, kpis, riscos, imphq_playbook_steps(count)").eq("ativo", true).order("familia");
+            if (familia) q = q.eq("familia", familia);
+            const [{ data: pbs, error: pbErr }, { data: apps, error: apErr }] = await Promise.all([
+              q,
+              supabase.from("imphq_playbook_applications").select("playbook_id, project_id, status"),
+            ]);
+            if (pbErr) throw pbErr;
+            if (apErr) throw apErr;
+            const payload = (pbs || []).map(({ imphq_playbook_steps: steps, ...p }) => ({
+              ...p,
+              familia_nome: FAMILY_LABEL[p.familia as keyof typeof FAMILY_LABEL] ?? p.familia,
+              etapas: Array.isArray(steps) ? Number(steps[0]?.count ?? 0) : 0,
+              aplicado_em: (apps || []).filter((a) => a.playbook_id === p.id).map((a) => ({ project_id: a.project_id, status: a.status })),
+            }));
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] } });
+          }
+
+          if (name === "apply_playbook") {
+            const { project_id, playbook_id, map_id, produto, plataforma, conta, confirmar = false } = args || {};
+            if (!project_id || !playbook_id) throw new Error("project_id e playbook_id são obrigatórios");
+            const [projRes, pbRes, stRes, mapsRes] = await Promise.all([
+              supabase.from("imphq_projects").select("id, name, data").eq("id", project_id).maybeSingle(),
+              supabase.from("imphq_playbooks").select("*").eq("id", playbook_id).maybeSingle(),
+              supabase.from("imphq_playbook_steps").select("*").eq("playbook_id", playbook_id).order("ordem"),
+              supabase.from("imphq_company_maps").select("id, name, archived_at"),
+            ]);
+            for (const res of [projRes, pbRes, stRes, mapsRes]) if (res.error) throw res.error;
+            if (!projRes.data) throw new Error(`Projeto '${project_id}' não encontrado`);
+            if (!pbRes.data) throw new Error(`Playbook '${playbook_id}' não encontrado`);
+            const proj = projRes.data;
+            const map = map_id ? (mapsRes.data || []).find((m) => m.id === map_id) ?? null : findProjectMap(mapsRes.data || [], proj.name);
+            if (!map) throw new Error(`Nenhum mapa de operação encontrado para '${proj.name}'. Informe map_id.`);
+
+            const params: Record<string, string> = Object.fromEntries(
+              Object.entries({ projeto: proj.name, produto: produto || proj.name, plataforma, conta }).filter((e): e is [string, string] => typeof e[1] === "string" && e[1].trim() !== ""),
+            );
+
+            const [nodesRes, framesRes, edgesRes] = await Promise.all([
+              supabase.from("imphq_company_map_nodes").select("id, label, kind, position, height").eq("map_id", map.id),
+              supabase.from("imphq_company_map_annotations").select("y, height").eq("map_id", map.id).eq("kind", "frame"),
+              supabase.from("imphq_company_map_edges").select("source_id, target_id").eq("map_id", map.id),
+            ]);
+            for (const res of [nodesRes, framesRes, edgesRes]) if (res.error) throw res.error;
+            const playbook = playbookFromRows(pbRes.data as PlaybookRow, (stRes.data || []) as PlaybookStepRow[]);
+            const existingNodes = (nodesRes.data || []).map((n) => ({ id: n.id, label: n.label, kind: n.kind, position: parseJson(n.position), height: n.height }));
+            const plan = planPlaybook(playbook, { nodes: existingNodes, frames: framesRes.data || [] }, params);
+            const labelOf = new Map(existingNodes.map((n) => [n.id, n.label]));
+
+            if (!confirmar) {
+              const preview = {
+                modo: "plano (nada foi gravado)",
+                playbook: { id: playbook.id, nome: playbook.nome, north_star: playbook.north_star, kpis: playbook.kpis, riscos: playbook.riscos },
+                mapa: { id: map.id, nome: map.name },
+                parametros: params,
+                secoes: plan.frames.map((f) => f.text),
+                etapas: plan.nodes.map((n) => ({ ordem: n.stepOrdem, secao: n.stage_role, etapa: n.label, tipo: n.kind, executor: n.executor_type, skill: n.linked_skill_id, metrica: n.metrics_target, reaproveita: n.existingId ? labelOf.get(n.existingId) ?? n.existingId : null })),
+                novas: plan.created,
+                reaproveitadas: plan.reused,
+                proximo_passo: "Para gravar no mapa, chame apply_playbook de novo com confirmar=true.",
+              };
+              return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(preview, null, 2) }] } });
+            }
+
+            const { error: snapErr } = await supabase.rpc("imphq_snapshot_company_map", { p_map_id: map.id, p_reason: `Antes de aplicar o playbook ${playbook.id} (MCP)` });
+            if (snapErr) throw snapErr;
+            const result = await writePlaybookPlan(plan, {
+              playbook, mapId: map.id, projectId: proj.id, params, appliedBy: "mcp",
+              existingEdges: new Set((edgesRes.data || []).map((e) => `${e.source_id}>${e.target_id}`)),
+              newId: () => crypto.randomUUID(),
+            }, {
+              insertFrame: async (row) => { const { error } = await supabase.from("imphq_company_map_annotations").insert(row); if (error) throw error; },
+              insertNode: async (row) => {
+                const { data, error } = await supabase.from("imphq_company_map_nodes").insert(row).select("id").single();
+                if (error) throw error;
+                return data.id as string;
+              },
+              insertEdge: async (row) => { const { error } = await supabase.from("imphq_company_map_edges").insert(row); if (error) throw error; },
+              insertApplication: async (row) => { const { error } = await supabase.from("imphq_playbook_applications").insert(row); if (error) throw error; },
+            });
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ success: true, mapa: { id: map.id, nome: map.name }, ...result, backup: "snapshot do mapa salvo antes da gravação" }, null, 2) }] } });
           }
 
           if (name === "get_project_map") {
