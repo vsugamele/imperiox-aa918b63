@@ -55624,6 +55624,10 @@ export type Database = {
       }
     }
     Functions: {
+      imphq_funnel_sessions: {
+        Args: { p_project_id: string; p_since: string }
+        Returns: number
+      }
       imphq_snapshot_company_map: {
         Args: { p_map_id: string; p_reason: string }
         Returns: string

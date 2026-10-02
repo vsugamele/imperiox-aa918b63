@@ -10,6 +10,13 @@ async function countRows(query: PromiseLike<{ count: number | null; error: unkno
   return count ?? 0;
 }
 
+/** Sessões reais do funil (heartbeat não conta), pela função imphq_funnel_sessions. */
+async function funnelSessions(projectId: string, since: string): Promise<number> {
+  const { data, error } = await supabase.rpc("imphq_funnel_sessions", { p_project_id: projectId, p_since: since });
+  if (error) throw error;
+  return data ?? 0;
+}
+
 async function loadCompanyMap(): Promise<ProjectMap[]> {
   const since30d = new Date(Date.now() - 30 * DAY).toISOString();
   const since7d = new Date(Date.now() - 7 * DAY).toISOString();
@@ -28,12 +35,12 @@ async function loadCompanyMap(): Promise<ProjectMap[]> {
 
   const projects = projectsRes.data ?? [];
   const activityCounts = await Promise.all(projects.map(async (p) => {
-    const [incoming, outgoing, events] = await Promise.all([
+    const [incoming, outgoing, sessions] = await Promise.all([
       countRows(supabase.from("imphq_wa_messages").select("id, imphq_wa_conversations!inner(jid_suffix)", { count: "exact", head: true }).eq("project_id", p.id).eq("direction", "incoming").gte("created_at", since30d).or("jid_suffix.is.null,jid_suffix.neq.g.us", { referencedTable: "imphq_wa_conversations" })),
       countRows(supabase.from("imphq_wa_messages").select("id, imphq_wa_conversations!inner(jid_suffix)", { count: "exact", head: true }).eq("project_id", p.id).eq("direction", "outgoing").gte("created_at", since30d).or("jid_suffix.is.null,jid_suffix.neq.g.us", { referencedTable: "imphq_wa_conversations" })),
-      countRows(supabase.from("imphq_funnel_events").select("id", { count: "exact", head: true }).eq("project_id", p.id).gte("created_at", since7d)),
+      funnelSessions(p.id, since7d),
     ]);
-    return { incoming, outgoing, events };
+    return { incoming, outgoing, sessions };
   }));
 
   return projects.map((project, index): ProjectMap => {
@@ -51,7 +58,7 @@ async function loadCompanyMap(): Promise<ProjectMap[]> {
         approvedSales30dByProduct: sales,
         waIncoming30d: activityCounts[index].incoming,
         waOutgoing30d: activityCounts[index].outgoing,
-        funnelEvents7d: activityCounts[index].events,
+        funnelSessions7d: activityCounts[index].sessions,
         activeWaProviders: (providersRes.data ?? []).filter((p) => p.project_id === project.id && p.is_active).length,
         aiEnabled: aiConfigs.length ? aiConfigs.some((c) => c.enabled) : null,
         aiDraftMode: aiConfigs.length ? aiConfigs.every((c) => c.draft_mode) : null,

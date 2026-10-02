@@ -11,7 +11,7 @@ describe("native project detail", () => {
     const map = (id: string, name: string) => buildProjectMap({
       project: { id, name: `Projeto ${name}`, data: { produtos: [{ nome: name, preco: "47,00" }] }, avatar: {} },
       competitors: [], mapNodes: [],
-      activity: { approvedSales30dByProduct: {}, waIncoming30d: 0, waOutgoing30d: 0, funnelEvents7d: 0, activeWaProviders: 0, aiEnabled: null, aiDraftMode: null },
+      activity: { approvedSales30dByProduct: {}, waIncoming30d: 0, waOutgoing30d: 0, funnelSessions7d: 0, activeWaProviders: 0, aiEnabled: null, aiDraftMode: null },
     });
     const a = map("a", "Oferta A");
     const before = structuredClone(a);

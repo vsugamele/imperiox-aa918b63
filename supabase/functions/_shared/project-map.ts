@@ -82,9 +82,9 @@ const AREA_READING: Record<MapArea, { criterion: string; source: string; period:
     verify: "Revisar ofertas e páginas reais, registrar a fonte e as diferenças úteis para a próxima hipótese criativa.",
   },
   funil: {
-    criterion: "Um ou mais eventos nos últimos 7 dias já marcam Rodando. Sem eventos, etapas e proporção de links definem o status estrutural.",
-    source: "Etapas vinculadas ao projeto e eventos de funil",
-    period: "Etapas cadastradas; eventos nos últimos 7 dias",
+    criterion: "10 ou mais sessões reais (heartbeat não conta) nos últimos 7 dias marcam Rodando. Abaixo disso, etapas e proporção de links definem o status estrutural.",
+    source: "Etapas vinculadas ao projeto e sessões do funil",
+    period: "Etapas cadastradas; sessões nos últimos 7 dias",
     verify: "Conferir aquisição → página → checkout → pagamento → obrigado/acesso. Medir sessões e vendas únicas; eventos brutos não comprovam a jornada.",
   },
   ativos: {
@@ -117,7 +117,8 @@ export interface ProjectMapInput {
     /** Mensagens em conversas individuais (grupos de WhatsApp não contam). */
     waIncoming30d: number;
     waOutgoing30d: number;
-    funnelEvents7d: number;
+    /** Sessões distintas com evento real de funil em 7 dias (heartbeat não conta). */
+    funnelSessions7d: number;
     activeWaProviders: number;
     /** null quando o projeto não tem configuração de IA. */
     aiEnabled: boolean | null;
@@ -438,26 +439,31 @@ function concorrentesSection(competitors: ProjectMapInput["competitors"], gaps: 
 
 // ── funil ───────────────────────────────────────────────────────────────
 
+/** Sessões reais em 7 dias a partir das quais o funil conta como Rodando (decisão do Vinicius, 02/10/2026). */
+export const FUNNEL_RUNNING_MIN_SESSIONS = 10;
+
 function funilSection(input: ProjectMapInput, gaps: MapGap[]): MapSection {
   const nodes = input.mapNodes;
   const withUrl = nodes.filter((n) => /^https?:\/\//i.test(text(n.url))).length;
-  const events = input.activity.funnelEvents7d;
+  const sessions = input.activity.funnelSessions7d;
+  const running = sessions >= FUNNEL_RUNNING_MIN_SESSIONS;
   const evidence: string[] = [];
   if (nodes.length) evidence.push(`${nodes.length} etapa(s) no mapa, ${withUrl} com link`);
-  if (events) evidence.push(`${events} evento(s) de funil em 7 dias`);
+  if (sessions) evidence.push(`${sessions} sessão(ões) real(is) no funil em 7 dias`);
 
   let status: MapStatus;
-  if (events > 0) status = "rodando";
+  if (running) status = "rodando";
   else if (nodes.length === 0) status = "falta";
   else if (withUrl * 2 >= nodes.length) status = "construido";
   else status = "desenhado";
 
   if (nodes.length === 0) {
-    gaps.push({ area: "funil", severity: events > 0 ? "importante" : "critica", message: events > 0 ? "O funil recebe tráfego, mas não está desenhado no mapa." : "Funil não desenhado.", action: "Desenhar as etapas do funil no mapa do projeto." });
+    gaps.push({ area: "funil", severity: running ? "importante" : "critica", message: running ? "O funil recebe tráfego, mas não está desenhado no mapa." : "Funil não desenhado.", action: "Desenhar as etapas do funil no mapa do projeto." });
   } else if (withUrl * 2 < nodes.length) {
     gaps.push({ area: "funil", severity: "importante", message: `Só ${withUrl} de ${nodes.length} etapas do funil têm link.`, action: "Vincular os links reais a cada etapa do funil." });
   }
-  if (events === 0 && nodes.length > 0) gaps.push({ area: "funil", severity: "sugestao", message: "Nenhum evento de funil registrado nos últimos 7 dias.", action: "Conferir se o rastreamento do funil está instalado." });
+  if (sessions === 0 && nodes.length > 0) gaps.push({ area: "funil", severity: "sugestao", message: "Nenhuma sessão real de funil nos últimos 7 dias.", action: "Conferir se o rastreamento do funil está instalado." });
+  else if (!running && sessions > 0) gaps.push({ area: "funil", severity: "sugestao", message: `Só ${sessions} sessão(ões) real(is) no funil em 7 dias (Rodando a partir de ${FUNNEL_RUNNING_MIN_SESSIONS}).`, action: "Conferir se o tráfego está ligado e chegando às páginas." });
 
   const items: MapItem[] = [{ key: "funil", label: "Funil", status, evidence }];
   if (nodes.length > 0) {

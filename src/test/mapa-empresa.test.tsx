@@ -9,7 +9,7 @@ const activity: ProjectMapInput["activity"] = {
   approvedSales30dByProduct: { Curso: 3 },
   waIncoming30d: 10,
   waOutgoing30d: 8,
-  funnelEvents7d: 0,
+  funnelSessions7d: 0,
   activeWaProviders: 1,
   aiEnabled: true,
   aiDraftMode: false,
@@ -31,7 +31,7 @@ const maps = [
     },
     competitors: [],
     mapNodes: [],
-    activity: { ...activity, funnelEvents7d: 5 },
+    activity: { ...activity, funnelSessions7d: 12 },
   }),
 ];
 

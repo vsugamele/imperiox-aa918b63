@@ -18,7 +18,7 @@ Pedido: ter no Império o desenho de cada projeto por operação (orgânico, ads
 - [ ] Conta de anúncio da SlimSoda sincronizada com o Império (`imphq_ads_spend` vazio).
 - [ ] Vendas da H&W chegando ao Império com origem (postback/webhook) — hoje `imphq_vendas` vazio.
 - [ ] Contas Ray e Hank conectadas ao Zernio no Império e gatilhos BELLY/MORNING.
-- [ ] Eventos de funil reais: os 3.246 eventos de 30 dias são quase todos `heartbeat` de uma sessão; limiar de "rodando" do mapa precisa considerar sessões, não eventos.
+- [x] Eventos de funil reais (02/10): o mapa (tela e project-mcp) conta sessões distintas com evento que não seja `heartbeat`, pela função `imphq_funnel_sessions` (migração `20261002_imphq_funnel_sessions.sql`, aplicada). Rodando a partir de 10 sessões reais em 7 dias (decisão do Vinicius). Em 02/10: SlimSoda 3, Cardio Clear 16, JP 0.
 
 ## File List
 - supabase/functions/project-mcp/index.ts

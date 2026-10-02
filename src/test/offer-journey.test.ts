@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildOfferJourneys, buildProjectMap, readStageContract, type ProjectMapInput } from "@shared/project-map";
 
-const activity: ProjectMapInput["activity"] = { approvedSales30dByProduct: {}, waIncoming30d: 0, waOutgoing30d: 0, funnelEvents7d: 0, activeWaProviders: 0, aiEnabled: null, aiDraftMode: null };
+const activity: ProjectMapInput["activity"] = { approvedSales30dByProduct: {}, waIncoming30d: 0, waOutgoing30d: 0, funnelSessions7d: 0, activeWaProviders: 0, aiEnabled: null, aiDraftMode: null };
 const step = (reading: ReturnType<typeof buildOfferJourneys>, offer: number, key: string) => reading.offers[offer].steps.find(value => value.key === key)!;
 
 describe("per-offer journey, same source for UI and MCP", () => {

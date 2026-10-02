@@ -50,7 +50,7 @@ describe("project map funnel phases", () => {
         { kind: "vsl", label: "VSL", url: "https://vsl.app" },
         { kind: "checkout", label: "Checkout" },
       ],
-      activity: { approvedSales30dByProduct: {}, waIncoming30d: 0, waOutgoing30d: 0, funnelEvents7d: 0, activeWaProviders: 0, aiEnabled: null, aiDraftMode: null },
+      activity: { approvedSales30dByProduct: {}, waIncoming30d: 0, waOutgoing30d: 0, funnelSessions7d: 0, activeWaProviders: 0, aiEnabled: null, aiDraftMode: null },
     });
     const funil = map.sections.find((s) => s.area === "funil")!;
     const phase = (key: string) => funil.items.find((i) => i.key === `funil:${key}`);

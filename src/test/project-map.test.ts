@@ -5,7 +5,7 @@ const noActivity: ProjectMapInput["activity"] = {
   approvedSales30dByProduct: {},
   waIncoming30d: 0,
   waOutgoing30d: 0,
-  funnelEvents7d: 0,
+  funnelSessions7d: 0,
   activeWaProviders: 0,
   aiEnabled: null,
   aiDraftMode: null,
@@ -25,7 +25,7 @@ const section = (map: ReturnType<typeof buildProjectMap>, area: string) => map.s
 
 describe("buildProjectMap", () => {
   it("preserves event-driven status and gives UI/MCP an explicit interpretation without certifying success", () => {
-    const map = buildProjectMap(input({}, { activity: { ...noActivity, funnelEvents7d: 1 } }));
+    const map = buildProjectMap(input({}, { activity: { ...noActivity, funnelSessions7d: 10 } }));
     const reading = readProjectArea(map, "funil");
     expect(reading.section?.status).toBe("rodando");
     expect(map.interpretation).toEqual(PROJECT_MAP_INTERPRETATION);
@@ -108,10 +108,19 @@ describe("buildProjectMap", () => {
     expect(section(full, "avatar").status).toBe("construido");
   });
 
-  it("marks the funnel as running from tracked events even when not drawn", () => {
-    const map = buildProjectMap(input({}, { activity: { ...noActivity, funnelEvents7d: 30 } }));
+  it("marks the funnel as running from real sessions even when not drawn", () => {
+    const map = buildProjectMap(input({}, { activity: { ...noActivity, funnelSessions7d: 30 } }));
     expect(section(map, "funil").status).toBe("rodando");
     expect(map.gaps.find((g) => g.area === "funil")?.message).toContain("não está desenhado");
+  });
+
+  it("needs 10 real sessions in 7 days to call the funnel running", () => {
+    const nodes = [{ label: "Página", url: "https://a.com", kind: "pagina_vendas" }, { label: "Checkout", url: "https://b.com", kind: "checkout" }];
+    const few = buildProjectMap(input({}, { mapNodes: nodes, activity: { ...noActivity, funnelSessions7d: 9 } }));
+    expect(section(few, "funil").status).toBe("construido");
+    expect(few.gaps.find((g) => g.area === "funil" && g.message.includes("9 sessão"))?.message).toContain("Rodando a partir de 10");
+    const enough = buildProjectMap(input({}, { mapNodes: nodes, activity: { ...noActivity, funnelSessions7d: 10 } }));
+    expect(section(enough, "funil").status).toBe("rodando");
   });
 
   it("flags data hygiene problems seen in real projects", () => {
