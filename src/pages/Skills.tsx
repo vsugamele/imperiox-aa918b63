@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { SKILLS_DATA, SkillData } from "@/data/skillsData";
 import ReactMarkdown from "react-markdown";
 import { downloadSkillZip, downloadAllSkillsZip } from "@/lib/claudeSkillExport";
+import { CapabilitiesCatalog } from "@/components/skills/CapabilitiesCatalog";
 
 type Status = "Ativo" | "Beta" | "Planejado";
 type Categoria = "Código" | "IA" | "Dados" | "Criativo" | "Automação" | "Pesquisa" | "Infra" | "Outro" | "Pesquisa & Avatar" | "Copy & Persuasão" | "Inteligência Competitiva" | "Estratégia & Posicionamento" | "Vendas High-Ticket" | "Tráfego & Escala";
@@ -538,12 +539,14 @@ export default function Skills() {
           <TabsList className="bg-secondary">
             <TabsTrigger value="marketing">🎯 Skills Marketing</TabsTrigger>
             <TabsTrigger value="tecnicas">⚙️ Skills Técnicas</TabsTrigger>
+            <TabsTrigger value="ferramentas">🧰 Ferramentas</TabsTrigger>
           </TabsList>
-          <span className="text-xs font-mono text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
+          {activeTab !== "ferramentas" && <span className="text-xs font-mono text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">
             {filtered.length} {activeTab === "marketing" ? "metodologias" : "ferramentas"}
-          </span>
+          </span>}
         </div>
 
+        {activeTab !== "ferramentas" && <>
         {/* Banner informativo */}
         <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/15 mt-4">
           <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
@@ -573,12 +576,16 @@ export default function Skills() {
             </SelectContent>
           </Select>
         </div>
+        </>}
 
         <TabsContent value="marketing" className="mt-0">
           <SkillGrid grouped={grouped} onDetail={setShowDetail} onEdit={openEdit} onDelete={deleteSkill} />
         </TabsContent>
         <TabsContent value="tecnicas" className="mt-0">
           <SkillGrid grouped={grouped} onDetail={setShowDetail} onEdit={openEdit} onDelete={deleteSkill} />
+        </TabsContent>
+        <TabsContent value="ferramentas" className="mt-0">
+          <CapabilitiesCatalog />
         </TabsContent>
       </Tabs>
 

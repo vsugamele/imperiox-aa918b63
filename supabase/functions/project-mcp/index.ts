@@ -5,7 +5,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { buildProjectMap, readStageContract, readAgentStatus } from "../_shared/project-map.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
-import { CAPABILITY_TASKS, pickCapabilities, tasksForKind, type Capability } from "../_shared/capabilities.ts";
+import { CAPABILITY_TASKS, capabilitiesForSkill, pickCapabilities, pickStepCapabilities, type Capability } from "../_shared/capabilities.ts";
 import { orderSteps } from "../_shared/map-order.ts";
 
 const corsHeaders = {
@@ -34,9 +34,9 @@ async function loadCapabilities(supabase: Supabase): Promise<Capability[]> {
   return (data || []) as Capability[];
 }
 
-/** Ferramentas sugeridas para uma etapa, pelo tipo dela no mapa. */
-function toolsForStep(caps: Capability[], kind: string | null) {
-  return pickCapabilities(caps, tasksForKind(kind), 4).map((c) => ({ id: c.id, nome: c.nome, url: c.url, quando_usar: c.quando_usar }));
+/** Ferramentas sugeridas para uma etapa: as ligadas à skill dela primeiro, depois as do tipo no mapa. */
+function toolsForStep(caps: Capability[], kind: string | null, skill: string | null) {
+  return pickStepCapabilities(caps, kind, skill, 4).map((c) => ({ id: c.id, nome: c.nome, url: c.url, quando_usar: c.quando_usar }));
 }
 
 function parseJson(val: unknown) {
@@ -694,6 +694,7 @@ const MCP_TOOLS = [
         tarefa: { type: "string", enum: CAPABILITY_TASKS.map((t) => t.key), description: "Tarefa a executar (opcional)" },
         busca: { type: "string", description: "Texto livre em nome, categoria ou quando usar (opcional)" },
         prioridade: { type: "string", enum: ["alta", "media", "baixa"], description: "Só esta prioridade (opcional)" },
+        skill: { type: "string", description: "Slug da skill: só as ferramentas ligadas a ela (opcional)" },
       },
     },
   },
@@ -959,8 +960,9 @@ Deno.serve(async (req) => {
 
           // TOOL: get_project_map
           if (name === "get_capabilities") {
-            const { tarefa, busca, prioridade } = args || {};
+            const { tarefa, busca, prioridade, skill } = args || {};
             let caps = await loadCapabilities(supabase);
+            if (skill) caps = capabilitiesForSkill(caps, String(skill));
             if (tarefa) caps = pickCapabilities(caps, [tarefa], caps.length);
             if (prioridade) caps = caps.filter((c) => c.prioridade === prioridade);
             if (busca) {
@@ -970,7 +972,7 @@ Deno.serve(async (req) => {
             const payload = {
               tarefas: CAPABILITY_TASKS,
               total: caps.length,
-              ferramentas: caps.map((c) => ({ id: c.id, nome: c.nome, url: c.url, categoria: c.categoria, quando_usar: c.quando_usar, serve_para: c.serve_para, prioridade: c.prioridade, licenca: c.licenca_nota })),
+              ferramentas: caps.map((c) => ({ id: c.id, nome: c.nome, url: c.url, categoria: c.categoria, quando_usar: c.quando_usar, serve_para: c.serve_para, skills: c.skills || [], prioridade: c.prioridade, licenca: c.licenca_nota })),
             };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] } });
           }
@@ -1313,7 +1315,7 @@ Deno.serve(async (req) => {
                 contract: readStageContract(n),
                 // Print da página da etapa (scripts/map-prints.mjs): mostra como ela está hoje.
                 print: printMeta ? { desktop: printMeta.desktop ?? null, mobile: printMeta.mobile ?? null, captured_at: printMeta.captured_at ?? null } : null,
-                ferramentas: toolsForStep(caps, n.kind),
+                ferramentas: toolsForStep(caps, n.kind, nSkill),
               };
             }).sort((a, b) => (a.step_number ?? 9999) - (b.step_number ?? 9999));
 
@@ -1536,7 +1538,7 @@ Deno.serve(async (req) => {
           checklist: n.checklist || [],
           output_url,
           contract: readStageContract(n),
-          ferramentas: toolsForStep(caps, n.kind),
+          ferramentas: toolsForStep(caps, n.kind, nSkill),
         };
       });
 
@@ -1693,7 +1695,7 @@ Deno.serve(async (req) => {
         checklist: n.checklist || [],
         output_url,
         contract: readStageContract(n),
-        ferramentas: toolsForStep(caps, n.kind),
+        ferramentas: toolsForStep(caps, n.kind, nSkill),
       };
     });
 

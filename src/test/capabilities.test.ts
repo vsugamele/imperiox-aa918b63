@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { pickCapabilities, tasksForKind, type Capability } from "@shared/capabilities";
+import { capabilitiesForSkill, pickCapabilities, pickStepCapabilities, tasksForKind, type Capability } from "@shared/capabilities";
 import { MAP_ELEMENTS } from "@shared/map-elements";
 
-const cap = (id: string, serve_para: string[], prioridade: Capability["prioridade"], ativo = true): Capability => ({
-  id, nome: id, url: null, categoria: "x", descricao: null, quando_usar: null, serve_para, prioridade, licenca_nota: null, ativo,
+const cap = (id: string, serve_para: string[], prioridade: Capability["prioridade"], ativo = true, skills: string[] = []): Capability => ({
+  id, nome: id, url: null, categoria: "x", descricao: null, quando_usar: null, serve_para, prioridade, licenca_nota: null, skills, ativo,
 });
 
 describe("capabilities", () => {
@@ -30,5 +30,22 @@ describe("capabilities", () => {
     expect(pickCapabilities(caps, ["criativo_imagem"]).map((c) => c.id)).toEqual(["satori", "sharp", "p5"]);
     expect(pickCapabilities(caps, ["criativo_imagem"], 1).map((c) => c.id)).toEqual(["satori"]);
     expect(pickCapabilities(caps, [])).toEqual([]);
+  });
+
+  it("lists the active tools linked to a skill, high priority first", () => {
+    const caps = [cap("ffmpeg", ["audio"], "baixa", true, ["vsl-filemon"]), cap("remotion", ["criativo_video"], "alta", true, ["vsl-filemon"]),
+      cap("old", ["criativo_video"], "alta", false, ["vsl-filemon"]), cap("satori", ["criativo_imagem"], "alta", true, ["angulos-criativos"])];
+    expect(capabilitiesForSkill(caps, "vsl-filemon").map((c) => c.id)).toEqual(["remotion", "ffmpeg"]);
+    expect(capabilitiesForSkill(caps, "none")).toEqual([]);
+    expect(capabilitiesForSkill(caps, null)).toEqual([]);
+  });
+
+  it("suggests the skill's tools before the ones for the step kind, without repeats", () => {
+    const caps = [cap("satori", ["criativo_imagem"], "alta"), cap("sharp", ["criativo_imagem"], "alta", true, ["angulos-criativos"]),
+      cap("tonejs", ["audio"], "baixa", true, ["angulos-criativos"]), cap("p5", ["criativo_imagem"], "baixa")];
+    expect(pickStepCapabilities(caps, "imagem", "angulos-criativos").map((c) => c.id)).toEqual(["sharp", "tonejs", "satori", "p5"]);
+    expect(pickStepCapabilities(caps, "imagem", "angulos-criativos", 2).map((c) => c.id)).toEqual(["sharp", "tonejs"]);
+    expect(pickStepCapabilities(caps, "imagem", "none").map((c) => c.id)).toEqual(["satori", "sharp", "p5"]);
+    expect(pickStepCapabilities(caps, "whatsapp", null)).toEqual([]);
   });
 });

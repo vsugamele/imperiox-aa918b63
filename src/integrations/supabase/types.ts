@@ -19904,6 +19904,57 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_capabilities: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          created_at: string
+          descricao: string | null
+          fonte: string
+          id: string
+          licenca_nota: string | null
+          nome: string
+          prioridade: string
+          quando_usar: string | null
+          serve_para: string[]
+          skills: string[]
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          categoria: string
+          created_at?: string
+          descricao?: string | null
+          fonte?: string
+          id: string
+          licenca_nota?: string | null
+          nome: string
+          prioridade?: string
+          quando_usar?: string | null
+          serve_para?: string[]
+          skills?: string[]
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          descricao?: string | null
+          fonte?: string
+          id?: string
+          licenca_nota?: string | null
+          nome?: string
+          prioridade?: string
+          quando_usar?: string | null
+          serve_para?: string[]
+          skills?: string[]
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       imphq_capture_forms: {
         Row: {
           created_at: string | null

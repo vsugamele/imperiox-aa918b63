@@ -31,6 +31,8 @@ export interface Capability {
   serve_para: string[];
   prioridade: CapabilityPriority;
   licenca_nota: string | null;
+  /** Slugs de imphq_skills que usam esta ferramenta. */
+  skills: string[];
   ativo: boolean;
 }
 
@@ -72,4 +74,23 @@ export function pickCapabilities(caps: ReadonlyArray<Capability>, tasks: Readonl
     .filter((c) => c.ativo && c.serve_para.some((t) => wanted.has(t)))
     .sort((a, b) => PRIORITY_RANK[a.prioridade] - PRIORITY_RANK[b.prioridade] || a.nome.localeCompare(b.nome))
     .slice(0, limit);
+}
+
+/** Ferramentas ativas que a skill usa (campo skills), da prioridade alta para a baixa. */
+export function capabilitiesForSkill(caps: ReadonlyArray<Capability>, skill: string | null | undefined): Capability[] {
+  const s = (skill || "").trim();
+  if (!s || s === "none") return [];
+  return caps
+    .filter((c) => c.ativo && (c.skills || []).includes(s))
+    .sort((a, b) => PRIORITY_RANK[a.prioridade] - PRIORITY_RANK[b.prioridade] || a.nome.localeCompare(b.nome));
+}
+
+/** Sugestões para uma etapa: primeiro as ligadas à skill dela, depois as do tipo da etapa, sem repetir. */
+export function pickStepCapabilities(
+  caps: ReadonlyArray<Capability>, kind: string | null | undefined, skill: string | null | undefined, limit = 4,
+): Capability[] {
+  const linked = capabilitiesForSkill(caps, skill);
+  const seen = new Set(linked.map((c) => c.id));
+  const byKind = pickCapabilities(caps, tasksForKind(kind), caps.length).filter((c) => !seen.has(c.id));
+  return [...linked, ...byKind].slice(0, limit);
 }
