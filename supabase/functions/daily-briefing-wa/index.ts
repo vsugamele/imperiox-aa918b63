@@ -1,6 +1,9 @@
 // Envia o briefing diário via WhatsApp por projeto para usuários com wa_briefing_enabled = true
 // e cuja hora preferida bate com a hora atual (BRT), ou on-demand via target_jid.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { buildTodayBoard, type BoardNode } from "../_shared/today-board.ts";
+import { buildTeamDaySection } from "../_shared/team-day.ts";
+import { localDate, type TeamMember } from "../_shared/map-steps.ts";
 
 interface RecoveryData {
   phone?: string | null;
@@ -46,6 +49,36 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const APP_URL = Deno.env.get("IMPERIO_APP_URL") || "https://imperiox.vercel.app";
+
+/**
+ * Seção "Dia de cada um" (UX1.2): etapas dos mapas por responsável, mesma regra da tela Hoje.
+ * Falha aqui não derruba o briefing: a seção só fica de fora.
+ */
+async function buildTeamDay(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+  try {
+    const [projRes, nodesRes, archivedRes, teamRes] = await Promise.all([
+      supabase.from("imphq_projects").select("id, name").or("is_archived.eq.false,is_archived.is.null"),
+      supabase.from("imphq_company_map_nodes")
+        .select("id, map_id, label, kind, description, notes, checklist, position, executor_type, linked_skill_id, linked_project_id, stage_role, step_status, owner_member_id, due_date"),
+      supabase.from("imphq_company_maps").select("id").not("archived_at", "is", null),
+      supabase.from("imphq_team_members").select("id, name, email, user_id").or("is_active.eq.true,is_active.is.null").order("created_at"),
+    ]);
+    for (const res of [projRes, nodesRes, archivedRes, teamRes]) if (res.error) throw res.error;
+    const archived = new Set((archivedRes.data || []).map((m) => String(m.id)));
+    // Dia de Brasília (o envio das 21h BRT já cai no dia seguinte em UTC).
+    const today = localDate(new Date(Date.now() - 3 * 3600000));
+    const boards = buildTodayBoard({
+      projects: (projRes.data || []) as Array<{ id: string; name: string }>,
+      nodes: ((nodesRes.data || []) as BoardNode[]).filter((n) => !archived.has(n.map_id)),
+      salesToday: [], leadsToday: [], today,
+    });
+    return buildTeamDaySection(boards, (teamRes.data || []) as TeamMember[], APP_URL);
+  } catch (e) {
+    console.error("[daily-briefing-wa] team day section:", e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
 
 function brtHour() {
   const d = new Date();
@@ -366,6 +399,13 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     recoveryMessage = rLines.join("\n");
   }
 
+  const teamDay = await buildTeamDay(supabase);
+  if (teamDay.length) {
+    lines.push("");
+    lines.push("━━━━━━━━━━━━━━━━━━━━");
+    lines.push(...teamDay);
+  }
+
   return { briefingText: lines.join("\n"), recoveryMessage };
 }
 
@@ -377,6 +417,8 @@ Deno.serve(async (req) => {
     const force = url.searchParams.get("force") === "true" || body?.force === true;
     const onlyUser = url.searchParams.get("user_id") || body?.user_id;
     const targetJid = url.searchParams.get("target_jid") || body?.target_jid;
+    // Prévia: monta a mensagem e não envia nada.
+    const dryRun = url.searchParams.get("dry_run") === "true" || body?.dry_run === true;
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
     const hour = brtHour();
 
@@ -411,7 +453,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    for (const pref of targets) {
+    for (const pref of dryRun ? [] : targets) {
       try {
         const phone = normalizePhone(pref.wa_briefing_phone || "");
         if (!phone) {
@@ -447,7 +489,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, hour, count: results.length, results, message_preview: briefingText, recovery_preview: recoveryMessage }), {
+    return new Response(JSON.stringify({ ok: true, dry_run: dryRun, hour, count: results.length, results, message_preview: briefingText, recovery_preview: recoveryMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
