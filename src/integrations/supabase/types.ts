@@ -21156,6 +21156,75 @@ export type Database = {
           },
         ]
       }
+      imphq_content_items: {
+        Row: {
+          angle: string | null
+          approved_at: string | null
+          batch: string | null
+          caption: string | null
+          cover_url: string | null
+          created_at: string
+          cta: string | null
+          drive_url: string | null
+          format: string
+          hook: string | null
+          id: string
+          media_url: string | null
+          metadata: Json
+          project_id: string
+          script: string | null
+          skill: string | null
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          angle?: string | null
+          approved_at?: string | null
+          batch?: string | null
+          caption?: string | null
+          cover_url?: string | null
+          created_at?: string
+          cta?: string | null
+          drive_url?: string | null
+          format?: string
+          hook?: string | null
+          id?: string
+          media_url?: string | null
+          metadata?: Json
+          project_id: string
+          script?: string | null
+          skill?: string | null
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          angle?: string | null
+          approved_at?: string | null
+          batch?: string | null
+          caption?: string | null
+          cover_url?: string | null
+          created_at?: string
+          cta?: string | null
+          drive_url?: string | null
+          format?: string
+          hook?: string | null
+          id?: string
+          media_url?: string | null
+          metadata?: Json
+          project_id?: string
+          script?: string | null
+          skill?: string | null
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       imphq_content_library: {
         Row: {
           content_category: string | null

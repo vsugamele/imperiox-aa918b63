@@ -5,7 +5,7 @@ import {
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
   Inbox, Pencil, Workflow, Globe, Coins,
-  Layers, Map as MapIcon, CalendarCheck, Lightbulb,
+  Layers, Map as MapIcon, CalendarCheck, Lightbulb, CheckCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/auth-context";
@@ -18,6 +18,7 @@ import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 // Reorganizado em 5 hubs para reduzir ruído e criar caminhos claros.
 const hojeitems = [
   { title: "Hoje",             url: "/hoje",       icon: CalendarCheck },
+  { title: "Aprovar",          url: "/aprovar",    icon: CheckCheck,      badge: "aprovar" as const },
   { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
   { title: "Mapa da Empresa",  url: "/mapa",       icon: MapIcon },
   { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
@@ -75,7 +76,7 @@ type NavItem = {
   title: string;
   url: string;
   icon: React.ElementType;
-  badge?: "imperius" | "inbox" | "leads" | "rag";
+  badge?: "imperius" | "inbox" | "leads" | "rag" | "aprovar";
 };
 
 // â”€â”€ Badge pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -203,6 +204,7 @@ export function AppSidebar() {
     inbox: badgeData?.inbox ?? 0,
     leads: badgeData?.leads ?? 0,
     rag: badgeData?.rag ?? 0,
+    aprovar: badgeData?.aprovar ?? 0,
   };
 
   // All items pool for favourites lookup

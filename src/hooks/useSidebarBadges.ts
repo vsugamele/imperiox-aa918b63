@@ -6,17 +6,18 @@ export interface SidebarBadges {
   inbox: number;      // unread WA + IG messages
   leads: number;      // hot leads (score > 80, last 2h)
   rag: number;        // knowledge gaps unanswered (AI couldn't answer leads)
+  aprovar: number;    // fila única /aprovar (etapas para revisar, ações da IA, conteúdo pronto, respostas pendentes)
 }
 
 async function fetchBadges(): Promise<SidebarBadges> {
   const twoHoursAgo = new Date(Date.now() - 2 * 3600_000).toISOString();
 
-  const [{ count: imperiusCount }, { count: waUnreadCount }, { count: igUnreadCount }, { count: leadsCount }, { count: ragCount }] =
+  const [{ count: imperiusCount }, { count: waUnreadCount }, { count: igUnreadCount }, { count: leadsCount }, { count: ragCount }, { count: reviewCount }, { count: contentCount }, { count: draftCount }] =
     await Promise.all([
       supabase
         .from("imphq_ai_actions")
         .select("id", { count: "exact", head: true })
-        .eq("status", "pending"),
+        .eq("status", "proposed"),
       supabase
         .from("imphq_wa_conversations")
         .select("id", { count: "exact", head: true })
@@ -35,6 +36,9 @@ async function fetchBadges(): Promise<SidebarBadges> {
         .select("id", { count: "exact", head: true })
         .eq("answered", false)
         .eq("aprovada", false),
+      supabase.from("imphq_company_map_nodes").select("id", { count: "exact", head: true }).eq("step_status", "ready_review"),
+      supabase.from("imphq_content_items").select("id", { count: "exact", head: true }).eq("status", "pronto"),
+      supabase.from("imphq_wa_ai_drafts").select("id", { count: "exact", head: true }).eq("status", "pending"),
     ]);
 
   return {
@@ -42,6 +46,8 @@ async function fetchBadges(): Promise<SidebarBadges> {
     inbox: (waUnreadCount ?? 0) + (igUnreadCount ?? 0),
     leads: leadsCount ?? 0,
     rag: ragCount ?? 0,
+    // Mesma soma da fila /aprovar (etapas de mapas arquivados entram aqui; diferença desprezível).
+    aprovar: (imperiusCount ?? 0) + (reviewCount ?? 0) + (contentCount ?? 0) + (draftCount ?? 0),
   };
 }
 

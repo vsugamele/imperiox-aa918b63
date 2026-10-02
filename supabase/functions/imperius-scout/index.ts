@@ -711,8 +711,10 @@ Deno.serve(async (req) => {
           .select("id")
           .eq("projeto_id", prop.projeto_id || "")
           .eq("kind", prop.kind)
-          .in("status", ["proposed", "approved"])
-          .limit(50);
+          // Expirada nos últimos 30 dias (sem resposta em 7 dias, UX1.3) também conta: não insiste no mesmo item.
+          .or(`status.in.(proposed,approved),and(status.eq.expired,expired_at.gte.${new Date(Date.now() - 30 * 86_400_000).toISOString()})`)
+          .order("created_at", { ascending: false })
+          .limit(200);
 
         const dupKey = prop.payload?.entity_id || prop.payload?.lead_id || prop.payload?.venda_id || prop.payload?.trigger_tipo;
         let isDup = false;
