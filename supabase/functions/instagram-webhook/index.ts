@@ -1,7 +1,7 @@
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { acquireIgReply, validIgLease, releaseIgReply } from "../_shared/ig-reply-lease.ts";
 import { jpPrepareAccessReply, jpBuildInstructionsBlock, jpLookupLead, jpBuildContextBlock } from "../_shared/crmBridgeJP.ts";
-import { productContext, jpConversationRules, guardJPReply, dedupeHistory, permanentJPRules } from "../_shared/conversation-policy.ts";
+import { productContext, jpConversationRules, guardJPReply, dedupeHistory, recentJPHistory, jpWelcomeMessage, permanentJPRules } from "../_shared/conversation-policy.ts";
 // Instagram webhook receiver — Meta envia POST com mensagens, comentários, menções
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -9,7 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 interface Trigger { id: string; trigger_keyword: string | null; match_count: number | null; dm_sent_count: number | null; send_dm_template: string | null; reply_comment_template: string | null }
-interface Triage { intent: string | null; sentiment: string | null; fit_score: number | null; desejo_schwartz: string | null; ai_response: string | null }
+interface Triage { intent: string | null; sentiment: string | null; fit_score: number | null; desejo_schwartz?: string | null; ai_response: string | null; raw_message?: string | null }
 interface KnowledgeMatch { pergunta: string; resposta: string }
 interface ChatMessage { role: string; content: string }
 
@@ -590,12 +590,12 @@ Deno.serve(async (req) => {
                   try {
                     const { data: tr } = await supa
                       .from("imphq_wa_triage")
-                      .select("intent, sentiment, fit_score, desejo_schwartz, ai_response")
+                      .select("intent, sentiment, fit_score, ai_response,raw_message")
                       .eq("conversation_id", conv.id)
                       .order("created_at", { ascending: false })
                       .limit(1)
                       .maybeSingle();
-                    lastIgTriage = tr;
+                    lastIgTriage = account.project_id === "jp_freitas" && tr?.raw_message !== content ? null : tr;
                   } catch (_) { /* Triage enrichment is optional. */ }
                   supa.functions.invoke("wa-ai-triage", {
                     body: { message: content, conversation_id: conv.id, projeto_id: account.project_id },
@@ -685,7 +685,7 @@ Você está respondendo via Instagram Direct (DM) para a empresa "${project?.nam
 ${projectContext ? `\nCONTEXTO DO PROJETO:\n${projectContext}` : ""}
 ${productFocus ? `\nOFERTA ATIVA (mencione quando fizer sentido):\n${productFocus.slice(0, 400)}\n` : ""}
 ${customInstr ? `\nREGRAS DO EXPERT (obrigatórias, nunca quebre):\n${customInstr}\n` : ""}
-${aiConfig.welcome_message ? `\nMensagem de boas-vindas padrão: ${aiConfig.welcome_message}` : ""}${igTriageBlock}
+${aiConfig.welcome_message ? `\nSaudação opcional, somente ao iniciar uma conversa: ${jpWelcomeMessage(account.project_id, aiConfig.welcome_message)}` : ""}${igTriageBlock}
 REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
 - Responda em português brasileiro de forma natural, curta, direta e simpática. DMs do Instagram devem ser dinâmicas e fluidas!
 - HUMANIZAÇÃO ADAPTATIVA: Analise o estilo de escrita do lead. Se ele usar emoji, gírias, texto informal ou linguagem casual, espelhe esse tom naturalmente. Se for formal e objetivo, seja igualmente direto e profissional. Adapte-se sempre ao estilo percebido — isso cria rapport imediato.
@@ -702,12 +702,15 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                   // Fetch recent messages for history context — expanded to 20 messages for richer memory
                   const { data: dbHistory } = await supa
                     .from("imphq_ig_messages")
-                    .select("id,mid,direction,content,created_at")
+                    .select("id,mid,direction,content,created_at,metadata")
                     .eq("conversation_id", conv.id)
                     .order("created_at", { ascending: false })
                     .limit(40);
 
-                  const historyMsgs = dedupeHistory(dbHistory || []).slice(0, 20);
+                  const historyMsgs = recentJPHistory(dedupeHistory(dbHistory || []), account.project_id).slice(0, 20);
+                  const currentSnapshot = historyMsgs.find(m => m.direction === "in");
+                  // Story pixels/title are not included in the text-only model request.
+                  const storyContextUnavailable = !!(messaging.message?.reply_to || currentSnapshot?.metadata?.story_reply);
                   if (lease) {
                     const snapshot = historyMsgs.find(m => m.direction === "in");
                     handledId = snapshot?.id || handledId;
@@ -798,7 +801,7 @@ REGRAS GERAIS DE CONVERSAÇÃO NO INSTAGRAM:
                         }
                       }
                       const context = [...historyMsgs].reverse().map(m => m.content || "").join("\n") + "\n" + content;
-                      aiReply = guardJPReply(aiReply, typeof project?.data === "string" ? JSON.parse(project.data) : project?.data, account.project_id, context).replace(/\[(TRANSICAO_HUMANA|CHAMAR_HUMANO)\]/gi, "").trim();
+                      aiReply = guardJPReply(aiReply, typeof project?.data === "string" ? JSON.parse(project.data) : project?.data, account.project_id, context, storyContextUnavailable).replace(/\[(TRANSICAO_HUMANA|CHAMAR_HUMANO)\]/gi, "").trim();
                     }
 
                     if (aiReply.trim()) {

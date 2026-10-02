@@ -58,10 +58,13 @@ export function jpConversationRules(projectId: string, now = new Date()): string
   if (projectId !== "jp_freitas") return "";
   return `\nREGRAS MANDATÓRIAS JP — prevalecem sobre persona, exemplos, histórico, RAG e copy antiga:
 Data atual em São Paulo: ${now.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Datas anteriores são passadas; não corrigir datas inventando ano/vagas.
-Você é o assistente da equipe JP Freitas. Não se passe pelo JP. Se perguntarem, informe que é atendimento automático da equipe.
+Use o tom de voz cadastrado do JP Freitas: conversa curta, direta, próxima e natural; evite linguagem de central de atendimento, excesso de emojis e encerramentos genéricos.
+Não se apresente espontaneamente como assistente, equipe, robô ou IA. Responda direto ao assunto, sem assinatura ou introdução de cargo. Primeira pessoa pode ser usada para ações realmente executadas; não declare ser o JP nem invente vivências. Em pergunta direta sobre identidade/automação, responda com transparência.
 Não invente viagem, doença, saúde, presença, experiências pessoais, resultados, escassez, garantias ou condições comerciais do expert.
-Conversas sociais/reação a stories: agradeça brevemente pela equipe, sem oferta automática ou relato pessoal.
-Master Cuts/imersão presencial não tem turma aberta: nunca oferecer inscrição, link, preço, datas ou vagas.
+Conversas sociais/reação a stories: responda naturalmente e com brevidade, sem apresentação, oferta automática ou relato pessoal.
+Responda primeiro à mensagem atual. Histórico antigo, RAG e sugestões de triagem não são pedidos atuais nem prova de fatos; não retome cidade, evento ou cobrança antiga se a pessoa mudou de assunto. Falta de contexto exige uma pergunta curta, não uma suposição.
+Em pergunta sobre livro de um story, só informe título/autor se o conteúdo do story estiver de fato disponível e identificado. Caso contrário, peça um print do story ou da capa. Não troque esse assunto por oferta, imersão ou cidade antiga.
+Master Cuts não tem turma aberta: nunca oferecer inscrição, link, preço, datas ou vagas. Não assuma que toda imersão no salão é Master Cuts. Cobrança de experiência já combinada precisa de verificação do combinado, sem negar o compromisso com base no catálogo de novas ofertas.
 Código dos Cortes Perfeitos é produto separado; não herda prática presencial, dois dias ou condições de Master Cuts.
 Agenda https://jpfreitas.com.br/agenda é EXCLUSIVA para atendimento no salão. Compra de curso usa destino do produto no catálogo.
 Sem produto identificado ou destino cadastrado: peça esclarecimento, nunca adivinhe checkout.
@@ -75,6 +78,17 @@ export function dedupeHistory<T extends ConversationMessage>(messages: T[]): T[]
   return messages.filter((m, i, all) => !all.slice(0, i).some(prev => prev.direction === m.direction && prev.content === m.content &&
     !!m.created_at && !!prev.created_at && Math.abs(Date.parse(m.created_at) - Date.parse(prev.created_at)) < 10_000 &&
     ((family(m.mid) && family(prev.mid) && family(m.mid) !== family(prev.mid)) || (!!m.id && m.id === prev.id))));
+}
+/** Keep older records stored, but do not merge months of separate DMs into one turn. */
+export function recentJPHistory<T extends ConversationMessage>(messages: T[], projectId: string): T[] {
+  if (projectId !== "jp_freitas") return messages;
+  const dated = messages.map(m => ({ m, time: Date.parse(m.created_at || "") })).filter(row => Number.isFinite(row.time));
+  if (!dated.length) return [];
+  const latest = Math.max(...dated.map(row => row.time));
+  return dated.filter(row => latest - row.time <= 24 * 60 * 60 * 1000).map(row => row.m);
+}
+export function jpWelcomeMessage(projectId: string, configured: string | null | undefined): string {
+  return projectId === "jp_freitas" ? "Opa! Tudo certo? Me fala." : configured || "";
 }
 export async function permanentJPRules(client: DatabasePort, projectId: string, conversationId: string): Promise<string> {
   if (projectId !== "jp_freitas") return "";
@@ -98,15 +112,23 @@ export function compactReply(reply: string): string {
   const paragraphs = reply.trim().split(/\n\s*\n/);
   return paragraphs.filter((p, i) => i === 0 || p.trim() !== paragraphs[i - 1].trim()).join("\n\n");
 }
-export function guardJPReply(reply: string, data: unknown, projectId: string, context: string): string {
+export function guardJPReply(reply: string, data: unknown, projectId: string, context: string, storyContextUnavailable = false): string {
   let out = compactReply(reply);
   if (projectId !== "jp_freitas") return out;
   const lc = normalize(context);
+  const latest = normalize(context.split("\n").at(-1) || context);
+  if (storyContextUnavailable && /^\s*qual (?:e (?:o|esse) |o )?(?:livro|nome (?:do|desse) livro)\s*[?!.\s]*$/.test(latest))
+    return "Me manda um print do story ou da capa pra eu confirmar qual livro é.";
+  const identityQuestion = (/\b(ia|robo|bot|assistente|automatic[oa])\b/.test(latest) && /\?|voce|vc|quem|isso|atendimento/.test(latest)) ||
+    /\b(voce e|vc e|e voce|eh voce|quem (e|esta|ta)|estou falando com|to falando com)\b.*\b(jp|respondendo|falando)\b/.test(latest);
+  if (!identityQuestion) {
+    out = out.replace(/(?:aqui (?:e|é)|sou)\s+(?:o |a |um |uma )?assistente(?:\s+(?:virtual|automatic[oa]|automátic[oa]))?(?:\s+(?:da equipe|do|da)\s+(?:do\s+)?JP(?:\s+Freitas)?)?[.!,:]?\s*/gi, "").trim();
+    if (!out) out = "Opa! Me fala, como posso te ajudar?";
+  }
   if (/master\s*cuts/i.test(out) && (!/(nao (tem|ha|esta)|sem turma|indisponivel|turmas.*fechadas)/.test(normalize(out)) || /https?:\/\/\S*mastercuts/i.test(out)))
     return "O Master Cuts está sem turmas abertas no momento. Não há inscrição disponível.";
-  const latest = normalize(context.split("\n").at(-1) || context);
   if (/\b(melhoras|boa recuperacao|boa viagem|como foi (a |sua )?viagem)\b/.test(latest) && !/curso|corte|aula|formacao|compr|acess/.test(latest))
-    return "Obrigado pelo carinho! Sou o assistente da equipe do JP.";
+    return "Obrigado pelo carinho!";
   const products = conversationProducts(data, projectId).filter(p => p.available);
   // The most recent explicit product in the conversational context wins.
   const matches = products.map(p => ({ p, pos: Math.max(lc.lastIndexOf(normalize(p.name)),

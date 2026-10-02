@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePrice, productContext, cheaperProduct, guardDownsell, guardJPReply, verifiedMagicLink, jpAccessStatus, dedupeHistory } from "@shared/conversation-policy";
+import { parsePrice, productContext, cheaperProduct, guardDownsell, guardJPReply, verifiedMagicLink, jpAccessStatus, dedupeHistory, recentJPHistory, jpWelcomeMessage, jpConversationRules } from "@shared/conversation-policy";
 
 // Prices and destinations reproduced from the audited live catalogue; no lead PII.
 const data = { produtos: [
@@ -35,7 +35,7 @@ describe("JP conversation safety", () => {
   });
   it("blocks a closed event offer and invented social experience", () => {
     expect(guardJPReply("Master Cuts tem 15 vagas em março de 2026!",data,"jp_freitas","Quero presencial")).toContain("sem turmas");
-    expect(guardJPReply("A viagem foi ótima!",data,"jp_freitas","Como foi a viagem?")).toContain("assistente da equipe");
+    expect(guardJPReply("A viagem foi ótima!",data,"jp_freitas","Como foi a viagem?")).toBe("Obrigado pelo carinho!");
   });
   it("accepts only successful token links for the member domain", () => {
     expect(verifiedMagicLink({ok:true,magic_link:"https://jphaireducation.com.br"})).toBeNull();
@@ -50,5 +50,52 @@ describe("JP conversation safety", () => {
   it("deduplicates provider pairs while preserving repeated lead messages", () => {
     const msgs=[{direction:"in",content:"Sim",mid:"f".repeat(24),created_at:"2026-09-30T12:00:00Z"},{direction:"in",content:"Sim",mid:"m_".repeat(40),created_at:"2026-09-30T12:00:01Z"},{direction:"in",content:"Sim",mid:"m2".repeat(40),created_at:"2026-09-30T12:01:00Z"}];
     expect(dedupeHistory(msgs)).toHaveLength(2);
+  });
+  it("replays the reported book question without resurrecting July's Rio or immersion", () => {
+    const history = [
+      { direction:"in", content:"Qual livro?", created_at:"2026-10-01T20:53:50Z" },
+      { direction:"in", content:"Estou esperando meu dia de imersão no salão sai ou não hein?!!já fazem 4 meses", created_at:"2026-07-15T23:23:35Z" },
+      { direction:"in", content:"Opa que dia no Rio?", created_at:"2026-07-03T02:28:18Z" },
+    ];
+    const recent = recentJPHistory(dedupeHistory(history),"jp_freitas");
+    expect(recent.map(m=>m.content)).toEqual(["Qual livro?"]);
+    const original = "Opa! Aqui é o assistente do JP Freitas. Sobre o dia no Rio, não tenho como confirmar informações de imersão, pois o Master Cuts não está disponível no momento.";
+    expect(guardJPReply(original,data,"jp_freitas",recent.map(m=>m.content).join("\n"),true))
+      .toBe("Me manda um print do story ou da capa pra eu confirmar qual livro é.");
+  });
+  it("keeps course context in the current day and does not change other projects",()=>{
+    const history = [
+      {direction:"in",content:"Sim quero",created_at:"2026-10-01T20:00:00Z"},
+      {direction:"out",content:"JP Hair Education",created_at:"2026-10-01T19:59:00Z"},
+      {direction:"in",content:"Rio",created_at:"2026-07-03T02:28:18Z"},
+    ];
+    expect(recentJPHistory(history,"jp_freitas")).toHaveLength(2);
+    expect(recentJPHistory(history,"another_project")).toBe(history);
+    expect(recentJPHistory([],"jp_freitas")).toEqual([]);
+    expect(recentJPHistory([{direction:"in",content:"undated"}],"jp_freitas")).toEqual([]);
+  });
+  it("removes the unrequested assistant introduction while preserving the answer",()=>{
+    expect(guardJPReply("Opa! 👋 Aqui é o assistente do JP Freitas. O curso custa R$ 47.",data,"jp_freitas","Qual valor?"))
+      .toBe("Opa! 👋 O curso custa R$ 47.");
+    expect(jpWelcomeMessage("jp_freitas","Aqui é o assistente do JP Freitas")).not.toContain("assistente");
+    expect(jpWelcomeMessage("other","Olá, equipe de suporte")).toBe("Olá, equipe de suporte");
+  });
+  it.each(["Você é uma IA ou o JP?","É robô?","Quem está respondendo, o JP?"])("keeps an honest answer to a direct identity question: %s",question=>{
+    const answer="Sou o assistente automático da equipe do JP.";
+    expect(guardJPReply(answer,data,"jp_freitas",question)).toBe(answer);
+  });
+  it("asks for missing story context instead of inventing a book title",()=>{
+    expect(guardJPReply("É o livro X.",data,"jp_freitas","Qual é o livro?",true)).toContain("print do story");
+    expect(guardJPReply("O livro que você citou é X.",data,"jp_freitas","Estou lendo o livro X",false)).toContain("livro que você citou");
+  });
+  it("does not mistake a book recommendation request for a missing story title",()=>{
+    const reply="Que tipo de leitura você procura?";
+    expect(guardJPReply(reply,data,"jp_freitas","Qual livro você recomenda?",true)).toBe(reply);
+  });
+  it("distinguishes an existing immersion commitment from new Master Cuts enrollment",()=>{
+    const rules=jpConversationRules("jp_freitas",new Date("2026-10-01T20:00:00Z"));
+    expect(rules).toContain("Não assuma que toda imersão no salão é Master Cuts");
+    expect(rules).toContain("Não se apresente espontaneamente");
+    expect(rules).toContain("verificação do combinado");
   });
 });

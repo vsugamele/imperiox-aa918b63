@@ -1,5 +1,5 @@
 import { acquireIgReply, validIgLease, releaseIgReply } from "../_shared/ig-reply-lease.ts";
-import { productContext, jpConversationRules, guardJPReply, dedupeHistory, permanentJPRules } from "../_shared/conversation-policy.ts";
+import { productContext, jpConversationRules, guardJPReply, dedupeHistory, recentJPHistory, permanentJPRules } from "../_shared/conversation-policy.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
@@ -195,7 +195,7 @@ REGRAS DO FOLLOW-UP:
 - Não empurre a venda de forma agressiva; apenas tente puxar assunto sobre a última mensagem enviada no histórico abaixo.`;
 
         // Ordenar histórico cronologicamente (do mais antigo para o mais recente)
-        const historyMsgs = dedupeHistory(dbHistory).reverse();
+        const historyMsgs = recentJPHistory(dedupeHistory(dbHistory), projectId).reverse();
 
         const messages: { role: string; content: string }[] = [{ role: "system", content: systemPrompt + await permanentJPRules(supa, projectId, conv.id) + jpConversationRules(projectId) }];
         historyMsgs.forEach((m) => {
