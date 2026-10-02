@@ -1,6 +1,6 @@
 # Story JP1.3 — Tom do JP e contexto recente no Direct
 
-Status: Em implementação. Autorização: correção do usuário em 01/10/2026 sobre apresentação como assistente e referência indevida ao Rio.
+Status: Concluída e publicada em 01/10/2026. Autorização: correção do usuário sobre apresentação como assistente e referência indevida ao Rio.
 Responsáveis: @dev correção, @qa validação, @devops publicação.
 
 ## Causas verificadas
@@ -16,7 +16,7 @@ A saída do print foi encontrada com `ai_generated=true`. A mensagem atual era �
 - [x] Resposta a story sem título/imagem compreendida pede contexto em vez de inventar livro, evento ou cidade.
 - [x] Não tratar toda cobrança de imersão já combinada como nova oferta de Master Cuts.
 - [x] Regressão do caso real, lint, typecheck, testes e Deno check.
-- [ ] Commit com story ID, deploy sem sobrescrever mudanças de voz, conferência do código publicado e handoff.
+- [x] Commit com story ID, deploy sem sobrescrever mudanças de voz, conferência do código publicado e handoff.
 
 ## File List
 
@@ -30,3 +30,5 @@ A saída do print foi encontrada com `ai_generated=true`. A mensagem atual era �
 Sem envio de teste ao contato e sem apagar histórico. Mudanças recentes da story de voz JP1.2 serão preservadas.
 
 Validação: 528 testes passaram em 78 arquivos; lint sem erros e com dois avisos anteriores de UI; typecheck e Deno check das quatro funções afetadas passaram. O teste reproduz as mensagens reais sem dados pessoais. Triagem só enriquece a pergunta atual; consulta ajustada aos campos que existem no schema verificado.
+
+Commit de implementação: d96ec129. Publicação confirmada: instagram-webhook v316, instagram-followup-scheduler v279, wa-ai-reply v317, wa-pitch-followup v148; todas ACTIVE, arquivos e dependências iguais aos locais. Handoff: docs/sessions/2026-10/2026-10-01-jp-persona-contexto.md. Histórico preservado; nenhuma resposta foi enviada ao contato como teste.
