@@ -29,6 +29,7 @@ const PRETTY: Record<string, string> = {
   "04-skills-arsenal.md": "04 · Skills Arsenal",
   "05-roteiros-virais-reels.md": "05 · Roteiros Virais Reels",
   "06-prompt-base-copy.md": "06 · Prompt Base (Copy)",
+  "07-esteira-escala.md": "07 · Esteira de Escala DTC",
   "README.md": "README — Instalação",
 };
 

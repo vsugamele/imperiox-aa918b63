@@ -14,6 +14,7 @@ Pasta pronta pra colar no **Claude Projects** (ou Claude.ai com Projects) e tran
    - `03-avatar-4-camadas.md`
    - `04-skills-arsenal.md`
    - `05-roteiros-virais-reels.md`
+   - `07-esteira-escala.md`
 5. Comece a pedir copy: *"Gera VSL pra meu produto X, avatar Y"*, *"3 ângulos de anúncio pra Z"*, etc.
 
 ## O que cada arquivo faz
@@ -26,6 +27,7 @@ Pasta pronta pra colar no **Claude Projects** (ou Claude.ai com Projects) e tran
 | **03 — Avatar 4 Camadas** | C1 Sintomas → C4 Ferida Central, com perguntas-guia |
 | **04 — Skills Arsenal** | Índice dos 15+ módulos especializados (Devastador, Anams, Filemon...) |
 | **05 — Roteiros Virais** | 60+ estruturas de Reels (Dica, Esquema, React, Antes/Depois, Provocação) |
+| **07 — Esteira de Escala DTC** | P1 teste de concepts → P2 rodada de texto → P3 escala → P4 cemitério, com regra de veredito, zonas de CPA e placar de hipóteses |
 | **06 — Prompt Base** | System prompt pronto pro campo Instructions |
 
 ## Pipeline padrão de geração

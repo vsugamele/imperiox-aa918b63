@@ -32,6 +32,7 @@ export const METRIC_KEYS: MetricKey[] = [
   { key: "gasto_ads", label: "Gasto em anúncios", unidade: "moeda", escopo: "projeto", fonte: "imphq_ads_spend", disponivel: true, descricao: "Gasto sincronizado das contas de anúncio." },
   { key: "cpa", label: "Custo por venda (CPA)", unidade: "moeda", escopo: "projeto", fonte: "imphq_ads_spend ÷ imphq_vendas", disponivel: true, descricao: "Gasto ÷ vendas aprovadas no período." },
   { key: "roas", label: "ROAS", unidade: "numero", escopo: "projeto", fonte: "imphq_vendas ÷ imphq_ads_spend", disponivel: true, descricao: "Receita ÷ gasto no período." },
+  { key: "custo_por_ic", label: "Custo por checkout iniciado", unidade: "moeda", escopo: "projeto", fonte: "imphq_ads_spend ÷ imphq_events InitiateCheckout", disponivel: true, descricao: "Gasto ÷ checkouts iniciados no período (veredito do P1 da esteira de escala)." },
   { key: "cpl", label: "Custo por lead (CPL)", unidade: "moeda", escopo: "projeto", fonte: "imphq_ads_spend ÷ imphq_leads", disponivel: true, descricao: "Gasto ÷ leads no período." },
   // Conteúdo orgânico (esteira GeeLark)
   { key: "posts_publicados", label: "Posts publicados", unidade: "numero", escopo: "projeto", fonte: "imphq_content_posts status=published", disponivel: true, descricao: "Posts publicados pela esteira no período." },

@@ -11,6 +11,7 @@ import { checkMcpKey } from "@shared/mcp-auth";
 import * as approvalQueue from "@shared/approval-queue";
 import * as projectBriefing from "@shared/project-briefing";
 import * as todayBoard from "@shared/today-board";
+import * as scaleLadder from "@shared/scale-ladder";
 
 type Handler = (req: Request) => Promise<Response>;
 type Transport = "mcp" | "rest_post" | "rest_get";
@@ -39,7 +40,7 @@ function runtime() {
   });
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   if (!handler) throw new Error("Missing handler");
   const invoke = (transport: Transport, status = "all", authorized = true) => {

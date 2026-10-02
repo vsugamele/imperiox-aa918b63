@@ -13,6 +13,7 @@ import { findProjectMap, playbookFromRows, writePlaybookPlan, type PlaybookRow, 
 import { buildApprovalQueue, SOURCE_LABEL, type AiActionRow, type ApprovalItem, type ApprovalSource, type ContentRow, type DraftRow, type ReviewStepRow } from "../_shared/approval-queue.ts";
 import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions } from "../_shared/project-briefing.ts";
 import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
+import { evaluateScale } from "../_shared/scale-ladder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -816,6 +817,27 @@ const MCP_TOOLS = [
         motivo: { type: "string", description: "Motivo (opcional; vai para as notas da etapa)" },
       },
       required: ["key", "decision"],
+    },
+  },
+  {
+    name: "evaluate_scale",
+    description: "Esteira de Escala DTC (playbook 'esteira-escala-dtc'): dá o veredito e a ação de cada fase a partir dos números. fase 'parametros' = tetos e lances; 'p1' = concepts (gasto, ic, vendas, hipotese) com placar de hipóteses; 'p2' = dias acumulados, checkpoint do dia 2 e conjuntos; 'p3' = rotina de verba/lance, escada do lance e ângulos ativos; 'p4' = cemitério. Sem fase, devolve as regras do método.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fase: { type: "string", enum: ["regras", "parametros", "p1", "p2", "p3", "p4"], description: "Fase a avaliar (padrão 'regras')" },
+        payout: { type: "number", description: "Quanto entra por venda (breakeven do CPA)" },
+        cpa_alvo: { type: "number", description: "CPA alvo" },
+        ics_por_venda: { type: "number", description: "Checkouts iniciados por venda (padrão 8)" },
+        concepts: { type: "array", description: "p1: [{ concept, hipotese, gasto, ic, vendas }]", items: { type: "object" } },
+        dias: { type: "array", description: "p2: [{ gasto, vendas }] por dia, agregado dos conjuntos", items: { type: "object" } },
+        checkpoint: { type: "object", description: "p2: { gasto2d, ic, pageviews } dos 2 primeiros dias" },
+        conjuntos: { type: "array", description: "p2: [{ nome, gasto, vendas }] no dia 3", items: { type: "object" } },
+        verba: { type: "number", description: "p3: verba da campanha hoje" },
+        gasto_ontem: { type: "number", description: "p3: gasto de ontem" },
+        lances: { type: "array", description: "p3: [{ lance, cresceu: true|false|null }]", items: { type: "object" } },
+        angulos: { type: "array", description: "p3: [{ nome, gasto7, vendas7, diasSemGastar }]; p4: [{ nome, gasto7, vendas7, diasSeguidosNoCpa }]", items: { type: "object" } },
+      },
     },
   },
   {
@@ -1783,6 +1805,11 @@ Deno.serve(async (req) => {
             if (!key || (decision !== "approve" && decision !== "reject")) throw new Error("key e decision ('approve' ou 'reject') são obrigatórios");
             const result = await decideApproval(supabase, String(key), decision, motivo ? String(motivo) : undefined);
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ success: true, ...result }, null, 2) }] } });
+          }
+
+          if (name === "evaluate_scale") {
+            const result = evaluateScale(args || {});
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 
           if (name === "get_briefing") {

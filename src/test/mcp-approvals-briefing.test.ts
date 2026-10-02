@@ -10,6 +10,7 @@ import * as mapSteps from "@shared/map-steps";
 import * as approvalQueue from "@shared/approval-queue";
 import * as projectBriefing from "@shared/project-briefing";
 import * as todayBoard from "@shared/today-board";
+import * as scaleLadder from "@shared/scale-ladder";
 import { checkMcpKey } from "@shared/mcp-auth";
 
 type Handler = (req: Request) => Promise<Response>;
@@ -57,7 +58,7 @@ function runtime() {
   };
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   const call = async (name: string, args: Row) => {
     const response = await handler!(new Request("https://local.test/project-mcp", {
@@ -112,5 +113,12 @@ describe("project-mcp approvals and briefing", () => {
     expect(res.etapas.atrasadas).toBe(1);
     expect(res.etapas.esperando_o_time[0].etapa).toBe("Gravar anúncio");
     expect(res.aprovacoes.total).toBe(4);
+  });
+
+  it("evaluates the scale ladder without touching the database", async () => {
+    const app = runtime();
+    const res = await app.call("evaluate_scale", { fase: "p1", payout: 70, cpa_alvo: 45, concepts: [{ concept: "A", hipotese: "H", gasto: 80, ic: 15, vendas: 0 }] });
+    expect(res).toMatchObject({ fase: "p1", qualificados: 1, placar_hipoteses: [{ resultado: "confirmada" }] });
+    expect(app.updates).toHaveLength(0);
   });
 });
