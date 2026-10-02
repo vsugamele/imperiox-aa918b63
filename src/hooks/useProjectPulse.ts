@@ -45,7 +45,7 @@ export function useProjectPulse(projectId: string | undefined, refreshMs = 60_00
         supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
         supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", yStart).lt("created_at", dayStart),
         supabase.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr),
-        supabase.from("imphq_vendas").select("id, status, last_intent_at").eq("project_id", projectId).neq("status", "aprovado").gte("last_intent_at", twoHoursAgo),
+        supabase.from("imphq_vendas").select("id, status").eq("project_id", projectId).neq("status", "aprovado").gte("data->>last_intent_at", twoHoursAgo),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("criado_em", dayStart),
       ]);
 
