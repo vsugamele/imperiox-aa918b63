@@ -4,7 +4,8 @@ import { jsonFields, jsonText, jsonNumber } from "@/lib/json-fields";
 type Project = Tables<"imphq_projects">;
 type UpdateProject = <K extends keyof Project>(field: K, value: Project[K]) => void;
 import { errorMessage } from "@/lib/error-message";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -25,40 +26,42 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { ProjetoIdentidade } from "@/components/projeto/ProjetoIdentidade";
-import { ProjetoExpert } from "@/components/projeto/ProjetoExpert";
-import { ProjetoAvatar } from "@/components/projeto/ProjetoAvatar";
-import { ProjetoKPIs } from "@/components/projeto/ProjetoKPIs";
 // ProjetoPesquisa removed — unified into ProjetoPesquisaInteligente
-import { ProjetoMidia } from "@/components/projeto/ProjetoMidia";
-import { ProjetoDocs } from "@/components/projeto/ProjetoDocs";
-import { ProjetoSitesTab } from "@/components/projeto/ProjetoSitesTab";
-import { ConcorrentesTab } from "@/components/projeto/concorrentes/ConcorrentesTab";
 
-import { ProjetoCalendario } from "@/components/projeto/ProjetoCalendario";
-import { ProjetoEmails } from "@/components/projeto/ProjetoEmails";
-import { ProjetoFinancas } from "@/components/projeto/ProjetoFinancas";
-import { ProjetoComando } from "@/components/projeto/ProjetoComando";
-import { ProjetoRaioXFunil } from "@/components/projeto/ProjetoRaioXFunil";
-import { ProjetoMapaOperacional } from "@/components/projeto/ProjetoMapaOperacional";
-import { ProjetoEcossistema } from "@/components/projeto/ProjetoEcossistema";
-import { ProjetoOpenFlow } from "@/components/projeto/ProjetoOpenFlow";
 import { ProjetoMcpDialog } from "@/components/projeto/ProjetoMcpDialog";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
 import { ProjetoAtivosMestresCard } from "@/components/projeto/ProjetoAtivosMestresCard";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
-import { ProjetoCentralConteudo } from "@/components/projeto/ProjetoCentralConteudo";
-import { ProjetoPesquisaInteligente } from "@/components/projeto/ProjetoPesquisaInteligente";
-import { ProjetoFlowcharts } from "@/components/projeto/ProjetoFlowcharts";
-import { ProjetoExpertPanel } from "@/components/projeto/ProjetoExpertPanel";
-import { ProjetoInsights } from "@/components/projeto/ProjetoInsights";
-import { WebhookStatusPanel } from "@/components/projeto/WebhookStatusPanel";
-import { ProjetoInstagram } from "@/components/projeto/ProjetoInstagram";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
 import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff, Zap, Trash2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+
+// Abas carregadas só quando abertas: a página do projeto não baixa as 23 de uma vez.
+const ProjetoMapaOperacional = lazyWithRetry(() => import("@/components/projeto/ProjetoMapaOperacional").then((m) => ({ default: m.ProjetoMapaOperacional })));
+const ProjetoEcossistema = lazyWithRetry(() => import("@/components/projeto/ProjetoEcossistema").then((m) => ({ default: m.ProjetoEcossistema })));
+const ProjetoOpenFlow = lazyWithRetry(() => import("@/components/projeto/ProjetoOpenFlow").then((m) => ({ default: m.ProjetoOpenFlow })));
+const ProjetoComando = lazyWithRetry(() => import("@/components/projeto/ProjetoComando").then((m) => ({ default: m.ProjetoComando })));
+const ProjetoRaioXFunil = lazyWithRetry(() => import("@/components/projeto/ProjetoRaioXFunil").then((m) => ({ default: m.ProjetoRaioXFunil })));
+const ProjetoIdentidade = lazyWithRetry(() => import("@/components/projeto/ProjetoIdentidade").then((m) => ({ default: m.ProjetoIdentidade })));
+const ProjetoExpert = lazyWithRetry(() => import("@/components/projeto/ProjetoExpert").then((m) => ({ default: m.ProjetoExpert })));
+const ProjetoAvatar = lazyWithRetry(() => import("@/components/projeto/ProjetoAvatar").then((m) => ({ default: m.ProjetoAvatar })));
+const ProjetoKPIs = lazyWithRetry(() => import("@/components/projeto/ProjetoKPIs").then((m) => ({ default: m.ProjetoKPIs })));
+const ProjetoPesquisaInteligente = lazyWithRetry(() => import("@/components/projeto/ProjetoPesquisaInteligente").then((m) => ({ default: m.ProjetoPesquisaInteligente })));
+const ProjetoMidia = lazyWithRetry(() => import("@/components/projeto/ProjetoMidia").then((m) => ({ default: m.ProjetoMidia })));
+const ProjetoDocs = lazyWithRetry(() => import("@/components/projeto/ProjetoDocs").then((m) => ({ default: m.ProjetoDocs })));
+const ProjetoSitesTab = lazyWithRetry(() => import("@/components/projeto/ProjetoSitesTab").then((m) => ({ default: m.ProjetoSitesTab })));
+const ConcorrentesTab = lazyWithRetry(() => import("@/components/projeto/concorrentes/ConcorrentesTab").then((m) => ({ default: m.ConcorrentesTab })));
+const ProjetoCalendario = lazyWithRetry(() => import("@/components/projeto/ProjetoCalendario").then((m) => ({ default: m.ProjetoCalendario })));
+const ProjetoFinancas = lazyWithRetry(() => import("@/components/projeto/ProjetoFinancas").then((m) => ({ default: m.ProjetoFinancas })));
+const ProjetoEmails = lazyWithRetry(() => import("@/components/projeto/ProjetoEmails").then((m) => ({ default: m.ProjetoEmails })));
+const ProjetoCentralConteudo = lazyWithRetry(() => import("@/components/projeto/ProjetoCentralConteudo").then((m) => ({ default: m.ProjetoCentralConteudo })));
+const ProjetoFlowcharts = lazyWithRetry(() => import("@/components/projeto/ProjetoFlowcharts").then((m) => ({ default: m.ProjetoFlowcharts })));
+const ProjetoExpertPanel = lazyWithRetry(() => import("@/components/projeto/ProjetoExpertPanel").then((m) => ({ default: m.ProjetoExpertPanel })));
+const ProjetoInsights = lazyWithRetry(() => import("@/components/projeto/ProjetoInsights").then((m) => ({ default: m.ProjetoInsights })));
+const ProjetoInstagram = lazyWithRetry(() => import("@/components/projeto/ProjetoInstagram").then((m) => ({ default: m.ProjetoInstagram })));
+const WebhookStatusPanel = lazyWithRetry(() => import("@/components/projeto/WebhookStatusPanel").then((m) => ({ default: m.WebhookStatusPanel })));
 
 type TabDef = { value: string; label: string; emoji: string };
 const PILLARS: { id: string; label: string; emoji: string; tabs: TabDef[] }[] = [
@@ -503,6 +506,7 @@ export default function ProjetoDetalhe() {
           </div>
         </div>
 
+        <Suspense fallback={<div className="py-12 text-center text-sm text-muted-foreground">Carregando aba…</div>}>
         <TabsContent value="mapa" className="mt-4 focus:outline-none">
           <ProjetoMapaOperacional
             projectId={id!}
@@ -654,6 +658,7 @@ export default function ProjetoDetalhe() {
             </CardContent>
           </Card>
         </TabsContent>
+        </Suspense>
       </Tabs>
 
       <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>

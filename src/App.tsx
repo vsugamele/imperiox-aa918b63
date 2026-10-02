@@ -144,8 +144,6 @@ const App = () => (
               <Route path="/linfaflow-x1" element={<LinfaFlowX1 />} />
               <Route path="/linfaflow-x1-ready" element={<LinfaFlowX1Ready />} />
               <Route path="/linfaflow-care" element={<LinfaFlowCareRoom />} />
-              <Route path="/cockpit" element={<Cockpit />} />
-              <Route path="/redesign" element={<RedesignPrototype />} />
               <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 {/* Smart landing — Dashboard Operacional */}
                 <Route index element={<Navigate to="/hoje" replace />} />
@@ -195,7 +193,6 @@ const App = () => (
                 <Route path="whatsapp" element={<Navigate to="/inbox?tab=whatsapp" replace />} />
                 <Route path="instagram" element={<Navigate to="/inbox?tab=instagram" replace />} />
                 <Route path="lancamentos" element={<Navigate to="/campanhas?tab=lancamentos" replace />} />
-                <Route path="kanban" element={<Navigate to="/tarefas?view=kanban" replace />} />
                 <Route path="sdr-coach" element={<Navigate to="/inbox?tab=whatsapp" replace />} />
                 <Route path="ab-tests" element={<Navigate to="/campanhas?tab=ab-tests" replace />} />
                 <Route path="mobile-cockpit" element={<MobileCockpit />} />

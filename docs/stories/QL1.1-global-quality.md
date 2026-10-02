@@ -18,3 +18,9 @@ Correções incluem confirmação real de envio/persistência, consultas compat�
 Validação das Edge Functions: lint, testes de regressão e checagem TypeScript adaptada. Deno não está disponível neste ambiente; isto não equivale a validação de runtime Deno ou deploy de todas as funções. Publicação das funções de outros domínios não integra este lote de frontend.
 
 File List: docs/sessions/2026-09/quality-file-list.txt.
+## Limpeza da auditoria de 29/09 (02/10/2026, aprovada pelo Vinicius)
+- [x] `/cockpit` e `/redesign` sem login removidos; as rotas logadas continuam.
+- [x] Segunda declaração de `kanban` (redirect para Tarefas que nunca era usado) removida; `/kanban` segue abrindo o Kanban.
+- [x] Página do projeto: as 23 abas carregam só quando abertas (`lazyWithRetry` + `Suspense`). Pacote `ProjetoDetalhe` de 764 kB para 83 kB; maior aba 96 kB (Finanças). Conferido na tela: Comando e Avatar abrem.
+- [ ] `/dashboard-classic`: não apagado. O rodapé do Dashboard tem o link "Ver versão clássica" e a página é a única que usa 18 componentes (receita, Ads, funil ao vivo, previsão, crescimento). Aguarda nova decisão.
+- [ ] Achado em passagem: `src/hooks/useProjectPulse.ts` filtra `imphq_vendas` pela coluna `last_intent_at`, que não existe (400 em toda abertura de projeto); o certo é `data->>last_intent_at`, como no `TodayCard`.

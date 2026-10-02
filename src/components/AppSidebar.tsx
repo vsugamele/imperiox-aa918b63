@@ -53,7 +53,7 @@ const capitalItems = [
   { title: "Custos IA",        url: "/custos-ia",         icon: Coins },
 ];
 
-// Fora do menu (rotas seguem no ar): /cockpit e /redesign (experimentos) e /openrouter-custos (repete Custos IA).
+// Fora do menu (rotas seguem no ar, só com login): /cockpit e /redesign (experimentos) e /openrouter-custos (repete Custos IA).
 const acervoItems = [
   { title: "Referências",  url: "/referencias", icon: Library },
   { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
