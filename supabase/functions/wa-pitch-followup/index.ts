@@ -191,11 +191,20 @@ Deno.serve(async (req) => {
 - Exemplos de estilo: "Conseguiu abrir o link certinho aí?", "Deu certo o link ou travou aí?", "Passando só pra ver se conseguiu acessar de boa".
 - Máx 2 linhas curtas. Sem textão, sem parecer mensagem automática. 1 pergunta direta.`
             : stageNext === 2
-            ? `Toque 2 — Investigar objeção real e flexibilizar pagamento.
+            ? project_id === "jp_freitas"
+              ? `Toque 2 — Abrir espaço para uma dúvida real sobre o produto já solicitado.
+- O silêncio não informa motivo, orçamento ou objeção. Não presuma que o preço pesa nem ofereça parcelamento sem necessidade conhecida.
+- Se houver dúvida explícita no histórico, responda a ela com informação confirmada. Caso contrário, faça um convite simples para tirar dúvidas, sem lista de objeções nem novo pitch. Máx 2 linhas.`
+              : `Toque 2 — Investigar objeção real e flexibilizar pagamento.
 - O lead recebeu o link há ~${Math.round(hoursSince)}h e ainda não finalizou.
 - Reconheça com empatia que a decisão envolve investimento. Pergunte se a trava foi valor, tempo ou forma de pagamento (Pix / cartão parcelado).
 - 1 pergunta consultiva no final. Máx 3 linhas.`
-            : `Toque 3 — Último toque / Descompressão ou plano de entrada.
+            : project_id === "jp_freitas"
+              ? `Toque 3 — Encerrar com leveza, respeitando o momento da pessoa.
+- Não interprete silêncio como falta de dinheiro ou falta de tempo. Não force pergunta, urgência ou oferta.
+${entryProduct ? `- Uma alternativa disponível é ${entryProduct.name}, R$ ${entryProduct.price?.toFixed(2)}. Só mencione se o histórico registra necessidade expressa de opção mais barata e ela atende ao objetivo da pessoa; caso contrário, não sugira outro produto.` : "- Não há alternativa inferior confirmada; não sugira outro produto."}
+- Deixe espaço para retomar o assunto quando fizer sentido. Máx 2 linhas, sem CTA obrigatório.`
+              : `Toque 3 — Último toque / Descompressão ou plano de entrada.
 - Reconheça com leveza que talvez o momento esteja corrido ou o investimento do ${produtoOfertado} pese agora.
 ${entryProduct ? `- Sugira a opção de entrada: "${entryProduct.name}" (R$ ${entryProduct.price?.toFixed(2)}) caso queira começar de forma mais acessível.` : `- Não existe alternativa inferior confirmada: É PROIBIDO sugerir outro produto neste toque. Diga que se preferir ver isso com calma depois ou tiver qualquer dúvida, tá tudo bem.`}
 - Sem pressão comercial. Máx 3 linhas. 1 pergunta acolhedora no final.`;
@@ -219,7 +228,8 @@ REGRAS RÍGIDAS:
 - NÃO reenvie o link de checkout neste toque, a menos que o lead tenha perdido.
 - NÃO use placeholders [link] ou [nome]. Se não souber algo concreto, omita.
 - Escreva como pessoa real no WhatsApp, em pt-BR, sem emojis em excesso (máx 1).
-- Saída: APENAS o texto da mensagem, sem aspas, sem prefixo, sem assinatura.`;
+- Saída: APENAS o texto da mensagem, sem aspas, sem prefixo, sem assinatura.
+${jpConversationRules(project_id)}`;
 
           let aiText = "";
           try {

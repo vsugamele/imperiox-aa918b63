@@ -1187,14 +1187,14 @@ SUA CONDUTA OBRIGATÓRIA:
 3. NUNCA tente agendar por aqui e NUNCA tente vender cursos ou formações para quem quer apenas cortar o cabelo no salão. Envie o link da agenda.\n`;
         }
 
-        const isJPMastercutsQuery = /\b(master\s*cuts?|mastercuts?|imers[aã]o presencial)\b/i.test(lcMsg);
+        const isJPMastercutsQuery = /\b(master\s*cuts?|mastercuts?)\b/i.test(lcMsg);
         if (isJPMastercutsQuery) {
           jpMastercutsInstruction = `\n🚨 ATENÇÃO MÁXIMA — PERGUNTA SOBRE MASTER CUTS / PRESENCIAL:
-O cliente perguntou sobre o Master Cuts ou imersão presencial.
+O cliente mencionou especificamente Master Cuts. Diferencie interesse em nova inscrição de cobrança de uma experiência já combinada.
 SUA CONDUTA OBRIGATÓRIA:
-1. Informe que o Master Cuts NÃO TEM TURMAS ABERTAS no momento (a imersão presencial não possui vagas/turma aberta).
+1. Para nova inscrição, informe que o Master Cuts NÃO TEM TURMAS ABERTAS. Uma cobrança de compromisso anterior exige verificação do combinado; turma fechada não prova cancelamento ou inexistência dele.
 2. É PROIBIDO enviar link de checkout ou tentar vender o Master Cuts.
-3. Se ele tiver interesse em aprender técnicas de corte agora com o JP Freitas, ofereça com entusiasmo os treinamentos online disponíveis: O Código dos Cortes Perfeitos (R$ 47) ou a Formação JP Hair Education.\n`;
+3. Só sugira treinamento online quando a pessoa demonstrar interesse nessa alternativa e o produto atender à necessidade. Não transforme cobrança ou pergunta sobre presencial em oferta automática de curso.\n`;
         }
       }
 
@@ -1464,14 +1464,16 @@ Esta pergunta foi registrada para revisão do gestor, que irá ensiná-la à IA 
           console.warn("[wa-ai-reply] Error fetching semantic context:", errorMessage(e));
         }
       }
-      // Off-topic guard: if last triage classified as off_topic, inject redirect instruction
+      // JP relationship follows the topic; other projects keep their existing routing.
       const offTopicBlock = triageIntent === "off_topic"
-        ? `\n⚠️ TÓPICO FORA DO ESCOPO DETECTADO:
+        ? isJPProject(project_id)
+          ? `\nRELACIONAMENTO JP: A classificação off_topic não autoriza pitch. Responda com naturalidade ao assunto atual, sem puxar produto. Só avance comercialmente se houver necessidade, encaixe e abertura explícitos na conversa.`
+          : `\n⚠️ TÓPICO FORA DO ESCOPO DETECTADO:
 A mensagem do lead foi classificada como fora do assunto principal. Responda de forma empática em 1 frase curta acolhendo o que ele disse, mas IMEDIATAMENTE redirecione para o produto/oferta com uma pergunta consultiva. Máximo 2 frases no total. Não se prolongue no assunto off-topic.`
         : "";
 
       const expertPersona = aiConfig.expert_persona ? `PERSONA DO EXPERT:\n${String(aiConfig.expert_persona).slice(0, 600)}\n\n` : "";
-      const productFocus = aiConfig.product_focus ? `\nOFERTA ATIVA: ${String(aiConfig.product_focus).slice(0, 400)}` : "";
+      const productFocus = aiConfig.product_focus ? `\n${isJPProject(project_id) ? "PRODUTO PARA CONSULTA (ofereça somente com necessidade, encaixe e abertura)" : "OFERTA ATIVA"}: ${String(aiConfig.product_focus).slice(0, 400)}` : "";
       const customInstr = aiConfig.custom_instructions ? `\nREGRAS GERAIS ADICIONAIS:\n${String(aiConfig.custom_instructions)}` : "";
       const bannedPhrases = Array.isArray(aiConfig.banned_phrases) ? aiConfig.banned_phrases.filter((p: unknown) => typeof p === "string" && p.trim()) : [];
       const bannedBlock = bannedPhrases.length
@@ -1839,7 +1841,7 @@ REGRA META — VARIAR:
 
 REGRAS CRITICAS:
 - AO ENVIAR LINK DE CHECKOUT: na mesma mensagem, antecipe em 1 frase curta as 2-3 dúvidas mais comuns que o lead pode ter (forma de pagamento aceita, parcelamento, garantia, prazo de acesso) — só as relevantes pro projeto. Termine convidando a tirar QUALQUER dúvida específica antes de finalizar, em vez do genérico "se tiver dúvida me fala". Ex: "Aceita Pix, cartão em até 12x e tem 7 dias de garantia. Se tiver dúvida sobre conteúdo, acesso ou pagamento antes de fechar, me fala que te ajudo agora."
-- MANTER O LEAD NA ROTA: Se o lead desviar para conversas aleatórias, assuntos pessoais não relacionados, ou desabafos que fujam da venda/solução, aja com empatia imediata (máximo 1 frase validando ou acolhendo o sentimento), mas em seguida retome o foco principal, conectando a dor dele com a solução/oferta e fazendo uma pergunta consultiva. Evite alongar-se em conversas vazias que esfriam o lead.
+${isJPProject(project_id) ? "- RELACIONAMENTO JP: siga o assunto da pessoa, responda ao que ela precisa e preserve o vínculo. Uma conversa pessoal não exige redirecionamento para venda. Pitch somente quando encaixar na necessidade e houver abertura; pergunta resolvida pode terminar sem CTA." : "- MANTER O LEAD NA ROTA: Se o lead desviar para conversas aleatórias, assuntos pessoais não relacionados, ou desabafos que fujam da venda/solução, aja com empatia imediata (máximo 1 frase validando ou acolhendo o sentimento), mas em seguida retome o foco principal, conectando a dor dele com a solução/oferta e fazendo uma pergunta consultiva. Evite alongar-se em conversas vazias que esfriam o lead."}
 - NUNCA use placeholders como [Link] ou [Nome do curso]. Se nao souber algo, diga que vai buscar.
 - NUNCA seja vago. Ex: ruim: "o curso e focado em corte". Bom: "o curso ensina 7 tecnicas de corte que funcionam em cabelos lisos e cacheados".
 - Respostas curtas no WhatsApp por padrão, MAS a regra de tamanho condicional por modo (A/B/C/D/E) descrita acima manda — em descoberta/objeção pode chegar a 6-8 frases com narrativa Sugamele.
