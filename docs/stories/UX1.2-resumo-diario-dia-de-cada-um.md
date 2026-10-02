@@ -23,9 +23,13 @@ Achado: o grupo já recebe o `daily-briefing-wa` às 9h e às 21h BRT (vendas, r
 - [x] O `deno check` da função continua com os mesmos 13 erros antigos.
 - [x] Teste em `src/test/team-day.test.ts`.
 
-## Pendente (aguardando o Vinicius)
-- [ ] Aprovar a lista de donos e gravar: Vinicius 6, Bruno 18, 27 de IA ou automação sem dono.
-- [ ] Publicar o `daily-briefing-wa` e fazer um envio de teste ao grupo. Depois disso, os horários de sempre (9h e 21h) já levam a seção.
+## Feito após aprovação (02/10/2026)
+- [x] Donos gravados pela regra por tipo, aprovada como estava: Vinicius 6, Bruno 18. As 27 etapas de IA ou automação ficaram sem dono.
+- [x] Nome no time corrigido: "Viniicus" → "Vinicius".
+- [x] `daily-briefing-wa` publicado.
+- [x] Prévia `dry_run` no servidor conferida.
+- [x] Envio de teste ao grupo Imperio X às 13:14 BRT: a Evolution respondeu 201.
+- [x] Os horários de sempre (9h e 21h BRT) já levam a seção.
 
 ## File List
 - supabase/functions/_shared/today-board.ts (movido de src/lib)
