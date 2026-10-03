@@ -15,7 +15,7 @@ Pedido de publicação, tracker/IDs, Analytics e mapa autorizado pelo usuário. 
 
 Conta GA4 Direct Response `359475519`. Orientação corrigida pelo usuário: Analytics e demais serviços usam os acessos do próprio Vinicius já conectados no computador/navegador. Somente Facebook/Meta usa a conta do Bruno, aberta no perfil que o usuário identifica como VSUGML. A sessão Google de Vinicius é a sessão correta; não há pendência de e-mail Google do Bruno nem necessidade de trocar ou transferir propriedades. Não houve duplicação da propriedade Slim.
 
-Meta Slim: Eventos de Teste mostrou PageView processado do domínio `slimsoda-powder-vsl.vercel.app` às 08:43 de 03/10, classificado pela interface como "Evento personalizado". SDK, configuração do pixel e requisição `/tr?id=996492073462713&ev=PageView` responderam HTTP 200 no navegador. Eventos históricos/CAPI existentes do dataset não comprovam compra/CAPI deste novo site. 2FA continua exigido para configurações da empresa, embora o Gerenciador de Eventos seja acessível.
+Meta Slim: Eventos de Teste mostrou PageView processado do domínio `slimsoda-powder-vsl.vercel.app` às 08:43 de 03/10, classificado pela interface como "Evento personalizado". SDK, configuração do pixel e requisição `/tr?id=996492073462713&ev=PageView` responderam HTTP 200 no navegador. Eventos históricos/CAPI existentes do dataset não comprovam compra/CAPI deste novo site. 2FA liberado pelo usuário e acesso às configurações da empresa confirmado em 03/10; detalhes da checagem abaixo.
 
 Tracker Império: visita de navegador `vsl_view` recebida nas quatro ofertas, com `utm_source=codex-validation`, `utm_campaign=aff1-1` e `meta.validation=true`. Nenhuma compra, Purchase ou CAPI foi certificado. Os atrasos foram configurados com `displayHiddenElements` do player; nenhuma sessão completa até todos os pitches foi acompanhada.
 
@@ -56,9 +56,19 @@ GitHub: em 03/10, commits remotos verificados e quatro checkouts limpos: Leaftid
 
 [Mapa Master](https://imperiox.vercel.app/funis?view=mapa&map=67f9f17a-e75e-45f6-a5e3-20198bfdd692&node=af110001-0000-4000-8000-000000000003).
 
-Conexão GitHub → Vercel automática: tentativa Leaftide retornou exigência de Login Connection GitHub na conta Vercel. GitHub e deploy CLI funcionam; vínculo automático não foi concluído. Meta ainda apresenta 2FA de Bruno Souza de Carvalho. Não foi recebido aviso de liberação.
+Conexão GitHub → Vercel automática: tentativa Leaftide retornou exigência de Login Connection GitHub na conta Vercel. GitHub e deploy CLI funcionam; vínculo automático não foi concluído. Usuário concluiu o 2FA Meta; tela de pessoas confirmou Bruno Souza com acesso total na BM Imperio Company.
 
-Chrome: novas abas do perfil Vinicius voltaram a responder em 03/10; usadas para GA4, Meta, PDP e mapa. Abas antigas permanecem sem conexão. O bloqueio do navegador de 02/10 foi superado para essas verificações. Nova conferência após a orientação corrigida: sessão Meta existente permanece na conta do Bruno; configurações da empresa ainda mostram 2FA pelo aplicativo autenticador. Não confundir sessão logada com autorização adicional dessa área.
+Chrome: novas abas do perfil Vinicius voltaram a responder em 03/10; usadas para GA4, Meta, PDP e mapa. Após liberar 2FA e consultar a BM, o perfil identificado pelo usuário como VSUGML deixou de aparecer na conexão da extensão. Inventário passou a mostrar somente Chrome Imperio, Edge e navegador interno; não trocar a sessão do Bruno por essas outras sessões. Reconexão solicitada ao usuário; bloqueio atual é conexão do navegador, não 2FA.
+
+### Meta — conferência após liberação do 2FA, 03/10
+
+- BM Imperio Company `1895345497616474`: Bruno Souza com acesso total; AD Vini 01 `448271424884723` pertence à BM, sem selo de conta desabilitada. Página de suporte mostrou "Nenhum anúncio rejeitado". Isso não certifica aprovação futura, faturamento, limites ou saúde integral do portfólio.
+- Outras contas restritas/desabilitadas existem: Bruno Ale e CLG_1539; CLG pertence à ClikimGlobal. Hipertens pertence a jpfreitas06 e foi excluída desta operação.
+- Dataset Slim `996492073462713` pertence à Imperio Company; suporte mostrou nenhum problema da fonte de dados nos últimos 30 dias. Dtc-Clear `1619587959397761` também pertence à BM; não confundir com o pixel Clear legado `1427772126180988` nem reaproveitar para CardioFlush sem conferir identidade.
+- Suporte lista 12 fontes; primeiras dez observadas no inventário. Busca específica por Leaftide/CardioFlush/MemoFlow ainda não concluída; não afirmar ausência de datasets existentes.
+- Formulário Leaftide Powder - Império preparado, categoria Prestador de serviços de saúde e bem-estar. O botão Criar implica aceitar os Termos das Ferramentas Comerciais da Meta; não foi acionado. Confirmação humana de aceite necessária no momento da criação, caso ela seja necessária. Nenhum novo dataset/ID gerado; nenhum novo Pixel/Vturb/deploy alterado nesta etapa.
+- Quatro projetos e cinco nós de tracking dos mapas atualizados com 2FA liberado, BM/conta conferidas e pendências. IDs de pixel preservados: somente Slim tem ID certificado para o novo site.
+- Diretório antigo `Downloads/imperio-ofertas` não encontrado nesta retomada. Quatro fontes recuperadas dos GitHubs privados em `C:/Users/vsuga/Documents/imperio-ofertas-meta/`; HEADs iguais aos remotos registrados acima e checkouts limpos. Recuperação não certifica presença dos ZIPs externos ou das capturas históricas. Formulário observado por screenshot no navegador; nova gravação PNG falhou antes da desconexão, sem evidência local nova alegada.
 
 Validação: cinco testes do tracker; lint sem erros (2 avisos existentes), typecheck e 623 testes do Império aprovados. Aplicativo raiz não foi republicado por esta story.
 

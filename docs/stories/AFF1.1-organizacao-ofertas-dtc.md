@@ -34,6 +34,10 @@ Usuário escolheu opção 1: validar uma oferta primeiro e depois repetir o padr
 Usuário pediu páginas com links próprios publicadas na Vercel, fontes nos GitHubs, tracker/IDs por oferta, Google Analytics e organização no mapa. Reutilizar as fontes e players catalogados, validar Leaftide antes das demais e manter os destinos atuais até o novo fluxo estar conferido.
 
 - [x] Abrir e mostrar tela Meta 2FA para preenchimento direto pelo usuário.
+- [x] Confirmar 2FA liberado, acesso total de Bruno à BM Imperio Company e propriedade AD Vini 01 fora do JP.
+- [x] Registrar evidência limitada de saúde por ativo e atualizar quatro projetos/cinco nós de tracking.
+- [x] Recuperar quatro fontes privadas em Documents/imperio-ofertas-meta e conferir HEAD/status.
+- [ ] Reconectar Chrome VSUGML, concluir busca por datasets existentes e, se necessário, obter confirmação de aceite dos termos antes de criar.
 - [x] Conferir dataset Slim: proprietário Imperio Company, vinculado AD Vini 01; PageView próprio recebido em 03/10.
 - [x] Conferir acesso Analytics: conector 403; sessão do navegador disponível.
 - [x] Publicar e validar página própria piloto com checkout oficial e tracker.
@@ -69,7 +73,7 @@ Preservar páginas e cadastros existentes; não excluir registros ou materiais. 
 
 GA4 confirmado nas quatro VSLs: Leaftide G-CEXWP1QQRE, Cardio G-P3BGTRYWE3, Memo G-T52GP0M1MJ e Slim G-6BY843CN82. Slim também recebeu visitas ADV1/PDP. Propriedade Slim 557209019/fluxo 15976232055 recuperada sem duplicação.
 
-Meta Slim: PageView processado do domínio próprio em Eventos de Teste; UI classifica como Evento personalizado. SDK e /tr do pixel 996492073462713 HTTP 200. Não representa Purchase/CAPI. Tela 2FA Bruno aberta e preservada; sessão Google Vinicius confirmada pelo usuário como correta. Somente Meta usa Bruno, na sessão existente do perfil VSUGML. Demais pixels seguem pendentes de propriedade/permissões.
+Meta Slim: PageView processado do domínio próprio em Eventos de Teste; UI classifica como Evento personalizado. SDK e /tr do pixel 996492073462713 HTTP 200. Não representa Purchase/CAPI. Usuário concluiu 2FA; acesso total de Bruno à Imperio Company confirmado. AD Vini 01 pertence à BM e suporte mostrou Nenhum anúncio rejeitado; outras contas restritas existem. Somente Meta usa Bruno no perfil VSUGML; Google permanece com Vinicius. Formulário Leaftide preparado, não submetido: Criar implica aceite dos Termos Comerciais e exige confirmação no momento da ação. Busca de datasets incompleta e Chrome VSUGML desconectou; reconexão solicitada. Demais pixels continuam sem IDs atribuídos. Estado salvo nos quatro projetos e cinco nós de tracking.
 
 Slim ADV1/PDP desktop e cliques conferidos; tracker recebeu quatro passos específicos. Header PDP e links legais do comerciante corrigidos; módulos de cronômetro/lote simulado ocultos, originais preservados. Divergência de garantias e conteúdo do fornecedor ainda exigem revisão. Mapa Master e operacional Slim e links conferidos em UI. Briefings 14/19/21/27 links.
 
