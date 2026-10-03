@@ -23,6 +23,8 @@ export interface LiveInput {
   params?: ScaleParams | null;
   /** Fração do dia já passada (0–1), no fuso do projeto. */
   dayFraction: number;
+  /** Saúde do sync de anúncios (adsSyncHealth), para explicar por que o gasto não chega. */
+  syncHealth?: { estado: string; problemas: string[] } | null;
 }
 
 export interface LiveNumber { valor: number | null; fonte: LiveSource | null; /** Mesmo número pela outra fonte, quando as duas existem (ex.: Meta × checkout). */ outra?: { valor: number; fonte: LiveSource } | null }
@@ -97,7 +99,8 @@ export function buildLivePanel(input: LiveInput) {
 
   const alertas: string[] = [];
   if (!input.webhookConnected) alertas.push("Checkout sem webhook no Império: pedidos e faturamento vêm do pixel da Meta (ou faltam).");
-  if (!hasAds) alertas.push("Sem gasto de anúncio sincronizado hoje: CPA, ROAS e lucro ficam sem base.");
+  if (input.syncHealth && input.syncHealth.estado !== "ok" && input.syncHealth.estado !== "sem_config") alertas.push(...input.syncHealth.problemas);
+  else if (!hasAds) alertas.push("Sem gasto de anúncio sincronizado hoje: CPA, ROAS e lucro ficam sem base.");
   if (!hasTracker) alertas.push("Tracker do Império sem eventos hoje neste projeto: visitas e checkout vêm da Meta (ou faltam).");
   if (input.webhookConnected && hasAds) {
     const pixel = sum(ads, (a) => a.compras);
@@ -132,6 +135,43 @@ export function buildLivePanel(input: LiveInput) {
 }
 
 export type LivePanel = ReturnType<typeof buildLivePanel>;
+
+/** Linha de imphq_v_ads_sync_health (só status; nunca token). */
+export interface AdsSyncHealthRow {
+  meta_configurado?: boolean | null; meta_status?: string | null; meta_ultimo_sync?: string | null; meta_erro_codigo?: string | null; meta_erro?: string | null;
+  zernio_configurado?: boolean | null; zernio_status?: string | null; zernio_ultimo_sync?: string | null; zernio_erro?: string | null;
+  ultimo_dia_com_gasto?: string | null;
+}
+
+const STALE_HOURS = 36;
+const dm = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+
+/**
+ * Saúde do sync de anúncios: erro declarado, sync parado (último sucesso há mais de 36 h) ou ok.
+ * Token expirado da Meta (erro 190) vira instrução direta: só uma pessoa gera token novo.
+ */
+export function adsSyncHealth(row: AdsSyncHealthRow | null | undefined, now: number = Date.now()) {
+  const problemas: string[] = [];
+  if (!row || (!row.meta_configurado && !row.zernio_configurado)) {
+    return { estado: "sem_config" as const, problemas: ["Nenhuma conta de anúncio ligada ao sync do Império."] };
+  }
+  const stale = (iso: string | null | undefined) => !iso || now - Date.parse(iso) > STALE_HOURS * 3600000;
+  if (row.meta_configurado) {
+    if (row.meta_erro_codigo === "190") problemas.push(`Token da Meta expirado${row.meta_ultimo_sync ? ` (último sync ok em ${dm(row.meta_ultimo_sync)})` : ""}: gerar token novo de usuário do sistema no Business Manager.`);
+    else if (row.meta_status === "error") problemas.push(`Sync da Meta com erro: ${row.meta_erro ?? "sem detalhe"}.`);
+    else if (stale(row.meta_ultimo_sync)) problemas.push(`Sync da Meta parado${row.meta_ultimo_sync ? ` desde ${dm(row.meta_ultimo_sync)}` : ""}.`);
+  }
+  if (row.zernio_configurado) {
+    if (row.zernio_status === "error") problemas.push(`Sync do Zernio com erro: ${row.zernio_erro ?? "sem detalhe"}.`);
+    else if (stale(row.zernio_ultimo_sync)) problemas.push(`Sync do Zernio sem sucesso${row.zernio_ultimo_sync ? ` desde ${dm(row.zernio_ultimo_sync)}` : ""}: conferir a conta de anúncio ligada no Zernio.`);
+  }
+  // Um caminho funcionando basta para o gasto chegar.
+  const metaOk = !!row.meta_configurado && row.meta_status !== "error" && !stale(row.meta_ultimo_sync);
+  const zernioOk = !!row.zernio_configurado && row.zernio_status !== "error" && !stale(row.zernio_ultimo_sync);
+  const estado = metaOk || zernioOk ? "ok" as const : problemas.some((p) => p.includes("erro") || p.includes("expirado")) ? "erro" as const : "parado" as const;
+  if (row.ultimo_dia_com_gasto) problemas.push(`Último dia com gasto registrado: ${dm(row.ultimo_dia_com_gasto)}.`);
+  return { estado, problemas: estado === "ok" ? [] : problemas };
+}
 
 /** Variação entre duas leituras (para "vs leitura anterior"). */
 export function liveDelta(now: LivePanel, before: LivePanel | null) {

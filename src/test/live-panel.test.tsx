@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { buildLivePanel, dayFraction, liveDelta, type LiveInput } from "@shared/live-panel";
+import { adsSyncHealth, buildLivePanel, dayFraction, liveDelta, type LiveInput } from "@shared/live-panel";
 import { LivePanel } from "@/components/projeto/LivePanel";
 
 const params = { payout: 70, cpaAlvo: 45 };
@@ -67,6 +67,35 @@ describe("painel ao vivo: regra", () => {
     expect(liveDelta(a, b)).toMatchObject({ vendas: 1, faturamento: 119 });
     expect(liveDelta(a, null)).toBeNull();
     expect(dayFraction(new Date("2026-10-03T15:00:00Z"))).toBe(0.5);
+  });
+});
+
+describe("saúde do sync de anúncios", () => {
+  const now = Date.parse("2026-10-03T20:00:00Z");
+  it("token expirado da Meta e Zernio parado viram instrução, com o último dia de gasto", () => {
+    const h = adsSyncHealth({
+      meta_configurado: true, meta_status: "error", meta_erro_codigo: "190", meta_ultimo_sync: "2026-06-26T17:30:08Z",
+      zernio_configurado: true, zernio_status: "success", zernio_ultimo_sync: "2026-08-19T09:01:27Z", ultimo_dia_com_gasto: "2026-07-16",
+    }, now);
+    expect(h.estado).toBe("erro");
+    expect(h.problemas).toEqual([
+      "Token da Meta expirado (último sync ok em 26/06): gerar token novo de usuário do sistema no Business Manager.",
+      "Sync do Zernio sem sucesso desde 19/08: conferir a conta de anúncio ligada no Zernio.",
+      "Último dia com gasto registrado: 16/07.",
+    ]);
+  });
+
+  it("um caminho funcionando basta; sem conta ligada é outro estado", () => {
+    expect(adsSyncHealth({ meta_configurado: true, meta_status: "error", meta_erro_codigo: "190", zernio_configurado: true, zernio_status: "success", zernio_ultimo_sync: "2026-10-03T09:00:00Z" }, now))
+      .toEqual({ estado: "ok", problemas: [] });
+    expect(adsSyncHealth(null, now).estado).toBe("sem_config");
+    expect(adsSyncHealth({ meta_configurado: true, meta_status: "ok", meta_ultimo_sync: "2026-09-30T00:00:00Z" }, now)).toMatchObject({ estado: "parado", problemas: ["Sync da Meta parado desde 30/09."] });
+  });
+
+  it("no painel, o motivo do sync substitui o aviso genérico de gasto", () => {
+    const p = buildLivePanel({ ...full, ads: [], syncHealth: { estado: "erro", problemas: ["Token da Meta expirado."] } });
+    expect(p.alertas).toContain("Token da Meta expirado.");
+    expect(p.alertas.some((a) => a.startsWith("Sem gasto"))).toBe(false);
   });
 });
 

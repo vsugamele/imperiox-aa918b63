@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { playbookFromRows } from "../supabase/functions/_shared/playbook-apply.ts";
 import { launchPreview, planLaunch, writeLaunch } from "../supabase/functions/_shared/launch-plan.ts";
+import { adsSyncHealth } from "../supabase/functions/_shared/live-panel.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, OPS_TOOLS, accessChecklist, channelsFromPlaybooks, parseChannels } from "../supabase/functions/_shared/launch-kit.ts";
 
 const WORK_DIR = ".tmp-launch";
@@ -132,6 +133,12 @@ switch (cmd) {
     const kit = accessChecklist(canais, declared, evidence(projectId));
     console.log(`\n${proj.name} — canais: ${canais.join(", ")} — obrigatórios prontos: ${kit.progresso}${kit.pronto_para_rodar ? " (pronto para rodar)" : ""}`);
     console.table(kit.itens.map((i) => ({ acesso: i.key, status: ACCESS_STATUS_LABEL[i.status], obrigatorio: i.obrigatorio ? "sim" : "", canais: i.canais.join(","), espera: i.bloqueado_por.join(","), aviso: i.aviso ?? "" })));
+    if (canais.includes("ads_direto") || canais.includes("x1")) {
+      const [h] = query(`select * from imphq_v_ads_sync_health where project_id = ${q(projectId)}`);
+      const saude = adsSyncHealth(h ?? null);
+      console.log(`Sync de anúncios: ${saude.estado}`);
+      for (const problema of saude.problemas) console.log(`  - ${problema}`);
+    }
     if (kit.proximos.length) {
       console.log("Próximos (sem bloqueio):");
       for (const k of kit.proximos) console.log(`  - ${ACCESS_BY_KEY.get(k).label}: ${ACCESS_BY_KEY.get(k).como}`);

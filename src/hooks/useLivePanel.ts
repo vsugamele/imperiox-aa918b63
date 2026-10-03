@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { buildLivePanel, dayFraction, liveDelta, type AdRow, type LivePanel, type SaleRow } from "@shared/live-panel";
+import { adsSyncHealth, buildLivePanel, dayFraction, liveDelta, type AdRow, type AdsSyncHealthRow, type LivePanel, type SaleRow } from "@shared/live-panel";
 import { paramsFrom } from "@shared/scale-ladder";
 
 /** Início do dia de Brasília (UTC-3) em ISO e a data AAAA-MM-DD. */
@@ -14,13 +14,14 @@ async function loadLivePanel(projectId: string): Promise<LivePanel> {
   const { day, start } = brtToday();
   const month = new Date(Date.now() - 30 * 86400000).toISOString();
   const count = (event: string) => supabase.from("imphq_events").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("event_name", event).gte("created_at", start);
-  const [pv, ic, salesRes, adsRes, webhookRes, paramsRes] = await Promise.all([
+  const [pv, ic, salesRes, adsRes, webhookRes, paramsRes, healthRes] = await Promise.all([
     count("PageView"),
     count("InitiateCheckout"),
     supabase.from("imphq_vendas").select("status, valor, data").eq("project_id", projectId).gte("created_at", start).limit(5000),
     supabase.from("imphq_ads_spend").select("valor, landing_page_views, checkouts_iniciados, init_checkout, compras, valor_conversao, moeda").eq("project_id", projectId).eq("data_ref", day).limit(5000),
     supabase.from("imphq_vendas").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", month),
     supabase.from("imphq_scale_rounds").select("params").eq("project_id", projectId).order("updated_at", { ascending: false }).limit(1),
+    supabase.from("imphq_v_ads_sync_health").select("*").eq("project_id", projectId).maybeSingle(),
   ]);
   for (const res of [pv, ic, salesRes, adsRes, webhookRes, paramsRes]) if (res.error) throw res.error;
   const params = paramsRes.data?.[0] ? paramsFrom(paramsRes.data[0].params) : null;
@@ -31,6 +32,8 @@ async function loadLivePanel(projectId: string): Promise<LivePanel> {
     webhookConnected: (webhookRes.count ?? 0) > 0,
     params: params && params.payout > 0 && params.cpaAlvo > 0 ? params : null,
     dayFraction: dayFraction(),
+    // Falha ao ler a saúde do sync não derruba o painel.
+    syncHealth: healthRes.error ? null : adsSyncHealth(healthRes.data as AdsSyncHealthRow | null),
   });
 }
 

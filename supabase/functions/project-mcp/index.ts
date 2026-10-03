@@ -16,6 +16,7 @@ import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/toda
 import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
 import { launchPreview, planLaunch, writeLaunch } from "../_shared/launch-plan.ts";
+import { adsSyncHealth, type AdsSyncHealthRow } from "../_shared/live-panel.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1042,12 +1043,13 @@ async function loadProjectKit(supabase: Supabase, projectId: string, canaisText:
   }
   const week = new Date(Date.now() - 7 * 86400000).toISOString();
   const month = new Date(Date.now() - 30 * 86400000).toISOString();
-  const [declaredRes, waRes, adsRes, eventsRes, salesRes] = await Promise.all([
+  const [declaredRes, waRes, adsRes, eventsRes, salesRes, healthRes] = await Promise.all([
     supabase.from("imphq_project_access").select("access_key, status, nota, owner_member_id, updated_at").eq("project_id", projectId),
     supabase.from("imphq_wa_providers").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("is_active", true),
     supabase.from("imphq_ads_spend").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("data_ref", week.slice(0, 10)),
     supabase.from("imphq_events").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", week),
     supabase.from("imphq_vendas").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", month),
+    supabase.from("imphq_v_ads_sync_health").select("*").eq("project_id", projectId).maybeSingle(),
   ]);
   if (declaredRes.error) throw declaredRes.error;
   const kit = accessChecklist(canais, (declaredRes.data ?? []) as DeclaredAccess[], {
@@ -1055,6 +1057,7 @@ async function loadProjectKit(supabase: Supabase, projectId: string, canaisText:
   });
   return {
     projeto: project, ...kit, canais_invalidos: invalidos,
+    saude_sync_anuncios: healthRes.error ? null : adsSyncHealth(healthRes.data as AdsSyncHealthRow | null),
     canais_detalhe: CHANNELS.filter((c) => canais.includes(c.key)).map((c) => ({ key: c.key, label: c.label, playbooks: c.playbooks, ferramentas: c.ferramentas })),
     observacao: canais.length ? null : "Nenhum canal: informe 'canais' ou aplique um playbook no projeto.",
   };

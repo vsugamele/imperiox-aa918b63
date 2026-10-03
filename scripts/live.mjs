@@ -7,7 +7,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildLivePanel, dayFraction } from "../supabase/functions/_shared/live-panel.ts";
+import { adsSyncHealth, buildLivePanel, dayFraction } from "../supabase/functions/_shared/live-panel.ts";
 import { paramsFrom } from "../supabase/functions/_shared/scale-ladder.ts";
 
 const WORK_DIR = ".tmp-live";
@@ -41,11 +41,13 @@ const ads = query(`select valor, landing_page_views, checkouts_iniciados, init_c
 const [hook] = query(`select exists (select 1 from imphq_vendas where project_id = ${p} and created_at >= ${q(new Date(Date.parse(end) - 30 * 86400000).toISOString())} and created_at < ${q(end)}) as ok`);
 const [round] = query(`select params from imphq_scale_rounds where project_id = ${p} order by updated_at desc limit 1`);
 const params = round ? paramsFrom(parse(round.params)) : null;
+const [health] = query(`select * from imphq_v_ads_sync_health where project_id = ${p}`);
 
 const panel = buildLivePanel({
   trackerEvents: Object.fromEntries(events.map((e) => [e.event_name, e.n])),
   sales, ads, webhookConnected: !!hook?.ok,
   params: params && params.payout > 0 && params.cpaAlvo > 0 ? params : null,
   dayFraction: flag("dia") ? 1 : dayFraction(),
+  syncHealth: flag("dia") ? null : adsSyncHealth(health ?? null),
 });
 console.log(JSON.stringify({ projeto: project, dia: day, ...panel }, null, 2));

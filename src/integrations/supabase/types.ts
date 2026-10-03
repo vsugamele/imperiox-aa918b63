@@ -55591,6 +55591,22 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_v_ads_sync_health: {
+        Row: {
+          meta_configurado: boolean | null
+          meta_erro: string | null
+          meta_erro_codigo: string | null
+          meta_status: string | null
+          meta_ultimo_sync: string | null
+          project_id: string | null
+          ultimo_dia_com_gasto: string | null
+          zernio_configurado: boolean | null
+          zernio_erro: string | null
+          zernio_status: string | null
+          zernio_ultimo_sync: string | null
+        }
+        Relationships: []
+      }
       imphq_v_ai_drafts: {
         Row: {
           contact_identifier: string | null

@@ -139,8 +139,12 @@ Deno.serve(async (req) => {
     debug.cached_variant_used = cachedVariantName === chosen;
     console.log(`[zernio-ads-sync] chosen variant: ${chosen} (cached=${cachedVariantName === chosen})`);
 
+    // Saídas de erro passam pelo catch: o status fica gravado nas credenciais e em imphq_webhook_errors (antes falhava em silêncio).
     if (!foundVariant) {
-      return new Response(JSON.stringify({ error: "Não foi possível detectar variante Zernio válida (todas vazias ou rate-limited). Tente novamente em 30s.", debug }), { status: 502, headers: jsonHeaders });
+      const rateLimited = (debug.variants_tried as Array<{ campaigns_status?: number; ads_status?: number }>).some((v) => v.campaigns_status === 429 || v.ads_status === 429);
+      throw new Error(rateLimited
+        ? "Zernio limitou as requisições (429) em todas as variantes; tente de novo mais tarde."
+        : `Conta de anúncio ${adAccountId} sem campanhas nem anúncios no Zernio: conferir se é a conta certa e se a conexão com a Meta está ativa no Zernio.`);
     }
 
     // 1. Campaigns (paginated)
@@ -148,7 +152,7 @@ Deno.serve(async (req) => {
       let page = 1;
       while (true) {
         const { ok, status, body } = await zFetch(`/ads/campaigns?${qBase}&page=${page}&limit=50`, apiKey);
-        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar campanhas Zernio", status, details: body, debug }), { status: 502, headers: jsonHeaders });
+        if (!ok) throw new Error(`Falha ao listar campanhas no Zernio (HTTP ${status})`);
         for (const c of (body.campaigns || [])) campaignsByZId.set(String(c.id), c);
         if (!debug.sample_campaign && (body.campaigns || []).length > 0) debug.sample_campaign = body.campaigns?.[0];
         const pages = body?.pagination?.pages || 1;
@@ -162,7 +166,7 @@ Deno.serve(async (req) => {
       let page = 1;
       while (true) {
         const { ok, status, body } = await zFetch(`/ads?${qBase}&page=${page}&limit=50`, apiKey);
-        if (!ok) return new Response(JSON.stringify({ error: "Falha ao listar anúncios Zernio", status, details: body, debug }), { status: 502, headers: jsonHeaders });
+        if (!ok) throw new Error(`Falha ao listar anúncios no Zernio (HTTP ${status})`);
         ads.push(...(body.ads || []));
         if (!debug.sample_ad && (body.ads || []).length > 0) debug.sample_ad = body.ads?.[0];
         const pages = body?.pagination?.pages || 1;

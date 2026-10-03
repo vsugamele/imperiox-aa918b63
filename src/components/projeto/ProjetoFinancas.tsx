@@ -729,6 +729,10 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">
                   {jsonText(projectData.facebook_ad_account_id) && (jsonText(projectData.facebook_marketing_token) || jsonText(projectData.facebook_access_token)) ? (
+                    projectData.facebook_sync_status === "error" ? (
+                      // Token salvo não quer dizer token válido: o sync grava o último erro da Meta no projeto.
+                      <><strong className="text-destructive">⚠ Sync do Facebook com erro.</strong> {String(jsonFields(projectData.facebook_sync_error).code ?? "") === "190" ? "Token da Meta expirado: gere um token novo de usuário do sistema no Business Manager e salve nas integrações." : jsonText(jsonFields(projectData.facebook_sync_error).message) || "Veja o detalhe nas integrações."}</>
+                    ) :
                     <><strong className="text-emerald-400">✅ Facebook conectado.</strong> Sincronize ou importe CSV. Use IA para gerar campanhas e analisar performance.{!jsonText(projectData.facebook_marketing_token) && <span className="text-amber-400 ml-1">⚠ Usando token CAPI — recomendado usar token Marketing API (Graph Explorer).</span>}</>
                   ) : (
                     <><strong className="text-foreground">Como importar?</strong> Configure o Token Marketing API (Graph Explorer) e Ad Account ID nas integrações, ou importe CSV manualmente.</>
