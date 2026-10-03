@@ -1,6 +1,6 @@
 # Catálogo de ofertas DTC — AFF1.1
 
-Conferido em 02/10/2026, America/Sao_Paulo.
+Atualizado em 03/10/2026, America/Sao_Paulo. Histórico de 02/10 preservado abaixo.
 
 ## Atualização — páginas próprias e tracking
 
@@ -9,9 +9,13 @@ Pedido de publicação, tracker/IDs, Analytics e mapa autorizado pelo usuário. 
 | Oferta | Página própria | Player / pitch | GA4 (Direct Response) | Meta |
 |---|---|---|---|---|
 | Leaftide Powder | https://leaftide-powder-vsl.vercel.app/ | ML04 `6aa4dde98aa57ba613b3b3d3` / 56:28 | `G-CEXWP1QQRE`, propriedade `557212253`, fluxo `15976071789`; tempo real com page_view/session_start/vsl_view confirmado | Pendente de BM/pixel |
-| CardioFlush | https://cardioflush-vsls-hw.vercel.app/ | LEAD5 `6a9841cee7a8842efeeb2801` / 55:30 | `G-P3BGTRYWE3`, propriedade `557161984`, fluxo `15977337371`; instalada, recebimento pendente | Pendente de BM/pixel |
-| MemoFlow | https://memoflow-vsl.vercel.app/ | `6aa4c6586d7a1359e68358cf` / 55:00 | `G-T52GP0M1MJ`, propriedade `557173271`, fluxo `15977184412`; instalada, recebimento pendente | Pendente de BM/pixel |
-| SlimSoda Powder | https://slimsoda-powder-vsl.vercel.app/ | `6aa4c68d589230110306fe6c` / 37:06 | Propriedade/fluxo criados; ID ainda não recuperado após perda do controle Chrome | `996492073462713` instalado no site; proprietário Imperio Company e compartilhamento AD Vini 01 confirmados; recebimento Meta pendente |
+| CardioFlush | https://cardioflush-vsls-hw.vercel.app/ | LEAD5 `6a9841cee7a8842efeeb2801` / 55:30 | `G-P3BGTRYWE3`, propriedade `557161984`, fluxo `15977337371`; page_view/session_start/vsl_view recebidos em tempo real em 03/10 | Pendente de BM/pixel |
+| MemoFlow | https://memoflow-vsl.vercel.app/ | `6aa4c6586d7a1359e68358cf` / 55:00 | `G-T52GP0M1MJ`, propriedade `557173271`, fluxo `15977184412`; page_view/session_start/vsl_view recebidos em tempo real em 03/10 | Pendente de BM/pixel |
+| SlimSoda Powder | https://slimsoda-powder-vsl.vercel.app/ | `6aa4c68d589230110306fe6c` / 37:06 | `G-6BY843CN82`, propriedade `557209019`, fluxo `15976232055`; VSL/ADV1/PDP recebidos em tempo real em 03/10 | `996492073462713` instalado; proprietário Imperio Company e compartilhamento AD Vini 01 confirmados; PageView próprio recebido, Purchase/CAPI pendentes |
+
+Conta GA4 Direct Response `359475519`. Usuário informou que os acessos são pelo e-mail do Bruno. Meta identifica Bruno Souza de Carvalho; a sessão Google inspecionada está como Vinicius. O endereço Google do Bruno foi solicitado e ainda não confirmado; não assumir titularidade nem conceder acesso a endereço inferido. Não houve duplicação da propriedade Slim.
+
+Meta Slim: Eventos de Teste mostrou PageView processado do domínio `slimsoda-powder-vsl.vercel.app` às 08:43 de 03/10, classificado pela interface como "Evento personalizado". SDK, configuração do pixel e requisição `/tr?id=996492073462713&ev=PageView` responderam HTTP 200 no navegador. Eventos históricos/CAPI existentes do dataset não comprovam compra/CAPI deste novo site. 2FA continua exigido para configurações da empresa, embora o Gerenciador de Eventos seja acessível.
 
 Tracker Império: visita de navegador `vsl_view` recebida nas quatro ofertas, com `utm_source=codex-validation`, `utm_campaign=aff1-1` e `meta.validation=true`. Nenhuma compra, Purchase ou CAPI foi certificado. Os atrasos foram configurados com `displayHiddenElements` do player; nenhuma sessão completa até todos os pitches foi acompanhada.
 
@@ -25,7 +29,9 @@ Endpoint público `funnel-track` atualizado da versão 360 para 361 apenas para 
 - [Advertorial 4](https://slimsoda-powder-vsl.vercel.app/advertorials/slimsoda-adv4-exclusive-report.html)
 - [PDP](https://slimsoda-powder-vsl.vercel.app/pdp/)
 
-Fontes originais continuam em `materials/`. Cópias publicadas: 16 CTAs editoriais levam à VSL própria; 12 CTAs da PDP levam ao DTC H&W. Instruções de acesso ajustadas para apresentação, sem coleta de perfil/quiz. Contadores estáticos de escassez/comentários e seção de projeção individual da PDP ficam ocultos nesta versão. Conteúdo do fornecedor e links legais ainda exigem revisão; a publicação não representa liberação para tráfego. HTTP 200 e wiring conferidos; QA visual desses materiais ficou pendente após falha do navegador.
+Fontes originais continuam em `materials/`. Cópias publicadas: 16 CTAs editoriais levam à VSL própria; 12 CTAs da PDP levam ao DTC H&W. Instruções ajustadas para apresentação, sem perfil/quiz inexistente. Contadores estáticos de escassez/comentários, cronômetro, lote de envio simulado e projeção individual ficam ocultos. Header "See packages" corrigido; footer usa Terms/Privacy/Support do comerciante, observados no checkout e HTTP 200.
+
+QA desktop ADV1/PDP concluído em 03/10. Clique ADV1 → VSL e PDP → checkout testados com afiliado/hid/UTMs preservados. Tracker Império recebeu advertorial_view, advertorial_cta_click, pdp_view e pdp_cta_click dessas visitas, campanha aff1-1-20261003. Outros três editoriais passaram conferência de HTML/CTAs; não houve clique individual de navegador. Conteúdo do fornecedor e garantias divergentes (60 dias no editorial, 90 no checkout/PDP) seguem em revisão. No checkout Slim: 3+3 USD 19.99/unidade, 2+2 USD 27.49, 1+1 USD 44.75; compra única declarada, expedited shipping USD 9.95 marcado por padrão. Nenhum pedido efetuado.
 
 ### Checkouts disponíveis no H&W e direção aplicada
 
@@ -42,17 +48,17 @@ Todos com `affid=aff_6821377` e `hid` oficial da variante. A escolha reaproveita
 
 Mapa Master `67f9f17a-e75e-45f6-a5e3-20198bfdd692`: 29 novos nós, 25 conexões e seis faixas das quatro ofertas e materiais, sem alterar as faixas antigas. Snapshot anterior `d9de9532-c790-4b05-91e3-1d9ca7f1d612`. Links, IDs e pendências constam nas descrições; etapa de compra/Meta permanece em revisão. ADV/PDP Memo existentes estão vinculados como fluxo a validar, sem mudança nos sites antigos.
 
-Mapa operacional SlimSoda `a2e01bd8-f262-43d9-a91f-779ea371ca40`: nova faixa Powder com seis nós/cinco conexões, preservando operação legada; snapshot `9303e436-bd5f-4467-b999-721bf2e82b1f`. Cadastro verificado no banco; QA visual dos mapas pendente de navegador. Assumido que o pedido de mapa "Ipena" se refere ao Império, enquanto a pergunta de esclarecimento permanece sem resposta.
+Mapa operacional SlimSoda `a2e01bd8-f262-43d9-a91f-779ea371ca40`: nova faixa Powder com seis nós/cinco conexões, preservando operação legada; snapshot `9303e436-bd5f-4467-b999-721bf2e82b1f`. Mapa Master e operacional Slim, links dos novos nós e tracking conferidos na interface em 03/10; capturas salvas. Assumido que "Ipena" refere-se ao Império, pergunta opcional sem resposta.
 
-Sites: nove novas páginas próprias registradas (quatro VSLs + quatro advertoriais Slim + PDP Slim), além dos dez sites antes catalogados. Briefings agora têm 14/19/21/26 links para Leaftide/CardioFlush/MemoFlow/SlimSoda, respectivamente. IDs públicos GA4/Pixel atualizados nos projetos.
+Sites: nove novas páginas próprias registradas (quatro VSLs + quatro advertoriais Slim + PDP Slim), além dos dez sites antes catalogados. Briefings agora têm 14/19/21/27 links para Leaftide/CardioFlush/MemoFlow/SlimSoda, respectivamente. IDs públicos GA4/Pixel e resultados de validação atualizados nos projetos, Sites e tracking dos mapas.
 
-GitHub: commits remotos verificados e quatro checkouts limpos: Leaftide `9c59c87bea8c068bb17f9b361108eb84a28482b9`, Cardio `4b16cfa2f086378f98ee5943a6a19542c6440f12`, Memo `63e61662e8a07a081dc0963b9c5e08347c03e00b`, Slim `b804662b65013eac094b20b0f0d68619f32db84e`. Deploys CLI novos servem o mesmo código de `site/`; último Slim `dpl_3bLdhWxmBYaYN1MN8XUiekJec8Jr`. Nenhum commit alheio do repositório raiz foi enviado.
+GitHub: em 03/10, commits remotos verificados e quatro checkouts limpos: Leaftide `9c59c87bea8c068bb17f9b361108eb84a28482b9`, Cardio `c681acabbbd74815573699a20a16dd6422527748`, Memo `a28703bf4c60182e5266d37c96f31fdcbf04283c`, Slim `9f1af096c550b00da1ff854006c4c63961bb19bb`. Último deploy Slim `dpl_9E2PfXednmBhTrVmKNnGdbbZ2Js2`; alias público HTTP 200 com GA4 e footer atual. Deploy CLI serve o código de `site/`. Nenhum commit alheio do repositório raiz foi enviado.
 
 [Mapa Master](https://imperiox.vercel.app/funis?view=mapa&map=67f9f17a-e75e-45f6-a5e3-20198bfdd692&node=af110001-0000-4000-8000-000000000003).
 
 Conexão GitHub → Vercel automática: tentativa Leaftide retornou exigência de Login Connection GitHub na conta Vercel. GitHub e deploy CLI funcionam; vínculo automático não foi concluído. Meta ainda apresenta 2FA de Bruno Souza de Carvalho. Não foi recebido aviso de liberação.
 
-Chrome: cache de Service Worker carregava bundle antigo `index-DpXwEvbC.js`; produção atual serve `index-Bc9Y2s9_.js`. Recarregamento temporário sem Service Worker mostrou interface atual. Depois o controle deixou de responder/depurador sem conexão; verificação visual de mapa e recebimento Meta ficou pendente. As sessões autenticadas estavam no perfil Vinicius.
+Chrome: novas abas do perfil Vinicius voltaram a responder em 03/10; usadas para GA4, Meta, PDP e mapa. Abas antigas permanecem sem conexão. O bloqueio do navegador de 02/10 foi superado para essas verificações; 2FA da empresa e identidade Google do Bruno permanecem pendentes.
 
 Validação: cinco testes do tracker; lint sem erros (2 avisos existentes), typecheck e 623 testes do Império aprovados. Aplicativo raiz não foi republicado por esta story.
 

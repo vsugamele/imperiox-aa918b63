@@ -1,7 +1,7 @@
 # AFF1.1 — Organizar ofertas DTC, páginas e VSLs
 
 Status: Em andamento
-Data operacional: 2026-10-02 (America/Sao_Paulo)
+Data operacional: 2026-10-03 (America/Sao_Paulo)
 Liderança: @analyst; GitHub: @devops; implementação: @dev; validação: @qa.
 
 ## Solicitação e decisão
@@ -34,11 +34,16 @@ Usuário escolheu opção 1: validar uma oferta primeiro e depois repetir o padr
 Usuário pediu páginas com links próprios publicadas na Vercel, fontes nos GitHubs, tracker/IDs por oferta, Google Analytics e organização no mapa. Reutilizar as fontes e players catalogados, validar Leaftide antes das demais e manter os destinos atuais até o novo fluxo estar conferido.
 
 - [x] Abrir e mostrar tela Meta 2FA para preenchimento direto pelo usuário.
-- [x] Conferir dataset Slim: proprietário Imperio Company, vinculado AD Vini 01, sem eventos.
+- [x] Conferir dataset Slim: proprietário Imperio Company, vinculado AD Vini 01; PageView próprio recebido em 03/10.
 - [x] Conferir acesso Analytics: conector 403; sessão do navegador disponível.
 - [x] Publicar e validar página própria piloto com checkout oficial e tracker.
 - [ ] Associar GA4/Pixel e provar recebimento dos eventos disponíveis.
-- [x] Replicar páginas e tracker Império nas demais ofertas (GA4/Meta ainda parcialmente pendentes).
+- [x] Replicar páginas e tracker Império nas demais ofertas.
+- [x] Provar recebimento GA4 das quatro VSLs, recuperando a propriedade Slim já criada.
+- [x] Provar PageView Meta do domínio Slim; Purchase/CAPI ainda pendentes.
+- [x] Testar no navegador ADV1 → VSL e PDP → checkout Slim, preservando afiliado/UTMs e confirmando eventos Império.
+- [x] Conferir mapa Master e operacional Slim e links próprios na interface.
+- [ ] Confirmar conta Google do Bruno e acesso às propriedades sem inferir endereço.
 - [x] Vincular VSL, GitHub, player, checkout e tracking das quatro ofertas no mapa Master.
 - [x] Publicar quatro advertoriais e PDP SlimSoda com CTAs e eventos separados das VSLs.
 - [x] Cadastrar nove novas páginas em Sites e adicionar ADV/PDP aos mapas preservando versões anteriores.
@@ -60,7 +65,15 @@ Preservar páginas e cadastros existentes; não excluir registros ou materiais. 
 - BM candidata `Imperio Company` (`1895345497616474`), conta `AD Vini 01` (`448271424884723`), dataset `Slim` (`996492073462713`) sem eventos. Configurações da empresa exigiram 2FA da conta Bruno Souza de Carvalho. Não confirmado proprietário do pixel Leaf.
 - Gates atuais do Império: lint sem erros (2 avisos), typecheck aprovado e 623 testes em 91 arquivos aprovados. Falha anterior de typecheck resolvida na alteração paralela STR1.9, sem mudança de código por esta story. Aplicativo não deployado nesta sessão.
 
-## Entrega e dependências atuais
+## Atualização 03/10 — estado atual
+
+GA4 confirmado nas quatro VSLs: Leaftide G-CEXWP1QQRE, Cardio G-P3BGTRYWE3, Memo G-T52GP0M1MJ e Slim G-6BY843CN82. Slim também recebeu visitas ADV1/PDP. Propriedade Slim 557209019/fluxo 15976232055 recuperada sem duplicação.
+
+Meta Slim: PageView processado do domínio próprio em Eventos de Teste; UI classifica como Evento personalizado. SDK e /tr do pixel 996492073462713 HTTP 200. Não representa Purchase/CAPI. Tela 2FA Bruno aberta e preservada; sessão Google é Vinicius, endereço Google do Bruno solicitado. Demais pixels seguem pendentes de propriedade/permissões.
+
+Slim ADV1/PDP desktop e cliques conferidos; tracker recebeu quatro passos específicos. Header PDP e links legais do comerciante corrigidos; módulos de cronômetro/lote simulado ocultos, originais preservados. Divergência de garantias e conteúdo do fornecedor ainda exigem revisão. Mapa Master e operacional Slim e links conferidos em UI. Briefings 14/19/21/27 links.
+
+## Histórico de entrega — superado pela atualização acima
 
 - Catálogo completo: docs/operations/affiliate-offers-2026-10-02.md.
 - Projetos Briefing: Leaftide 11, CardioFlush 16, MemoFlow 18, SlimSoda 19 links. Dez páginas publicadas cadastradas em imphq_sites; dados legados preservados e identificados.
@@ -78,4 +91,5 @@ Preservar páginas e cadastros existentes; não excluir registros ou materiais. 
 - docs/stories/AFF1.1-organizacao-ofertas-dtc.md
 - docs/operations/affiliate-offers-2026-10-02.md
 - docs/sessions/2026-10/AFF1.1-2026-10-02.md
+- docs/sessions/2026-10/AFF1.1-2026-10-03.md
 - supabase/functions/funnel-track/index.ts
