@@ -55600,10 +55600,6 @@ export type Database = {
           meta_ultimo_sync: string | null
           project_id: string | null
           ultimo_dia_com_gasto: string | null
-          zernio_configurado: boolean | null
-          zernio_erro: string | null
-          zernio_status: string | null
-          zernio_ultimo_sync: string | null
         }
         Relationships: []
       }

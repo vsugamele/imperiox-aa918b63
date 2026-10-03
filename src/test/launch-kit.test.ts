@@ -49,9 +49,21 @@ describe("kit de operação: checklist de acessos", () => {
 
   it("evidência do banco conta como conectado e corrige declaração atrasada", () => {
     const kit = accessChecklist(["x1"], [{ access_key: "whatsapp", status: "falta" }], { whatsapp: true, vendas: true });
-    expect(kit.itens.filter((i) => i.obrigatorio).map((i) => [i.key, i.status, !!i.aviso])).toEqual([["checkout", "conectado", false], ["whatsapp", "conectado", true]]);
-    expect(kit.itens.filter((i) => !i.obrigatorio).map((i) => i.key)).toEqual(["meta_bm", "ads_sync"]);
+    expect(kit.itens.filter((i) => i.obrigatorio).map((i) => [i.key, i.status])).toEqual([["checkout", "conectado"]]);
+    expect(kit.itens.find((i) => i.key === "whatsapp")).toMatchObject({ status: "conectado", um_de: ["instagram_dm"] });
+    expect(kit.itens.find((i) => i.key === "whatsapp")?.aviso).toMatch(/marque como conectado/);
+    expect(kit.grupos).toEqual([{ membros: ["whatsapp", "instagram_dm"], label: "Número de WhatsApp conectado ou Direct do Instagram conectado (Zernio)", satisfeito: true }]);
+    expect(kit.progresso).toBe("2/2");
     expect(kit.pronto_para_rodar).toBe(true);
+  });
+
+  it("X1 roda só com o Direct do Instagram (Zernio), sem WhatsApp", () => {
+    const sem = accessChecklist(["x1"], []);
+    expect(sem.progresso).toBe("0/2");
+    expect(sem.proximos).toEqual(["checkout", "whatsapp", "instagram_dm"]);
+    const kit = accessChecklist(["x1"], [], { instagram_dm: true, vendas: true });
+    expect(kit.pronto_para_rodar).toBe(true);
+    expect(kit.proximos).toEqual([]);
   });
 
   it("avisa quando dizem conectado mas não há dado, e respeita 'não se aplica'", () => {

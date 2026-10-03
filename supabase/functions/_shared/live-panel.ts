@@ -136,10 +136,9 @@ export function buildLivePanel(input: LiveInput) {
 
 export type LivePanel = ReturnType<typeof buildLivePanel>;
 
-/** Linha de imphq_v_ads_sync_health (só status; nunca token). */
+/** Linha de imphq_v_ads_sync_health (só status; nunca token). O Zernio é X1 do Direct, não fonte de anúncio. */
 export interface AdsSyncHealthRow {
   meta_configurado?: boolean | null; meta_status?: string | null; meta_ultimo_sync?: string | null; meta_erro_codigo?: string | null; meta_erro?: string | null;
-  zernio_configurado?: boolean | null; zernio_status?: string | null; zernio_ultimo_sync?: string | null; zernio_erro?: string | null;
   ultimo_dia_com_gasto?: string | null;
 }
 
@@ -147,30 +146,21 @@ const STALE_HOURS = 36;
 const dm = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
 
 /**
- * Saúde do sync de anúncios: erro declarado, sync parado (último sucesso há mais de 36 h) ou ok.
- * Token expirado da Meta (erro 190) vira instrução direta: só uma pessoa gera token novo.
+ * Saúde do sync de anúncios da Meta: erro declarado, parado (último sucesso há mais de 36 h) ou ok.
+ * Token expirado (erro 190) vira instrução direta: só uma pessoa gera token novo.
  */
 export function adsSyncHealth(row: AdsSyncHealthRow | null | undefined, now: number = Date.now()) {
+  if (!row || !row.meta_configurado) {
+    return { estado: "sem_config" as const, problemas: ["Nenhuma conta de anúncio da Meta ligada ao sync do Império."] };
+  }
+  const stale = !row.meta_ultimo_sync || now - Date.parse(row.meta_ultimo_sync) > STALE_HOURS * 3600000;
   const problemas: string[] = [];
-  if (!row || (!row.meta_configurado && !row.zernio_configurado)) {
-    return { estado: "sem_config" as const, problemas: ["Nenhuma conta de anúncio ligada ao sync do Império."] };
-  }
-  const stale = (iso: string | null | undefined) => !iso || now - Date.parse(iso) > STALE_HOURS * 3600000;
-  if (row.meta_configurado) {
-    if (row.meta_erro_codigo === "190") problemas.push(`Token da Meta expirado${row.meta_ultimo_sync ? ` (último sync ok em ${dm(row.meta_ultimo_sync)})` : ""}: gerar token novo de usuário do sistema no Business Manager.`);
-    else if (row.meta_status === "error") problemas.push(`Sync da Meta com erro: ${row.meta_erro ?? "sem detalhe"}.`);
-    else if (stale(row.meta_ultimo_sync)) problemas.push(`Sync da Meta parado${row.meta_ultimo_sync ? ` desde ${dm(row.meta_ultimo_sync)}` : ""}.`);
-  }
-  if (row.zernio_configurado) {
-    if (row.zernio_status === "error") problemas.push(`Sync do Zernio com erro: ${row.zernio_erro ?? "sem detalhe"}.`);
-    else if (stale(row.zernio_ultimo_sync)) problemas.push(`Sync do Zernio sem sucesso${row.zernio_ultimo_sync ? ` desde ${dm(row.zernio_ultimo_sync)}` : ""}: conferir a conta de anúncio ligada no Zernio.`);
-  }
-  // Um caminho funcionando basta para o gasto chegar.
-  const metaOk = !!row.meta_configurado && row.meta_status !== "error" && !stale(row.meta_ultimo_sync);
-  const zernioOk = !!row.zernio_configurado && row.zernio_status !== "error" && !stale(row.zernio_ultimo_sync);
-  const estado = metaOk || zernioOk ? "ok" as const : problemas.some((p) => p.includes("erro") || p.includes("expirado")) ? "erro" as const : "parado" as const;
+  if (row.meta_erro_codigo === "190") problemas.push(`Token da Meta expirado${row.meta_ultimo_sync ? ` (último sync ok em ${dm(row.meta_ultimo_sync)})` : ""}: gerar token novo de usuário do sistema no Business Manager.`);
+  else if (row.meta_status === "error") problemas.push(`Sync da Meta com erro: ${row.meta_erro ?? "sem detalhe"}.`);
+  else if (stale) problemas.push(`Sync da Meta parado${row.meta_ultimo_sync ? ` desde ${dm(row.meta_ultimo_sync)}` : ""}.`);
+  if (!problemas.length) return { estado: "ok" as const, problemas: [] };
   if (row.ultimo_dia_com_gasto) problemas.push(`Último dia com gasto registrado: ${dm(row.ultimo_dia_com_gasto)}.`);
-  return { estado, problemas: estado === "ok" ? [] : problemas };
+  return { estado: row.meta_status === "error" ? "erro" as const : "parado" as const, problemas };
 }
 
 /** Variação entre duas leituras (para "vs leitura anterior"). */

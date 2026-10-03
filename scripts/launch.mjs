@@ -45,10 +45,12 @@ function insertSql(table, row, onConflict = "") {
 }
 const norm = (v) => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
-/** Evidência que o Império vê sozinho: WhatsApp ativo, gasto sincronizado (7 d), tracker (7 d), vendas pelo webhook (30 d). */
+/** Evidência que o Império vê sozinho: WhatsApp ativo, Direct com DM em 7 d, gasto sincronizado (7 d), tracker (7 d), vendas pelo webhook (30 d). */
 function evidence(projectId) {
   const [row] = query(`select
     exists (select 1 from imphq_wa_providers where project_id = ${q(projectId)} and is_active) as whatsapp,
+    exists (select 1 from imphq_ig_accounts a join imphq_ig_conversations c on c.account_id = a.id
+             where a.project_id = ${q(projectId)} and a.status = 'active' and c.last_message_at > now() - interval '7 days') as instagram_dm,
     exists (select 1 from imphq_ads_spend where project_id = ${q(projectId)} and data_ref >= current_date - 7) as ads_sync,
     exists (select 1 from imphq_events where project_id = ${q(projectId)} and created_at > now() - interval '7 days') as tracker,
     exists (select 1 from imphq_vendas where project_id = ${q(projectId)} and created_at > now() - interval '30 days') as vendas`);

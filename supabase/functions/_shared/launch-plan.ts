@@ -78,7 +78,10 @@ export function planLaunch(input: LaunchInput, library: ReadonlyArray<Playbook>,
     kitNode: {
       label: `Kit de acessos — ${nome}`,
       description: `O que só uma pessoa do time faz para os canais rodarem (${mercado}). Marque cada acesso em scripts/launch.mjs acesso ou pelo MCP set_project_access; senha nunca vai para o Império.`,
-      checklist: required.map((i) => `${i.label} — ${ACCESS_BY_KEY.get(i.key)?.como ?? ""}`.trim()),
+      checklist: [
+        ...required.map((i) => `${i.label} — ${ACCESS_BY_KEY.get(i.key)?.como ?? ""}`.trim()),
+        ...kit.grupos.map((g) => `Um destes: ${g.label}`),
+      ],
     },
   };
 }

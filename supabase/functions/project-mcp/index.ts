@@ -1043,17 +1043,22 @@ async function loadProjectKit(supabase: Supabase, projectId: string, canaisText:
   }
   const week = new Date(Date.now() - 7 * 86400000).toISOString();
   const month = new Date(Date.now() - 30 * 86400000).toISOString();
-  const [declaredRes, waRes, adsRes, eventsRes, salesRes, healthRes] = await Promise.all([
+  const { data: igAccounts } = await supabase.from("imphq_ig_accounts").select("id").eq("project_id", projectId).eq("status", "active");
+  const igIds = (igAccounts ?? []).map((a) => a.id);
+  const [declaredRes, waRes, adsRes, eventsRes, salesRes, healthRes, dmRes] = await Promise.all([
     supabase.from("imphq_project_access").select("access_key, status, nota, owner_member_id, updated_at").eq("project_id", projectId),
     supabase.from("imphq_wa_providers").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("is_active", true),
     supabase.from("imphq_ads_spend").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("data_ref", week.slice(0, 10)),
     supabase.from("imphq_events").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", week),
     supabase.from("imphq_vendas").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", month),
     supabase.from("imphq_v_ads_sync_health").select("*").eq("project_id", projectId).maybeSingle(),
+    igIds.length
+      ? supabase.from("imphq_ig_conversations").select("id", { count: "exact", head: true }).in("account_id", igIds).gte("last_message_at", week)
+      : Promise.resolve({ count: 0, error: null }),
   ]);
   if (declaredRes.error) throw declaredRes.error;
   const kit = accessChecklist(canais, (declaredRes.data ?? []) as DeclaredAccess[], {
-    whatsapp: (waRes.count ?? 0) > 0, ads_sync: (adsRes.count ?? 0) > 0, tracker: (eventsRes.count ?? 0) > 0, vendas: (salesRes.count ?? 0) > 0,
+    whatsapp: (waRes.count ?? 0) > 0, instagram_dm: (dmRes.count ?? 0) > 0, ads_sync: (adsRes.count ?? 0) > 0, tracker: (eventsRes.count ?? 0) > 0, vendas: (salesRes.count ?? 0) > 0,
   });
   return {
     projeto: project, ...kit, canais_invalidos: invalidos,

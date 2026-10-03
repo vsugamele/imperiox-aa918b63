@@ -155,7 +155,8 @@ describe("project-mcp approvals and briefing", () => {
   it("reads the project kit from applied playbooks, declared access and evidence", async () => {
     const kit = await runtime().call("get_project_kit", { project_id: "p" });
     expect(kit.canais).toEqual(["x1"]);
-    expect(kit.itens.filter((i: { obrigatorio: boolean }) => i.obrigatorio).map((i: { key: string; status: string }) => [i.key, i.status])).toEqual([["checkout", "conectado"], ["whatsapp", "conectado"]]);
+    expect(kit.itens.filter((i: { obrigatorio: boolean }) => i.obrigatorio).map((i: { key: string; status: string }) => [i.key, i.status])).toEqual([["checkout", "conectado"]]);
+    expect(kit.grupos[0]).toMatchObject({ membros: ["whatsapp", "instagram_dm"], satisfeito: true });
     expect(kit.pronto_para_rodar).toBe(true);
     const asked = await runtime().call("get_project_kit", { project_id: "p", canais: "youtube, podcast" });
     expect(asked).toMatchObject({ canais: ["youtube"], canais_invalidos: ["podcast"], progresso: "0/2" });

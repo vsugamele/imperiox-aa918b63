@@ -15,7 +15,7 @@ export interface AccessRequirement {
   /** Ferramenta do catálogo ligada a este acesso. */
   ferramenta: string | null;
   /** Evidência que o Império consegue ver sozinho (detectAccess). */
-  evidencia: "whatsapp" | "ads_sync" | "tracker" | "vendas" | null;
+  evidencia: "whatsapp" | "instagram_dm" | "ads_sync" | "tracker" | "vendas" | null;
 }
 
 export interface Channel {
@@ -27,6 +27,8 @@ export interface Channel {
   acessos: string[];
   /** Acessos que ajudam mas não travam. */
   opcionais: string[];
+  /** Grupos em que basta um (ex.: X1 pelo WhatsApp ou pelo Direct). */
+  um_de?: string[][];
   ferramentas: string[];
 }
 
@@ -44,6 +46,7 @@ export const ACCESS: AccessRequirement[] = [
   { key: "ads_sync", label: "Gasto de anúncio sincronizado no Império", como: "Ligar a conta de anúncio ao sync do Império (facebook-ads-sync) para gasto, checkouts e compras por conjunto.", depende_de: ["meta_bm"], ferramenta: "meta-ads", evidencia: "ads_sync" },
   { key: "checkout", label: "Checkout com webhook no Império", como: "Criar o produto no checkout (Ticto, Hotmart, Whop, ClickBank ou Stripe) e apontar o webhook para o Império.", depende_de: [], ferramenta: null, evidencia: "vendas" },
   { key: "whatsapp", label: "Número de WhatsApp conectado", como: "Número dedicado conectado na Evolution e cadastrado em imphq_wa_providers com o projeto.", depende_de: [], ferramenta: "evolution-api", evidencia: "whatsapp" },
+  { key: "instagram_dm", label: "Direct do Instagram conectado (Zernio)", como: "Conta do Instagram do projeto conectada no Zernio e cadastrada no Império (imphq_ig_accounts), com o webhook do Zernio entregando as DMs.", depende_de: [], ferramenta: "zernio", evidencia: "instagram_dm" },
   { key: "social_contas", label: "Contas sociais do projeto (TikTok/Instagram)", como: "Criar as contas e aquecer; cadastrar com scripts/content.mjs account:add.", depende_de: [], ferramenta: "geelark", evidencia: null },
   { key: "geelark_aparelho", label: "Aparelho na GeeLark", como: "Um aparelho (env) por conta, com proxy do país do mercado; GEELARK_API_TOKEN configurado.", depende_de: ["social_contas"], ferramenta: "geelark", evidencia: null },
   { key: "voz_ia", label: "Voz de IA (ElevenLabs)", como: "Voz escolhida e créditos no plano para narração.", depende_de: [], ferramenta: "elevenlabs", evidencia: null },
@@ -60,9 +63,9 @@ export const CHANNELS: Channel[] = [
   { key: "ads_direto", label: "Tráfego direto (anúncio → página → checkout)", resumo: "Anúncio pago para pré-venda e checkout, com a esteira de escala decidindo a verba.",
     playbooks: ["ads-direto-dtc", "esteira-escala-dtc"], acessos: ["meta_bm", "dominio", "site", "pixel_capi", "checkout", "tracker"], opcionais: ["ads_sync", "ga4"],
     ferramentas: ["meta-ads", "meta-ad-library", "vercel", "higgsfield", "capcut"] },
-  { key: "x1", label: "X1 (conversa no WhatsApp)", resumo: "Anúncio ou conteúdo para conversa 1 a 1, com IA de atendimento e venda no chat.",
-    playbooks: ["x1-conversa"], acessos: ["whatsapp", "checkout"], opcionais: ["meta_bm", "ads_sync"],
-    ferramentas: ["evolution-api", "meta-ads"] },
+  { key: "x1", label: "X1 (conversa no WhatsApp ou no Direct)", resumo: "Anúncio ou conteúdo para conversa 1 a 1 no WhatsApp ou no Direct do Instagram, com IA de atendimento e venda no chat.",
+    playbooks: ["x1-conversa"], acessos: ["checkout"], um_de: [["whatsapp", "instagram_dm"]], opcionais: ["meta_bm", "ads_sync"],
+    ferramentas: ["evolution-api", "zernio", "meta-ads"] },
   { key: "organico_social", label: "Orgânico social (TikTok/Instagram)", resumo: "Contas em fazenda de aparelhos publicando em lote aprovado.",
     playbooks: ["canal-organico"], acessos: ["social_contas", "geelark_aparelho"], opcionais: ["voz_ia"],
     ferramentas: ["geelark", "capcut", "elevenlabs"] },
@@ -85,6 +88,7 @@ export const OPS_TOOLS: Array<{ id: string; nome: string; url: string; categoria
   { id: "meta-ads", nome: "Meta Ads Manager", url: "https://adsmanager.facebook.com", categoria: "Operação · Tráfego", quando_usar: "Campanhas, conjuntos e anúncios; pixel e API de Conversões.", serve_para: ["dashboard"], prioridade: "alta" },
   { id: "meta-ad-library", nome: "Biblioteca de Anúncios da Meta", url: "https://www.facebook.com/ads/library", categoria: "Operação · Tráfego", quando_usar: "Ver anúncios ativos de concorrentes e há quanto tempo rodam (sinal de escala).", serve_para: ["criativo_video", "criativo_imagem"], prioridade: "alta" },
   { id: "evolution-api", nome: "Evolution API (WhatsApp)", url: "https://doc.evolution-api.com", categoria: "Operação · X1", quando_usar: "Número de WhatsApp conectado ao Império para X1 e avisos (imphq_wa_providers).", serve_para: ["automacao"], prioridade: "alta" },
+  { id: "zernio", nome: "Zernio", url: "https://zernio.com", categoria: "Operação · X1", quando_usar: "Direct do Instagram: receber e responder DMs (X1) com a IA do Império; comentário com palavra → DM. Não é fonte de anúncio.", serve_para: ["automacao"], prioridade: "alta" },
   { id: "geelark", nome: "GeeLark", url: "https://www.geelark.com", categoria: "Operação · Orgânico", quando_usar: "Aparelhos na nuvem para contas sociais; publicação pelo geelark-publisher.", serve_para: ["automacao"], prioridade: "alta" },
 ];
 
@@ -121,7 +125,7 @@ export function channelsFromPlaybooks(playbookIds: ReadonlyArray<string>): Chann
   return CHANNELS.filter((c) => c.playbooks.some((p) => ids.has(p))).map((c) => c.key);
 }
 
-export interface Evidence { whatsapp: boolean; ads_sync: boolean; tracker: boolean; vendas: boolean }
+export interface Evidence { whatsapp: boolean; instagram_dm: boolean; ads_sync: boolean; tracker: boolean; vendas: boolean }
 export interface DeclaredAccess { access_key: string; status: string; nota?: string | null; owner_member_id?: string | null; updated_at?: string | null }
 
 const STATUS_ORDER: Record<AccessStatus, number> = { falta: 0, em_andamento: 1, conectado: 2, nao_se_aplica: 3 };
@@ -134,9 +138,14 @@ const isStatus = (s: string): s is AccessStatus => s in STATUS_ORDER;
  */
 export function accessChecklist(channels: ReadonlyArray<ChannelKey>, declared: ReadonlyArray<DeclaredAccess>, evidence: Partial<Evidence> = {}) {
   const required = new Set<string>(), optional = new Set<string>(), usedBy = new Map<string, ChannelKey[]>();
+  const groups: string[][] = [];
   for (const key of channels) {
     const ch = CHANNEL_BY_KEY.get(key);
     if (!ch) continue;
+    for (const g of ch.um_de ?? []) {
+      if (!groups.some((x) => x.join() === g.join())) groups.push(g);
+      for (const a of g) { optional.add(a); usedBy.set(a, [...(usedBy.get(a) ?? []), key]); }
+    }
     for (const a of ch.acessos) { required.add(a); usedBy.set(a, [...(usedBy.get(a) ?? []), key]); }
     for (const a of ch.opcionais) { optional.add(a); usedBy.set(a, [...(usedBy.get(a) ?? []), key]); }
   }
@@ -187,19 +196,28 @@ export function accessChecklist(channels: ReadonlyArray<ChannelKey>, declared: R
         const s = statusOf(dep).status;
         return s !== "conectado" && s !== "nao_se_aplica";
       });
+      const group = groups.find((g) => g.includes(k) && !required.has(k));
       return {
-        key: k, label: a.label, obrigatorio: required.has(k), status, como: a.como, ferramenta: a.ferramenta,
+        key: k, label: a.label, obrigatorio: required.has(k), um_de: group ? group.filter((x) => x !== k) : null, status, como: a.como, ferramenta: a.ferramenta,
         canais: usedBy.get(k) ?? [], bloqueado_por, evidencia_vista: a.evidencia ? seenOf(k) : null, aviso,
         nota: d?.nota ?? null, dono: d?.owner_member_id ?? null,
       };
     });
   const obrig = items.filter((i) => i.obrigatorio && i.status !== "nao_se_aplica");
-  const prontos = obrig.filter((i) => i.status === "conectado").length;
+  // Grupo "um destes" conta como um requisito: pronto se qualquer membro está conectado.
+  const grupos = groups.filter((g) => !g.some((k) => required.has(k))).map((g) => {
+    const membros = items.filter((i) => g.includes(i.key));
+    return { membros: g, label: membros.map((m) => m.label).join(" ou "), satisfeito: membros.some((m) => m.status === "conectado" || m.status === "nao_se_aplica") };
+  });
+  const prontos = obrig.filter((i) => i.status === "conectado").length + grupos.filter((g) => g.satisfeito).length;
+  const totalReq = obrig.length + grupos.length;
   return {
     canais: channels,
     itens: items,
-    progresso: `${prontos}/${obrig.length}`,
-    pronto_para_rodar: obrig.length > 0 && prontos === obrig.length,
-    proximos: items.filter((i) => i.status === "falta" && i.obrigatorio && i.bloqueado_por.length === 0).map((i) => i.key),
+    grupos,
+    progresso: `${prontos}/${totalReq}`,
+    pronto_para_rodar: totalReq > 0 && prontos === totalReq,
+    proximos: items.filter((i) => i.status === "falta" && i.bloqueado_por.length === 0
+      && (i.obrigatorio || grupos.some((g) => !g.satisfeito && g.membros.includes(i.key)))).map((i) => i.key),
   };
 }
