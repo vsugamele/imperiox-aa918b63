@@ -40,6 +40,11 @@ export const METRIC_KEYS: MetricKey[] = [
   { key: "seguidores", label: "Seguidores", unidade: "numero", escopo: "projeto", fonte: "imphq_content_metrics_daily", disponivel: true, descricao: "Seguidores no último dia medido." },
   { key: "comentarios", label: "Comentários", unidade: "numero", escopo: "projeto", fonte: "imphq_content_metrics_daily", disponivel: true, descricao: "Comentários somados dos posts (inclui a palavra-gatilho)." },
   { key: "cliques_bio", label: "Cliques no link da bio", unidade: "numero", escopo: "etapa", fonte: "imphq_events utm_medium=bio", disponivel: true, descricao: "Sessões que chegaram pelo link da bio (UTM de bio)." },
+  // YouTube
+  { key: "youtube_views", label: "Views no YouTube", unidade: "numero", escopo: "projeto", fonte: "YouTube Analytics API", disponivel: false, descricao: "Views dos vídeos do canal no período." },
+  { key: "youtube_ctr", label: "CTR da thumbnail", unidade: "percentual", escopo: "etapa", fonte: "YouTube Analytics API", disponivel: false, descricao: "Cliques ÷ impressões da thumbnail." },
+  { key: "youtube_retencao", label: "Retenção média", unidade: "percentual", escopo: "etapa", fonte: "YouTube Analytics API", disponivel: false, descricao: "Percentual médio do vídeo assistido." },
+  { key: "youtube_inscritos", label: "Inscritos ganhos", unidade: "numero", escopo: "projeto", fonte: "YouTube Analytics API", disponivel: false, descricao: "Inscritos ganhos menos perdidos no período." },
   // Webinar / lançamento
   { key: "inscritos", label: "Inscritos", unidade: "numero", escopo: "projeto", fonte: "imphq_leads (captura do evento)", disponivel: true, descricao: "Cadastros na página de inscrição." },
   { key: "presenca_live", label: "Presença na live", unidade: "numero", escopo: "etapa", fonte: "registro manual da etapa", disponivel: false, descricao: "Pico de pessoas ao vivo (informado na etapa)." },

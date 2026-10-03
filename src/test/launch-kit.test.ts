@@ -17,10 +17,10 @@ describe("kit de operação: catálogo", () => {
     expect(new Set(OPS_TOOLS.map((t) => t.id)).size).toBe(OPS_TOOLS.length);
   });
 
-  it("os playbooks dos canais estão na biblioteca (YouTube entra no LAUNCH1.2)", () => {
+  it("os playbooks dos canais estão na biblioteca", () => {
     const library = new Set(PLAYBOOK_LIBRARY.map((p) => p.id));
     const missing = CHANNELS.flatMap((c) => c.playbooks).filter((p) => !library.has(p));
-    expect(missing).toEqual(["youtube-canal"]);
+    expect(missing).toEqual([]);
   });
 });
 

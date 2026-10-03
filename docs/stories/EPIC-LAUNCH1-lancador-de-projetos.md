@@ -21,7 +21,7 @@
 
 ## Stories
 - [x] **LAUNCH1.1 — Kit de operação**: ferramentas de operação no catálogo (`imphq_capabilities`, categoria por canal) + requisitos de acesso por canal + `imphq_project_access` (projeto × acesso: falta / em andamento / conectado / não se aplica; sem segredo) + CLI/MCP para ler e marcar.
-- [ ] **LAUNCH1.2 — Playbook YouTube** (long-form + Shorts) com contrato, métricas e ferramentas de cada etapa; métricas de YouTube no catálogo.
+- [x] **LAUNCH1.2 — Playbook YouTube** (long-form + Shorts) com contrato, métricas e ferramentas de cada etapa; métricas de YouTube no catálogo.
 - [ ] **LAUNCH1.3 — Lançador**: `scripts/launch.mjs` + MCP `launch_project`: cria projeto e mapa, aplica os playbooks dos canais escolhidos, gera o checklist de acessos e as tarefas humanas (com dono e prazo), tudo com plano antes (`--confirmar` para gravar) e snapshot.
 - [ ] **LAUNCH1.4 — Ensaio**: rodar o lançador em modo plano com os exemplos do Vinicius (canal de YouTube de cripto; lei da atração com YouTube + SEO + anúncio direto + X1) para validar o esqueleto. Nada é criado sem pedido.
 
