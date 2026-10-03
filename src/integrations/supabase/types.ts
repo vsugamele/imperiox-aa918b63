@@ -20834,6 +20834,7 @@ export type Database = {
         Row: {
           due_date: string | null
           owner_member_id: string | null
+          path_role: string | null
           status_changed_at: string | null
           status_changed_by: string | null
           step_status: string | null
@@ -20868,6 +20869,7 @@ export type Database = {
         Insert: {
           due_date?: string | null
           owner_member_id?: string | null
+          path_role?: string | null
           status_changed_at?: string | null
           status_changed_by?: string | null
           step_status?: string | null
@@ -20902,6 +20904,7 @@ export type Database = {
         Update: {
           due_date?: string | null
           owner_member_id?: string | null
+          path_role?: string | null
           status_changed_at?: string | null
           status_changed_by?: string | null
           step_status?: string | null

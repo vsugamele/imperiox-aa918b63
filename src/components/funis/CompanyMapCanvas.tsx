@@ -46,6 +46,8 @@ import { KIND_CATEGORIES, KIND_PRESETS } from "@/components/funis/map-element-pr
 import { extractAgentData, type AgentExecutionData } from "@/components/funis/map-agent-data";
 import { MapNodeCard } from "@/components/funis/MapNodeCard";
 import { orderSteps } from "@shared/map-order";
+import { localDate } from "@shared/map-steps";
+import { MapPathView, type PathRole } from "@/components/funis/MapPathView";
 import { StepPrints } from "@/components/funis/StepPrints";
 import { StepScaleLadder } from "@/components/funis/StepScaleLadder";
 import { scaleStepPhase } from "@shared/scale-ladder";
@@ -398,6 +400,8 @@ function InnerMap({
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
   // Modo apresentação: só o mapa em tela cheia (sem barras e paleta), para ler o fluxo e mostrar ao time.
   const [presenting, setPresenting] = useState(false);
+  // Duas formas de ver o mesmo mapa: livre (canvas) ou o caminho principal em linha (MAP2.3).
+  const [view, setView] = useState<"mapa" | "caminho">("mapa");
   const [paletteQuery, setPaletteQuery] = useState("");
   const paletteGroups = useMemo(() => {
     const q = paletteQuery.trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -1351,6 +1355,23 @@ function InnerMap({
     setCenter(target.position.x + 100, target.position.y + 50, { zoom: 1.1, duration: 600 });
   }, [focusNodeId, rawNodes, setCenter]);
 
+  // Do Caminho para o mapa: volta ao canvas centrado na etapa e abre o detalhe.
+  const openFromPath = (id: string) => {
+    const raw = rawNodes.find(n => n.id === id);
+    if (!raw) return;
+    setView("mapa");
+    setSelected({ ...raw, checklist: raw.checklist || [] });
+    setTimeout(() => focusNode(id, raw.position || { x: 0, y: 0 }), 50);
+  };
+
+  // Ajuste manual do caminho principal (null = automático).
+  const setPathRole = async (id: string, role: PathRole) => {
+    const { error } = await supabase.from("imphq_company_map_nodes").update({ path_role: role }).eq("id", id);
+    if (error) { toast.error(`Não foi possível ajustar o caminho: ${error.message}`); return; }
+    setRawNodes(prev => prev.map(n => (n.id === id ? { ...n, path_role: role } : n)));
+    toast.success(role === "principal" ? "Passo incluído no caminho principal" : role === "alternativa" ? "Passo tirado do caminho principal" : "Passo de volta ao cálculo automático");
+  };
+
   const onNodeClick = (_: React.MouseEvent, node: Node) => {
     // Se há multi-seleção ativa, não abrir painel (permitir mover em grupo)
     if (selectedIds.length > 1 && selectedIds.includes(node.id)) return;
@@ -2050,7 +2071,15 @@ function InnerMap({
           <Plus className="h-3.5 w-3.5" /> Novo
         </Button>
         <div className="mx-0.5 h-5 w-px bg-border" />
-        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setPresenting(true)} title="Só o mapa, em tela cheia">
+        <div className="flex items-center rounded-md bg-secondary/60 p-0.5" role="tablist" aria-label="Forma de ver o mapa">
+          {(["mapa", "caminho"] as const).map(v => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
+              className={cn("h-7 rounded px-2.5 text-xs font-medium transition-colors", view === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {v === "mapa" ? "Mapa" : "Caminho"}
+            </button>
+          ))}
+        </div>
+        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setPresenting(true)} title="Só o mapa, em tela cheia" disabled={view === "caminho"}>
           <Maximize2 className="h-3.5 w-3.5" /> Apresentar
         </Button>
         <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setChecklistPanel(true)} title="Itens de checklist do mapa">
@@ -2156,7 +2185,7 @@ function InnerMap({
       </div>
 
       {/* Barra Tática de Lentes, Telemetria e Simulador Interativo ("Play Flow") */}
-      {!presenting && <CompanyMapTacticalBar
+      {!presenting && view === "mapa" && <CompanyMapTacticalBar
         activeLens={activeLens}
         onLensChange={handleLensChange}
         isSimulating={isSimulating}
@@ -2176,7 +2205,7 @@ function InnerMap({
         className={cn(
           // Abaixo da barra superior e da barra tática (não cobre os botões).
           "absolute top-[124px] right-3 z-10 flex flex-col bg-card/80 backdrop-blur border border-border/40 rounded-lg transition-all",
-          presenting && "hidden",
+          (presenting || view === "caminho") && "hidden",
           paletteCollapsed
             ? "w-9 h-9 p-1 overflow-hidden items-center justify-center cursor-pointer"
             : "p-2 gap-2 w-[210px] max-h-[calc(100%-136px)] overflow-y-auto"
@@ -2321,6 +2350,17 @@ function InnerMap({
           <Button size="sm" variant="outline" className="pointer-events-auto gap-1.5" onClick={() => setPresenting(false)}>
             <Minimize2 className="h-3.5 w-3.5" /> Sair (Esc)
           </Button>
+        </div>
+      )}
+      {view === "caminho" && (
+        <div className="absolute inset-0 z-[5]">
+          <MapPathView
+            nodes={rawNodes}
+            edges={edges.map(e => ({ source: e.source, target: e.target }))}
+            today={localDate()}
+            onOpen={openFromPath}
+            onSetRole={setPathRole}
+          />
         </div>
       )}
       <ReactFlow

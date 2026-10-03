@@ -27,6 +27,8 @@ export interface MapNode {
   due_date?: string | null;
   status_changed_at?: string | null;
   status_changed_by?: string | null;
+  /** Ajuste manual da visão Caminho: principal, alternativa ou null (automático) — MAP2.3. */
+  path_role?: string | null;
 }
 
 export interface MapNodeData extends MapNode {
