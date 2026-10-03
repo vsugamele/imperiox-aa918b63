@@ -55927,6 +55927,10 @@ export type Database = {
       }
     }
     Functions: {
+      imphq_machine_room: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       imphq_project_metrics: {
         Args: { p_project_id: string; p_since: string }
         Returns: Json

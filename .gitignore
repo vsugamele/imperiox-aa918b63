@@ -30,3 +30,4 @@ supabase/.temp
 .tmp-playbook/
 .tmp-launch/
 .tmp-live/
+.tmp-health/
