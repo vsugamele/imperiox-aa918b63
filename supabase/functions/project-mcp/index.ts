@@ -15,6 +15,7 @@ import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions } from
 import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
 import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
+import { launchPreview, planLaunch, writeLaunch } from "../_shared/launch-plan.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -855,6 +856,22 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "launch_project",
+    description: "Lança um projeto novo a partir da ideia: cria o projeto e o mapa de operação, aplica os playbooks dos canais pedidos (YouTube, SEO, tráfego direto, X1, orgânico social, webinar) reaproveitando etapas comuns, e cria a etapa 'Kit de acessos' com o que só uma pessoa faz. Padrão: só mostra o plano; confirmar=true grava (se algo falhar no meio, desfaz).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nome: { type: "string", description: "Nome do projeto (ex.: 'Crypto Signals')" },
+        canais: { type: "string", description: "Canais em texto livre, ex.: 'youtube, seo, tráfego direto, x1'" },
+        id: { type: "string", description: "Id do projeto (opcional; sai do nome)" },
+        mercado: { type: "string", description: "Mercado e idioma (padrão 'EUA (EN)')" },
+        produto: { type: "string", description: "Nome do produto/oferta (opcional)" },
+        confirmar: { type: "boolean", description: "true grava; padrão false = só o plano" },
+      },
+      required: ["nome", "canais"],
+    },
+  },
+  {
     name: "get_project_kit",
     description: "Kit de operação do projeto: canais (YouTube, SEO, tráfego direto, X1, orgânico social, webinar), os acessos que cada um exige com status (falta, em andamento, conectado, não se aplica; o Império também detecta WhatsApp ativo, gasto sincronizado, tracker e vendas), o que está travado por outro acesso, os próximos passos humanos e as ferramentas. Sem 'canais', usa os playbooks aplicados no projeto.",
     inputSchema: {
@@ -966,6 +983,51 @@ async function decideApproval(supabase: Supabase, key: string, decision: "approv
   const { error: upd } = await supabase.from("imphq_ai_actions").update({ status: "rejected" }).eq("id", itemId);
   if (upd) throw upd;
   return { key, titulo: action.title, resultado: "Ação da IA reprovada" };
+}
+
+/** Lançador (LAUNCH1.3) pelo MCP: plano por padrão; com confirmar, grava e desfaz tudo se algo falhar no meio. */
+async function launchProject(supabase: Supabase, args: Record<string, unknown>) {
+  const nome = String(args.nome ?? "").trim();
+  const parsed = parseChannels(String(args.canais ?? ""));
+  if (parsed.invalidos.length) throw new Error(`Canais desconhecidos: ${parsed.invalidos.join(", ")}. Use: ${CHANNELS.map((c) => c.key).join(", ")}`);
+  const [pbRes, stRes, projRes] = await Promise.all([
+    supabase.from("imphq_playbooks").select("*").eq("ativo", true),
+    supabase.from("imphq_playbook_steps").select("*").order("ordem"),
+    supabase.from("imphq_projects").select("id"),
+  ]);
+  for (const res of [pbRes, stRes, projRes]) if (res.error) throw res.error;
+  const library = ((pbRes.data ?? []) as PlaybookRow[]).map((p) => playbookFromRows(p, ((stRes.data ?? []) as PlaybookStepRow[]).filter((s) => (s as { playbook_id?: string }).playbook_id === p.id)));
+  const launch = planLaunch({
+    nome, canais: parsed.canais, id: args.id ? String(args.id) : null, mercado: args.mercado ? String(args.mercado) : null, produto: args.produto ? String(args.produto) : null,
+  }, library, (projRes.data ?? []).map((p) => p.id));
+  const preview = launchPreview(launch);
+  if (args.confirmar !== true) return { modo: "plano (nada foi gravado)", ...preview, proximo_passo: "Para criar, chame launch_project de novo com confirmar=true." };
+
+  let mapId: string | null = null;
+  const must = async (p: PromiseLike<{ error: unknown }>) => { const { error } = await p; if (error) throw error; };
+  try {
+    const result = await writeLaunch(launch, { appliedBy: "mcp", newId: () => crypto.randomUUID(), today: new Date().toISOString().slice(0, 10) }, {
+      insertProject: (row) => must(supabase.from("imphq_projects").insert(row)),
+      insertMap: (row) => { mapId = row.id; return must(supabase.from("imphq_company_maps").insert(row)); },
+      insertFrame: (row) => must(supabase.from("imphq_company_map_annotations").insert(row)),
+      insertNode: async (row) => {
+        const { data, error } = await supabase.from("imphq_company_map_nodes").insert(row).select("id").single();
+        if (error) throw error;
+        return data.id as string;
+      },
+      insertEdge: (row) => must(supabase.from("imphq_company_map_edges").insert(row)),
+      insertApplication: (row) => must(supabase.from("imphq_playbook_applications").insert(row)),
+      upsertAccess: (row) => must(supabase.from("imphq_project_access").upsert(row, { onConflict: "project_id,access_key", ignoreDuplicates: true })),
+    });
+    return { success: true, ...preview, criado: result, proximo_passo: `Kit de acessos: get_project_kit project_id=${result.projectId}` };
+  } catch (err) {
+    // Desfaz: o mapa leva etapas, setas e molduras em cascata; aplicações, acessos e o projeto saem à parte.
+    await supabase.from("imphq_playbook_applications").delete().eq("project_id", launch.projectId);
+    await supabase.from("imphq_project_access").delete().eq("project_id", launch.projectId);
+    if (mapId) await supabase.from("imphq_company_maps").delete().eq("id", mapId);
+    await supabase.from("imphq_projects").delete().eq("id", launch.projectId);
+    throw new Error(`Lançamento falhou e foi desfeito: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /** Kit de operação: canais pedidos (ou pelos playbooks aplicados), acessos declarados e evidência vista no banco. */
@@ -1892,6 +1954,11 @@ Deno.serve(async (req) => {
             const { data: rounds, error } = await query;
             if (error) throw error;
             const result = { project_id: args.project_id, rodadas: rounds ?? [], placar_hipoteses: hypothesisBoard(rounds ?? []) };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "launch_project") {
+            const result = await launchProject(supabase, args || {});
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 

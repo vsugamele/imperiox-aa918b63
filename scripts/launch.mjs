@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // CLI do lançador de projetos (épico LAUNCH1). Regras em supabase/functions/_shared/launch-kit.ts; banco pela CLI do Supabase (projeto linkado).
 //
+//   node scripts/launch.mjs novo --nome "Lei da Atração" --canais "youtube, seo, trafego direto, x1" [--id slug] [--mercado "EUA (EN)"]
+//        [--produto "..."] [--ensaio | --confirmar]                         lança o projeto: projeto + mapa + playbooks dos canais + kit de acessos
 //   node scripts/launch.mjs canais                                   canais, playbooks, acessos e ferramentas de cada um
 //   node scripts/launch.mjs seed-tools                               grava as ferramentas de operação no catálogo (imphq_capabilities)
 //   node scripts/launch.mjs kit --project slimsoda [--canais "youtube,seo,ads,x1"]
@@ -11,11 +13,15 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { playbookFromRows } from "../supabase/functions/_shared/playbook-apply.ts";
+import { launchPreview, planLaunch, writeLaunch } from "../supabase/functions/_shared/launch-plan.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, OPS_TOOLS, accessChecklist, channelsFromPlaybooks, parseChannels } from "../supabase/functions/_shared/launch-kit.ts";
 
 const WORK_DIR = ".tmp-launch";
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (name) => { const i = rest.indexOf(`--${name}`); return i >= 0 && rest[i + 1] && !rest[i + 1].startsWith("--") ? rest[i + 1] : null; };
+const has = (name) => rest.includes(`--${name}`);
 const need = (name) => { const v = flag(name); if (!v) { console.error(`Falta --${name}`); process.exit(1); } return v; };
 
 const npx = process.platform === "win32" ? "npx.cmd" : "npx";
@@ -30,6 +36,12 @@ function query(sql) {
   return JSON.parse(out.slice(out.indexOf("{"))).rows ?? [];
 }
 const q = (v) => (v === null || v === undefined ? "null" : `'${String(v).replace(/'/g, "''")}'`);
+const parse = (v) => { if (typeof v !== "string") return v ?? null; try { return JSON.parse(v); } catch { return v; } };
+/** INSERT só com as colunas informadas (o resto fica no default), tipos convertidos pelo próprio Postgres. */
+function insertSql(table, row, onConflict = "") {
+  const cols = Object.keys(row).filter((k) => row[k] !== undefined);
+  return `insert into public.${table} (${cols.join(", ")}) select ${cols.join(", ")} from jsonb_populate_record(null::public.${table}, ${q(JSON.stringify(row))}::jsonb) ${onConflict};`;
+}
 const norm = (v) => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
 /** Evidência que o Império vê sozinho: WhatsApp ativo, gasto sincronizado (7 d), tracker (7 d), vendas pelo webhook (30 d). */
@@ -43,6 +55,50 @@ function evidence(projectId) {
 }
 
 switch (cmd) {
+  case "novo": {
+    const nome = need("nome");
+    const parsed = parseChannels(need("canais"));
+    if (parsed.invalidos.length) throw new Error(`Canais desconhecidos: ${parsed.invalidos.join(", ")} (veja: node scripts/launch.mjs canais)`);
+    const pbRows = query("select * from imphq_playbooks where ativo");
+    const stepRows = query("select * from imphq_playbook_steps order by playbook_id, ordem");
+    const library = pbRows.map((p) => playbookFromRows({ ...p, kpis: parse(p.kpis), riscos: parse(p.riscos) },
+      stepRows.filter((s) => s.playbook_id === p.id).map((s) => ({ ...s, contrato: parse(s.contrato), metrica: parse(s.metrica), checklist: parse(s.checklist), depende_de: parse(s.depende_de) }))));
+    const taken = query("select id from imphq_projects").map((r) => r.id);
+    const launch = planLaunch({ nome, canais: parsed.canais, id: flag("id"), mercado: flag("mercado"), produto: flag("produto") }, library, taken);
+    const preview = launchPreview(launch);
+    console.log(`\nProjeto ${preview.projeto.nome} (${preview.projeto.id}) · ${preview.projeto.mercado} · canais: ${preview.projeto.canais.join(", ")}\nMapa: ${preview.mapa}`);
+    for (const p of preview.playbooks) console.log(`  - ${p.nome}: ${p.novas} etapas novas, ${p.reaproveitadas} reaproveitadas`);
+    if (preview.faltando_na_biblioteca.length) console.warn(`  Fora da biblioteca (não aplicados): ${preview.faltando_na_biblioteca.join(", ")}`);
+    console.log(`Kit de acessos: ${preview.kit_de_acessos.obrigatorios} obrigatórios; começar por: ${preview.kit_de_acessos.proximos.join(", ")}`);
+    if (!has("confirmar") && !has("ensaio")) { console.log("Nada gravado. Rode com --ensaio (grava e desfaz, para testar) ou --confirmar (cria)."); break; }
+
+    const sql = ["begin;"];
+    const result = await writeLaunch(launch, { appliedBy: "cli", newId: () => randomUUID(), today: new Date().toISOString().slice(0, 10) }, {
+      insertProject: async (row) => { sql.push(insertSql("imphq_projects", row)); },
+      insertMap: async (row) => { sql.push(insertSql("imphq_company_maps", row)); },
+      insertFrame: async (row) => { sql.push(insertSql("imphq_company_map_annotations", row)); },
+      insertNode: async (row) => { const id = randomUUID(); sql.push(insertSql("imphq_company_map_nodes", { id, ...row })); return id; },
+      insertEdge: async (row) => { sql.push(insertSql("imphq_company_map_edges", row)); },
+      insertApplication: async (row) => { sql.push(insertSql("imphq_playbook_applications", row)); },
+      upsertAccess: async (row) => { sql.push(insertSql("imphq_project_access", row, "on conflict (project_id, access_key) do nothing")); },
+    });
+    if (has("ensaio")) {
+      // Ensaio: roda a gravação inteira no banco real e desfaz; qualquer erro de coluna, chave ou restrição aparece.
+      sql.push(`select (select count(*) from imphq_company_map_nodes where map_id = ${q(result.mapId)}) as etapas,
+        (select count(*) from imphq_company_map_edges where map_id = ${q(result.mapId)}) as setas,
+        (select count(*) from imphq_playbook_applications where map_id = ${q(result.mapId)}) as playbooks,
+        (select count(*) from imphq_project_access where project_id = ${q(result.projectId)}) as acessos;`, "rollback;");
+      query(sql.join("\n"));
+      const [left] = query(`select exists (select 1 from imphq_projects where id = ${q(result.projectId)}) as ficou`);
+      console.log(left?.ficou ? "ATENÇÃO: o ensaio deixou o projeto gravado." : "Ensaio ok: toda a gravação rodou no banco e foi desfeita (nada ficou).");
+      break;
+    }
+    sql.push("commit;");
+    query(sql.join("\n"));
+    console.log(`Criado: projeto ${result.projectId}, mapa ${result.mapId}, ${result.playbooks.length} playbooks, kit de acessos na etapa ${result.kitNodeId}.`);
+    console.log(`Próximo: node scripts/launch.mjs kit --project ${result.projectId}`);
+    break;
+  }
   case "canais": {
     for (const c of CHANNELS) {
       console.log(`\n${c.key} — ${c.label}\n  ${c.resumo}\n  playbooks: ${c.playbooks.join(", ")}\n  acessos: ${c.acessos.join(", ")}${c.opcionais.length ? ` (opcionais: ${c.opcionais.join(", ")})` : ""}\n  ferramentas: ${c.ferramentas.join(", ")}`);

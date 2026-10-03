@@ -12,6 +12,8 @@ import * as projectBriefing from "@shared/project-briefing";
 import * as todayBoard from "@shared/today-board";
 import * as scaleLadder from "@shared/scale-ladder";
 import * as launchKit from "@shared/launch-kit";
+import * as launchPlan from "@shared/launch-plan";
+import { PLAYBOOK_LIBRARY } from "@shared/playbook-library";
 import { checkMcpKey } from "@shared/mcp-auth";
 
 type Handler = (req: Request) => Promise<Response>;
@@ -36,6 +38,8 @@ function fixtures(): Record<string, Row[]> {
     imphq_playbook_applications: [{ project_id: "p", playbook_id: "x1-conversa" }],
     imphq_project_access: [{ project_id: "p", access_key: "checkout", status: "conectado", nota: null, owner_member_id: null }],
     imphq_wa_providers: [{ id: "w1", project_id: "p", is_active: true }],
+    imphq_playbooks: PLAYBOOK_LIBRARY.map(({ steps: _steps, ...p }) => ({ ...p, ativo: true })),
+    imphq_playbook_steps: PLAYBOOK_LIBRARY.flatMap((p) => p.steps.map((st) => ({ ...st, playbook_id: p.id }))),
     imphq_scale_rounds: [
       { id: "r2", project_id: "p", fase: "p1", rodada: "S42", updated_at: "2026-10-02", resultado: { placar_hipoteses: [{ hipotese: "Dor à tarde", concept: "A", resultado: "refutada" }] } },
       { id: "r1", project_id: "p", fase: "p1", rodada: "S41", updated_at: "2026-09-25", resultado: { placar_hipoteses: [{ hipotese: "dor à tarde", concept: "A", resultado: "confirmada" }, { hipotese: "Meia falhou", concept: "B", resultado: "parcial" }] } },
@@ -44,10 +48,13 @@ function fixtures(): Record<string, Row[]> {
   };
 }
 
-function runtime() {
+function runtime(opts: { failInsertOn?: string } = {}) {
   let handler: Handler | undefined;
   const db = fixtures();
   const updates: Array<{ table: string; values: Row; id: unknown }> = [];
+  const inserts: Array<{ table: string; values: Row }> = [];
+  const deletes: Array<{ table: string; col: string; val: unknown }> = [];
+  let seq = 0;
   const from = (table: string) => {
     const filters: Array<(r: Row) => boolean> = [];
     let patch: Row | null = null;
@@ -61,6 +68,13 @@ function runtime() {
       neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return query; },
       update: (values: Row) => { patch = values; return query; },
       upsert: (values: Row) => { updates.push({ table, values, id: null }); return Promise.resolve({ error: null }); },
+      insert: (values: Row) => {
+        const error = opts.failInsertOn === table ? { message: `falha em ${table}` } : null;
+        if (!error) inserts.push({ table, values });
+        const done = Promise.resolve({ error });
+        return { select: () => ({ single: () => Promise.resolve({ data: error ? null : { id: `new-${++seq}` }, error }) }), then: done.then.bind(done) };
+      },
+      delete: () => ({ eq: (col: string, val: unknown) => { deletes.push({ table, col, val }); return Promise.resolve({ error: null }); } }),
       single: () => Promise.resolve({ data: rows()[0] ?? null, error: null }),
       then: (resolve: (r: { data: Row[]; count: number; error: null }) => unknown) => Promise.resolve({ data: rows(), count: rows().length, error: null }).then(resolve),
     };
@@ -68,7 +82,7 @@ function runtime() {
   };
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, ...launchPlan, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   const call = async (name: string, args: Row) => {
     const response = await handler!(new Request("https://local.test/project-mcp", {
@@ -79,7 +93,7 @@ function runtime() {
     if (envelope.error) throw new Error(envelope.error.message);
     return JSON.parse(envelope.result!.content[0].text);
   };
-  return { call, updates, db };
+  return { call, updates, db, inserts, deletes };
 }
 
 describe("project-mcp approvals and briefing", () => {
@@ -151,6 +165,25 @@ describe("project-mcp approvals and briefing", () => {
     expect(res).toMatchObject({ success: true, status: "Em andamento" });
     expect(app.updates[0]).toMatchObject({ table: "imphq_project_access", values: { access_key: "dominio", status: "em_andamento", owner_member_id: "m1" } });
     await expect(app.call("set_project_access", { project_id: "p", acesso: "senha_banco", status: "conectado" })).rejects.toThrow(/desconhecido/);
+  });
+
+  it("plans a launch without writing, then creates it", async () => {
+    const plan = await runtime().call("launch_project", { nome: "Crypto Signals", canais: "youtube" });
+    expect(plan).toMatchObject({ modo: "plano (nada foi gravado)", projeto: { id: "crypto_signals", mercado: "EUA (EN)" }, playbooks: [{ id: "youtube-canal", novas: 12 }] });
+    const app = runtime();
+    const done = await app.call("launch_project", { nome: "Crypto Signals", canais: "youtube", confirmar: true });
+    expect(done.success).toBe(true);
+    expect(app.inserts.map((i) => i.table).slice(0, 3)).toEqual(["imphq_projects", "imphq_company_maps", "imphq_company_map_nodes"]);
+    expect(app.inserts.filter((i) => i.table === "imphq_company_map_nodes")).toHaveLength(13);
+    expect(app.updates.filter((u) => u.table === "imphq_project_access").map((u) => u.values.access_key)).toEqual(["google_conta", "youtube_canal"]);
+    await expect(runtime().call("launch_project", { nome: "Projeto P", canais: "x1", id: "p" })).rejects.toThrow(/Já existe/);
+  });
+
+  it("undoes a launch that fails halfway", async () => {
+    const app = runtime({ failInsertOn: "imphq_company_map_edges" });
+    await expect(app.call("launch_project", { nome: "Crypto Signals", canais: "youtube", confirmar: true })).rejects.toThrow(/desfeito/);
+    expect(app.deletes.map((d) => d.table)).toEqual(["imphq_playbook_applications", "imphq_project_access", "imphq_company_maps", "imphq_projects"]);
+    expect(app.deletes.at(-1)).toMatchObject({ col: "id", val: "crypto_signals" });
   });
 
   it("evaluates the scale ladder without touching the database", async () => {
