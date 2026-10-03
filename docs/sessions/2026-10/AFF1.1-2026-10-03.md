@@ -1,5 +1,15 @@
 # Handoff — AFF1.1 — 03/10/2026
 
+## Retomada mais recente — reutilização autorizada
+
+Usuário autorizou Dtc-Clear → CardioFlush, Slim → Leaftide e SlimSoda, parasita → MemoFlow. Criação de novos datasets deixou de ser a direção atual; não pedir aceite de termos para uma criação abandonada. Login/2FA já liberados, sem nova credencial necessária.
+
+Leaftide site/config.js alterado para Slim 996492073462713, sem mudar checkout, GA4 ou player. Teste do ramo Meta garante uma inicialização/PageView e ausência de Purchase no clique. Seis testes, node --check, git diff --check, lint raiz (zero erros/dois avisos) e typecheck aprovados. Commit privado 505f855cc09de979dba236fbb65066fb4c9ce1c1 enviado por @devops, HEAD igual remote main, checkout limpo. Deploy dpl_6ZRfwocRKWmDj4J8oDdn3r7HN38E READY; alias e config.js HTTP 200 com ID novo conferido. .env.local criado pelo vercel link é ignorado; nenhum conteúdo de credencial lido/versionado.
+
+Quatro projetos e cinco nós atualizados com decisão e estados. Leaftide instalado_publico_recebimento_Meta_pendente; Cardio ID destinado 1619587959397761, ainda não instalado; Memo ID nulo, rename não executado; Slim mantém recebimento próprio comprovado. Nenhuma alteração Vturb concluída nesta etapa. Meta controle falhou em DOMSnapshot/Page.enable e na abertura de aba nova; não inferir queda de login ou pedir repetir 2FA. Sem captura nova salva, sem confirmação de eventos do domínio Leaftide, Purchase/CAPI continuam pendentes.
+
+Próximo: confirmar PageView Leaftide quando controle responder, configurar ML04 com mesmo ID evitando duplicação de PageView, depois Cardio LEAD5/página. Conferir ID/permissões/fontes atuais de parasita e renomear para MemoFlow mantendo histórico. Históricos de criação/desconexão abaixo são supersedidos pela decisão atual. Raiz contém trabalho concorrente; enviar apenas GitHub Leaftide, não fazer push da raiz.
+
 ## Feito
 
 Retomada mais recente: usuário reconectou Chrome Vinicius/VSUGML, extensão 99d78c49-75b2-4904-b408-2eaebe56dbe3. IDs numéricos de navegador mudam após reset; selecionar pela extensão, não reutilizar número antigo. Recuperadas navegação e leitura DOMSnapshot do texto renderizado pelo CDP documentado. Buscas Leaf/Cardio/Memo na BM Imperio Company: Nenhum conjunto de dados encontrado. Suporte AD Vini 01 mostrou nenhum anúncio disponível para revisão adicional nos últimos 90 dias. Runtime.evaluate, AX, screenshots e alguns inputs continuam intermitentes. Adicionar abriu camada de carregamento; nenhum novo dataset/ID, formulário concluído ou aceite de termos. Quatro projetos atualizados e retorno SQL conferido: connected_with_driver_timeouts; três ofertas dataset_creation_pending. Tentar captura Windows da janela Meta Business Suite agora que a aba foi trazida para frente; o helper pode interromper o turno se não identificar URL com segurança. Estados anteriores de desconexão abaixo são históricos.

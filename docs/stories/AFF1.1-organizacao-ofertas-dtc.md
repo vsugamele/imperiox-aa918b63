@@ -9,6 +9,14 @@ Liderança: @analyst; GitHub: @devops; implementação: @dev; validação: @qa.
 Organizar Leaftide, CardioFlush, MemoFlow e SlimSoda Powder no Império e no GitHub, com ofertas H&W, arquivos locais, advertoriais, páginas VSL, players Vturb e pixel em BM fora do JP.
 Usuário escolheu opção 1: validar uma oferta primeiro e depois repetir o padrão. Piloto: Leaftide Powder.
 
+Decisão posterior 03/10: reutilizar Dtc-Clear em CardioFlush, Slim em Leaftide/SlimSoda e parasita em MemoFlow. Criação de datasets novos substituída por reutilização autorizada. Leaftide publicada com Slim; manter sequência piloto → confirmação Meta → demais instalações. Rename de parasita ainda não executado.
+
+- [x] Registrar escolha autorizada nos quatro projetos e cinco nós de tracking.
+- [x] Instalar Slim 996492073462713 no piloto Leaftide e publicar; página/config.js HTTP 200, seis testes, lint/typecheck aprovados, commit remoto 505f855.
+- [ ] Confirmar PageView Leaftide na Meta e pixel interno Vturb ML04.
+- [ ] Instalar Dtc-Clear 1619587959397761 na página/Vturb Cardio após validar piloto.
+- [ ] Identificar ID/fontes/permissões de parasita, renomear para MemoFlow e instalar/validar.
+
 ## Critérios de aceite
 
 - [x] Conferir estruturas existentes antes de criar novos registros.
@@ -38,8 +46,8 @@ Usuário pediu páginas com links próprios publicadas na Vercel, fontes nos Git
 - [x] Registrar evidência limitada de saúde por ativo e atualizar quatro projetos/cinco nós de tracking.
 - [x] Recuperar quatro fontes privadas em Documents/imperio-ofertas-meta e conferir HEAD/status.
 - [x] Reconhecer a reconexão VSUGML e conferir buscas Leaf/Cardio/Memo sem datasets encontrados.
-- [ ] Resolver carregamento/intermitência do conector, preparar formulário e confirmar aceite dos termos na criação.
-- [ ] Reconectar Chrome VSUGML, concluir busca por datasets existentes e, se necessário, obter confirmação de aceite dos termos antes de criar.
+- [ ] Resolver intermitência do controle Chrome para validar eventos, configurar Vturb e executar rename autorizado.
+- [x] Rever necessidade de criação após buscas e decisão do usuário: reutilização substitui novos datasets; formulário anterior não submetido, nenhum termo novo aceito.
 - [x] Conferir dataset Slim: proprietário Imperio Company, vinculado AD Vini 01; PageView próprio recebido em 03/10.
 - [x] Conferir acesso Analytics: conector 403; sessão do navegador disponível.
 - [x] Publicar e validar página própria piloto com checkout oficial e tracker.
@@ -101,3 +109,7 @@ Slim ADV1/PDP desktop e cliques conferidos; tracker recebeu quatro passos espec�
 - docs/sessions/2026-10/AFF1.1-2026-10-02.md
 - docs/sessions/2026-10/AFF1.1-2026-10-03.md
 - supabase/functions/funnel-track/index.ts
+- C:/Users/vsuga/Documents/imperio-ofertas-meta/leaftide-powder-vsl/site/config.js
+- C:/Users/vsuga/Documents/imperio-ofertas-meta/leaftide-powder-vsl/tests/funnel.test.cjs
+- C:/Users/vsuga/Documents/imperio-ofertas-meta/leaftide-powder-vsl/docs/publication-AFF1.1.md
+- C:/Users/vsuga/Documents/imperio-ofertas-meta/leaftide-powder-vsl/.gitignore

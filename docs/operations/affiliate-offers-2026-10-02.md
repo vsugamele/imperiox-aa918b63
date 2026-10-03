@@ -2,15 +2,30 @@
 
 Atualizado em 03/10/2026, America/Sao_Paulo. Histórico de 02/10 preservado abaixo.
 
+## Decisão atual — reutilizar datasets existentes, 03/10
+
+Usuário autorizou Dtc-Clear para CardioFlush, Slim compartilhado por Leaftide/SlimSoda e reutilizar parasita como MemoFlow. Esta direção substitui a criação de três datasets; nenhum novo aceite de termos é necessário para uma criação que não será executada. Não renomear Slim/Dtc-Clear, preservando identificação das fontes existentes.
+
+| Oferta | Dataset escolhido | Estado efetivo |
+|---|---|---|
+| Leaftide | Slim `996492073462713` | Instalado e publicado na VSL própria; página e config.js HTTP 200; recebimento Meta do novo domínio e configuração interna Vturb ML04 pendentes |
+| SlimSoda | Slim `996492073462713` | Mantido; PageView do domínio Slim já conferido anteriormente |
+| CardioFlush | Dtc-Clear `1619587959397761` | Escolha registrada no projeto/mapa; instalação na página e Vturb LEAD5 aguardam validação Meta do piloto |
+| MemoFlow | parasita → MemoFlow | Reutilização/rename autorizado, mas ID/permissões/fontes atuais ainda não conferidos; rename não executado |
+
+Leaftide: commit privado remoto `505f855cc09de979dba236fbb65066fb4c9ce1c1` (HEAD igual origin/main); deploy `dpl_6ZRfwocRKWmDj4J8oDdn3r7HN38E`, READY, https://leaftide-powder-vsl.vercel.app/. Seis testes do tracker e sintaxe JS aprovados; lint Império sem erros (dois avisos existentes) e typecheck aprovados. GA4, player/pitch e checkout preservados. Nenhum Purchase/CAPI foi simulado ou certificado. Compartilhar um ID não torna o histórico de outra oferta prova de conversão desta.
+
+Quatro projetos e cinco nós de tracking atualizados com a decisão e os estados de instalação. Falha atual do controle Chrome: DOMSnapshot/Page.enable e abertura de aba nova não completaram; login/2FA continuam resolvidos. Sem mudança de configuração no Vturb ou renomeação na Meta nesta continuação. Piloto continua primeiro; Cardio/Memo aguardam o recebimento Meta Leaftide. Histórico abaixo conserva as decisões anteriores à autorização de reutilização.
+
 ## Atualização — páginas próprias e tracking
 
 Pedido de publicação, tracker/IDs, Analytics e mapa autorizado pelo usuário. As versões antigas foram preservadas. Os deploys novos servem somente `site/` de cada repositório.
 
 | Oferta | Página própria | Player / pitch | GA4 (Direct Response) | Meta |
 |---|---|---|---|---|
-| Leaftide Powder | https://leaftide-powder-vsl.vercel.app/ | ML04 `6aa4dde98aa57ba613b3b3d3` / 56:28 | `G-CEXWP1QQRE`, propriedade `557212253`, fluxo `15976071789`; tempo real com page_view/session_start/vsl_view confirmado | Pendente de BM/pixel |
-| CardioFlush | https://cardioflush-vsls-hw.vercel.app/ | LEAD5 `6a9841cee7a8842efeeb2801` / 55:30 | `G-P3BGTRYWE3`, propriedade `557161984`, fluxo `15977337371`; page_view/session_start/vsl_view recebidos em tempo real em 03/10 | Pendente de BM/pixel |
-| MemoFlow | https://memoflow-vsl.vercel.app/ | `6aa4c6586d7a1359e68358cf` / 55:00 | `G-T52GP0M1MJ`, propriedade `557173271`, fluxo `15977184412`; page_view/session_start/vsl_view recebidos em tempo real em 03/10 | Pendente de BM/pixel |
+| Leaftide Powder | https://leaftide-powder-vsl.vercel.app/ | ML04 `6aa4dde98aa57ba613b3b3d3` / 56:28 | `G-CEXWP1QQRE`, propriedade `557212253`, fluxo `15976071789`; tempo real com page_view/session_start/vsl_view confirmado | Slim `996492073462713` publicado; recebimento Meta pendente |
+| CardioFlush | https://cardioflush-vsls-hw.vercel.app/ | LEAD5 `6a9841cee7a8842efeeb2801` / 55:30 | `G-P3BGTRYWE3`, propriedade `557161984`, fluxo `15977337371`; page_view/session_start/vsl_view recebidos em tempo real em 03/10 | Dtc-Clear `1619587959397761` escolhido; instalação pendente |
+| MemoFlow | https://memoflow-vsl.vercel.app/ | `6aa4c6586d7a1359e68358cf` / 55:00 | `G-T52GP0M1MJ`, propriedade `557173271`, fluxo `15977184412`; page_view/session_start/vsl_view recebidos em tempo real em 03/10 | Reutilizar parasita; ID/rename/instalação pendentes |
 | SlimSoda Powder | https://slimsoda-powder-vsl.vercel.app/ | `6aa4c68d589230110306fe6c` / 37:06 | `G-6BY843CN82`, propriedade `557209019`, fluxo `15976232055`; VSL/ADV1/PDP recebidos em tempo real em 03/10 | `996492073462713` instalado; proprietário Imperio Company e compartilhamento AD Vini 01 confirmados; PageView próprio recebido, Purchase/CAPI pendentes |
 
 Conta GA4 Direct Response `359475519`. Orientação corrigida pelo usuário: Analytics e demais serviços usam os acessos do próprio Vinicius já conectados no computador/navegador. Somente Facebook/Meta usa a conta do Bruno, aberta no perfil que o usuário identifica como VSUGML. A sessão Google de Vinicius é a sessão correta; não há pendência de e-mail Google do Bruno nem necessidade de trocar ou transferir propriedades. Não houve duplicação da propriedade Slim.
