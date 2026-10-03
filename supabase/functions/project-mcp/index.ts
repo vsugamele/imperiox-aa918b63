@@ -13,7 +13,7 @@ import { findProjectMap, playbookFromRows, writePlaybookPlan, type PlaybookRow, 
 import { buildApprovalQueue, SOURCE_LABEL, type AiActionRow, type ApprovalItem, type ApprovalSource, type ContentRow, type DraftRow, type ReviewStepRow } from "../_shared/approval-queue.ts";
 import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions } from "../_shared/project-briefing.ts";
 import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
-import { evaluateScale } from "../_shared/scale-ladder.ts";
+import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -838,6 +838,19 @@ const MCP_TOOLS = [
         lances: { type: "array", description: "p3: [{ lance, cresceu: true|false|null }]", items: { type: "object" } },
         angulos: { type: "array", description: "p3: [{ nome, gasto7, vendas7, diasSemGastar }]; p4: [{ nome, gasto7, vendas7, diasSeguidosNoCpa }]", items: { type: "object" } },
       },
+    },
+  },
+  {
+    name: "get_scale_rounds",
+    description: "Rodadas da Esteira de Escala lançadas nas etapas do mapa do projeto (P1–P4): parâmetros, números, veredito salvo e o placar de hipóteses acumulado (confirmadas, parciais, refutadas). Use antes de propor novos concepts ou mexer em verba.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID único do projeto" },
+        fase: { type: "string", enum: ["parametros", "p1", "p2", "p3", "p4"], description: "Filtra por fase (opcional)" },
+        limit: { type: "number", description: "Máximo de rodadas (padrão 10)" },
+      },
+      required: ["project_id"],
     },
   },
   {
@@ -1809,6 +1822,18 @@ Deno.serve(async (req) => {
 
           if (name === "evaluate_scale") {
             const result = evaluateScale(args || {});
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_scale_rounds") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const limit = Math.max(1, Math.min(Number(args.limit) || 10, 50));
+            let query = supabase.from("imphq_scale_rounds").select("id, node_id, fase, rodada, params, data, resultado, resumo, created_by, updated_at")
+              .eq("project_id", String(args.project_id)).order("updated_at", { ascending: false }).limit(limit);
+            if (args.fase) query = query.eq("fase", String(args.fase));
+            const { data: rounds, error } = await query;
+            if (error) throw error;
+            const result = { project_id: args.project_id, rodadas: rounds ?? [], placar_hipoteses: hypothesisBoard(rounds ?? []) };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 

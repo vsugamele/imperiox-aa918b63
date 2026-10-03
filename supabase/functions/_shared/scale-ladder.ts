@@ -209,19 +209,19 @@ const flag = (v: unknown): boolean | null => (v === true || v === "SIM" || v ===
 /** Avalia uma fase a partir de argumentos soltos (vindos de IA ou JSON). Sem payout/CPA alvo, só devolve as regras. */
 export function evaluateScale(args: Args) {
   const fase = text(args.fase) || "regras";
-  if (fase === "regras") return { fase, regras: SCALE_LADDER_RULES };
+  if (fase === "regras") return { fase: "regras" as const, regras: SCALE_LADDER_RULES };
   const params: ScaleParams = { payout: n(args.payout), cpaAlvo: n(args.cpa_alvo), icsPorVenda: n(args.ics_por_venda) || undefined };
   if (params.payout <= 0 || params.cpaAlvo <= 0) throw new Error("payout e cpa_alvo (maiores que zero) são obrigatórios para avaliar uma fase");
-  const base = { fase, parametros: deriveParams(params) };
+  const parametros = deriveParams(params);
   switch (fase) {
     case "parametros":
-      return base;
+      return { fase: "parametros" as const, parametros };
     case "p1":
-      return { ...base, ...evaluateP1Round(list(args.concepts).map((r) => ({ concept: text(r.concept), hipotese: text(r.hipotese), gasto: n(r.gasto), ic: n(r.ic), vendas: n(r.vendas) })), params) };
+      return { fase: "p1" as const, parametros, ...evaluateP1Round(list(args.concepts).map((r) => ({ concept: text(r.concept), hipotese: text(r.hipotese), gasto: n(r.gasto), ic: n(r.ic), vendas: n(r.vendas) })), params) };
     case "p2": {
       const cp = obj(args.checkpoint);
       return {
-        ...base,
+        fase: "p2" as const, parametros,
         dias: evaluateP2Days(list(args.dias).map((d) => ({ gasto: n(d.gasto), vendas: n(d.vendas) })), params),
         checkpoint_dia2: Object.keys(cp).length ? p2Checkpoint({ gasto2d: n(cp.gasto2d), ic: n(cp.ic), pageviews: n(cp.pageviews) }, params) : null,
         conjuntos: list(args.conjuntos).map((c) => ({ nome: text(c.nome), ...evaluateAdset({ gasto: n(c.gasto), vendas: n(c.vendas) }, params) })),
@@ -229,7 +229,7 @@ export function evaluateScale(args: Args) {
     }
     case "p3":
       return {
-        ...base,
+        fase: "p3" as const, parametros,
         rotina_do_dia: dailyBrake({ verba: n(args.verba), gastoOntem: n(args.gasto_ontem) }),
         escada_do_lance: list(args.lances).map((l) => ({ lance: n(l.lance), ...bidStep({ lance: n(l.lance), cresceu: flag(l.cresceu) }) })),
         angulos: list(args.angulos).map((a) => ({ nome: text(a.nome), ...evaluateActiveAngle({ gasto7: n(a.gasto7), vendas7: n(a.vendas7), diasSemGastar: n(a.diasSemGastar) }, params) })),
@@ -237,11 +237,114 @@ export function evaluateScale(args: Args) {
       };
     case "p4": {
       const angulos = list(args.angulos).map((a) => ({ nome: text(a.nome), ...evaluateGraveyardAngle({ gasto7: n(a.gasto7), vendas7: n(a.vendas7), diasSeguidosNoCpa: n(a.diasSeguidosNoCpa) }) }));
-      return { ...base, angulos, vagas_livres: Math.max(0, GRAVEYARD_SLOTS - angulos.length), observacao: "Gasto zero na maioria das semanas é o esperado." };
+      return { fase: "p4" as const, parametros, angulos, vagas_livres: Math.max(0, GRAVEYARD_SLOTS - angulos.length), observacao: "Gasto zero na maioria das semanas é o esperado." };
     }
     default:
       throw new Error(`fase inválida: '${fase}'. Use regras, parametros, p1, p2, p3 ou p4.`);
   }
+}
+
+// ── Rodadas lançadas na etapa do mapa (imphq_scale_rounds) ──────────────────
+
+export const SCALE_PLAYBOOK_ID = "esteira-escala-dtc";
+export type ScalePhase = "parametros" | "p1" | "p2" | "p3" | "p4";
+export const SCALE_PHASE_LABEL: Record<ScalePhase, string> = {
+  parametros: "Parâmetros", p1: "P1 · Teste de concepts", p2: "P2 · Rodada de texto", p3: "P3 · Escala", p4: "P4 · Cemitério",
+};
+/** Ordem da etapa no playbook → fase em que se lançam números. */
+const PHASE_BY_ORDEM: Record<number, ScalePhase> = { 3: "parametros", 4: "p1", 5: "p1", 6: "p1", 7: "p2", 8: "p3", 9: "p4" };
+
+/** Fase da esteira de uma etapa, pela marca que o playbook grava nas notas ([agent_playbook:esteira-escala-dtc#N]). */
+export function scaleStepPhase(notes: string | null | undefined): ScalePhase | null {
+  const m = /\[agent_playbook:([\w-]+)#(\d+)\]/.exec(notes ?? "");
+  return m && m[1] === SCALE_PLAYBOOK_ID ? PHASE_BY_ORDEM[Number(m[2])] ?? null : null;
+}
+
+/** Parâmetros guardados na rodada → entrada do motor. */
+export function paramsFrom(v: unknown): ScaleParams {
+  const o = obj(v);
+  return { payout: n(o.payout), cpaAlvo: n(o.cpa_alvo), icsPorVenda: n(o.ics_por_venda) || undefined };
+}
+
+/** Veredito de uma rodada salva ou em edição (mesma entrada do MCP evaluate_scale). Sem payout/CPA alvo, null. */
+export function evaluateRound(fase: ScalePhase, params: unknown, data: unknown) {
+  const p = paramsFrom(params);
+  if (p.payout <= 0 || p.cpaAlvo <= 0) return null;
+  return evaluateScale({ ...obj(data), fase, payout: p.payout, cpa_alvo: p.cpaAlvo, ics_por_venda: p.icsPorVenda });
+}
+
+type RoundResult = NonNullable<ReturnType<typeof evaluateRound>>;
+const count = (items: ReadonlyArray<{ veredito: string }>, v: string) => items.filter((i) => i.veredito === v).length;
+
+/** Uma linha para o histórico, o MCP e o resumo semanal. */
+export function roundSummary(_fase: ScalePhase, r: RoundResult | null): string {
+  if (!r) return "Sem payout e CPA alvo: sem veredito.";
+  switch (r.fase) {
+    case "regras":
+      return "";
+    case "parametros":
+      return `Breakeven ${r.parametros.breakeven}, teto por IC ${r.parametros.teto_custo_ic_qualificado}.`;
+    case "p1":
+      return `${r.linhas.length} concepts: ${r.qualificados} qualificados, ${r.mais_textos} mais textos, ${r.mortos} mortos; ${r.placar_hipoteses.length} hipóteses no placar.`;
+    case "p2": {
+      const last = r.dias.at(-1);
+      return [last ? `Dia ${last.dia}: ${last.rotulo}${last.cpa_acumulado !== null ? ` (CPA ${last.cpa_acumulado})` : ""}` : null,
+        r.conjuntos.length ? `conjuntos: ${count(r.conjuntos, "duplica")} duplica, ${count(r.conjuntos, "mantem")} mantém, ${count(r.conjuntos, "pausa")} pausa` : null,
+      ].filter(Boolean).join("; ") || "Sem dias lançados.";
+    }
+    case "p3":
+      return [r.rotina_do_dia ? `Freio: ${r.rotina_do_dia.freio}` : null,
+        r.angulos.length ? `${r.angulos.length} ângulos (${count(r.angulos, "rodando")} rodando, ${count(r.angulos, "revisa")} revisa, ${count(r.angulos, "cemiterio")} para o cemitério)` : null,
+      ].filter(Boolean).join("; ") || "Sem números lançados.";
+    case "p4":
+      return `${r.angulos.length} no cemitério (${count(r.angulos, "volta_p3")} voltam ao P3), ${r.vagas_livres} vagas.`;
+  }
+}
+
+/**
+ * Placar de hipóteses acumulado do projeto a partir das rodadas do P1 salvas (mais recente primeiro):
+ * cada hipótese aparece uma vez, com o resultado mais recente.
+ */
+export function hypothesisBoard(rounds: ReadonlyArray<{ fase: string; rodada?: string | null; resultado?: unknown; updated_at?: string }>) {
+  const seen = new Map<string, { hipotese: string; concept: string; resultado: string; rodada: string | null; em: string | null }>();
+  for (const r of rounds) {
+    if (r.fase !== "p1") continue;
+    for (const h of list(obj(r.resultado).placar_hipoteses)) {
+      const hipotese = text(h.hipotese).trim();
+      const key = hipotese.toLowerCase();
+      if (!hipotese || seen.has(key)) continue;
+      seen.set(key, { hipotese, concept: text(h.concept), resultado: text(h.resultado), rodada: r.rodada ?? null, em: r.updated_at ?? null });
+    }
+  }
+  return [...seen.values()];
+}
+
+/** Linha de imphq_ads_spend (sync de anúncios) usada para pré-preencher a etapa. */
+export interface SpendRow { data_ref: string | null; conjunto_anuncios?: string | null; campanha?: string | null; valor?: number | null; checkouts_iniciados?: number | null; compras?: number | null }
+
+/** Soma por conjunto (concept no P1, conjunto no P2), maior gasto primeiro. */
+export function spendByAdset(rows: ReadonlyArray<SpendRow>) {
+  const by = new Map<string, { nome: string; gasto: number; ic: number; vendas: number }>();
+  for (const r of rows) {
+    const nome = (r.conjunto_anuncios || r.campanha || "Sem conjunto").trim();
+    const cur = by.get(nome) ?? { nome, gasto: 0, ic: 0, vendas: 0 };
+    cur.gasto = round2(cur.gasto + n(r.valor)); cur.ic += n(r.checkouts_iniciados); cur.vendas += n(r.compras);
+    by.set(nome, cur);
+  }
+  return [...by.values()].sort((a, b) => b.gasto - a.gasto);
+}
+
+/** Soma por dia (diário do P2, gasto de ontem no P3), do mais antigo ao mais novo. */
+export function spendByDay(rows: ReadonlyArray<SpendRow>) {
+  const by = new Map<string, { dia: string; gasto: number; ic: number; vendas: number }>();
+  for (const r of rows) {
+    const dia = (r.data_ref ?? "").slice(0, 10);
+    if (!dia) continue;
+    const cur = by.get(dia) ?? { dia, gasto: 0, ic: 0, vendas: 0 };
+    cur.gasto = round2(cur.gasto + n(r.valor)); cur.ic += n(r.checkouts_iniciados); cur.vendas += n(r.compras);
+    by.set(dia, cur);
+  }
+  return [...by.values()].sort((a, b) => a.dia.localeCompare(b.dia));
 }
 
 /** Texto curto da metodologia para o contexto da IA e para a resposta do MCP. */

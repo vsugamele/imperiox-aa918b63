@@ -76,3 +76,7 @@ Hipótese refutada **não volta com criativo novo**, só se a premissa mudar. Hi
 2. Para qualquer decisão de verba, rode `evaluate_scale` com os números reais e responda com veredito + ação, citando a fase.
 3. Nunca recomende mexer em verba e lance no mesmo dia, nem julgar o P1 antes do dia 2 ou o P2 antes do dia 3.
 4. Ao propor novos concepts, comece pelo placar de hipóteses da rodada anterior.
+
+## Onde os números ficam
+
+Nas etapas do playbook no mapa do projeto (Parâmetros, P1 a P4), o painel da etapa tem a seção **Esteira de Escala**: lança os números (ou puxa gasto, checkouts iniciados e compras por conjunto do sync de anúncios), mostra o veredito ao vivo e salva a rodada com histórico. Pelo MCP, `get_scale_rounds` devolve as rodadas salvas e o **placar de hipóteses acumulado** do projeto.

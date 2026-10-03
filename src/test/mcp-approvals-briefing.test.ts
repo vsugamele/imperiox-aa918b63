@@ -32,6 +32,11 @@ function fixtures(): Record<string, Row[]> {
     imphq_v_ai_drafts: [{ id: "d1", project_id: "p", contact_name: "Ana", suggested_text: "Oi Ana", created_at: hourAgo(1), status: "pending" }],
     imphq_vendas: [{ project_id: "p", valor: 47, data: {}, status: "aprovado" }],
     imphq_leads: [{ project_id: "p" }],
+    imphq_scale_rounds: [
+      { id: "r2", project_id: "p", fase: "p1", rodada: "S42", updated_at: "2026-10-02", resultado: { placar_hipoteses: [{ hipotese: "Dor à tarde", concept: "A", resultado: "refutada" }] } },
+      { id: "r1", project_id: "p", fase: "p1", rodada: "S41", updated_at: "2026-09-25", resultado: { placar_hipoteses: [{ hipotese: "dor à tarde", concept: "A", resultado: "confirmada" }, { hipotese: "Meia falhou", concept: "B", resultado: "parcial" }] } },
+      { id: "r3", project_id: "p", fase: "p3", rodada: "S42", updated_at: "2026-10-02", resultado: null },
+    ],
   };
 }
 
@@ -113,6 +118,17 @@ describe("project-mcp approvals and briefing", () => {
     expect(res.etapas.atrasadas).toBe(1);
     expect(res.etapas.esperando_o_time[0].etapa).toBe("Gravar anúncio");
     expect(res.aprovacoes.total).toBe(4);
+  });
+
+  it("returns saved scale rounds and the accumulated hypothesis board, latest result first", async () => {
+    const all = await runtime().call("get_scale_rounds", { project_id: "p" });
+    expect(all.rodadas).toHaveLength(3);
+    expect(all.placar_hipoteses).toEqual([
+      expect.objectContaining({ hipotese: "Dor à tarde", resultado: "refutada", rodada: "S42" }),
+      expect.objectContaining({ hipotese: "Meia falhou", resultado: "parcial", rodada: "S41" }),
+    ]);
+    const p3 = await runtime().call("get_scale_rounds", { project_id: "p", fase: "p3" });
+    expect(p3.rodadas.map((r: { id: string }) => r.id)).toEqual(["r3"]);
   });
 
   it("evaluates the scale ladder without touching the database", async () => {

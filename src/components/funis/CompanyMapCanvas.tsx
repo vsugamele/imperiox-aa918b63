@@ -47,6 +47,8 @@ import { extractAgentData, type AgentExecutionData } from "@/components/funis/ma
 import { MapNodeCard } from "@/components/funis/MapNodeCard";
 import { orderSteps } from "@shared/map-order";
 import { StepPrints } from "@/components/funis/StepPrints";
+import { StepScaleLadder } from "@/components/funis/StepScaleLadder";
+import { scaleStepPhase } from "@shared/scale-ladder";
 import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNode, type MapNodeData } from "@/components/funis/map-node-model";
 export type { AgentExecutionData } from "@/components/funis/map-agent-data";
 import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
@@ -2670,6 +2672,10 @@ function InnerMap({
               {selected.url && selected.kind !== "imagem" && (
                 <StepPrints nodeId={selected.id} label={selected.label} printMeta={selected.print_meta} />
               )}
+              {(() => {
+                const scalePhase = scaleStepPhase(selected.notes);
+                return scalePhase ? <StepScaleLadder key={`${selected.id}:${scalePhase}`} nodeId={selected.id} projectId={selected.linked_project_id ?? null} fase={scalePhase} /> : null;
+              })()}
               {selected.kind === "imagem" && (
                 <div>
                   <Label className="text-xs flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Imagem</Label>

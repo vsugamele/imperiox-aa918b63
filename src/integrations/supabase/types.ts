@@ -25949,6 +25949,59 @@ export type Database = {
           },
         ]
       }
+      imphq_scale_rounds: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: Json
+          fase: string
+          id: string
+          node_id: string | null
+          params: Json
+          project_id: string
+          resultado: Json | null
+          resumo: string | null
+          rodada: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          fase: string
+          id?: string
+          node_id?: string | null
+          params?: Json
+          project_id: string
+          resultado?: Json | null
+          resumo?: string | null
+          rodada?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          fase?: string
+          id?: string
+          node_id?: string | null
+          params?: Json
+          project_id?: string
+          resultado?: Json | null
+          resumo?: string | null
+          rodada?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_scale_rounds_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_playbook_steps: {
         Row: {
           checklist: string[]
