@@ -43,7 +43,7 @@ Usuário pediu páginas com links próprios publicadas na Vercel, fontes nos Git
 - [x] Provar PageView Meta do domínio Slim; Purchase/CAPI ainda pendentes.
 - [x] Testar no navegador ADV1 → VSL e PDP → checkout Slim, preservando afiliado/UTMs e confirmando eventos Império.
 - [x] Conferir mapa Master e operacional Slim e links próprios na interface.
-- [ ] Confirmar conta Google do Bruno e acesso às propriedades sem inferir endereço.
+- [x] Confirmar orientação de acessos: Analytics e demais serviços com Vinicius; somente Meta com Bruno na sessão existente do perfil VSUGML.
 - [x] Vincular VSL, GitHub, player, checkout e tracking das quatro ofertas no mapa Master.
 - [x] Publicar quatro advertoriais e PDP SlimSoda com CTAs e eventos separados das VSLs.
 - [x] Cadastrar nove novas páginas em Sites e adicionar ADV/PDP aos mapas preservando versões anteriores.
@@ -69,7 +69,7 @@ Preservar páginas e cadastros existentes; não excluir registros ou materiais. 
 
 GA4 confirmado nas quatro VSLs: Leaftide G-CEXWP1QQRE, Cardio G-P3BGTRYWE3, Memo G-T52GP0M1MJ e Slim G-6BY843CN82. Slim também recebeu visitas ADV1/PDP. Propriedade Slim 557209019/fluxo 15976232055 recuperada sem duplicação.
 
-Meta Slim: PageView processado do domínio próprio em Eventos de Teste; UI classifica como Evento personalizado. SDK e /tr do pixel 996492073462713 HTTP 200. Não representa Purchase/CAPI. Tela 2FA Bruno aberta e preservada; sessão Google é Vinicius, endereço Google do Bruno solicitado. Demais pixels seguem pendentes de propriedade/permissões.
+Meta Slim: PageView processado do domínio próprio em Eventos de Teste; UI classifica como Evento personalizado. SDK e /tr do pixel 996492073462713 HTTP 200. Não representa Purchase/CAPI. Tela 2FA Bruno aberta e preservada; sessão Google Vinicius confirmada pelo usuário como correta. Somente Meta usa Bruno, na sessão existente do perfil VSUGML. Demais pixels seguem pendentes de propriedade/permissões.
 
 Slim ADV1/PDP desktop e cliques conferidos; tracker recebeu quatro passos específicos. Header PDP e links legais do comerciante corrigidos; módulos de cronômetro/lote simulado ocultos, originais preservados. Divergência de garantias e conteúdo do fornecedor ainda exigem revisão. Mapa Master e operacional Slim e links conferidos em UI. Briefings 14/19/21/27 links.
 

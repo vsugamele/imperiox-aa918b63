@@ -13,7 +13,7 @@ Pedido de publicação, tracker/IDs, Analytics e mapa autorizado pelo usuário. 
 | MemoFlow | https://memoflow-vsl.vercel.app/ | `6aa4c6586d7a1359e68358cf` / 55:00 | `G-T52GP0M1MJ`, propriedade `557173271`, fluxo `15977184412`; page_view/session_start/vsl_view recebidos em tempo real em 03/10 | Pendente de BM/pixel |
 | SlimSoda Powder | https://slimsoda-powder-vsl.vercel.app/ | `6aa4c68d589230110306fe6c` / 37:06 | `G-6BY843CN82`, propriedade `557209019`, fluxo `15976232055`; VSL/ADV1/PDP recebidos em tempo real em 03/10 | `996492073462713` instalado; proprietário Imperio Company e compartilhamento AD Vini 01 confirmados; PageView próprio recebido, Purchase/CAPI pendentes |
 
-Conta GA4 Direct Response `359475519`. Usuário informou que os acessos são pelo e-mail do Bruno. Meta identifica Bruno Souza de Carvalho; a sessão Google inspecionada está como Vinicius. O endereço Google do Bruno foi solicitado e ainda não confirmado; não assumir titularidade nem conceder acesso a endereço inferido. Não houve duplicação da propriedade Slim.
+Conta GA4 Direct Response `359475519`. Orientação corrigida pelo usuário: Analytics e demais serviços usam os acessos do próprio Vinicius já conectados no computador/navegador. Somente Facebook/Meta usa a conta do Bruno, aberta no perfil que o usuário identifica como VSUGML. A sessão Google de Vinicius é a sessão correta; não há pendência de e-mail Google do Bruno nem necessidade de trocar ou transferir propriedades. Não houve duplicação da propriedade Slim.
 
 Meta Slim: Eventos de Teste mostrou PageView processado do domínio `slimsoda-powder-vsl.vercel.app` às 08:43 de 03/10, classificado pela interface como "Evento personalizado". SDK, configuração do pixel e requisição `/tr?id=996492073462713&ev=PageView` responderam HTTP 200 no navegador. Eventos históricos/CAPI existentes do dataset não comprovam compra/CAPI deste novo site. 2FA continua exigido para configurações da empresa, embora o Gerenciador de Eventos seja acessível.
 
@@ -58,7 +58,7 @@ GitHub: em 03/10, commits remotos verificados e quatro checkouts limpos: Leaftid
 
 Conexão GitHub → Vercel automática: tentativa Leaftide retornou exigência de Login Connection GitHub na conta Vercel. GitHub e deploy CLI funcionam; vínculo automático não foi concluído. Meta ainda apresenta 2FA de Bruno Souza de Carvalho. Não foi recebido aviso de liberação.
 
-Chrome: novas abas do perfil Vinicius voltaram a responder em 03/10; usadas para GA4, Meta, PDP e mapa. Abas antigas permanecem sem conexão. O bloqueio do navegador de 02/10 foi superado para essas verificações; 2FA da empresa e identidade Google do Bruno permanecem pendentes.
+Chrome: novas abas do perfil Vinicius voltaram a responder em 03/10; usadas para GA4, Meta, PDP e mapa. Abas antigas permanecem sem conexão. O bloqueio do navegador de 02/10 foi superado para essas verificações. Nova conferência após a orientação corrigida: sessão Meta existente permanece na conta do Bruno; configurações da empresa ainda mostram 2FA pelo aplicativo autenticador. Não confundir sessão logada com autorização adicional dessa área.
 
 Validação: cinco testes do tracker; lint sem erros (2 avisos existentes), typecheck e 623 testes do Império aprovados. Aplicativo raiz não foi republicado por esta story.
 

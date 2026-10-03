@@ -2,7 +2,7 @@
 
 ## Feito
 
-Novas abas Chrome ID4/perfil Vinicius voltaram a responder; abas antigas continuam sem debugger. Meta identifica Bruno Souza de Carvalho. Usuário informou que os acessos são pelo e-mail do Bruno, mas a sessão Google inspecionada é de Vinicius. Endereço Google do Bruno solicitado; não inferir endereço nem conceder permissões por suposição. Tela Meta 2FA aberta/preservada para preenchimento direto no Chrome. Sem códigos/senhas no chat ou Git.
+Novas abas Chrome ID4/perfil Vinicius voltaram a responder; abas antigas continuam sem debugger. Orientação corrigida pelo usuário: Analytics e demais serviços devem usar os acessos próprios de Vinicius já conectados no computador/navegador; somente Meta usa Bruno Souza de Carvalho, na sessão existente do perfil identificado pelo usuário como VSUGML. A sessão Google atual é correta. Cancelada a pendência de endereço Google do Bruno; não trocar contas ou transferir propriedades. Tela Meta 2FA aberta/preservada para preenchimento direto no Chrome; nova conferência ainda mostra desafio do aplicativo autenticador para configurações da empresa. Sem códigos/senhas no chat ou Git.
 
 GA4 recebido nas quatro VSLs: Leaftide G-CEXWP1QQRE (confirmado em 02/10), Cardio G-P3BGTRYWE3/p557161984/s15977337371, Memo G-T52GP0M1MJ/p557173271/s15977184412, Slim G-6BY843CN82/p557209019/s15976232055. Conta Direct Response 359475519. Slim recuperado da propriedade existente sem duplicação; tag propagada a quatro editoriais e PDP, deploy dpl_9E2PfXednmBhTrVmKNnGdbbZ2Js2 READY, alias https://slimsoda-powder-vsl.vercel.app/.
 
@@ -22,7 +22,7 @@ Capturas em C:/Users/vsuga/Downloads/imperio-ofertas/evidencias/: meta-2fa-bruno
 
 ## Próximos passos e bloqueadores
 
-1. Usuário concluir 2FA diretamente na aba Chrome Bruno e confirmar endereço Google do Bruno para selecionar a sessão correta. Não pedir código/senha no chat.
+1. Quando necessário acessar configurações da empresa, usuário concluir 2FA diretamente na aba Meta Bruno já aberta no Chrome. Analytics permanece com os acessos de Vinicius. Não solicitar endereço Google do Bruno, código ou senha no chat.
 2. Conferir propriedade/permissões/saúde BM e datasets das outras três ofertas; pixels legados Leaf/Clear não certificados para este fluxo. Não declarar BM saudável apenas porque há um evento.
 3. Validar sessão até pitch real e compra/Purchase/CAPI por integração efetiva do checkout, sem forjar eventos de compra.
 4. Rever conteúdo/garantias dos materiais e tracking/CTA dos ADV/PDP Memo existentes. Leaftide/Cardio sem novos advertoriais específicos confirmados.
