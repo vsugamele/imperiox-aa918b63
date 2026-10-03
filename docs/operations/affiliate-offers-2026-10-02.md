@@ -62,6 +62,8 @@ Chrome: novas abas do perfil Vinicius voltaram a responder em 03/10; usadas para
 
 ### Meta — conferência após liberação do 2FA, 03/10
 
+Retomada após nova reconexão: perfil Vinicius/VSUGML voltou ao inventário, identificado pela extensão 99d78c49-75b2-4904-b408-2eaebe56dbe3. Navegação e leitura do texto renderizado da BM recuperadas via API CDP documentada; Runtime/AX/screenshot e alguns comandos de foco/clique continuam com timeouts. Buscas explícitas por Leaf, Cardio e Memo mostraram Nenhum conjunto de dados encontrado. Detalhe de suporte AD Vini 01: nenhum anúncio disponível para revisão adicional nos últimos 90 dias; não comprova saúde integral. Adicionar abriu camada de carregamento, sem formulário novo concluído ou submissão. Ainda não houve confirmação de aceite de termos. Quatro projetos atualizados com connected_with_driver_timeouts; três ofertas dataset_creation_pending, sem IDs atribuídos. Estado abaixo conserva o histórico anterior à reconexão.
+
 - BM Imperio Company `1895345497616474`: Bruno Souza com acesso total; AD Vini 01 `448271424884723` pertence à BM, sem selo de conta desabilitada. Página de suporte mostrou "Nenhum anúncio rejeitado". Isso não certifica aprovação futura, faturamento, limites ou saúde integral do portfólio.
 - Outras contas restritas/desabilitadas existem: Bruno Ale e CLG_1539; CLG pertence à ClikimGlobal. Hipertens pertence a jpfreitas06 e foi excluída desta operação.
 - Dataset Slim `996492073462713` pertence à Imperio Company; suporte mostrou nenhum problema da fonte de dados nos últimos 30 dias. Dtc-Clear `1619587959397761` também pertence à BM; não confundir com o pixel Clear legado `1427772126180988` nem reaproveitar para CardioFlush sem conferir identidade.

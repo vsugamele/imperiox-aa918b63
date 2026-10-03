@@ -2,6 +2,8 @@
 
 ## Feito
 
+Retomada mais recente: usuário reconectou Chrome Vinicius/VSUGML, extensão 99d78c49-75b2-4904-b408-2eaebe56dbe3. IDs numéricos de navegador mudam após reset; selecionar pela extensão, não reutilizar número antigo. Recuperadas navegação e leitura DOMSnapshot do texto renderizado pelo CDP documentado. Buscas Leaf/Cardio/Memo na BM Imperio Company: Nenhum conjunto de dados encontrado. Suporte AD Vini 01 mostrou nenhum anúncio disponível para revisão adicional nos últimos 90 dias. Runtime.evaluate, AX, screenshots e alguns inputs continuam intermitentes. Adicionar abriu camada de carregamento; nenhum novo dataset/ID, formulário concluído ou aceite de termos. Quatro projetos atualizados e retorno SQL conferido: connected_with_driver_timeouts; três ofertas dataset_creation_pending. Tentar captura Windows da janela Meta Business Suite agora que a aba foi trazida para frente; o helper pode interromper o turno se não identificar URL com segurança. Estados anteriores de desconexão abaixo são históricos.
+
 Novas abas Chrome/perfil Vinicius voltaram a responder; abas antigas continuam sem debugger. Orientação corrigida pelo usuário: Analytics e demais serviços devem usar os acessos próprios de Vinicius já conectados no computador/navegador; somente Meta usa Bruno Souza de Carvalho, na sessão existente do perfil identificado pelo usuário como VSUGML. A sessão Google atual é correta. Cancelada a pendência de endereço Google do Bruno; não trocar contas ou transferir propriedades. Usuário concluiu 2FA e acesso às configurações da BM foi confirmado. Sem códigos/senhas no chat ou Git.
 
 GA4 recebido nas quatro VSLs: Leaftide G-CEXWP1QQRE (confirmado em 02/10), Cardio G-P3BGTRYWE3/p557161984/s15977337371, Memo G-T52GP0M1MJ/p557173271/s15977184412, Slim G-6BY843CN82/p557209019/s15976232055. Conta Direct Response 359475519. Slim recuperado da propriedade existente sem duplicação; tag propagada a quatro editoriais e PDP, deploy dpl_9E2PfXednmBhTrVmKNnGdbbZ2Js2 READY, alias https://slimsoda-powder-vsl.vercel.app/.
@@ -26,8 +28,8 @@ Capturas históricas registradas em C:/Users/vsuga/Downloads/imperio-ofertas/evi
 
 ## Próximos passos e bloqueadores
 
-1. Reconectar Chrome VSUGML à extensão/Codex; 2FA já liberado. Analytics permanece com Vinicius; Meta com Bruno. Não solicitar endereço Google do Bruno, código ou senha no chat.
-2. Concluir busca por datasets das outras três ofertas; pixels legados Leaf/Clear não certificados. Se necessário criar, salvar screenshot e pedir confirmação específica de aceite dos termos antes do botão Criar. Validar Leaftide primeiro e só depois replicar. AD Vini 01 é candidata observada fora do JP; não declarar BM integralmente saudável.
+1. Conexão e 2FA já reconhecidos; resolver carregamento/comandos intermitentes do conector. Analytics permanece com Vinicius; Meta com Bruno. Não pedir nova reconexão sem evidência de queda nem solicitar códigos/senhas.
+2. Buscas Leaf/Cardio/Memo sem datasets encontrados. Preparar criação, salvar screenshot e pedir confirmação específica de aceite dos termos antes do botão Criar. Validar Leaftide primeiro e só depois replicar. AD Vini 01 é candidata observada fora do JP; não declarar BM integralmente saudável.
 3. Validar sessão até pitch real e compra/Purchase/CAPI por integração efetiva do checkout, sem forjar eventos de compra.
 4. Rever conteúdo/garantias dos materiais e tracking/CTA dos ADV/PDP Memo existentes. Leaftide/Cardio sem novos advertoriais específicos confirmados.
 5. Conectar GitHub→Vercel automático pelo Login Connection autorizado; deploy CLI funciona.

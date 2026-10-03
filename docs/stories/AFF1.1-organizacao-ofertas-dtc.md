@@ -37,6 +37,8 @@ Usuário pediu páginas com links próprios publicadas na Vercel, fontes nos Git
 - [x] Confirmar 2FA liberado, acesso total de Bruno à BM Imperio Company e propriedade AD Vini 01 fora do JP.
 - [x] Registrar evidência limitada de saúde por ativo e atualizar quatro projetos/cinco nós de tracking.
 - [x] Recuperar quatro fontes privadas em Documents/imperio-ofertas-meta e conferir HEAD/status.
+- [x] Reconhecer a reconexão VSUGML e conferir buscas Leaf/Cardio/Memo sem datasets encontrados.
+- [ ] Resolver carregamento/intermitência do conector, preparar formulário e confirmar aceite dos termos na criação.
 - [ ] Reconectar Chrome VSUGML, concluir busca por datasets existentes e, se necessário, obter confirmação de aceite dos termos antes de criar.
 - [x] Conferir dataset Slim: proprietário Imperio Company, vinculado AD Vini 01; PageView próprio recebido em 03/10.
 - [x] Conferir acesso Analytics: conector 403; sessão do navegador disponível.
@@ -70,6 +72,8 @@ Preservar páginas e cadastros existentes; não excluir registros ou materiais. 
 - Gates atuais do Império: lint sem erros (2 avisos), typecheck aprovado e 623 testes em 91 arquivos aprovados. Falha anterior de typecheck resolvida na alteração paralela STR1.9, sem mudança de código por esta story. Aplicativo não deployado nesta sessão.
 
 ## Atualização 03/10 — estado atual
+
+Retomada mais recente: conexão do perfil Vinicius/VSUGML reconhecida; três buscas na BM sem datasets encontrados. Leitura de texto renderizado recuperada por CDP documentado; controles/capturas ainda intermitentes. Adicionar abriu camada de carregamento, sem novo dataset ou aceite de termos. Projetos: connected_with_driver_timeouts; três pixels continuam nulos. Detalhe de suporte AD Vini 01 sem anúncios disponíveis para revisão adicional nos últimos 90 dias. Pendências de reconexão abaixo são históricas; bloqueio atual é controle/carregamento da interface e confirmação de termos quando o formulário estiver pronto.
 
 GA4 confirmado nas quatro VSLs: Leaftide G-CEXWP1QQRE, Cardio G-P3BGTRYWE3, Memo G-T52GP0M1MJ e Slim G-6BY843CN82. Slim também recebeu visitas ADV1/PDP. Propriedade Slim 557209019/fluxo 15976232055 recuperada sem duplicação.
 
