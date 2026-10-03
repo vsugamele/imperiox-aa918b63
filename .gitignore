@@ -27,3 +27,4 @@ dist-ssr
 supabase/.temp
 .tmp-prints/
 .tmp-content/
+.tmp-playbook/

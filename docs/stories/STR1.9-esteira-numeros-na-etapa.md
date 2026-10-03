@@ -15,12 +15,17 @@ Parte D da STR1.8: lançar os números de cada fase da esteira na própria etapa
 - [x] MCP `get_scale_rounds` (rodadas + placar de hipóteses acumulado, resultado mais recente vale)
 - [x] Testes: `step-scale-ladder.test.tsx` (6), MCP (+1); suíte 623 verde; typecheck, lint, build; deno check na linha de base (9); `project-mcp` publicado
 
+## Piloto (03/10)
+- [x] CLI `scripts/playbook.mjs` (list / apply com plano e `--confirmar`; mesmo planejador e gravador do MCP, transação única com snapshot do mapa)
+- [x] Esteira aplicada na SlimSoda (decisão delegada pelo Vinicius): 8 etapas novas + avatar e ângulos reaproveitados, 10 setas, 6 seções
+
 ## Limites conhecidos
-- O painel só aparece em etapas criadas pelo playbook `esteira-escala-dtc`: o playbook ainda não foi aplicado em nenhum projeto.
+- O painel só aparece em etapas criadas pelo playbook `esteira-escala-dtc` (hoje: SlimSoda).
 - O sync de anúncios só tem dados do JP até 19/08 (sync do Facebook parado); a SlimSoda não tem conta conectada. Sem dados, o botão avisa e o lançamento é manual.
 - Conferência visual logado pendente (a prévia local exige login); validado por teste de renderização.
 
 ## File List
+- `scripts/playbook.mjs` (novo), `.gitignore`
 - `supabase/migrations/20261002_imphq_scale_rounds.sql` (novo)
 - `src/integrations/supabase/types.ts`
 - `supabase/functions/_shared/scale-ladder.ts`
