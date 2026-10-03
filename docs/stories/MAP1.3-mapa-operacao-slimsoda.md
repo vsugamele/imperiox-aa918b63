@@ -17,6 +17,8 @@ Pedido: ter no Império o desenho de cada projeto por operação (orgânico, ads
 ## Lacunas de dados que travam a autonomia
 - [ ] Conta de anúncio da SlimSoda sincronizada com o Império (`imphq_ads_spend` vazio).
 - [ ] Vendas da H&W chegando ao Império com origem (postback/webhook) — hoje `imphq_vendas` vazio.
+  - Diagnóstico 03/10: a H&W mandou 15 avisos ao `webhook-pagamento` entre 13/08 e 05/09 e nenhum depois (nem com erro). As 11 vendas H&W em `imphq_vendas` são uma reimportação de 30/09 (mesmo horário, `reprocessado_em`), quase todas "pendente". Falta confirmar no painel da H&W se houve venda depois de 05/09 e se o postback continua apontando para o Império.
+  - 6 vendas sem projeto são de um pedido **HorseJello** (+ Express Shipping e Wellness Club do mesmo pedido): não existe projeto HorseJello; o domínio `horse-jello.healiks.com` também está entre os "sem dono" do LIVE1.3.
 - [ ] Contas Ray e Hank conectadas ao Zernio no Império e gatilhos BELLY/MORNING.
 - [x] Eventos de funil reais (02/10): o mapa (tela e project-mcp) conta sessões distintas com evento que não seja `heartbeat`, pela função `imphq_funnel_sessions` (migração `20261002_imphq_funnel_sessions.sql`, aplicada). Rodando a partir de 10 sessões reais em 7 dias (decisão do Vinicius). Em 02/10: SlimSoda 3, Cardio Clear 16, JP 0.
 
