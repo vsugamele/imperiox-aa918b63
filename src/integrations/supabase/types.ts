@@ -55927,6 +55927,10 @@ export type Database = {
       }
     }
     Functions: {
+      imphq_project_metrics: {
+        Args: { p_project_id: string; p_since: string }
+        Returns: Json
+      }
       imphq_funnel_sessions: {
         Args: { p_project_id: string; p_since: string }
         Returns: number

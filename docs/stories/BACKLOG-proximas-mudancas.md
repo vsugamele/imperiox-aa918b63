@@ -12,6 +12,7 @@ Itens pedidos pelo Vinicius para fazer **depois** do que está em andamento. Cad
 - `InitiateCheckout` do tracker chega sem `project_id`.
 
 ## Mapa difícil de entender (03/10/2026)
+> Em andamento: visão "Caminho" entregue na story MAP2.3 (03/10). Filtros e legenda fixa no canvas seguem para avaliar.
 > "Ainda acho difícil no mapa entender os passos, resultados, métricas, caminho principal, alternativas."
 
 O que o mapa precisa deixar óbvio, para qualquer pessoa, sem abrir cada etapa:
