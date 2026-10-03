@@ -25,7 +25,7 @@ Endpoint público `funnel-track` atualizado da versão 360 para 361 apenas para 
 - [Advertorial 4](https://slimsoda-powder-vsl.vercel.app/advertorials/slimsoda-adv4-exclusive-report.html)
 - [PDP](https://slimsoda-powder-vsl.vercel.app/pdp/)
 
-Fontes originais continuam em `materials/`. Cópias publicadas: 16 CTAs editoriais levam à VSL própria; 12 CTAs da PDP levam ao DTC H&W. O quiz de previsão individual não é acionado por esses CTAs; a seção de projeção de resultado da PDP fica oculta nesta versão. Conteúdo do fornecedor e links legais ainda exigem revisão; a publicação não representa liberação para tráfego. HTTP 200 e wiring conferidos; QA visual desses materiais ficou pendente após falha do navegador.
+Fontes originais continuam em `materials/`. Cópias publicadas: 16 CTAs editoriais levam à VSL própria; 12 CTAs da PDP levam ao DTC H&W. Instruções de acesso ajustadas para apresentação, sem coleta de perfil/quiz. Contadores estáticos de escassez/comentários e seção de projeção individual da PDP ficam ocultos nesta versão. Conteúdo do fornecedor e links legais ainda exigem revisão; a publicação não representa liberação para tráfego. HTTP 200 e wiring conferidos; QA visual desses materiais ficou pendente após falha do navegador.
 
 ### Checkouts disponíveis no H&W e direção aplicada
 
@@ -40,7 +40,13 @@ Todos com `affid=aff_6821377` e `hid` oficial da variante. A escolha reaproveita
 
 ### Organização e dependências
 
-Mapa Master `67f9f17a-e75e-45f6-a5e3-20198bfdd692`: novas faixas separadas das quatro ofertas, com 20 nós e 16 conexões, sem alterar as faixas antigas. Snapshot anterior `d9de9532-c790-4b05-91e3-1d9ca7f1d612`. Links, IDs e pendências constam nas descrições; etapa de compra/Meta permanece em revisão.
+Mapa Master `67f9f17a-e75e-45f6-a5e3-20198bfdd692`: 29 novos nós, 25 conexões e seis faixas das quatro ofertas e materiais, sem alterar as faixas antigas. Snapshot anterior `d9de9532-c790-4b05-91e3-1d9ca7f1d612`. Links, IDs e pendências constam nas descrições; etapa de compra/Meta permanece em revisão. ADV/PDP Memo existentes estão vinculados como fluxo a validar, sem mudança nos sites antigos.
+
+Mapa operacional SlimSoda `a2e01bd8-f262-43d9-a91f-779ea371ca40`: nova faixa Powder com seis nós/cinco conexões, preservando operação legada; snapshot `9303e436-bd5f-4467-b999-721bf2e82b1f`. Cadastro verificado no banco; QA visual dos mapas pendente de navegador. Assumido que o pedido de mapa "Ipena" se refere ao Império, enquanto a pergunta de esclarecimento permanece sem resposta.
+
+Sites: nove novas páginas próprias registradas (quatro VSLs + quatro advertoriais Slim + PDP Slim), além dos dez sites antes catalogados. Briefings agora têm 14/19/21/26 links para Leaftide/CardioFlush/MemoFlow/SlimSoda, respectivamente. IDs públicos GA4/Pixel atualizados nos projetos.
+
+GitHub: commits remotos verificados e quatro checkouts limpos: Leaftide `9c59c87bea8c068bb17f9b361108eb84a28482b9`, Cardio `4b16cfa2f086378f98ee5943a6a19542c6440f12`, Memo `63e61662e8a07a081dc0963b9c5e08347c03e00b`, Slim `b804662b65013eac094b20b0f0d68619f32db84e`. Deploys CLI novos servem o mesmo código de `site/`; último Slim `dpl_3bLdhWxmBYaYN1MN8XUiekJec8Jr`. Nenhum commit alheio do repositório raiz foi enviado.
 
 [Mapa Master](https://imperiox.vercel.app/funis?view=mapa&map=67f9f17a-e75e-45f6-a5e3-20198bfdd692&node=af110001-0000-4000-8000-000000000003).
 

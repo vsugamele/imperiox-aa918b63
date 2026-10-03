@@ -23,8 +23,9 @@ Usuário escolheu opção 1: validar uma oferta primeiro e depois repetir o padr
 - [x] Conferir na interface os links dos quatro Briefings.
 - [x] Salvar e habilitar CTAs novos MemoFlow e SlimSoda Powder no Vturb.
 - [x] Versionar fontes e inventários em quatro repositórios privados.
-- [ ] Resolver direção de checkout Leaftide/CardioFlush e validar fluxo público dos CTAs.
-- [ ] Completar publicação da VSL local MemoFlow com checkout/legal verificados.
+- [x] Aplicar direção autorizada de páginas isoladas com checkout H&W e conferir wiring público.
+- [x] Publicar VSL própria MemoFlow com checkout H&W.
+- [ ] Revisar links legais/conteúdo e acompanhar fluxo real até pitch/checkout.
 
 ## Restrições
 
@@ -40,7 +41,8 @@ Usuário pediu páginas com links próprios publicadas na Vercel, fontes nos Git
 - [x] Replicar páginas e tracker Império nas demais ofertas (GA4/Meta ainda parcialmente pendentes).
 - [x] Vincular VSL, GitHub, player, checkout e tracking das quatro ofertas no mapa Master.
 - [x] Publicar quatro advertoriais e PDP SlimSoda com CTAs e eventos separados das VSLs.
-- [ ] Atualizar catálogo e handoff com resultados públicos.
+- [x] Cadastrar nove novas páginas em Sites e adicionar ADV/PDP aos mapas preservando versões anteriores.
+- [x] Atualizar catálogo e handoff com resultados públicos e commits remotos verificados.
 
 ## Restrições da organização
 

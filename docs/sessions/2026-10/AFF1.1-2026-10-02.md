@@ -1,3 +1,21 @@
+# Estado de encerramento — AFF1.1 — 02/10/2026
+
+Publicadas quatro VSLs próprias e quatro advertoriais + PDP Slim. Fontes/CTAs/checkouts H&W preservam afiliado aff_6821377. Quatro repositórios privados atualizados e limpos; HEAD remoto confirmado: Leaftide 9c59c87, Cardio 4b16cfa, Memo 63e6166, Slim b804662. Aplicação raiz não redeployada nem empurrada com alterações de outras stories.
+
+Império: Briefings com 14/19/21/26 links, nove novos Sites cadastrados além dos dez anteriores. Mapas: Master +29 nós/+25 conexões/+6 faixas; operacional Slim +6 nós/+5 conexões/+1 faixa. Registros verificados no banco; QA visual dos mapas pendente. Snapshots Master d9de9532-c790-4b05-91e3-1d9ca7f1d612 e Slim 9303e436-bd5f-4467-b999-721bf2e82b1f. Não usar scripts antigos que removem nós existentes.
+
+Tracker: funnel-track v361 aceita passos VSL/ADV/PDP; vsl_view de navegador recebido nas quatro ofertas. Editorial/PDP smoke tests identificados como validação sintética, não visitantes/vendas. GA4 Leaftide G-CEXWP1QQRE com page_view/session_start/vsl_view confirmado. Cardio G-P3BGTRYWE3 e Memo G-T52GP0M1MJ instalados, recebimento pendente. Slim propriedade/stream criados, ID ainda não lido; não duplicar.
+
+Meta Slim 996492073462713 instalado nas novas páginas, BM Imperio Company/AD Vini 01 verificados como proprietário/compartilhamento. Eventos Meta pendentes. Outros datasets aguardam propriedade/permissões. Meta pede 2FA da conta Bruno Souza de Carvalho; usuário deve abrir https://business.facebook.com/settings/people?business_id=1895345497616474 no Chrome perfil Vinicius e autenticar diretamente. Não pedir código no chat.
+
+Bloqueadores: controle Chrome e IAB deixou de responder, inclusive screenshot/abertura pelo painel; GA4 Slim ID, eventos GA4 demais e Meta indisponíveis para verificação. GitHub→Vercel automático exige Login Connection; publicação CLI funcionou. Cache SW antigo observado na aba Império; bypass foi temporário e não alterou configuração permanente. Assumido mapa Império para termo Ipena, pergunta opcional sem resposta.
+
+Validação: nove URLs próprias HTTP 200 com tracker; 20 arquivos HTML/JS conferidos; assets e scan de credenciais aprovados. Cinco testes tracker + lint/typecheck/623 testes Império aprovados. Espaçamento original dos assets importados produz avisos de diff --check, sem alteração funcional. Nenhuma compra/campanha/CAPI certificada. Conteúdo/legal do fornecedor e passagem real até pitch ainda pendentes. Evidências salvas: meta-2fa.png, leaftide-publicado.png, leaftide-ga4-tempo-real.png em Downloads/imperio-ofertas/evidencias; nova captura Slim falhou.
+
+Próxima retomada: ler catálogo docs/operations/affiliate-offers-2026-10-02.md, recuperar controle do Chrome perfil Vinicius, consultar stream Slim já criado e instalar ID; provar eventos GA4/Meta; completar 2FA e selecionar datasets das outras ofertas; revisar legal/claims e fluxo real. Memo ADV/PDP antigos estão catalogados, tracking ainda a conferir. Leaftide/Cardio não têm novos advertoriais próprios publicados por falta de material específico confirmado nesta sessão.
+
+## Histórico da sessão — os estados abaixo foram superados pelo encerramento acima
+
 # Handoff — AFF1.1 — 02/10/2026
 
 ## Feito
@@ -58,4 +76,3 @@ Mapa Master: snapshot d9de9532-c790-4b05-91e3-1d9ca7f1d612; 20 novos nós/16 con
 Bloqueadores reais: Meta 2FA; Login Connection GitHub→Vercel automática; controle Chrome perdeu conexão (perfil Vinicius passou a ID5, getTab/debugger e abas novas não responderam); GA4 Slim ID e recebimento Meta pendentes. Cache SW antigo foi observado; uso temporário de bypass apenas na aba de verificação. Não republicar raiz para resolver cache.
 
 Próximos passos: recuperar Chrome/retomar stream Slim existente, instalar ID e provar eventos GA4 das demais; concluir 2FA e datasets das outras ofertas, testar recebimento Meta; revisar legal/claims e sessão real até pitch; organizar ADV/PDP Memo já existentes com tracking confirmado. Detalhes e links no catálogo atualizado.
-
