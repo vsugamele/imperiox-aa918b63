@@ -11,6 +11,7 @@ import * as approvalQueue from "@shared/approval-queue";
 import * as projectBriefing from "@shared/project-briefing";
 import * as todayBoard from "@shared/today-board";
 import * as scaleLadder from "@shared/scale-ladder";
+import * as launchKit from "@shared/launch-kit";
 import { checkMcpKey } from "@shared/mcp-auth";
 
 type Handler = (req: Request) => Promise<Response>;
@@ -32,6 +33,9 @@ function fixtures(): Record<string, Row[]> {
     imphq_v_ai_drafts: [{ id: "d1", project_id: "p", contact_name: "Ana", suggested_text: "Oi Ana", created_at: hourAgo(1), status: "pending" }],
     imphq_vendas: [{ project_id: "p", valor: 47, data: {}, status: "aprovado" }],
     imphq_leads: [{ project_id: "p" }],
+    imphq_playbook_applications: [{ project_id: "p", playbook_id: "x1-conversa" }],
+    imphq_project_access: [{ project_id: "p", access_key: "checkout", status: "conectado", nota: null, owner_member_id: null }],
+    imphq_wa_providers: [{ id: "w1", project_id: "p", is_active: true }],
     imphq_scale_rounds: [
       { id: "r2", project_id: "p", fase: "p1", rodada: "S42", updated_at: "2026-10-02", resultado: { placar_hipoteses: [{ hipotese: "Dor à tarde", concept: "A", resultado: "refutada" }] } },
       { id: "r1", project_id: "p", fase: "p1", rodada: "S41", updated_at: "2026-09-25", resultado: { placar_hipoteses: [{ hipotese: "dor à tarde", concept: "A", resultado: "confirmada" }, { hipotese: "Meia falhou", concept: "B", resultado: "parcial" }] } },
@@ -56,6 +60,7 @@ function runtime() {
       },
       neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return query; },
       update: (values: Row) => { patch = values; return query; },
+      upsert: (values: Row) => { updates.push({ table, values, id: null }); return Promise.resolve({ error: null }); },
       single: () => Promise.resolve({ data: rows()[0] ?? null, error: null }),
       then: (resolve: (r: { data: Row[]; count: number; error: null }) => unknown) => Promise.resolve({ data: rows(), count: rows().length, error: null }).then(resolve),
     };
@@ -63,7 +68,7 @@ function runtime() {
   };
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   const call = async (name: string, args: Row) => {
     const response = await handler!(new Request("https://local.test/project-mcp", {
@@ -129,6 +134,23 @@ describe("project-mcp approvals and briefing", () => {
     ]);
     const p3 = await runtime().call("get_scale_rounds", { project_id: "p", fase: "p3" });
     expect(p3.rodadas.map((r: { id: string }) => r.id)).toEqual(["r3"]);
+  });
+
+  it("reads the project kit from applied playbooks, declared access and evidence", async () => {
+    const kit = await runtime().call("get_project_kit", { project_id: "p" });
+    expect(kit.canais).toEqual(["x1"]);
+    expect(kit.itens.filter((i: { obrigatorio: boolean }) => i.obrigatorio).map((i: { key: string; status: string }) => [i.key, i.status])).toEqual([["checkout", "conectado"], ["whatsapp", "conectado"]]);
+    expect(kit.pronto_para_rodar).toBe(true);
+    const asked = await runtime().call("get_project_kit", { project_id: "p", canais: "youtube, podcast" });
+    expect(asked).toMatchObject({ canais: ["youtube"], canais_invalidos: ["podcast"], progresso: "0/2" });
+  });
+
+  it("marks an access status with owner and rejects unknown keys", async () => {
+    const app = runtime();
+    const res = await app.call("set_project_access", { project_id: "p", acesso: "dominio", status: "em_andamento", responsavel: "bruno" });
+    expect(res).toMatchObject({ success: true, status: "Em andamento" });
+    expect(app.updates[0]).toMatchObject({ table: "imphq_project_access", values: { access_key: "dominio", status: "em_andamento", owner_member_id: "m1" } });
+    await expect(app.call("set_project_access", { project_id: "p", acesso: "senha_banco", status: "conectado" })).rejects.toThrow(/desconhecido/);
   });
 
   it("evaluates the scale ladder without touching the database", async () => {

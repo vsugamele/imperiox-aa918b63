@@ -14,6 +14,7 @@ import { buildApprovalQueue, SOURCE_LABEL, type AiActionRow, type ApprovalItem, 
 import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions } from "../_shared/project-briefing.ts";
 import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
 import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
+import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -854,6 +855,33 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "get_project_kit",
+    description: "Kit de operação do projeto: canais (YouTube, SEO, tráfego direto, X1, orgânico social, webinar), os acessos que cada um exige com status (falta, em andamento, conectado, não se aplica; o Império também detecta WhatsApp ativo, gasto sincronizado, tracker e vendas), o que está travado por outro acesso, os próximos passos humanos e as ferramentas. Sem 'canais', usa os playbooks aplicados no projeto.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID único do projeto" },
+        canais: { type: "string", description: "Canais em texto livre, ex.: 'youtube, seo, tráfego direto, x1' (opcional)" },
+      },
+      required: ["project_id"],
+    },
+  },
+  {
+    name: "set_project_access",
+    description: "Marca o status de um acesso do projeto (ex.: dominio conectado). Nunca envie senha, token ou chave: só status, nota e responsável.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID único do projeto" },
+        acesso: { type: "string", description: "Chave do acesso (veja get_project_kit)" },
+        status: { type: "string", enum: ["falta", "em_andamento", "conectado", "nao_se_aplica"] },
+        nota: { type: "string", description: "Observação curta (sem segredos)" },
+        responsavel: { type: "string", description: "Nome, e-mail ou id de quem cuida da pendência" },
+      },
+      required: ["project_id", "acesso", "status"],
+    },
+  },
+  {
     name: "get_briefing",
     description: "Resumo do projeto em uma chamada: vendas, faturamento e leads de hoje, faturamento do mês, leads quentes, etapas do dia (revisar, confirmar, esperando o time, prontas para IA, atrasadas, com responsável e prazo) e a fila de aprovações do projeto.",
     inputSchema: {
@@ -938,6 +966,36 @@ async function decideApproval(supabase: Supabase, key: string, decision: "approv
   const { error: upd } = await supabase.from("imphq_ai_actions").update({ status: "rejected" }).eq("id", itemId);
   if (upd) throw upd;
   return { key, titulo: action.title, resultado: "Ação da IA reprovada" };
+}
+
+/** Kit de operação: canais pedidos (ou pelos playbooks aplicados), acessos declarados e evidência vista no banco. */
+async function loadProjectKit(supabase: Supabase, projectId: string, canaisText: string | null) {
+  const { data: project } = await supabase.from("imphq_projects").select("id, name").eq("id", projectId).single();
+  if (!project) throw new Error(`Projeto '${projectId}' não encontrado`);
+  let canais = canaisText ? parseChannels(canaisText).canais : [];
+  const invalidos = canaisText ? parseChannels(canaisText).invalidos : [];
+  if (!canaisText) {
+    const { data: apps } = await supabase.from("imphq_playbook_applications").select("playbook_id").eq("project_id", projectId);
+    canais = channelsFromPlaybooks((apps ?? []).map((a) => a.playbook_id));
+  }
+  const week = new Date(Date.now() - 7 * 86400000).toISOString();
+  const month = new Date(Date.now() - 30 * 86400000).toISOString();
+  const [declaredRes, waRes, adsRes, eventsRes, salesRes] = await Promise.all([
+    supabase.from("imphq_project_access").select("access_key, status, nota, owner_member_id, updated_at").eq("project_id", projectId),
+    supabase.from("imphq_wa_providers").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("is_active", true),
+    supabase.from("imphq_ads_spend").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("data_ref", week.slice(0, 10)),
+    supabase.from("imphq_events").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", week),
+    supabase.from("imphq_vendas").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", month),
+  ]);
+  if (declaredRes.error) throw declaredRes.error;
+  const kit = accessChecklist(canais, (declaredRes.data ?? []) as DeclaredAccess[], {
+    whatsapp: (waRes.count ?? 0) > 0, ads_sync: (adsRes.count ?? 0) > 0, tracker: (eventsRes.count ?? 0) > 0, vendas: (salesRes.count ?? 0) > 0,
+  });
+  return {
+    projeto: project, ...kit, canais_invalidos: invalidos,
+    canais_detalhe: CHANNELS.filter((c) => canais.includes(c.key)).map((c) => ({ key: c.key, label: c.label, playbooks: c.playbooks, ferramentas: c.ferramentas })),
+    observacao: canais.length ? null : "Nenhum canal: informe 'canais' ou aplique um playbook no projeto.",
+  };
 }
 
 /** Início do dia em Brasília (UTC-3), em ISO. */
@@ -1834,6 +1892,32 @@ Deno.serve(async (req) => {
             const { data: rounds, error } = await query;
             if (error) throw error;
             const result = { project_id: args.project_id, rodadas: rounds ?? [], placar_hipoteses: hypothesisBoard(rounds ?? []) };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_project_kit") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const result = await loadProjectKit(supabase, String(args.project_id), args.canais ? String(args.canais) : null);
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "set_project_access") {
+            const { project_id, acesso, status, nota, responsavel } = args || {};
+            if (!project_id || !acesso || !status) throw new Error("project_id, acesso e status são obrigatórios");
+            if (!ACCESS_BY_KEY.has(String(acesso))) throw new Error(`Acesso '${acesso}' desconhecido. Chaves: ${[...ACCESS_BY_KEY.keys()].join(", ")}`);
+            if (!(String(status) in ACCESS_STATUS_LABEL)) throw new Error(`Status inválido: use ${Object.keys(ACCESS_STATUS_LABEL).join(", ")}`);
+            let ownerId: string | undefined;
+            if (responsavel) {
+              const member = findMember(await loadTeam(supabase), String(responsavel));
+              if (!member) throw new Error(`Ninguém do time com '${responsavel}'`);
+              ownerId = member.id;
+            }
+            const row: Record<string, unknown> = { project_id: String(project_id), access_key: String(acesso), status: String(status), updated_by: "mcp", updated_at: new Date().toISOString() };
+            if (nota) row.nota = String(nota);
+            if (ownerId) row.owner_member_id = ownerId;
+            const { error } = await supabase.from("imphq_project_access").upsert(row, { onConflict: "project_id,access_key" });
+            if (error) throw error;
+            const result = { success: true, acesso: ACCESS_BY_KEY.get(String(acesso))?.label, status: ACCESS_STATUS_LABEL[String(status) as keyof typeof ACCESS_STATUS_LABEL] };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 
