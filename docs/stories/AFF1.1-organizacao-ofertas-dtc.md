@@ -28,6 +28,22 @@ Usuário escolheu opção 1: validar uma oferta primeiro e depois repetir o padr
 
 ## Restrições
 
+## Continuação autorizada — publicação e rastreamento
+
+Usuário pediu páginas com links próprios publicadas na Vercel, fontes nos GitHubs, tracker/IDs por oferta, Google Analytics e organização no mapa. Reutilizar as fontes e players catalogados, validar Leaftide antes das demais e manter os destinos atuais até o novo fluxo estar conferido.
+
+- [x] Abrir e mostrar tela Meta 2FA para preenchimento direto pelo usuário.
+- [x] Conferir dataset Slim: proprietário Imperio Company, vinculado AD Vini 01, sem eventos.
+- [x] Conferir acesso Analytics: conector 403; sessão do navegador disponível.
+- [x] Publicar e validar página própria piloto com checkout oficial e tracker.
+- [ ] Associar GA4/Pixel e provar recebimento dos eventos disponíveis.
+- [x] Replicar páginas e tracker Império nas demais ofertas (GA4/Meta ainda parcialmente pendentes).
+- [x] Vincular VSL, GitHub, player, checkout e tracking das quatro ofertas no mapa Master.
+- [x] Publicar quatro advertoriais e PDP SlimSoda com CTAs e eventos separados das VSLs.
+- [ ] Atualizar catálogo e handoff com resultados públicos.
+
+## Restrições da organização
+
 Preservar páginas e cadastros existentes; não excluir registros ou materiais. Não misturar MemoFlow com MemoPryl, CardioFlush com CardioClear, nem SlimSoda Powder com outras variantes. Não ativar campanhas ou realizar compras. Nenhuma credencial entra no GitHub. Dados legados divergentes permanecem identificados como pendentes de validação.
 
 ## Achados iniciais
@@ -60,3 +76,4 @@ Preservar páginas e cadastros existentes; não excluir registros ou materiais. 
 - docs/stories/AFF1.1-organizacao-ofertas-dtc.md
 - docs/operations/affiliate-offers-2026-10-02.md
 - docs/sessions/2026-10/AFF1.1-2026-10-02.md
+- supabase/functions/funnel-track/index.ts

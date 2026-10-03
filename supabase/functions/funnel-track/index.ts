@@ -9,6 +9,10 @@ const corsHeaders = {
 };
 
 const VALID_STEPS = new Set([
+  "advertorial_view",
+  "advertorial_cta_click",
+  "pdp_view",
+  "pdp_cta_click",
   "quiz",
   "vsl_view",
   "vsl_pitch",

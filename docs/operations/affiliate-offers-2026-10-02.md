@@ -2,6 +2,56 @@
 
 Conferido em 02/10/2026, America/Sao_Paulo.
 
+## Atualização — páginas próprias e tracking
+
+Pedido de publicação, tracker/IDs, Analytics e mapa autorizado pelo usuário. As versões antigas foram preservadas. Os deploys novos servem somente `site/` de cada repositório.
+
+| Oferta | Página própria | Player / pitch | GA4 (Direct Response) | Meta |
+|---|---|---|---|---|
+| Leaftide Powder | https://leaftide-powder-vsl.vercel.app/ | ML04 `6aa4dde98aa57ba613b3b3d3` / 56:28 | `G-CEXWP1QQRE`, propriedade `557212253`, fluxo `15976071789`; tempo real com page_view/session_start/vsl_view confirmado | Pendente de BM/pixel |
+| CardioFlush | https://cardioflush-vsls-hw.vercel.app/ | LEAD5 `6a9841cee7a8842efeeb2801` / 55:30 | `G-P3BGTRYWE3`, propriedade `557161984`, fluxo `15977337371`; instalada, recebimento pendente | Pendente de BM/pixel |
+| MemoFlow | https://memoflow-vsl.vercel.app/ | `6aa4c6586d7a1359e68358cf` / 55:00 | `G-T52GP0M1MJ`, propriedade `557173271`, fluxo `15977184412`; instalada, recebimento pendente | Pendente de BM/pixel |
+| SlimSoda Powder | https://slimsoda-powder-vsl.vercel.app/ | `6aa4c68d589230110306fe6c` / 37:06 | Propriedade/fluxo criados; ID ainda não recuperado após perda do controle Chrome | `996492073462713` instalado no site; proprietário Imperio Company e compartilhamento AD Vini 01 confirmados; recebimento Meta pendente |
+
+Tracker Império: visita de navegador `vsl_view` recebida nas quatro ofertas, com `utm_source=codex-validation`, `utm_campaign=aff1-1` e `meta.validation=true`. Nenhuma compra, Purchase ou CAPI foi certificado. Os atrasos foram configurados com `displayHiddenElements` do player; nenhuma sessão completa até todos os pitches foi acompanhada.
+
+Endpoint público `funnel-track` atualizado da versão 360 para 361 apenas para aceitar `advertorial_view`, `advertorial_cta_click`, `pdp_view`, `pdp_cta_click`. Fonte publicada anterior comparada antes do deploy; nenhum token vai ao cliente. Quatro eventos sintéticos de smoke test aceitos e identificados com origem `codex-validation-endpoint`. Não confundir com visitantes ou vendas reais.
+
+### SlimSoda — materiais reutilizados e publicados
+
+- [Advertorial 1](https://slimsoda-powder-vsl.vercel.app/advertorials/slimsoda-adv1-original-recipe.html)
+- [Advertorial 2](https://slimsoda-powder-vsl.vercel.app/advertorials/slimsoda-adv2-reader-warning.html)
+- [Advertorial 3](https://slimsoda-powder-vsl.vercel.app/advertorials/slimsoda-adv3-two-column.html)
+- [Advertorial 4](https://slimsoda-powder-vsl.vercel.app/advertorials/slimsoda-adv4-exclusive-report.html)
+- [PDP](https://slimsoda-powder-vsl.vercel.app/pdp/)
+
+Fontes originais continuam em `materials/`. Cópias publicadas: 16 CTAs editoriais levam à VSL própria; 12 CTAs da PDP levam ao DTC H&W. O quiz de previsão individual não é acionado por esses CTAs; a seção de projeção de resultado da PDP fica oculta nesta versão. Conteúdo do fornecedor e links legais ainda exigem revisão; a publicação não representa liberação para tráfego. HTTP 200 e wiring conferidos; QA visual desses materiais ficou pendente após falha do navegador.
+
+### Checkouts disponíveis no H&W e direção aplicada
+
+| Oferta | Opções observadas | Escolha das novas VSLs |
+|---|---|---|
+| Leaftide | 3+3, 2+2, 1+1, LTW/Wealthpay, DTC 6b19 | DTC 6b19 em getleaftide.com/powder/cc2/pay |
+| CardioFlush | LT/BuyLink dtc6b19; LTW/DTC Wealthpay | LT/BuyLink dtc6b19 em cardioflush.com/cc2/pay |
+| MemoFlow | DTC dtcnew; LTW/Wealthpay | DTC em cc.usememoflow.com/dtcnew |
+| SlimSoda Powder | LJ 6b19aj; V3 6b19; V2 3bottles; LT/DTC v2 | LT/DTC v2 em cc.slimsodapowder.com/v2 |
+
+Todos com `affid=aff_6821377` e `hid` oficial da variante. A escolha reaproveita o destino oficial DTC correspondente à oferta; não é conclusão de teste de conversão entre gateways.
+
+### Organização e dependências
+
+Mapa Master `67f9f17a-e75e-45f6-a5e3-20198bfdd692`: novas faixas separadas das quatro ofertas, com 20 nós e 16 conexões, sem alterar as faixas antigas. Snapshot anterior `d9de9532-c790-4b05-91e3-1d9ca7f1d612`. Links, IDs e pendências constam nas descrições; etapa de compra/Meta permanece em revisão.
+
+[Mapa Master](https://imperiox.vercel.app/funis?view=mapa&map=67f9f17a-e75e-45f6-a5e3-20198bfdd692&node=af110001-0000-4000-8000-000000000003).
+
+Conexão GitHub → Vercel automática: tentativa Leaftide retornou exigência de Login Connection GitHub na conta Vercel. GitHub e deploy CLI funcionam; vínculo automático não foi concluído. Meta ainda apresenta 2FA de Bruno Souza de Carvalho. Não foi recebido aviso de liberação.
+
+Chrome: cache de Service Worker carregava bundle antigo `index-DpXwEvbC.js`; produção atual serve `index-Bc9Y2s9_.js`. Recarregamento temporário sem Service Worker mostrou interface atual. Depois o controle deixou de responder/depurador sem conexão; verificação visual de mapa e recebimento Meta ficou pendente. As sessões autenticadas estavam no perfil Vinicius.
+
+Validação: cinco testes do tracker; lint sem erros (2 avisos existentes), typecheck e 623 testes do Império aprovados. Aplicativo raiz não foi republicado por esta story.
+
+## Histórico da primeira conferência
+
 Organização dos quatro projetos validada na interface pública do Império. Dez páginas publicadas cadastradas em Sites. O estado abaixo distingue organização, configuração do player e funil validado para tráfego.
 
 | Oferta | Império (aba Briefing) | Fonte privada | Estado |
