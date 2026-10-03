@@ -320,15 +320,15 @@ export function hypothesisBoard(rounds: ReadonlyArray<{ fase: string; rodada?: s
 }
 
 /** Linha de imphq_ads_spend (sync de anúncios) usada para pré-preencher a etapa. */
-export interface SpendRow { data_ref: string | null; conjunto_anuncios?: string | null; campanha?: string | null; valor?: number | null; checkouts_iniciados?: number | null; compras?: number | null }
+export interface SpendRow { data_ref: string | null; conjunto_anuncios?: string | null; campanha?: string | null; valor?: number | null; checkouts_iniciados?: number | null; init_checkout?: number | null; compras?: number | null }
 
-/** Soma por conjunto (concept no P1, conjunto no P2), maior gasto primeiro. */
+/** Soma por conjunto (concept no P1, conjunto no P2), maior gasto primeiro. Checkouts: o sync grava em init_checkout. */
 export function spendByAdset(rows: ReadonlyArray<SpendRow>) {
   const by = new Map<string, { nome: string; gasto: number; ic: number; vendas: number }>();
   for (const r of rows) {
     const nome = (r.conjunto_anuncios || r.campanha || "Sem conjunto").trim();
     const cur = by.get(nome) ?? { nome, gasto: 0, ic: 0, vendas: 0 };
-    cur.gasto = round2(cur.gasto + n(r.valor)); cur.ic += n(r.checkouts_iniciados); cur.vendas += n(r.compras);
+    cur.gasto = round2(cur.gasto + n(r.valor)); cur.ic += Math.max(n(r.checkouts_iniciados), n(r.init_checkout)); cur.vendas += n(r.compras);
     by.set(nome, cur);
   }
   return [...by.values()].sort((a, b) => b.gasto - a.gasto);
@@ -341,7 +341,7 @@ export function spendByDay(rows: ReadonlyArray<SpendRow>) {
     const dia = (r.data_ref ?? "").slice(0, 10);
     if (!dia) continue;
     const cur = by.get(dia) ?? { dia, gasto: 0, ic: 0, vendas: 0 };
-    cur.gasto = round2(cur.gasto + n(r.valor)); cur.ic += n(r.checkouts_iniciados); cur.vendas += n(r.compras);
+    cur.gasto = round2(cur.gasto + n(r.valor)); cur.ic += Math.max(n(r.checkouts_iniciados), n(r.init_checkout)); cur.vendas += n(r.compras);
     by.set(dia, cur);
   }
   return [...by.values()].sort((a, b) => a.dia.localeCompare(b.dia));

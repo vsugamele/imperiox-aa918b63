@@ -66,7 +66,7 @@ export function useSaveScaleRound() {
 /** Gasto, checkouts iniciados e compras do sync de anúncios no período (datas AAAA-MM-DD, inclusivas). */
 export async function loadSpend(projectId: string, from: string, to: string): Promise<SpendRow[]> {
   const { data, error } = await supabase.from("imphq_ads_spend")
-    .select("data_ref, conjunto_anuncios, campanha, valor, checkouts_iniciados, compras")
+    .select("data_ref, conjunto_anuncios, campanha, valor, checkouts_iniciados, init_checkout, compras")
     .eq("project_id", projectId).gte("data_ref", from).lte("data_ref", to).limit(5000);
   if (error) throw error;
   return (data ?? []) as SpendRow[];

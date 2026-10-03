@@ -37,7 +37,7 @@ describe("esteira na etapa: regras de apoio", () => {
   it("soma o sync de anúncios por conjunto e por dia", () => {
     const rows = [
       { data_ref: "2026-10-02", conjunto_anuncios: "A", valor: 10.1, checkouts_iniciados: 2, compras: 1 },
-      { data_ref: "2026-10-01", conjunto_anuncios: "A", valor: 20.2, checkouts_iniciados: 1, compras: 0 },
+      { data_ref: "2026-10-01", conjunto_anuncios: "A", valor: 20.2, checkouts_iniciados: 0, init_checkout: 1, compras: 0 },
       { data_ref: "2026-10-01", conjunto_anuncios: null, campanha: "Camp", valor: 40, checkouts_iniciados: null, compras: null },
     ];
     expect(spendByAdset(rows)).toEqual([{ nome: "Camp", gasto: 40, ic: 0, vendas: 0 }, { nome: "A", gasto: 30.3, ic: 3, vendas: 1 }]);

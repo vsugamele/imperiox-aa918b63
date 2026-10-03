@@ -29,3 +29,4 @@ supabase/.temp
 .tmp-content/
 .tmp-playbook/
 .tmp-launch/
+.tmp-live/

@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 
 import { ProjetoMcpDialog } from "@/components/projeto/ProjetoMcpDialog";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
+import { LivePanel } from "@/components/projeto/LivePanel";
 import { ProjetoAtivosMestresCard } from "@/components/projeto/ProjetoAtivosMestresCard";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
@@ -436,6 +437,9 @@ export default function ProjetoDetalhe() {
 
       {/* ───────── Live KPI Strip ───────── */}
       <ProjectKPIStrip projectId={id!} onNavigate={goToTab} />
+
+      {/* ───────── Painel ao vivo: funil, parcial com fonte de cada número, ritmo e alertas (LIVE1.1) ───────── */}
+      <div className="mt-4"><LivePanel projectId={id!} /></div>
 
       {/* ───────── Ficha Raio-X de Ativos Mestres (Links & Status) ───────── */}
       {project && (
