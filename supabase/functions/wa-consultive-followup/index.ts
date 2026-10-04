@@ -3,7 +3,7 @@
 // Só age se: última msg é OUTGOING, lead não respondeu, config habilita, horário comercial ok,
 // e não há rejeição clara no histórico.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("wa-consultive-followup");
 
@@ -50,6 +50,7 @@ function inBusinessHours(config: unknown, now: Date): boolean {
 }
 
 async function generateCopy(
+  projectId: string | null,
   angle: string,
   lead: { nome?: string | null } | null,
   produto: string | null,
@@ -76,7 +77,7 @@ async function generateCopy(
   const prompt = `Você é ${persona} de ${projeto?.name || "uma marca"}, tom ${tom}. Escreva UMA mensagem curta de WhatsApp (máx 2 linhas, 1 emoji opcional) para ${nome || "o lead"}, sobre o produto "${produto || "que ele demonstrou interesse"}". Contexto: ${contextos[angle]}. Sem clichês, sem "olá tudo bem". Termine com uma pergunta consultiva curta. Responda APENAS com a mensagem.`;
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetchWithAiUsage(projectId, "https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -186,7 +187,7 @@ Deno.serve(async (req) => {
           : { data: null };
 
         const produto = String(lead?.ultimo_produto || record(lead?.lead_memory).interesse_principal || "").slice(0, 80) || null;
-        const message = await generateCopy(nextWindow.angle, lead, produto, projeto);
+        const message = await generateCopy(projectId, nextWindow.angle, lead, produto, projeto);
 
         // Envia via edge send_message (usa infra existente com failover e atribuição)
         const provider = await findActiveProvider(supabase, projectId);

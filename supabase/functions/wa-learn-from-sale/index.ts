@@ -6,7 +6,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("wa-learn-from-sale");
 
@@ -19,10 +19,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-async function embed(text: string): Promise<number[] | null> {
+async function embed(projectId: string, text: string): Promise<number[] | null> {
   if (!LOVABLE_API_KEY) return null;
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+    const r = await fetchWithAiUsage(projectId, "https://ai.gateway.lovable.dev/v1/embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
       body: JSON.stringify({ model: "google/gemini-embedding-001", input: text.slice(0, 6000) }),
@@ -112,7 +112,7 @@ async function processarVenda(supabase: ReturnType<typeof makeClient>, venda: Le
   }
 
   const embedTxt = `${pergunta}\n\n${resposta_seq}`;
-  const vec = await embed(embedTxt);
+  const vec = await embed(projectId, embedTxt);
 
   const insertRow: KnowledgeInsert = {
     project_id: projectId,
@@ -133,7 +133,7 @@ async function processarVenda(supabase: ReturnType<typeof makeClient>, venda: Le
   }
 
   // Salva também a conversa completa como contexto adicional
-  const vec2 = await embed(conversa_full);
+  const vec2 = await embed(projectId, conversa_full);
   await supabase.from("imphq_wa_knowledge").insert({
     project_id: projectId,
     pergunta: `[Conversa que virou venda — ${venda.produto_nome || "produto"} — R$${venda.valor || 0}]`,

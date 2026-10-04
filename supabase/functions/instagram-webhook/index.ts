@@ -6,7 +6,7 @@ import { jpServiceContext, type JPSupportAction } from "../_shared/jp-service-po
 import { productContext, jpConversationRules, guardJPReply, dedupeHistory, recentJPHistory, jpWelcomeMessage, permanentJPRules } from "../_shared/conversation-policy.ts";
 // Instagram webhook receiver — Meta envia POST com mensagens, comentários, menções
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("instagram-webhook");
 
@@ -53,11 +53,11 @@ async function persistIgMedia(supa: ReturnType<typeof makeClient>, remoteUrl: st
 }
 
 // Consistent embedding getter
-async function getEmbedding(text: string): Promise<number[]> {
+async function getEmbedding(text: string, projectId: string): Promise<number[]> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (LOVABLE_API_KEY) {
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+      const res = await fetchWithAiUsage(projectId, "https://ai.gateway.lovable.dev/v1/embeddings", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -79,7 +79,7 @@ async function getEmbedding(text: string): Promise<number[]> {
 
   const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
   if (OPENROUTER_API_KEY) {
-    const res = await fetch("https://openrouter.ai/api/v1/embeddings", {
+    const res = await fetchWithAiUsage(projectId, "https://openrouter.ai/api/v1/embeddings", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
@@ -643,7 +643,7 @@ Deno.serve(async (req) => {
                   let ragBlock = "";
                   try {
                     if (content.length > 8) {
-                      const qEmb = await getEmbedding(content);
+                      const qEmb = await getEmbedding(content, account.project_id);
                       if (qEmb) {
                         const { data: matches } = await supa.rpc("match_wa_knowledge", {
                           query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
@@ -766,7 +766,7 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                   const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
                   async function callLLM(mdl: string) {
                     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
-                    return await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    return await fetchWithAiUsage(account?.project_id, "https://openrouter.ai/api/v1/chat/completions", {
                       method: "POST",
                       headers: {
                         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
@@ -1084,7 +1084,7 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                   let ragBlock = "";
                   try {
                     if (commentText.length > 8) {
-                      const qEmb = await getEmbedding(commentText);
+                      const qEmb = await getEmbedding(commentText, account.project_id);
                       if (qEmb) {
                         const { data: matches } = await supa.rpc("match_wa_knowledge", {
                           query_embedding: qEmb, p_project_id: account.project_id, match_count: 3, min_similarity: 0.72,
@@ -1141,7 +1141,7 @@ REGRAS GERAIS PARA COMENTÁRIOS NO INSTAGRAM:
                   const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
                   async function callLLM(mdl: string) {
                     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY missing");
-                    return await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    return await fetchWithAiUsage(account?.project_id, "https://openrouter.ai/api/v1/chat/completions", {
                       method: "POST",
                       headers: {
                         Authorization: `Bearer ${OPENROUTER_API_KEY}`,

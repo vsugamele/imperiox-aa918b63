@@ -1,5 +1,6 @@
 import { databaseTable, type DatabasePort } from "./database-port.ts";
 import { errorText, record } from "./value.ts";
+import { fetchWithAiUsage } from "./ai-usage.ts";
 // Helper compartilhado de embeddings com cache.
 // Antes: cada chamada paga ao Lovable/OpenRouter mesmo se o mesmo texto foi feito ontem.
 // Depois: lookup em imphq_embedding_cache por SHA256(text + model + dims).
@@ -30,11 +31,11 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
-async function callEmbeddingApi(text: string, model: string, dimensions: number): Promise<number[] | null> {
+async function callEmbeddingApi(text: string, model: string, dimensions: number, projectId?: string | null): Promise<number[] | null> {
   const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (LOVABLE_KEY) {
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+      const res = await fetchWithAiUsage(projectId, "https://ai.gateway.lovable.dev/v1/embeddings", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model, input: text.slice(0, 2000), dimensions }),
@@ -54,7 +55,7 @@ async function callEmbeddingApi(text: string, model: string, dimensions: number)
   const OR_KEY = Deno.env.get("OPENROUTER_API_KEY");
   if (!OR_KEY) return null;
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/embeddings", {
+    const res = await fetchWithAiUsage(projectId, "https://openrouter.ai/api/v1/embeddings", {
       method: "POST",
       headers: { Authorization: `Bearer ${OR_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "openai/text-embedding-3-small", input: text.slice(0, 8000), dimensions }),
@@ -76,7 +77,7 @@ async function callEmbeddingApi(text: string, model: string, dimensions: number)
 export async function getCachedEmbedding(
   supabase: DatabasePort,
   text: string,
-  opts: { model?: string; dimensions?: number; skipCache?: boolean } = {}
+  opts: { model?: string; dimensions?: number; skipCache?: boolean; projectId?: string | null } = {}
 ): Promise<number[] | null> {
   const model = opts.model || DEFAULT_MODEL;
   const dimensions = opts.dimensions || DEFAULT_DIMENSIONS;
@@ -104,7 +105,7 @@ export async function getCachedEmbedding(
       }
 
       // Cache miss: chama API
-      const emb = await callEmbeddingApi(normalized, model, dimensions);
+      const emb = await callEmbeddingApi(normalized, model, dimensions, opts.projectId);
       if (!emb) return null;
 
       // Write-through (fire-and-forget com upsert para concorrência)
@@ -124,7 +125,7 @@ export async function getCachedEmbedding(
     }
   }
 
-  return callEmbeddingApi(normalized, model, dimensions);
+  return callEmbeddingApi(normalized, model, dimensions, opts.projectId);
 }
 
 /**
@@ -134,7 +135,7 @@ export async function getCachedEmbedding(
 export async function getCachedEmbeddingsBatch(
   supabase: DatabasePort,
   texts: string[],
-  opts: { model?: string; dimensions?: number } = {}
+  opts: { model?: string; dimensions?: number; projectId?: string | null } = {}
 ): Promise<(number[] | null)[]> {
   return Promise.all(texts.map(t => getCachedEmbedding(supabase, t, opts)));
 }

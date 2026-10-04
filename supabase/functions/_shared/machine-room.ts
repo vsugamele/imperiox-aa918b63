@@ -13,7 +13,7 @@ export interface MachineRoom {
   rotinas: Array<{ jobid: number; nome: string; agenda: string; ultima: string | null; ultimo_status: string | null; execucoes_24h: number; falhas_24h: number; ultimo_erro: string | null }>;
   acoes: Array<{ origem: string; falhas_7d: number; executadas_7d: number; expiradas_7d: number; abertas: number; ultima_falha: string | null; ultimo_erro: string | null }>;
   webhooks: Array<{ plataforma: string; ultimo_recebido: string | null; erros_24h: number; ultimo_erro: string | null; ultimo_erro_em: string | null }>;
-  anuncios: AdsSyncHealthRow[];
+  anuncios: Array<AdsSyncHealthRow & { project_id?: string | null }>;
   whatsapp: Array<{ projeto: string | null; instancia: string | null; ativo: boolean; status: string | null; visto: string | null }>;
   instagram: Array<{ projeto: string | null; conta: string | null; saude_ok: string | null; saude_em: string | null; ultimo_webhook: string | null; erro: string | null }>;
   voz: { ultimo_envio: string | null; ultima_falta_saldo: string | null; enviados_7d: number };

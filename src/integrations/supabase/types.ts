@@ -19172,43 +19172,100 @@ export type Database = {
       }
       imphq_ai_usage: {
         Row: {
-          completion_tokens: number
-          cost_usd: number
+          completion_tokens: number | null
+          cost_usd: number | null
           created_at: string
           function_name: string
           id: string
-          model: string
+          model: string | null
           project_id: string | null
-          prompt_tokens: number
+          prompt_tokens: number | null
           provider: string
           tag: string | null
-          total_tokens: number
+          total_tokens: number | null
         }
         Insert: {
-          completion_tokens?: number
-          cost_usd?: number
+          completion_tokens?: number | null
+          cost_usd?: number | null
           created_at?: string
           function_name: string
           id?: string
-          model: string
+          model?: string | null
           project_id?: string | null
-          prompt_tokens?: number
+          prompt_tokens?: number | null
           provider?: string
           tag?: string | null
-          total_tokens?: number
+          total_tokens?: number | null
         }
         Update: {
-          completion_tokens?: number
-          cost_usd?: number
+          completion_tokens?: number | null
+          cost_usd?: number | null
           created_at?: string
           function_name?: string
           id?: string
-          model?: string
+          model?: string | null
           project_id?: string | null
-          prompt_tokens?: number
+          prompt_tokens?: number | null
           provider?: string
           tag?: string | null
-          total_tokens?: number
+          total_tokens?: number | null
+        }
+        Relationships: []
+      }
+      imphq_profiles: {
+        Row: {
+          id: string
+          nome: string
+          project_id: string | null
+          email: string | null
+          maquina: string | null
+          proxy: string | null
+          status: string
+          aquecimento: string | null
+          publicacao_autorizada: boolean
+          canais: Json
+          paginas_facebook: Json
+          fonte: string | null
+          external_id: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+          project_id?: string | null
+          email?: string | null
+          maquina?: string | null
+          proxy?: string | null
+          status?: string
+          aquecimento?: string | null
+          publicacao_autorizada?: boolean
+          canais?: Json
+          paginas_facebook?: Json
+          fonte?: string | null
+          external_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+          project_id?: string | null
+          email?: string | null
+          maquina?: string | null
+          proxy?: string | null
+          status?: string
+          aquecimento?: string | null
+          publicacao_autorizada?: boolean
+          canais?: Json
+          paginas_facebook?: Json
+          fonte?: string | null
+          external_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

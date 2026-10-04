@@ -1,6 +1,6 @@
 // Nurture Auto-Segment — diário; auto-dispara hot leads + propõe sequência pra dormentes
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("nurture-auto-segment");
 
@@ -16,7 +16,7 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 async function genSequence(segment: string, count: number, contexto: string) {
   const sys = `Você é copywriter. Sequência nutrição pt-BR. JSON: { "steps": [{"day": 0, "channel": "email"|"whatsapp", "subject": "...", "body": "..."}] }. 3-5 passos.`;
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetchWithAiUsage(null, "https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({

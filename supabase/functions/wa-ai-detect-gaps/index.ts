@@ -11,7 +11,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCachedEmbedding } from "../_shared/embeddings.ts";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("wa-ai-detect-gaps");
 
@@ -29,7 +29,7 @@ const MAX_MSGS_PER_RUN = 50;
 const GAP_THRESHOLD = 0.5;
 const MIN_CONTENT_LEN = 20;
 
-async function classifyResponse(leadQuestion: string, aiResponse: string): Promise<{ score: number; reason: string } | null> {
+async function classifyResponse(projectId: string | null, leadQuestion: string, aiResponse: string): Promise<{ score: number; reason: string } | null> {
   const apiKey = LOVABLE_API_KEY || OPENROUTER_API_KEY;
   if (!apiKey) return null;
   const url = LOVABLE_API_KEY
@@ -54,7 +54,7 @@ Retorne EXATAMENTE este JSON:
 {"score": 0.0-1.0, "reason": "frase curta explicando"}`;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithAiUsage(projectId, url, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -127,7 +127,16 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const classification = await classifyResponse(String(prevIn.content), content);
+        // Pega project_id via conversa
+        const { data: conv } = await supa
+          .from("imphq_wa_conversations")
+          .select("project_id")
+          .eq("id", aiMsg.conversation_id)
+          .maybeSingle();
+
+        const projectId = conv?.project_id;
+
+      const classification = await classifyResponse(projectId, String(prevIn.content), content);
       if (!classification) continue;
 
       analyzed++;
@@ -138,18 +147,10 @@ Deno.serve(async (req) => {
       }
 
       if (score < GAP_THRESHOLD) {
-        // Pega project_id via conversa
-        const { data: conv } = await supa
-          .from("imphq_wa_conversations")
-          .select("project_id")
-          .eq("id", aiMsg.conversation_id)
-          .maybeSingle();
-
-        const projectId = conv?.project_id;
         if (!projectId) continue;
 
         // Dedup: se já existe knowledge entry para pergunta similar não-aprovada, skip
-        const embedding = await getCachedEmbedding(supa, String(prevIn.content));
+        const embedding = await getCachedEmbedding(supa, String(prevIn.content), { projectId });
         let isDup = false;
         if (embedding) {
           const { data: sims } = await supa.rpc("match_wa_knowledge", {

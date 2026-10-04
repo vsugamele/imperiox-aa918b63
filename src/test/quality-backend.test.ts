@@ -160,8 +160,8 @@ function loadBackendHandler(name: string, database: unknown, fetchMock: unknown)
   const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
   let handler: Handler | undefined;
   // installAiUsageTracking (custo por automação, OP1.4) vira função vazia: o harness tira os imports.
-  new Function("Deno", "createClient", "fetch", "z", "serve", "installAiUsageTracking", compiled.outputText)(
-    { env: { get: () => "test" }, serve: (h: Handler) => { handler = h; } }, () => database, fetchMock, z, (h: Handler) => { handler = h; }, () => {},
+  new Function("Deno", "createClient", "fetch", "z", "serve", "installAiUsageTracking", "fetchWithAiUsage", compiled.outputText)(
+    { env: { get: () => "test" }, serve: (h: Handler) => { handler = h; } }, () => database, fetchMock, z, (h: Handler) => { handler = h; }, () => {}, (_projectId: string | null, input: RequestInfo | URL, init?: RequestInit) => (fetchMock as typeof fetch)(input, init),
   );
   if (!handler) throw new Error("Handler not registered");
   return handler;
@@ -478,9 +478,9 @@ it.each([0, 1])("Instagram LLM branch %s resolves its provider key in the active
   const end = source.indexOf("let aiRes:", start);
   const code = ts.transpileModule(source.slice(start, end), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const fetchMock = vi.fn(async () => new Response("{}"));
-  const run = new Function("Deno", "fetch", "aiConfig", "AbortSignal", `const formattedMessages = []; const messages = []; const temperature = 0.7; const top_p = 1; ${code}; return callLLM;`)({ env: { get: () => "mock-key" } }, fetchMock, { max_tokens: 123 }, { timeout: () => new AbortController().signal }) as (model: string) => Promise<Response>;
+  const run = new Function("Deno", "fetchWithAiUsage", "aiConfig", "AbortSignal", `const account = { project_id: "instagram-project" }; const formattedMessages = []; const messages = []; const temperature = 0.7; const top_p = 1; ${code}; return callLLM;`)({ env: { get: () => "mock-key" } }, fetchMock, { max_tokens: 123 }, { timeout: () => new AbortController().signal }) as (model: string) => Promise<Response>;
   await run("test-model");
-  expect(fetchMock).toHaveBeenCalledWith("https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer mock-key" }), body: expect.stringContaining('"max_tokens":123') }));
+  expect(fetchMock).toHaveBeenCalledWith("instagram-project", "https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer mock-key" }), body: expect.stringContaining('"max_tokens":123') }));
 });
 
 it("runs existing payment webhook parser regressions with the local runtime", async () => {

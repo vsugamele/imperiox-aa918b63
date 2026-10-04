@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import Empresa from "@/pages/Empresa";
 
 const account = { id: "acc-1", nome: "conta@gmail.com", tipo: "email", valor: null, extra: { senha_ref: "ref-1", telefone: "+55 11 9", status_aquecimento: "Pronto", bio: "manter" } };
-const rpc = vi.fn(async (name: string) => (name === "imphq_reveal_account_secret" ? { data: "segredo-123", error: null } : { data: null, error: null }));
+const rpc = vi.fn(async (name: string, _args?: unknown) => (name === "imphq_reveal_account_secret" ? { data: "segredo-123", error: null } : { data: null, error: null }));
 const updates: Array<Record<string, unknown>> = [];
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {

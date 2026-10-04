@@ -9,11 +9,11 @@ type Row = {
   project_id: string | null;
   function_name: string;
   provider: string;
-  model: string;
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-  cost_usd: number;
+  model: string | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  cost_usd: number | null;
   created_at: string;
 };
 
@@ -21,20 +21,22 @@ const usd = (n: number) => `$${n.toFixed(4)}`;
 const int = (n: number) => n.toLocaleString("pt-BR");
 
 function group(rows: Row[], key: (r: Row) => string) {
-  const map = new Map<string, { label: string; cost: number; tokens: number; calls: number }>();
+  const map = new Map<string, { label: string; cost: number; tokens: number; calls: number; unknownCost: number; unknownTokens: number }>();
   for (const r of rows) {
     const k = key(r) || "—";
-    const cur = map.get(k) || { label: k, cost: 0, tokens: 0, calls: 0 };
+    const cur = map.get(k) || { label: k, cost: 0, tokens: 0, calls: 0, unknownCost: 0, unknownTokens: 0 };
     cur.cost += Number(r.cost_usd || 0);
     cur.tokens += Number(r.total_tokens || 0);
     cur.calls += 1;
+    if (r.cost_usd === null) cur.unknownCost++;
+    if (r.total_tokens === null) cur.unknownTokens++;
     map.set(k, cur);
   }
   return [...map.values()].sort((a, b) => b.cost - a.cost || b.tokens - a.tokens);
 }
 
 export default function CustosIA() {
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, isError } = useQuery({
     queryKey: ["ai-usage", "30d"],
     staleTime: 60_000,
     queryFn: async () => {
@@ -66,7 +68,8 @@ export default function CustosIA() {
 
   const byProject = group(rows, (r) => r.project_id || "—");
   const byFunction = group(rows, (r) => r.function_name);
-  const byModel = group(rows, (r) => r.model);
+  const byModel = group(rows, (r) => r.model || "Modelo não informado");
+  const unknownCosts = rows.filter((r) => r.cost_usd === null).length;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -81,7 +84,7 @@ export default function CustosIA() {
           Custos de IA
         </h1>
         <p className="text-xs text-muted-foreground mt-1">
-          Consumo por projeto, função e modelo. Registrado a cada chamada de IA da plataforma.
+          Consumo registrado pelas automações instrumentadas, por projeto, função e modelo. Custos ausentes ficam a confirmar.
         </p>
       </header>
 
@@ -89,14 +92,15 @@ export default function CustosIA() {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <Coins className="h-3.5 w-3.5 text-gold" /> Custo total
+              <Coins className="h-3.5 w-3.5 text-gold" /> Custo informado
             </div>
             <div
               className="text-3xl italic text-foreground tabular-nums mt-1"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {usd(totalCost)}
+              {isLoading || isError ? "—" : rows.length && unknownCosts === rows.length ? "A confirmar" : usd(totalCost)}
             </div>
+            {unknownCosts > 0 && <p className="text-xs text-muted-foreground mt-1">{unknownCosts} chamada(s) sem custo informado; total parcial.</p>}
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
@@ -108,7 +112,7 @@ export default function CustosIA() {
               className="text-3xl italic text-foreground tabular-nums mt-1"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {int(totalTokens)}
+              {isLoading || isError ? "—" : int(totalTokens)}
             </div>
           </CardContent>
         </Card>
@@ -121,20 +125,20 @@ export default function CustosIA() {
               className="text-3xl italic text-foreground tabular-nums mt-1"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {int(rows.length)}
+              {isLoading || isError ? "—" : int(rows.length)}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {isLoading ? (
+      {isError ? <p role="alert" className="text-xs text-destructive">Não foi possível carregar o consumo. Os valores estão indisponíveis.</p> : isLoading ? (
         <p className="text-xs text-muted-foreground">Carregando...</p>
       ) : rows.length === 0 ? (
         <Card className="bg-card border-border">
           <CardContent className="p-8 text-center space-y-1">
             <p className="text-sm text-muted-foreground">Nenhum consumo registrado ainda.</p>
             <p className="text-xs text-muted-foreground">
-              A partir de agora cada chamada de IA aparece aqui automaticamente.
+              O registro depende da instrumentação de cada automação.
             </p>
           </CardContent>
         </Card>
@@ -154,7 +158,7 @@ function Panel({
   items,
 }: {
   title: string;
-  items: { label: string; cost: number; tokens: number; calls: number }[];
+  items: { label: string; cost: number; tokens: number; calls: number; unknownCost: number; unknownTokens: number }[];
 }) {
   return (
     <Card className="bg-card border-border">
@@ -165,9 +169,9 @@ function Panel({
             <span className="truncate text-foreground/90">{i.label}</span>
             <div className="flex items-center gap-2 shrink-0">
               <Badge className="bg-secondary/60 text-muted-foreground text-[9px] tabular-nums">
-                {int(i.tokens)} tk
+                {i.unknownTokens === i.calls ? "tk a confirmar" : `${int(i.tokens)} tk${i.unknownTokens ? " (parcial)" : ""}`}
               </Badge>
-              <span className="text-gold tabular-nums">{usd(i.cost)}</span>
+              <span className="text-gold tabular-nums" title={i.unknownCost ? `${i.unknownCost} chamada(s) sem custo informado` : undefined}>{i.unknownCost === i.calls ? "A confirmar" : `${usd(i.cost)}${i.unknownCost ? " (parcial)" : ""}`}</span>
             </div>
           </div>
         ))}

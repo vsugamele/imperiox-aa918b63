@@ -12,7 +12,7 @@
 // Para cada score, LLM gera postmortem curto + what_worked / what_failed.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("wa-ai-conv-scoring");
 
@@ -29,7 +29,7 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const MAX_PER_RUN = 30;
 const INACTIVE_HOURS = 24;
 
-async function llmPostmortem(digest: string, hint: { score: number; outcome: string }): Promise<{
+async function llmPostmortem(projectId: string | null, digest: string, hint: { score: number; outcome: string }): Promise<{
   postmortem: string;
   what_worked: string[];
   what_failed: string[];
@@ -59,7 +59,7 @@ Retorne EXATAMENTE este JSON:
 }`;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithAiUsage(projectId, url, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
       let whatFailed: string[] = [];
       if ((msgs?.length || 0) >= 3) {
         const digest = buildDigest(msgs || []);
-        const pm = await llmPostmortem(digest, { score, outcome });
+        const pm = await llmPostmortem(conv.project_id, digest, { score, outcome });
         if (pm) {
           postmortem = pm.postmortem;
           whatWorked = pm.what_worked;

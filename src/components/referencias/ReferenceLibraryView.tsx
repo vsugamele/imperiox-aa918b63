@@ -68,6 +68,14 @@ function VideoPlayer({ id }: { id: string }) {
   );
 }
 
+// Limita a inferência a esta consulta, evitando expansão recursiva do schema inteiro.
+interface ReferenceQuery extends PromiseLike<{ data: unknown; error: { message: string } | null }> {
+  eq(column: string, value: string): ReferenceQuery;
+}
+const referenceDatabase = supabase as unknown as {
+  from(table: "imphq_referencias"): { select(columns: string): ReferenceQuery };
+};
+
 export function ReferenceLibraryView() {
   const [refs, setRefs] = useState<LibraryRef[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +85,7 @@ export function ReferenceLibraryView() {
   const [aberta, setAberta] = useState<LibraryRef | null>(null);
 
   useEffect(() => {
-    supabase.from("imphq_referencias").select("id, titulo, url, lote, duracao, quadros, analise").eq("fonte", "centro").then(({ data, error }) => {
+    referenceDatabase.from("imphq_referencias").select("id, titulo, url, lote, duracao, quadros, analise").eq("fonte", "centro").then(({ data, error }) => {
       if (error) toast.error(`Biblioteca: ${error.message}`);
       const rows = ((data ?? []) as unknown as LibraryRef[]).sort((a, b) => (a.lote ?? "").localeCompare(b.lote ?? "") || (a.analise?.ordinal ?? 0) - (b.analise?.ordinal ?? 0));
       setRefs(rows);

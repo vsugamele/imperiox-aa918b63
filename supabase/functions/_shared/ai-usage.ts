@@ -77,10 +77,12 @@ export function extractUsage(url: string, requestBody: unknown, responseBody: un
 }
 
 let installed = false;
-let currentProject: string | null = null;
+let projectFetch: ((projectId: string | null, input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) | null = null;
 
-/** Liga o projeto às próximas chamadas desta execução (opcional). */
-export function setAiUsageProject(projectId: string | null) { currentProject = projectId; }
+/** Contexto imutável por chamada, inclusive dentro de lotes de vários projetos. */
+export function fetchWithAiUsage(projectId: string | null | undefined, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return projectFetch ? projectFetch(projectId?.trim() || null, input, init) : globalThis.fetch(input, init);
+}
 
 type FetchFn = typeof fetch;
 type Waiter = { waitUntil?: (p: Promise<unknown>) => void };
@@ -93,39 +95,46 @@ export function installAiUsageTracking(functionName: string, opts: { fetchImpl?:
   if (installed && !opts.fetchImpl) return;
   installed = true;
   const original: FetchFn = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
-  const env = (k: string) => (typeof Deno !== "undefined" ? Deno.env.get(k) : undefined);
+  const deno = (globalThis as unknown as { Deno?: { env: { get: (key: string) => string | undefined } } }).Deno;
+  const env = (k: string) => deno?.env.get(k);
   const supabaseUrl = opts.supabaseUrl ?? env("SUPABASE_URL");
   const serviceKey = opts.serviceKey ?? env("SUPABASE_SERVICE_ROLE_KEY");
   const runtime = (globalThis as unknown as { EdgeRuntime?: Waiter }).EdgeRuntime;
   const background = opts.waitUntil ?? ((p: Promise<unknown>) => (runtime?.waitUntil ? runtime.waitUntil(p) : void p));
 
-  const tracked: FetchFn = async (input, init) => {
+  projectFetch = async (projectId, input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    let reqBody: unknown = null;
+    if (typeof init?.body === "string") { try { reqBody = JSON.parse(init.body); } catch { /* corpo não JSON */ } }
     const response = await original(input as RequestInfo, init);
     if (!providerOf(url) || !supabaseUrl || !serviceKey) return response;
-    background((async () => {
+    const contentType = response.headers.get("content-type");
+    // Clona antes de entregar a resposta ao consumidor, que pode ler o corpo imediatamente.
+    let copy: Response | null = null;
+    try { if (contentType?.includes("application/json")) copy = response.clone(); } catch { /* consumo desconhecido */ }
+    const logging = (async () => {
       try {
-        let reqBody: unknown = null;
-        if (typeof init?.body === "string") { try { reqBody = JSON.parse(init.body); } catch { reqBody = null; } }
-        const contentType = response.headers.get("content-type");
         let resBody: unknown = null;
-        if (contentType?.includes("application/json")) { try { resBody = await response.clone().json(); } catch { resBody = null; } }
+        if (copy) { try { resBody = await copy.json(); } catch { /* consumo desconhecido */ } }
         const usage = extractUsage(url, reqBody, resBody, contentType);
         if (!usage) return;
-        const row: AiUsageRow = { ...usage, function_name: functionName, project_id: currentProject, tag: response.ok ? usage.tag : [usage.tag, `http_${response.status}`].filter(Boolean).join(",") };
-        await original(`${supabaseUrl}/rest/v1/imphq_ai_usage`, {
+        const row: AiUsageRow = { ...usage, function_name: functionName, project_id: projectId, tag: response.ok ? usage.tag : [usage.tag, `http_${response.status}`].filter(Boolean).join(",") };
+        const saved = await original(`${supabaseUrl}/rest/v1/imphq_ai_usage`, {
           method: "POST",
           headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify(row),
         });
+        if (!saved.ok) console.warn("[ai-usage] registro rejeitado", functionName, saved.status);
       } catch {
-        // Registro de custo nunca derruba a function.
+        console.warn("[ai-usage] falha ao registrar consumo", functionName);
       }
-    })());
+    })();
+    try { background(logging); } catch { console.warn("[ai-usage] tarefa de registro não vinculada", functionName); }
     return response;
   };
-  globalThis.fetch = tracked;
+  const tracked = projectFetch;
+  globalThis.fetch = (input, init) => tracked(null, input, init);
 }
 
 /** Só para testes: permite reinstalar. */
-export function resetAiUsageTrackingForTests() { installed = false; currentProject = null; }
+export function resetAiUsageTrackingForTests() { installed = false; projectFetch = null; }

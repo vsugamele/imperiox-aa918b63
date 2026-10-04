@@ -5,7 +5,7 @@ interface Provider { id: string; provider: string; api_url: string; api_key: str
 // e dispara mensagem personalizada via WhatsApp. Auto-executa (low risk).
 // Persona/branding usados via avatar do projeto se disponível.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("hot-lead-responder");
 
@@ -65,7 +65,7 @@ async function sendWhatsApp(provider: Provider | null, phone: string, message: s
   }
 }
 
-async function aiCopy(nome: string, produto: string, projeto: { name?: string | null; avatar?: { nome?: string } | null; brand_kit?: { tom_de_voz?: string } | null } | null): Promise<string> {
+async function aiCopy(projectId: string | null, nome: string, produto: string, projeto: { name?: string | null; avatar?: { nome?: string } | null; brand_kit?: { tom_de_voz?: string } | null } | null): Promise<string> {
   const fallback = `Oi ${nome || ""}! 👋 Vi seu interesse em *${produto || "nossa oferta"}* — quero garantir que você não perca essa chance. Posso te enviar o link de pagamento ou tirar qualquer dúvida agora?`;
   if (!OPENROUTER_API_KEY) return fallback;
 
@@ -77,7 +77,7 @@ async function aiCopy(nome: string, produto: string, projeto: { name?: string | 
   const prompt = `Você é ${persona} de ${projeto?.name || "uma marca premium"}, tom ${tom}. Escreva UMA mensagem WhatsApp curta (máx 2 linhas, com 1 emoji) para ${nome || "o lead"}, que demonstrou intenção de compra de "${produto || "nosso produto"}". Objetivo: reativar e oferecer ajuda imediata. Sem clichês, sem "olá tudo bem". Vá direto ao valor. Responda APENAS com a mensagem.`;
 
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const res = await fetchWithAiUsage(projectId, "https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json", 
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
         ? await supabase.from("imphq_projects").select("name, avatar, brand_kit").eq("id", projectId).maybeSingle()
         : { data: null };
 
-      const message = await aiCopy(lead.nome || "", v.produto_nome || "", projeto);
+      const message = await aiCopy(projectId, lead.nome || "", v.produto_nome || "", projeto);
       const provider = await findActiveProvider(supabase, projectId);
       const result = await sendWhatsApp(provider, phone, message);
 

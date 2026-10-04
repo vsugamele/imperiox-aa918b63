@@ -14,7 +14,7 @@
 //   - (futuro) notifica via push/email
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("wa-ai-decide-escalation");
 
@@ -32,7 +32,7 @@ const MAX_CONVS_PER_RUN = 40;
 const MIN_MSGS_TO_ANALYZE = 4;
 const ESCALATE_THRESHOLD = 0.72;
 
-async function decideEscalation(digest: string, persona: string): Promise<{ escalate: boolean; reason: string; confidence: number } | null> {
+async function decideEscalation(projectId: string | null, digest: string, persona: string): Promise<{ escalate: boolean; reason: string; confidence: number } | null> {
   const apiKey = LOVABLE_API_KEY || OPENROUTER_API_KEY;
   if (!apiKey) return null;
   const url = LOVABLE_API_KEY
@@ -68,7 +68,7 @@ Retorne EXATAMENTE este JSON:
 }`;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithAiUsage(projectId, url, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
 
       const digest = buildDigest(msgs);
       const persona = personaByProject.get(conv.project_id) || "";
-      const decision = await decideEscalation(digest, persona);
+      const decision = await decideEscalation(conv.project_id, digest, persona);
       if (!decision) continue;
       analyzed++;
 

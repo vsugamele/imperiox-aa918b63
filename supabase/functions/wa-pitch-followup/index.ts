@@ -18,7 +18,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { isWithinSendWindow } from "../_shared/send-window.ts";
 import { jpLoadServiceState } from "../_shared/jp-service-store.ts";
 import { jpMayFollowUp } from "../_shared/jp-service-policy.ts";
-import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { fetchWithAiUsage, installAiUsageTracking } from "../_shared/ai-usage.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("wa-pitch-followup");
 
@@ -239,7 +239,7 @@ ${jpConversationRules(project_id)}`;
 
           let aiText = "";
           try {
-            const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            const aiRes = await fetchWithAiUsage(project_id, "https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${LOVABLE_API_KEY}`,

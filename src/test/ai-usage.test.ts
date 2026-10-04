@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractUsage, installAiUsageTracking, providerOf, resetAiUsageTrackingForTests, setAiUsageProject } from "@shared/ai-usage";
+import { extractUsage, fetchWithAiUsage, installAiUsageTracking, providerOf, resetAiUsageTrackingForTests } from "@shared/ai-usage";
 import { parseElevenLabsSubscription, parseKieCredit, parseOpenRouterKey, readProviderUsage } from "@shared/provider-usage";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 describe("ai usage per call", () => {
-  afterEach(() => resetAiUsageTrackingForTests());
+  const originalFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = originalFetch; resetAiUsageTrackingForTests(); vi.restoreAllMocks(); });
 
   it("recognizes AI providers by host", () => {
     expect(providerOf("https://openrouter.ai/api/v1/chat/completions")).toBe("openrouter");
@@ -39,8 +40,7 @@ describe("ai usage per call", () => {
     const pending: Promise<unknown>[] = [];
     const before = globalThis.fetch;
     installAiUsageTracking("wa-teste", { fetchImpl: fake, supabaseUrl: "https://db", serviceKey: "svc", waitUntil: (p) => pending.push(p) });
-    setAiUsageProject("jp_freitas");
-    const res = await globalThis.fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", body: JSON.stringify({ model: "m1", messages: [] }) });
+    const res = await fetchWithAiUsage("jp_freitas", "https://openrouter.ai/api/v1/chat/completions", { method: "POST", body: JSON.stringify({ model: "m1", messages: [] }) });
     expect((await res.json()).model).toBe("m1");
     await Promise.all(pending);
     globalThis.fetch = before;
@@ -58,6 +58,66 @@ describe("ai usage per call", () => {
     globalThis.fetch = before;
     expect(pending).toHaveLength(0);
     expect(fake).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps projects isolated when concurrent provider responses finish in reverse order", async () => {
+    const rows: Array<Record<string, unknown>> = [];
+    const pending: Promise<unknown>[] = [];
+    let releaseFirst: ((response: Response) => void) | undefined;
+    const firstResponse = new Promise<Response>((resolve) => { releaseFirst = resolve; });
+    const fake: typeof fetch = async (input, init) => {
+      if (String(input).includes("/rest/")) {
+        rows.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return new Response(null, { status: 201 });
+      }
+      if (String(init?.body).includes("first")) return firstResponse;
+      return json({ model: "second", usage: { cost: 2 } });
+    };
+    installAiUsageTracking("concurrent", { fetchImpl: fake, supabaseUrl: "https://db", serviceKey: "svc", waitUntil: (p) => pending.push(p) });
+    const first = fetchWithAiUsage("project-a", "https://openrouter.ai/api/v1/chat/completions", { body: JSON.stringify({ model: "first" }) });
+    await fetchWithAiUsage("project-b", "https://openrouter.ai/api/v1/chat/completions", { body: JSON.stringify({ model: "second" }) });
+    releaseFirst?.(json({ model: "first", usage: { cost: 1 } }));
+    await first;
+    await Promise.all(pending);
+    expect(rows.map(({ project_id, cost_usd }) => [project_id, cost_usd])).toEqual([["project-b", 2], ["project-a", 1]]);
+  });
+
+  it("preserves unknown consumption, provider errors and the response body when logging is rejected", async () => {
+    const rows: Array<Record<string, unknown>> = [];
+    const pending: Promise<unknown>[] = [];
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fake: typeof fetch = async (input, init) => {
+      if (String(input).includes("/rest/")) {
+        rows.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return json({ error: "private database detail" }, 400);
+      }
+      return json({ error: "provider unavailable" }, 429);
+    };
+    installAiUsageTracking("unknown", { fetchImpl: fake, supabaseUrl: "https://db", serviceKey: "svc", waitUntil: (p) => pending.push(p) });
+    const response = await fetchWithAiUsage("slimsoda", "https://openrouter.ai/api/v1/chat/completions");
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: "provider unavailable" });
+    await Promise.all(pending);
+    expect(rows[0]).toMatchObject({ project_id: "slimsoda", model: null, cost_usd: null, total_tokens: null, tag: "http_429" });
+    expect(warn).toHaveBeenCalledWith("[ai-usage] registro rejeitado", "unknown", 400);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("private database detail");
+  });
+
+  it("keeps an unscoped call unassigned and survives logger network and waitUntil failures", async () => {
+    const pending: Promise<unknown>[] = [];
+    const rows: Array<Record<string, unknown>> = [];
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fake: typeof fetch = async (input, init) => {
+      if (String(input).includes("/rest/")) {
+        rows.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        throw new Error("sensitive network detail");
+      }
+      return json({ ok: true });
+    };
+    installAiUsageTracking("global", { fetchImpl: fake, supabaseUrl: "https://db", serviceKey: "svc", waitUntil: (p) => { pending.push(p); throw new Error("unavailable"); } });
+    expect((await globalThis.fetch("https://openrouter.ai/api/v1/chat/completions")).status).toBe(200);
+    await Promise.all(pending);
+    expect(rows[0].project_id).toBeNull();
   });
 });
 
