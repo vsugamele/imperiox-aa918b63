@@ -18,6 +18,8 @@ export interface MachineRoom {
   instagram: Array<{ projeto: string | null; conta: string | null; saude_ok: string | null; saude_em: string | null; ultimo_webhook: string | null; erro: string | null }>;
   voz: { ultimo_envio: string | null; ultima_falta_saldo: string | null; enviados_7d: number };
   custo_ia_7d: Array<{ origem: string; projeto: string | null; chamadas: number; custo_usd: number | null }>;
+  /** Consumo lido na conta de cada provedor (provider-usage-sync). */
+  provedores?: Array<{ provedor: string; lido_em: string; gasto_hoje_usd: number | null; unidades: number | null; unidade: string | null; saldo: number | null; gasto_7d_usd: number | null; detalhes: Record<string, unknown> | null }>;
   fontes: Array<{ projeto: string; nome: string; ultima_venda: string | null; ultimo_evento: string | null; ultima_msg_recebida: string | null; ultimo_gasto: string | null }>;
 }
 
@@ -85,6 +87,24 @@ export function machineAlerts(r: MachineRoom, now: number = Date.now()): Machine
 
   const total = r.custo_ia_7d.reduce((s, c) => s + (c.custo_usd ?? 0), 0);
   out.push({ area: "custo", severidade: "info", titulo: `Custo de IA medido em 7 dias: US$ ${total.toFixed(2)} em ${r.custo_ia_7d.reduce((s, c) => s + c.chamadas, 0)} chamada(s)`, detalhe: "Só o que já registra custo entra nesta soma." });
+
+  for (const p of r.provedores ?? []) {
+    if (age(p.lido_em, now) > 3 * HOUR) out.push({ area: "custo", severidade: "atencao", titulo: `Consumo da ${p.provedor} sem leitura há ${Math.round(age(p.lido_em, now) / HOUR)} h`, acao: "Conferir a rotina provider-usage-sync." });
+    if (p.provedor === "openrouter") {
+      const semana = typeof p.detalhes?.usage_weekly === "number" ? p.detalhes.usage_weekly as number : null;
+      const naoAtribuido = semana !== null ? semana - r.custo_ia_7d.reduce((s, c) => s + (c.custo_usd ?? 0), 0) : null;
+      out.push({ area: "custo", severidade: "info", titulo: `OpenRouter: US$ ${(p.gasto_hoje_usd ?? 0).toFixed(2)} hoje${semana !== null ? `, US$ ${semana.toFixed(2)} na semana` : ""}`,
+        detalhe: naoAtribuido !== null && naoAtribuido > 0.01 ? `US$ ${naoAtribuido.toFixed(2)} da semana ainda sem automação registrada.` : undefined });
+    }
+    if (p.provedor === "elevenlabs" && p.unidades !== null && typeof p.detalhes?.character_limit === "number") {
+      const limite = p.detalhes.character_limit as number;
+      const pct = limite > 0 ? p.unidades / limite : 0;
+      out.push({ area: "voz", severidade: pct >= 0.9 ? "erro" : pct >= 0.7 ? "atencao" : "info", titulo: `ElevenLabs: ${p.unidades.toLocaleString("pt-BR")} de ${limite.toLocaleString("pt-BR")} caracteres usados no ciclo (${Math.round(pct * 100)}%)` });
+    }
+    if (p.provedor === "kie" && p.saldo !== null) {
+      out.push({ area: "custo", severidade: p.saldo < 50 ? "atencao" : "info", titulo: `Kie: saldo de ${p.saldo.toLocaleString("pt-BR")} créditos`, acao: p.saldo < 50 ? "Recarregar créditos da Kie (geração de imagem e vídeo)." : undefined });
+    }
+  }
 
   for (const f of r.fontes) {
     const ev = age(f.ultimo_evento, now);

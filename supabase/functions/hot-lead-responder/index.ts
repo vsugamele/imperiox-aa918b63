@@ -5,6 +5,9 @@ interface Provider { id: string; provider: string; api_url: string; api_key: str
 // e dispara mensagem personalizada via WhatsApp. Auto-executa (low risk).
 // Persona/branding usados via avatar do projeto se disponível.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("hot-lead-responder");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

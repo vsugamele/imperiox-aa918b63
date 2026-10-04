@@ -65,4 +65,16 @@ describe("machine room alerts", () => {
     const a = machineAlerts({ ...base, custo_ia_7d: [{ origem: "wa-ai-reply", projeto: "jp", chamadas: 283, custo_usd: 0.1963 }] }, now);
     expect(a.find((x) => x.area === "custo")?.titulo).toBe("Custo de IA medido em 7 dias: US$ 0.20 em 283 chamada(s)");
   });
+
+  it("reads provider usage: unattributed OpenRouter spend, ElevenLabs cycle and low Kie balance", () => {
+    const a = machineAlerts({ ...base, custo_ia_7d: [{ origem: "wa-ai-reply", projeto: "jp", chamadas: 10, custo_usd: 0.19 }], provedores: [
+      { provedor: "openrouter", lido_em: ago(0.5), gasto_hoje_usd: 0.4, unidades: null, unidade: "usd", saldo: null, gasto_7d_usd: 0.4, detalhes: { usage_weekly: 3.27 } },
+      { provedor: "elevenlabs", lido_em: ago(0.5), gasto_hoje_usd: null, unidades: 27500, unidade: "caracteres_no_ciclo", saldo: 2500, gasto_7d_usd: null, detalhes: { character_limit: 30000 } },
+      { provedor: "kie", lido_em: ago(5), gasto_hoje_usd: null, unidades: null, unidade: "creditos", saldo: 20, gasto_7d_usd: null, detalhes: {} },
+    ] }, now);
+    expect(a.find((x) => x.titulo.startsWith("OpenRouter"))?.detalhe).toBe("US$ 3.08 da semana ainda sem automação registrada.");
+    expect(a.find((x) => x.titulo.startsWith("ElevenLabs"))?.severidade).toBe("erro");
+    expect(a.find((x) => x.titulo.startsWith("Kie"))?.severidade).toBe("atencao");
+    expect(a.some((x) => x.titulo.includes("kie sem leitura há 5 h"))).toBe(true);
+  });
 });

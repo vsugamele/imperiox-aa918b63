@@ -159,8 +159,9 @@ function loadBackendHandler(name: string, database: unknown, fetchMock: unknown)
   const source = readFileSync(resolve(process.cwd(), `supabase/functions/${name}/index.ts`), "utf8").replace(/^import .*;\r?\n/gm, "");
   const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
   let handler: Handler | undefined;
-  new Function("Deno", "createClient", "fetch", "z", "serve", compiled.outputText)(
-    { env: { get: () => "test" }, serve: (h: Handler) => { handler = h; } }, () => database, fetchMock, z, (h: Handler) => { handler = h; },
+  // installAiUsageTracking (custo por automação, OP1.4) vira função vazia: o harness tira os imports.
+  new Function("Deno", "createClient", "fetch", "z", "serve", "installAiUsageTracking", compiled.outputText)(
+    { env: { get: () => "test" }, serve: (h: Handler) => { handler = h; } }, () => database, fetchMock, z, (h: Handler) => { handler = h; }, () => {},
   );
   if (!handler) throw new Error("Handler not registered");
   return handler;

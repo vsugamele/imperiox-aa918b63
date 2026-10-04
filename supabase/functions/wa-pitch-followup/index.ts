@@ -18,6 +18,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { isWithinSendWindow } from "../_shared/send-window.ts";
 import { jpLoadServiceState } from "../_shared/jp-service-store.ts";
 import { jpMayFollowUp } from "../_shared/jp-service-policy.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("wa-pitch-followup");
 
 const EntryProduct = z.object({ id: z.string().nullish(), nome: z.string().nullish(), name: z.string().nullish(), preco: z.union([z.string(), z.number()]).nullish(), price: z.union([z.string(), z.number()]).nullish() }).passthrough();
 function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }

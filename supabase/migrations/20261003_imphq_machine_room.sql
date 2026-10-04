@@ -78,6 +78,12 @@ as $$
       'ultimo_envio', (select max(created_at) from imphq_wa_voice_log where status = 'sent'),
       'ultima_falta_saldo', (select max(created_at) from imphq_wa_voice_log where reason ilike '%quota%'),
       'enviados_7d', (select count(*) from imphq_wa_voice_log where status = 'sent' and created_at > now() - interval '7 days')),
+    'provedores', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'provedor', u.provider, 'lido_em', u.read_at, 'gasto_hoje_usd', u.spent_usd, 'unidades', u.units_used, 'unidade', u.unit, 'saldo', u.balance,
+        'gasto_7d_usd', (select round(sum(x.spent_usd), 4) from imphq_provider_usage_daily x where x.provider = u.provider and x.usage_date > current_date - 7),
+        'detalhes', u.details))
+      from (select distinct on (provider) * from imphq_provider_usage_daily order by provider, usage_date desc) u), '[]'::jsonb),
     'custo_ia_7d', coalesce((
       select jsonb_agg(c order by (c->>'custo_usd')::numeric desc nulls last) from (
         select jsonb_build_object('origem', origem, 'projeto', project_id, 'chamadas', count(*), 'custo_usd', round(sum(cost_usd)::numeric, 4)) c
