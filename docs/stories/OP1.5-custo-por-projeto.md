@@ -1,6 +1,6 @@
 # OP1.5 — Custo de IA atribuído por chamada e projeto
 
-Status: Em andamento · 04/10/2026
+Status: Concluída · 04/10/2026
 Escopo autorizado: opção 1 da revisão dos itens 5/6. Implementação @dev, schema @data-engineer, testes @qa, publicação @devops. Papéis executados nesta sessão; sem subagentes acionados.
 
 ## Critérios
@@ -15,7 +15,7 @@ Escopo autorizado: opção 1 da revisão dos itens 5/6. Implementação @dev, sc
 - [x] Passar lint, typecheck e testes na cópia isolada; conferir fonte publicada antes do deploy.
 - [x] Aplicar migração, validar aceitação de null com rollback, publicar piloto e conferir boot HTTP 200/código; repetir nas demais.
 - [x] Conferir a primeira chamada natural com projeto após o deploy (não forçar mensagem/custo).
-- [ ] Registrar handoff com evidência de produção e limites da atribuição histórica.
+- [x] Registrar handoff com evidência de produção e limites da atribuição histórica.
 
 Não atribuir chamadas antigas por horário ou por suposição. Não executar mensagens de teste em clientes nem chamadas pagas para validação. OP1.4 contém trabalho concorrente e será preservada.
 
@@ -29,6 +29,8 @@ Não atribuir chamadas antigas por horário ou por suposição. Não executar me
 ## Evidência parcial
 
 691 testes passaram (105 arquivos), incluindo resposta/concorrência/logger. Deno: dez funções passaram. A cópia isolada preserva trabalho paralelo com erros de lint/tipos. Tipos atualizados conforme schema real de imphq_profiles; inferência da biblioteca limitada à tabela consultada; assinatura do mock de conta e tipo opcional do projeto no alerta de anúncios corrigidos para destravar o quality gate. Sem alteração de dados ou comportamento nesses ajustes.
+
+Validação final conjunta: 698 testes (106 arquivos), typecheck completo e lint sem erros; build local e deploy Vercel READY. Chrome autenticado mostrou JP Freitas com 8089 tokens e USD 0.0012 arredondados, ao lado do histórico Sem projeto. Handoff: docs/sessions/2026-10/2026-10-04-custos-metricas-op15-map24.md.
 
 ### Arquivos adicionais
 - supabase/functions/_shared/embeddings.ts

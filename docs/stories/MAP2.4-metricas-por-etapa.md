@@ -1,6 +1,6 @@
 # MAP2.4 — Métricas por etapa, URL e projeto
 
-Status: Em andamento · 04/10/2026
+Status: Concluída · 04/10/2026
 Escopo autorizado: opção 1 da revisão dos itens 5/6. Implementação @dev, schema @data-engineer, validação @qa, publicação @devops. Piloto SlimSoda; reaproveitar visão Caminho e fontes existentes.
 
 ## Critérios
@@ -13,8 +13,8 @@ Escopo autorizado: opção 1 da revisão dos itens 5/6. Implementação @dev, sc
 - [x] Mostrar escopo, fonte e atualização, preservando metas e entrada manual existentes.
 - [x] Validar SlimSoda com dados reais antes das outras três ofertas.
 - [x] Configurar somente métricas justificadas por tipo/URL nos nós autorizados.
-- [ ] Passar gates e publicar com conferência de produção.
-- [ ] Registrar handoff e atualizar critérios.
+- [x] Passar gates e publicar com conferência de produção.
+- [x] Registrar handoff e atualizar critérios.
 
 Cliques em links para checkout não são checkouts iniciados nem compras. Métricas de receita/CPA continuam no projeto até existir atribuição confiável por página.
 
@@ -28,7 +28,9 @@ RPC imphq_page_metrics aplicada; seguida pela correção de taxas na mesma coort
 
 8 verificações da RPC real em transação revertida: dedup de visualizações/CTAs/IC, coorte de taxa, fontes combinadas, validação excluída, zero x sessão desconhecida, isolamento por projeto. Zero fixtures persistentes. 13 testes de atribuição/tela/volume passaram.
 
-Gates completos: 697 testes em 106 arquivos; typecheck passou inclusive após regenerar os tipos completos do schema vivo; lint sem erros (duas advertências preexistentes); build de produção passou. Tipos regenerados sem edição parcial para manter a checagem de drift existente.
+Gates finais: 698 testes em 106 arquivos; typecheck passou inclusive após regenerar os tipos completos do schema vivo; lint sem erros (duas advertências preexistentes); build de produção passou. Tipos regenerados sem edição parcial para manter a checagem de drift existente.
+
+Produção READY em imperiox.vercel.app, commit de código 92bc05f9 (inclui 244cf74b). Chrome autenticado: visão Caminho mostrou 4 sessões na VSL SlimSoda, 1 no ADV1 e ausência de eventos na PDP, com projeto/fonte/atualização. Banco confirmou 12 nós; CardioFlush e MemoFlow com 4 sessões em suas URLs, Leaftide sem eventos de operação. Handoff: docs/sessions/2026-10/2026-10-04-custos-metricas-op15-map24.md.
 
 ## Arquivos de implementação
 - supabase/migrations/20261004_imphq_page_metrics.sql
