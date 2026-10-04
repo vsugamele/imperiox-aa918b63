@@ -70,6 +70,7 @@ export default function CustosIA() {
   const byFunction = group(rows, (r) => r.function_name);
   const byModel = group(rows, (r) => r.model || "Modelo não informado");
   const unknownCosts = rows.filter((r) => r.cost_usd === null).length;
+  const unknownTokens = rows.filter((r) => r.total_tokens === null).length;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -112,8 +113,9 @@ export default function CustosIA() {
               className="text-3xl italic text-foreground tabular-nums mt-1"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {isLoading || isError ? "—" : int(totalTokens)}
+              {isLoading || isError ? "—" : rows.length && unknownTokens === rows.length ? "A confirmar" : int(totalTokens)}
             </div>
+            {unknownTokens > 0 && <p className="text-xs text-muted-foreground mt-1">{unknownTokens} chamada(s) sem tokens informados; total parcial.</p>}
           </CardContent>
         </Card>
         <Card className="bg-card border-border">

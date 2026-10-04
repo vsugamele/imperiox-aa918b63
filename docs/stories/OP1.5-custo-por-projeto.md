@@ -14,7 +14,7 @@ Escopo autorizado: opção 1 da revisão dos itens 5/6. Implementação @dev, sc
 - [x] Validar concorrência, ausência de consumo, falha do logger e resposta original.
 - [x] Passar lint, typecheck e testes na cópia isolada; conferir fonte publicada antes do deploy.
 - [x] Aplicar migração, validar aceitação de null com rollback, publicar piloto e conferir boot HTTP 200/código; repetir nas demais.
-- [ ] Conferir a primeira chamada natural com projeto após o deploy (não forçar mensagem/custo).
+- [x] Conferir a primeira chamada natural com projeto após o deploy (não forçar mensagem/custo).
 - [ ] Registrar handoff com evidência de produção e limites da atribuição histórica.
 
 Não atribuir chamadas antigas por horário ou por suposição. Não executar mensagens de teste em clientes nem chamadas pagas para validação. OP1.4 contém trabalho concorrente e será preservada.
@@ -54,4 +54,4 @@ Não atribuir chamadas antigas por horário ou por suposição. Não executar me
 
 Migração ai_usage_nullable_consumption aplicada. Transação de aceitação com null revertida; zero linhas de teste persistentes. Dez funções ACTIVE; fontes remotas conferidas arquivo por arquivo; OPTIONS HTTP 200 em todas. Versões: instagram-webhook 337; instagram-followup-scheduler 300; hot-lead-responder 362; wa-learn-from-sale 220; wa-consultive-followup 98; wa-pitch-followup 169; wa-ai-decide-escalation 260; wa-ai-conv-scoring 260; wa-ai-detect-gaps 262; nurture-auto-segment 347. verify_jwt original preservado.
 
-Última leitura: 13 linhas históricas sem projeto (9 webhook e 4 scheduler); nenhuma atribuição retroativa. Persistência de consumo desconhecido validada no banco, mas o próximo tráfego natural ainda precisa comprovar atribuição ponta a ponta.
+13 linhas históricas sem projeto (9 webhook e 4 scheduler) preservadas, sem atribuição retroativa. Primeira prova natural após publicação: webhook às 22:42:23 UTC, jp_freitas, 4396 tokens, USD 0.000665; scheduler às 22:50:03 UTC, jp_freitas, 3693 tokens, USD 0.000565. Consumo/projeto gravados sem disparar testes pagos ou mensagens. Cards de tokens também distinguem consumo desconhecido de zero e sinalizam total parcial.

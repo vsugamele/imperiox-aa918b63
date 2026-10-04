@@ -19,10 +19,20 @@ describe("CustosIA consumption boundaries", () => {
     ];
     render(<CustosIA />);
     expect(screen.getByText(/1 chamada\(s\) sem custo informado; total parcial/)).toBeInTheDocument();
+    expect(screen.getByText(/1 chamada\(s\) sem tokens informados; total parcial/)).toBeInTheDocument();
     expect(screen.getAllByText("A confirmar").length).toBeGreaterThan(0);
     expect(screen.getByText("Sem projeto")).toBeInTheDocument();
     expect(screen.getByText("Modelo não informado")).toBeInTheDocument();
     expect(screen.queryByText("$0.0000")).not.toBeInTheDocument();
+  });
+
+  it("does not display zero tokens when every call has unknown consumption", () => {
+    state.error = false;
+    state.rows = [{ id: "3", project_id: null, function_name: "unknown", model: null, cost_usd: null, total_tokens: null }];
+    render(<CustosIA />);
+    expect(screen.getAllByText("A confirmar").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+    expect(screen.getByText(/1 chamada\(s\) sem tokens informados; total parcial/)).toBeInTheDocument();
   });
 
   it("shows unavailable data on query failure rather than a zero cost", () => {
