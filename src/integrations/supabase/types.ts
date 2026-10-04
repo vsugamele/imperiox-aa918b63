@@ -55927,6 +55927,14 @@ export type Database = {
       }
     }
     Functions: {
+      imphq_reveal_account_secret: {
+        Args: { p_account_id: string; p_kind: string }
+        Returns: string
+      }
+      imphq_set_account_secret: {
+        Args: { p_account_id: string; p_kind: string; p_value: string }
+        Returns: undefined
+      }
       imphq_machine_room: {
         Args: Record<PropertyKey, never>
         Returns: Json

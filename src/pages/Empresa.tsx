@@ -48,7 +48,10 @@ interface ContaEmpresa {
   cloud_phone_ref?: string | null;
   project_id?: string | null;
   extra?: {
+    /** Legado: senhas agora ficam no Cofre (Supabase Vault); a conta guarda só a referência. */
     senha?: string;
+    senha_ref?: string;
+    proxy_pass_ref?: string;
     telefone?: string;
     status_aquecimento?: string;
     data_compra?: string;
@@ -184,7 +187,8 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
   const [showFormPassword, setShowFormPassword] = useState(false);
   const [showProxyPassword, setShowProxyPassword] = useState(false);
 
-  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  // Senha revelada do Cofre por alguns segundos (cada revelação fica registrada no banco).
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
   const viewKey = `empresa-view-${tipo}`;
   const [view, setView] = useState<"list" | "grid">(() => {
     if (typeof window === "undefined") return "list";
@@ -250,7 +254,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
     setForm({
       nome: conta.nome || "",
       valor: conta.valor || "",
-      senha: conta.extra?.senha || "",
+      senha: "",
       telefone: conta.extra?.telefone || "",
       status_aquecimento: conta.extra?.status_aquecimento || "Inativo",
       data_compra: conta.extra?.data_compra || "",
@@ -267,7 +271,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       proxy_geo: conta.proxy_geo || "",
       proxy_endpoint: conta.extra?.proxy_endpoint || "",
       proxy_user: conta.extra?.proxy_user || "",
-      proxy_pass: conta.extra?.proxy_pass || "",
+      proxy_pass: "",
       geelark_profile: conta.extra?.geelark_profile || "",
       geelark_status: conta.extra?.geelark_status || "",
     });
@@ -276,8 +280,15 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
     setShowDialog(true);
   };
 
-  const togglePasswordVisibility = (id: string) => {
-    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  const togglePasswordVisibility = async (id: string) => {
+    if (revealed[id] !== undefined) {
+      setRevealed(prev => { const next = { ...prev }; delete next[id]; return next; });
+      return;
+    }
+    const { data, error } = await supabase.rpc("imphq_reveal_account_secret", { p_account_id: id, p_kind: "senha" });
+    if (error) { toast.error("Não foi possível abrir o Cofre: " + error.message); return; }
+    setRevealed(prev => ({ ...prev, [id]: data ?? "—" }));
+    setTimeout(() => setRevealed(prev => { const next = { ...prev }; delete next[id]; return next; }), 30_000);
   };
 
   const handleUpload = async (file: File) => {
@@ -310,8 +321,9 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
       project_id: form.project_id || null,
       proxy_tipo: form.proxy_tipo || null,
       proxy_geo: form.proxy_geo || null,
+      // Mantém o que já existe no extra (ex.: referências do Cofre); senhas nunca vão para esta tabela.
       extra: {
-        senha: form.senha || null,
+        ...withoutPlainSecrets(editingConta?.extra),
         telefone: form.telefone || null,
         status_aquecimento: form.status_aquecimento,
         data_compra: form.data_compra || null,
@@ -322,22 +334,28 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
         ativo: form.ativo || null,
         proxy_endpoint: form.proxy_endpoint || null,
         proxy_user: form.proxy_user || null,
-        proxy_pass: form.proxy_pass || null,
         geelark_profile: form.geelark_profile || null,
         geelark_status: form.geelark_status || null,
       },
     };
 
 
+    let accountId = editingConta?.id ?? null;
     if (editingConta) {
       const { error } = await supabase.from("imphq_empresa").update(payload).eq("id", editingConta.id);
       if (error) { toast.error("Erro: " + error.message); return; }
-      toast.success("Conta atualizada!");
     } else {
-      const { error } = await supabase.from("imphq_empresa").insert(payload);
+      const { data, error } = await supabase.from("imphq_empresa").insert(payload).select("id").single();
       if (error) { toast.error("Erro: " + error.message); return; }
-      toast.success("Conta adicionada!");
+      accountId = data.id;
     }
+    // Senha nova (campo preenchido) vai para o Cofre; em branco mantém a guardada.
+    for (const [kind, value] of [["senha", form.senha], ["proxy_pass", form.proxy_pass]] as const) {
+      if (!value || !accountId) continue;
+      const { error } = await supabase.rpc("imphq_set_account_secret", { p_account_id: accountId, p_kind: kind, p_value: value });
+      if (error) { toast.error("Conta salva, mas a senha não foi para o Cofre: " + error.message); return; }
+    }
+    toast.success(editingConta ? "Conta atualizada!" : "Conta adicionada!");
     setShowDialog(false);
     setForm(emptyForm);
     setEditingConta(null);
@@ -447,10 +465,10 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                       <div className="flex items-center justify-between gap-2">
                         <span className="opacity-70">Senha</span>
                         <span className="flex items-center gap-1 text-foreground/80 font-mono">
-                          {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
-                          {c.extra?.senha && (
+                          {revealed[c.id] ?? (c.extra?.senha_ref ? "••••••••" : "—")}
+                          {c.extra?.senha_ref && (
                             <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => togglePasswordVisibility(c.id)}>
-                              {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              {revealed[c.id] !== undefined ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                             </Button>
                           )}
                         </span>
@@ -481,10 +499,10 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                       <div className="flex items-center justify-between gap-2">
                         <span className="opacity-70">Senha</span>
                         <span className="flex items-center gap-1 text-foreground/80 font-mono">
-                          {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
-                          {c.extra?.senha && (
+                          {revealed[c.id] ?? (c.extra?.senha_ref ? "••••••••" : "—")}
+                          {c.extra?.senha_ref && (
                             <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => togglePasswordVisibility(c.id)}>
-                              {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              {revealed[c.id] !== undefined ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                             </Button>
                           )}
                         </span>
@@ -593,10 +611,10 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                       <TableCell className="font-medium text-sm"><NameCell conta={c} title={c.nome} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
 
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
-                        {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
-                        {c.extra?.senha && (
+                        {revealed[c.id] ?? (c.extra?.senha_ref ? "••••••••" : "—")}
+                        {c.extra?.senha_ref && (
                           <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 hover:bg-secondary/50" onClick={() => togglePasswordVisibility(c.id)}>
-                            {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            {revealed[c.id] !== undefined ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                           </Button>
                         )}
                       </TableCell>
@@ -631,10 +649,10 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                       <TableCell className="font-medium text-sm"><NameCell conta={c} title={`@${c.nome}`} nodeLabel={nodeLabel(c.mapa_node_id)} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.valor || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground flex items-center justify-between min-w-[120px]">
-                        {visiblePasswords[c.id] ? (c.extra?.senha || "—") : "••••••••"}
-                        {c.extra?.senha && (
+                        {revealed[c.id] ?? (c.extra?.senha_ref ? "••••••••" : "—")}
+                        {c.extra?.senha_ref && (
                           <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 hover:bg-secondary/50" onClick={() => togglePasswordVisibility(c.id)}>
-                            {visiblePasswords[c.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            {revealed[c.id] !== undefined ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                           </Button>
                         )}
                       </TableCell>
@@ -664,18 +682,22 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
-          <DialogHeader>
+        {/* Altura limitada à tela, rolagem só no corpo e rodapé fixo: o Salvar fica sempre visível. */}
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/60">
             <DialogTitle>{editingConta ? "Editar" : "Adicionar"} {iconByTipo} {labelByTipo}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+            <section>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-2">Conta</p>
+            <div className="grid gap-3 sm:grid-cols-2">
             {tipo === "email" ? (
               <>
-                <div><Label>Gmail *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="nome@gmail.com" /></div>
+                <div className="sm:col-span-2"><Label>Gmail *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="nome@gmail.com" /></div>
                 <div>
                   <Label>Senha</Label>
                   <div className="relative">
-                    <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="Senha da conta" />
+                    <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder={editingConta?.extra?.senha_ref ? "Guardada no Cofre — em branco mantém" : "Senha da conta"} />
                     <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowFormPassword(!showFormPassword)}>
                       {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -713,7 +735,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 <div>
                   <Label>Senha</Label>
                   <div className="relative">
-                    <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} />
+                    <Input type={showFormPassword ? "text" : "password"} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder={editingConta?.extra?.senha_ref ? "Guardada no Cofre — em branco mantém" : "Senha"} />
                     <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowFormPassword(!showFormPassword)}>
                       {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -730,30 +752,13 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 </div>
               </>
             )}
+            </div>
+            </section>
 
-            {/* Foto e Vínculo com Mapa (comum a todos) */}
-            <div className="pt-3 border-t border-border/50 space-y-3">
-              <div>
-                <Label>Foto do card</Label>
-                <div className="flex items-center gap-3 mt-1">
-                  {form.foto_url ? (
-                    <div className="relative">
-                      <img src={form.foto_url} alt="preview" className="h-14 w-14 rounded-md object-cover border border-border" />
-                      <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setForm({ ...form, foto_url: "" })}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="h-14 w-14 rounded-md border border-dashed border-border flex items-center justify-center text-muted-foreground text-xs">Sem foto</div>
-                  )}
-                  <label className="cursor-pointer">
-                    <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
-                    <span className={`inline-flex items-center gap-1 text-xs px-3 py-2 rounded-md border border-border hover:bg-secondary/50 ${uploading ? "opacity-50" : ""}`}>
-                      <Upload className="h-3.5 w-3.5" /> {uploading ? "Enviando..." : form.foto_url ? "Trocar" : "Enviar foto"}
-                    </span>
-                  </label>
-                </div>
-              </div>
+            {/* Uso: onde a conta trabalha (comum a todos) */}
+            <section>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-2">Uso</p>
+              <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Vincular a nó do Mapa Mental</Label>
                 <Select value={form.mapa_node_id || "__none__"} onValueChange={v => setForm({ ...form, mapa_node_id: v === "__none__" ? "" : v })}>
@@ -785,8 +790,33 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 </Select>
               </div>
             </div>
+            </section>
 
-
+            {/* Avançado: foto, proxy e GeeLark ficam recolhidos para o essencial caber na tela */}
+            <details className="rounded-lg border border-border/60" open={!!(editingConta && (form.proxy_endpoint || form.geelark_profile))}>
+              <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground">Avançado: foto, proxy e GeeLark</summary>
+              <div className="space-y-4 px-3 pb-3 pt-1">
+              <div>
+                <Label>Foto do card</Label>
+                <div className="flex items-center gap-3 mt-1">
+                  {form.foto_url ? (
+                    <div className="relative">
+                      <img src={form.foto_url} alt="preview" className="h-14 w-14 rounded-md object-cover border border-border" />
+                      <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setForm({ ...form, foto_url: "" })}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="h-14 w-14 rounded-md border border-dashed border-border flex items-center justify-center text-muted-foreground text-xs">Sem foto</div>
+                  )}
+                  <label className="cursor-pointer">
+                    <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+                    <span className={`inline-flex items-center gap-1 text-xs px-3 py-2 rounded-md border border-border hover:bg-secondary/50 ${uploading ? "opacity-50" : ""}`}>
+                      <Upload className="h-3.5 w-3.5" /> {uploading ? "Enviando..." : form.foto_url ? "Trocar" : "Enviar foto"}
+                    </span>
+                  </label>
+                </div>
+              </div>
 
             {/* Proxy */}
             <div className="pt-3 border-t border-border/50">
@@ -820,7 +850,7 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 <div>
                   <Label className="text-xs">Senha</Label>
                   <div className="relative">
-                    <Input type={showProxyPassword ? "text" : "password"} value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} className="pr-10" />
+                    <Input type={showProxyPassword ? "text" : "password"} value={form.proxy_pass} onChange={e => setForm({ ...form, proxy_pass: e.target.value })} className="pr-10" placeholder={editingConta?.extra?.proxy_pass_ref ? "No Cofre — em branco mantém" : ""} />
                     <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground" onClick={() => setShowProxyPassword(!showProxyPassword)}>
                       {showProxyPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -864,10 +894,11 @@ function AccountTable({ contas, tipo, columns, onRefresh, mapNodes, devices, pro
                 </div>
               </div>
             </div>
+              </div>
+            </details>
           </div>
 
-
-          <DialogFooter>
+          <DialogFooter className="px-6 py-3 border-t border-border/60 bg-background">
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
             <Button onClick={save}>{editingConta ? "Atualizar" : "Salvar"}</Button>
           </DialogFooter>
@@ -910,4 +941,10 @@ function NameCell({ conta, title, nodeLabel }: { conta: ContaEmpresa; title: str
       </div>
     </div>
   );
+}
+
+/** Extra da conta sem senhas em texto aberto (legado): elas vivem no Cofre. */
+function withoutPlainSecrets(extra: ContaEmpresa["extra"] | undefined): Record<string, unknown> {
+  const { senha: _senha, proxy_pass: _proxyPass, ...rest } = extra ?? {};
+  return rest;
 }
