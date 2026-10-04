@@ -1595,8 +1595,26 @@ function ReferenciasDesktop() {
 import { useIsMobile as _useIsMobileRefs } from "@/hooks/use-mobile";
 import { MobileReferenciasFeed as _MobileRefsFeed } from "@/components/mobile/MobileReferenciasFeed";
 
+import { useSearchParams as _useSearchParamsRefs } from "react-router-dom";
+import { ReferenceLibraryView as _ReferenceLibraryView } from "@/components/referencias/ReferenceLibraryView";
+
 export default function Referencias() {
   const isMobile = _useIsMobileRefs();
-  if (isMobile) return <_MobileRefsFeed />;
-  return <ReferenciasDesktop />;
+  // Duas formas de ver: todas as referências ou a biblioteca analisada (quadros, ficha editorial, anatomia) — REF1.1.
+  const [params, setParams] = _useSearchParamsRefs();
+  const view = params.get("view") === "biblioteca" ? "biblioteca" : "todas";
+  const setView = (v: "todas" | "biblioteca") => { const next = new URLSearchParams(params); if (v === "todas") next.delete("view"); else next.set("view", v); setParams(next, { replace: true }); };
+  return (
+    <div className="space-y-4">
+      <div className="inline-flex items-center rounded-md bg-secondary/60 p-0.5" role="tablist" aria-label="Forma de ver as referências">
+        {(["todas", "biblioteca"] as const).map((v) => (
+          <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
+            className={`h-8 rounded px-3 text-xs font-medium transition-colors ${view === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+            {v === "todas" ? "Todas" : "Biblioteca analisada"}
+          </button>
+        ))}
+      </div>
+      {view === "biblioteca" ? <_ReferenceLibraryView /> : isMobile ? <_MobileRefsFeed /> : <ReferenciasDesktop />}
+    </div>
+  );
 }

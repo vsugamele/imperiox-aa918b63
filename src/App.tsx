@@ -51,6 +51,7 @@ const Equipe = lazyWithRetry(() => import("./pages/Equipe"));
 const Empresa = lazyWithRetry(() => import("./pages/Empresa"));
 const Configuracoes = lazyWithRetry(() => import("./pages/Configuracoes"));
 const SalaMaquinas = lazyWithRetry(() => import("./pages/SalaMaquinas"));
+const Plataformas = lazyWithRetry(() => import("./pages/Plataformas"));
 const Cofre = lazyWithRetry(() => import("./pages/Cofre"));
 const Guia = lazyWithRetry(() => import("./pages/Guia"));
 const ConteudoIA = lazyWithRetry(() => import("./pages/ConteudoIA"));
@@ -212,6 +213,7 @@ const App = () => (
                 <Route path="mapa-empresa" element={<Navigate to="/funis?view=mapa" replace />} />
                 <Route path="configuracoes" element={<Configuracoes />} />
                 <Route path="sala-de-maquinas" element={<SalaMaquinas />} />
+                <Route path="plataformas" element={<Plataformas />} />
                 <Route path="cofre" element={<Cofre />} />
                 <Route path="conteudo-ia" element={<ConteudoIA />} />
                 <Route path="nutricao" element={<Nutricao />} />

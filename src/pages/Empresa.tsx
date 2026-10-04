@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase, Palette } from "lucide-react";
+import { UsersRound, Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase, Palette } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ColumnColorMenu } from "@/components/kanban/ColumnColorMenu";
 import { hexToTint } from "@/components/kanban/column-color";
@@ -20,6 +20,7 @@ import { FarmTab } from "@/components/empresa/FarmTab";
 import { DevicesTab } from "@/components/empresa/DevicesTab";
 import { AccountFarmDialog } from "@/components/empresa/AccountFarmDialog";
 import { AddAccountToMapDialog } from "@/components/empresa/AddAccountToMapDialog";
+import { ProfilesMatrix } from "@/components/empresa/ProfilesMatrix";
 import { toast } from "sonner";
 
 
@@ -125,6 +126,7 @@ export default function Empresa() {
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); loadRefs(); }} className="space-y-4">
         <TabsList>
+          <TabsTrigger value="perfis"><UsersRound className="h-3.5 w-3.5 mr-1" /> Perfis × canais</TabsTrigger>
           <TabsTrigger value="email"><Mail className="h-3.5 w-3.5 mr-1" /> Emails</TabsTrigger>
           <TabsTrigger value="instagram"><Instagram className="h-3.5 w-3.5 mr-1" /> Instagram</TabsTrigger>
           <TabsTrigger value="tiktok"><Music2 className="h-3.5 w-3.5 mr-1" /> TikTok</TabsTrigger>
@@ -134,6 +136,10 @@ export default function Empresa() {
           <TabsTrigger value="zernio"><KeyRound className="h-3.5 w-3.5 mr-1" /> Zernio</TabsTrigger>
           <TabsTrigger value="farm"><Sprout className="h-3.5 w-3.5 mr-1" /> Farm</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="perfis">
+          <ProfilesMatrix />
+        </TabsContent>
 
         <TabsContent value="email">
           <AccountTable contas={filterByType("email")} tipo="email" mapNodes={mapNodes} devices={devices} projects={projects}

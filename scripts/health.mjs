@@ -5,10 +5,12 @@
 //   node scripts/health.mjs              alertas, do mais grave ao informativo
 //   node scripts/health.mjs --erros      só erros e atenções
 //   node scripts/health.mjs --json       retrato bruto + alertas em JSON (para IA/automação)
+//   node scripts/health.mjs --plataformas  estado de cada plataforma (mesma regra da tela /plataformas)
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { alertCounts, machineAlerts } from "../supabase/functions/_shared/machine-room.ts";
+import { AUTONOMY_LABEL, CATEGORY_LABEL, PLATFORMS, STATE_LABEL, platformStatus, platformSummary } from "../supabase/functions/_shared/platforms.ts";
 
 const args = process.argv.slice(2);
 const WORK_DIR = ".tmp-health";
@@ -22,6 +24,22 @@ const out = execFileSync(npx, ["supabase", "db", "query", "--linked", "--output-
 const raw = JSON.parse(out.slice(out.indexOf("{"))).rows[0].r;
 const room = typeof raw === "string" ? JSON.parse(raw) : raw;
 const alerts = machineAlerts(room);
+
+if (args.includes("--plataformas")) {
+  const rows = PLATFORMS.map((p) => ({ p, s: platformStatus(p, room) }));
+  const sum = platformSummary(rows);
+  console.log(`Plataformas: ${sum.total} · utilizáveis ${sum.utilizaveis} · automatizáveis ${sum.automatizaveis} · assistidas ${sum.assistidas} · pendentes ${sum.pendentes}
+`);
+  for (const cat of [...new Set(PLATFORMS.map((p) => p.categoria))]) {
+    console.log(CATEGORY_LABEL[cat]);
+    for (const { p, s } of rows.filter((r) => r.p.categoria === cat)) {
+      console.log(`  [${STATE_LABEL[s.estado]}] ${p.nome} — ${AUTONOMY_LABEL[p.autonomia]} · ${s.evidencia}${s.custo ? ` · ${s.custo}` : ""}`);
+      if (s.bloqueio) console.log(`      bloqueio: ${s.bloqueio}`);
+      console.log(`      próximo: ${p.proximo}`);
+    }
+  }
+  process.exit(0);
+}
 
 if (args.includes("--json")) {
   console.log(JSON.stringify({ room, alerts, counts: alertCounts(alerts) }, null, 2));

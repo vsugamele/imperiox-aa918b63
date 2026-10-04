@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, FolderKanban, ListTodo, Users, DollarSign,
   Search, Brain, FileText, Link2,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Gauge,
+  Zap, UsersRound, Building2, Settings, LogOut, Crown, Gauge, Boxes,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
   Inbox, Pencil, Workflow, Globe, Coins,
@@ -69,6 +69,7 @@ const configurarItems = [
   { title: "Cofre",   url: "/cofre",         icon: KeyRound },
   { title: "Config",  url: "/configuracoes", icon: Settings },
   { title: "Sala de máquinas", url: "/sala-de-maquinas", icon: Gauge },
+  { title: "Plataformas", url: "/plataformas", icon: Boxes },
   { title: "Guia",    url: "/guia",          icon: BookOpen },
 ];
 

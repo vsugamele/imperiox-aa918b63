@@ -31,3 +31,4 @@ supabase/.temp
 .tmp-launch/
 .tmp-live/
 .tmp-health/
+.tmp-centro/
