@@ -6,6 +6,7 @@
 //   node scripts/import-centro-references.mjs --dry-run          lista o que entraria
 //   node scripts/import-centro-references.mjs --only 1           carrega só 1 (validação)
 //   node scripts/import-centro-references.mjs                    carrega todas
+//   node scripts/import-centro-references.mjs --skip-frames      regrava os dados sem baixar quadros (já estão no bucket)
 //
 // A chave de serviço do Centro é lida do .env.local do dashboard dele, usada só para baixar os quadros e
 // nunca é mostrada, gravada, logada nem commitada (autorização do Vinicius em 04/10).
@@ -23,6 +24,7 @@ const FRAMES_DIR = join(WORK_DIR, "centro");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const skipFrames = args.includes("--skip-frames");
 const onlyIdx = args.indexOf("--only");
 const only = onlyIdx >= 0 ? Number(args[onlyIdx + 1]) : null;
 
@@ -68,7 +70,7 @@ if (dryRun) {
   process.exit(0);
 }
 
-rmSync(WORK_DIR, { recursive: true, force: true });
+if (!skipFrames) rmSync(WORK_DIR, { recursive: true, force: true });
 mkdirSync(FRAMES_DIR, { recursive: true });
 
 const records = [];
@@ -78,6 +80,7 @@ for (const r of rows) {
   const frames = [];
   for (const f of m.frames || []) {
     const name = f.key.split("/").pop();
+    if (skipFrames) { frames.push({ seconds: f.seconds, url: `${PUBLIC_BASE}/centro/${m.sha256}/${name}` }); continue; }
     const resp = await fetch(`${url}/storage/v1/object/authenticated/${m.bucket}/${f.key}`, { headers });
     if (!resp.ok) { console.warn(`  quadro indisponível (${resp.status}): ${r.title} ${name}`); continue; }
     mkdirSync(join(FRAMES_DIR, m.sha256), { recursive: true });
@@ -115,7 +118,11 @@ if (downloaded) {
   console.log("Quadros enviados ao bucket reference-frames.");
 }
 
-const values = records.map((x) => `(${q(`centro-${x.external_id}`)}, null, 'video', ${q(x.titulo)}, ${q(x.url)}, ${q(x.image_url)}, ${x.tags.length ? `array[${x.tags.map(q).join(",")}]::text[]` : "'{}'::text[]"}, ${q(x.criador ? `@${x.criador}` : null)}, ${q(`Centro — ${x.lote}`)}, ${q(x.transcricao)}, 'centro', ${q(x.external_id)}, ${q(x.lote)}, ${x.duracao ?? "null"}, ${j(x.quadros)}, ${j(x.analise)}, ${j(x.video_ref)}, 'instagram')`).join(",\n");
+// Em lotes: o comando inteiro com 105 análises passava do limite da API (413).
+const BATCH = 10;
+let inserted = 0;
+for (let i = 0; i < records.length; i += BATCH) {
+const values = records.slice(i, i + BATCH).map((x) => `(${q(`centro-${x.external_id}`)}, null, 'video', ${q(x.titulo)}, ${q(x.url)}, ${q(x.image_url)}, ${x.tags.length ? `array[${x.tags.map(q).join(",")}]::text[]` : "'{}'::text[]"}, ${q(x.criador ? `@${x.criador}` : null)}, ${q(`Centro — ${x.lote}`)}, ${q(x.transcricao)}, 'centro', ${q(x.external_id)}, ${q(x.lote)}, ${x.duracao ?? "null"}, ${j(x.quadros)}, ${j(x.analise)}, ${j(x.video_ref)}, 'instagram')`).join(",\n");
 const sql = `insert into imphq_referencias (id, project_id, tipo, titulo, url, image_url, tags, notas, pasta, transcricao, fonte, external_id, lote, duracao, quadros, analise, video_ref, plataforma)
 values ${values}
 on conflict (external_id) where external_id is not null do update set
@@ -125,5 +132,6 @@ on conflict (external_id) where external_id is not null do update set
 returning id;`;
 writeFileSync(join(WORK_DIR, "upsert.sql"), sql);
 const out = supabase(["db", "query", "--linked", "--output-format", "json", "-f", join(WORK_DIR, "upsert.sql").split("\\").join("/")]);
-const inserted = JSON.parse(out.slice(out.indexOf("{"))).rows?.length ?? 0;
+inserted += JSON.parse(out.slice(out.indexOf("{"))).rows?.length ?? 0;
+}
 console.log(`${inserted} referência(s) gravada(s) em imphq_referencias.`);
