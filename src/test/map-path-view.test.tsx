@@ -2,6 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MapPathView } from "@/components/funis/MapPathView";
 import type { MapNode } from "@/components/funis/map-node-model";
+import type { NodeMetricSnapshot } from "@/lib/map-stage-metrics";
+
+const snapshot = (values: Record<string, number | null>, scope: "etapa" | "projeto" = "etapa", projectId = "slimsoda"): NodeMetricSnapshot =>
+  ({ values, scope, projectId, status: "ready", source: "Tracker do funil", refs: { cpaAlvo: 60 }, updatedAt: "2026-10-04T20:00:00Z" });
 
 const node = (id: string, kind: string, x: number, extra: Partial<MapNode> = {}): MapNode => ({
   id, map_id: "m", label: id.toUpperCase(), kind, color: "#fff", position: { x, y: 0 }, size: "M", checklist: [], ...extra,
@@ -19,7 +23,7 @@ const edges = [{ source: "ads", target: "pagina" }, { source: "pagina", target: 
 
 describe("MapPathView", () => {
   it("shows the main path in order with delivery, metric × target and where it is stuck", () => {
-    render(<MapPathView nodes={nodes} edges={edges} today="2026-10-03" metricValues={{ taxa_clique_checkout: 7.5, cpa: 80 }} scaleRefs={{ cpaAlvo: 60 }} onOpen={vi.fn()} onSetRole={vi.fn()} />);
+    render(<MapPathView nodes={nodes} edges={edges} today="2026-10-03" metricsByNode={{ pagina: snapshot({ taxa_clique_checkout: 7.5 }), checkout: snapshot({ cpa: 80 }, "projeto") }} onOpen={vi.fn()} onSetRole={vi.fn()} />);
     expect(screen.getByText(/4 passo\(s\) até/)).toBeInTheDocument();
     const items = screen.getAllByRole("listitem").map((li) => li.textContent);
     expect(items[0]).toContain("ADS");
@@ -46,5 +50,17 @@ describe("MapPathView", () => {
   it("explains what to do when the map has no purchase or checkout", () => {
     render(<MapPathView nodes={[node("a", "anuncio", 0)]} edges={[]} today="2026-10-03" onOpen={vi.fn()} onSetRole={vi.fn()} />);
     expect(screen.getByText(/ainda não tem compra nem checkout/)).toBeInTheDocument();
+  });
+
+  it("shows metrics on alternative stages with their own scope and reports read failures", () => {
+    const altered = nodes.map((n) => n.id === "down" ? { ...n, metrics_target: { key: "sessoes_pagina" } } : n);
+    render(<MapPathView nodes={altered} edges={edges} today="2026-10-03" metricsByNode={{
+      down: snapshot({ sessoes_pagina: 11 }, "etapa", "memoflow"),
+      pagina: { ...snapshot({ taxa_clique_checkout: 99 }), status: "error", source: "Falha ao carregar métricas" },
+    }} onOpen={vi.fn()} onSetRole={vi.fn()} />);
+    expect(screen.getByText("11")).toBeInTheDocument();
+    expect(screen.getByText(/Esta URL · memoflow · Tracker do funil/)).toBeInTheDocument();
+    expect(screen.getByText(/falha de leitura/)).toBeInTheDocument();
+    expect(screen.queryByText("99%")).not.toBeInTheDocument();
   });
 });

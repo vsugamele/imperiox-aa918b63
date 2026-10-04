@@ -48,7 +48,8 @@ import { MapNodeCard } from "@/components/funis/MapNodeCard";
 import { orderSteps } from "@shared/map-order";
 import { localDate } from "@shared/map-steps";
 import { MapPathView, type PathRole } from "@/components/funis/MapPathView";
-import type { ScaleRefs } from "@shared/map-path";
+import { useMapPathMetrics } from "@/hooks/useMapPathMetrics";
+import { nodeMetricSnapshot } from "@/lib/map-stage-metrics";
 import { StepPrints } from "@/components/funis/StepPrints";
 import { StepScaleLadder } from "@/components/funis/StepScaleLadder";
 import { scaleStepPhase } from "@shared/scale-ladder";
@@ -403,7 +404,6 @@ function InnerMap({
   const [presenting, setPresenting] = useState(false);
   // Duas formas de ver o mesmo mapa: livre (canvas) ou o caminho principal em linha (MAP2.3).
   const [view, setView] = useState<"mapa" | "caminho">("mapa");
-  const [pathMetrics, setPathMetrics] = useState<{ projectId: string; values: Record<string, number | null>; refs: ScaleRefs | null } | null>(null);
   const [paletteQuery, setPaletteQuery] = useState("");
   const paletteGroups = useMemo(() => {
     const q = paletteQuery.trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -740,15 +740,16 @@ function InnerMap({
   );
   const { data: liveStats } = useCompanyMapLiveStats(liveProjectIds);
   const { data: team } = useTeamMembers();
-  const { data: flowData } = useMapFlowVolume(liveProjectIds);
+  const { data: flowData, isError: flowError } = useMapFlowVolume(liveProjectIds);
 
   // Volume real de 7 dias em cada seta: só reescreve as setas cujo volume mudou.
   useEffect(() => {
-    if (!flowData) return;
-    const volumes = nodeVolumes(rawNodes, {
+    if (!flowData && !flowError) return;
+    const volumes = flowData && !flowError ? nodeVolumes(rawNodes, {
       sessions: flowData.sessions, byProject: flowData.byProject,
+      pageSessionsByProject: flowData.pageSessionsByProject,
       mapProjectId: liveProjectIds.length === 1 ? liveProjectIds[0] : null,
-    });
+    }) : new Map();
     setEdges((eds) => {
       let changed = false;
       const next = eds.map((e) => {
@@ -760,7 +761,7 @@ function InnerMap({
       });
       return changed ? next : eds;
     });
-  }, [flowData, rawNodes, liveProjectIds, setEdges]);
+  }, [flowData, flowError, rawNodes, liveProjectIds, setEdges]);
 
   // re-inject live stats only (avoid full data replace to prevent flicker during drag)
   useEffect(() => {
@@ -1357,31 +1358,10 @@ function InnerMap({
     setCenter(target.position.x + 100, target.position.y + 50, { zoom: 1.1, duration: 600 });
   }, [focusNodeId, rawNodes, setCenter]);
 
-  // Projeto do mapa = o mais ligado nas etapas; o Caminho compara as metas com os números reais dele (7 dias).
-  const mapProjectId = useMemo(() => {
-    const count = new Map<string, number>();
-    for (const n of rawNodes) if (n.linked_project_id) count.set(n.linked_project_id, (count.get(n.linked_project_id) ?? 0) + 1);
-    return [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  }, [rawNodes]);
-  useEffect(() => {
-    if (view !== "caminho" || !mapProjectId || pathMetrics?.projectId === mapProjectId) return;
-    let cancelled = false;
-    const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
-    Promise.all([
-      supabase.rpc("imphq_project_metrics", { p_project_id: mapProjectId, p_since: since }),
-      supabase.from("imphq_scale_rounds").select("params").eq("project_id", mapProjectId).order("updated_at", { ascending: false }).limit(1),
-    ]).then(([metrics, rounds]) => {
-      if (cancelled) return;
-      if (metrics.error) { toast.error(`Métricas do Caminho: ${metrics.error.message}`); return; }
-      const raw = metrics.data && typeof metrics.data === "object" && !Array.isArray(metrics.data) ? metrics.data as Record<string, unknown> : {};
-      const values = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, typeof v === "number" ? v : v === null ? null : Number(v)]));
-      const params = rounds.data?.[0]?.params;
-      const p = params && typeof params === "object" && !Array.isArray(params) ? params as Record<string, unknown> : null;
-      const refs: ScaleRefs | null = p ? { cpaAlvo: Number(p.cpaAlvo) || undefined, payout: Number(p.payout) || undefined, icsPorVenda: Number(p.icsPorVenda) || undefined } : null;
-      setPathMetrics({ projectId: mapProjectId, values, refs });
-    });
-    return () => { cancelled = true; };
-  }, [view, mapProjectId, pathMetrics?.projectId]);
+  const pathProjectIds = useMemo(() => [...new Set(rawNodes.flatMap((n) => n.linked_project_id ? [n.linked_project_id] : []))], [rawNodes]);
+  const pathMetrics = useMapPathMetrics(pathProjectIds, view === "caminho");
+  const pathMetricsByNode = useMemo(() => Object.fromEntries(rawNodes.map((node) =>
+    [node.id, nodeMetricSnapshot(node, pathMetrics.data ?? {})])), [rawNodes, pathMetrics.data]);
 
   // Do Caminho para o mapa: volta ao canvas centrado na etapa e abre o detalhe.
   const openFromPath = (id: string) => {
@@ -2386,8 +2366,7 @@ function InnerMap({
             nodes={rawNodes}
             edges={edges.map(e => ({ source: e.source, target: e.target }))}
             today={localDate()}
-            metricValues={pathMetrics?.projectId === mapProjectId ? pathMetrics.values : null}
-            scaleRefs={pathMetrics?.projectId === mapProjectId ? pathMetrics.refs : null}
+            metricsByNode={pathMetricsByNode}
             onOpen={openFromPath}
             onSetRole={setPathRole}
           />

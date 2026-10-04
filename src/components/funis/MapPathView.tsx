@@ -5,10 +5,11 @@ import { ArrowDownRight, ChevronDown, ChevronRight, Crosshair, MapPin, MoreHoriz
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { buildMapPath, metricVerdict, parseMetricRule, pathFocus, type MetricVerdict, type ScaleRefs } from "@shared/map-path";
+import { buildMapPath, metricVerdict, parseMetricRule, pathFocus, type MetricVerdict } from "@shared/map-path";
 import { readStageContract } from "@shared/map-contract";
 import { elementType, FUNNEL_PHASES, phaseOf } from "@shared/map-elements";
 import { METRIC_KEYS } from "@shared/metric-keys";
+import type { NodeMetricSnapshot } from "@/lib/map-stage-metrics";
 import type { MapNode } from "@/components/funis/map-node-model";
 
 export type PathRole = "principal" | "alternativa" | null;
@@ -16,10 +17,8 @@ export type PathRole = "principal" | "alternativa" | null;
 interface MapPathViewProps {
   nodes: MapNode[];
   edges: Array<{ source: string; target: string }>;
-  /** Valores reais de 7 dias por chave de métrica (null = sem dado). */
-  metricValues?: Record<string, number | null> | null;
-  /** Parâmetros da esteira de escala do projeto, para metas relativas ("até o CPA alvo"). */
-  scaleRefs?: ScaleRefs | null;
+  /** Cada etapa recebe somente as métricas do seu projeto e URL. */
+  metricsByNode?: Record<string, NodeMetricSnapshot>;
   today: string;
   onOpen: (id: string) => void;
   onSetRole: (id: string, role: PathRole) => void;
@@ -42,15 +41,15 @@ function formatValue(value: number, unidade: string | undefined): string {
   return value.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
 
-function stepMetric(node: MapNode, values: Record<string, number | null> | null | undefined, refs: ScaleRefs | null | undefined) {
+function stepMetric(node: MapNode, snapshot: NodeMetricSnapshot | undefined) {
   const target = node.metrics_target && typeof node.metrics_target === "object" && !Array.isArray(node.metrics_target)
     ? node.metrics_target as Record<string, unknown> : null;
   const key = typeof target?.key === "string" ? target.key : null;
   if (!key) return null;
   const meta = typeof target?.meta === "string" ? target.meta : null;
   const info = METRIC.get(key);
-  const real = values ? values[key] ?? null : null;
-  const verdict = metricVerdict(real, parseMetricRule(meta, refs ?? {}));
+  const real = snapshot?.status === "ready" ? snapshot.values[key] ?? null : null;
+  const verdict = metricVerdict(real, parseMetricRule(meta, snapshot?.refs ?? {}));
   return { label: info?.label ?? key, meta, real: real === null ? null : formatValue(real, info?.unidade), verdict, semFonte: info ? !info.disponivel : false };
 }
 
@@ -62,12 +61,39 @@ function delivery(node: MapNode): { label: string; text: string } | null {
   return ready ? { label: "Pronto quando", text: ready } : null;
 }
 
-export function MapPathView({ nodes, edges, metricValues, scaleRefs, today, onOpen, onSetRole }: MapPathViewProps) {
+export function MapPathView({ nodes, edges, metricsByNode, today, onOpen, onSetRole }: MapPathViewProps) {
   const [showFora, setShowFora] = useState(false);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const path = useMemo(() => buildMapPath(nodes, edges), [nodes, edges]);
   const focus = useMemo(() => pathFocus(path.principal, nodes, today), [path.principal, nodes, today]);
   const objetivo = path.objetivo ? byId.get(path.objetivo) : null;
+
+  const metricLine = (node: MapNode) => {
+    const snapshot = metricsByNode?.[node.id];
+    const metric = stepMetric(node, snapshot);
+    if (!metric) return null;
+    const updated = snapshot?.updatedAt ? new Date(snapshot.updatedAt) : null;
+    const updatedLabel = updated && Number.isFinite(updated.getTime()) ? updated.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : null;
+    return (
+      <div className="mt-2 rounded-md bg-secondary/50 px-2.5 py-1.5 text-[12px]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className={cn("h-2 w-2 rounded-full shrink-0", VERDICT_STYLE[metric.verdict].dot)} aria-hidden />
+          <span className="text-foreground">{metric.label}</span>
+          <span className="font-mono text-foreground">{metric.real ?? "—"}</span>
+          {metric.meta && <span className="text-muted-foreground">· meta: {metric.meta}</span>}
+          <span className="text-muted-foreground">· {snapshot?.status === "error" ? "falha de leitura" : metric.semFonte ? "sem fonte de dado ainda" : VERDICT_STYLE[metric.verdict].label}</span>
+        </div>
+        {snapshot?.scope === "etapa" && snapshot.status === "ready" && (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Sessões com CTA: {snapshot.values.cliques_cta ?? "—"} · Taxa de CTA: {snapshot.values.taxa_clique_cta === null || snapshot.values.taxa_clique_cta === undefined ? "—" : formatValue(snapshot.values.taxa_clique_cta, "percentual")} · Checkout iniciado: {snapshot.values.cliques_checkout ?? "—"}
+          </p>
+        )}
+        <p className="mt-0.5 text-[10px] text-muted-foreground break-all">
+          {snapshot?.scope === "projeto" ? "Projeto" : "Esta URL"} · {snapshot?.projectId ?? "sem projeto"} · {snapshot?.source ?? "sem dado"}{updatedLabel ? ` · atualizado ${updatedLabel}` : ""}
+        </p>
+      </div>
+    );
+  };
 
   const roleMenu = (node: MapNode, onMain: boolean) => (
     <DropdownMenu>
@@ -90,12 +116,15 @@ export function MapPathView({ nodes, edges, metricValues, scaleRefs, today, onOp
     const node = byId.get(id);
     if (!node) return null;
     return (
-      <div key={id} className="flex items-center gap-2 rounded-md border border-dashed border-border/70 bg-card/40 px-2.5 py-1.5">
+      <div key={id} className="rounded-md border border-dashed border-border/70 bg-card/40 px-2.5 py-1.5">
+        <div className="flex items-center gap-2">
         <ArrowDownRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         <button type="button" className="min-w-0 flex-1 text-left text-[13px] text-foreground/90 truncate hover:text-primary" onClick={() => onOpen(id)}>{node.label}</button>
         <span className="text-[11px] text-muted-foreground shrink-0">{elementType(node.kind)?.label ?? node.kind}</span>
         {node.path_role === "alternativa" && <span className="text-[11px] text-muted-foreground shrink-0">(manual)</span>}
         {roleMenu(node, false)}
+        </div>
+        {metricLine(node)}
       </div>
     );
   };
@@ -133,7 +162,6 @@ export function MapPathView({ nodes, edges, metricValues, scaleRefs, today, onOp
           {path.principal.map((id, i) => {
             const node = byId.get(id);
             if (!node) return null;
-            const metric = stepMetric(node, metricValues, scaleRefs);
             const entrega = delivery(node);
             const isFocus = focus?.id === id;
             const done = node.step_status === "done";
@@ -161,15 +189,7 @@ export function MapPathView({ nodes, edges, metricValues, scaleRefs, today, onOp
                   {entrega && (
                     <p className="mt-2 text-[13px] text-foreground/90 leading-snug"><span className="text-muted-foreground">{entrega.label}: </span>{entrega.text}</p>
                   )}
-                  {metric && (
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-secondary/50 px-2.5 py-1.5 text-[12px]">
-                      <span className={cn("h-2 w-2 rounded-full shrink-0", VERDICT_STYLE[metric.verdict].dot)} aria-hidden />
-                      <span className="text-foreground">{metric.label}</span>
-                      <span className="font-mono text-foreground">{metric.real ?? "—"}</span>
-                      {metric.meta && <span className="text-muted-foreground">· meta: {metric.meta}</span>}
-                      <span className="text-muted-foreground">· {metric.semFonte ? "sem fonte de dado ainda" : VERDICT_STYLE[metric.verdict].label}</span>
-                    </div>
-                  )}
+                  {metricLine(node)}
                 </div>
                 {alts.length > 0 && (
                   <div className="mt-2 ml-4 space-y-1.5">

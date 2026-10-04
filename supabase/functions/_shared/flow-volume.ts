@@ -55,7 +55,7 @@ export interface NodeVolume { metric: FlowMetric; value: number }
 /** Volume de cada etapa. O projeto da etapa é o dela ou o do mapa. */
 export function nodeVolumes(
   nodes: ReadonlyArray<FlowNode>,
-  data: { sessions: ReadonlyMap<string, number>; byProject: Readonly<Record<string, ProjectVolume>>; mapProjectId?: string | null },
+  data: { sessions: ReadonlyMap<string, number>; byProject: Readonly<Record<string, ProjectVolume>>; mapProjectId?: string | null; pageSessionsByProject?: Readonly<Record<string, ReadonlyMap<string, number>>> },
 ): Map<string, NodeVolume> {
   const result = new Map<string, NodeVolume>();
   for (const n of nodes) {
@@ -63,7 +63,11 @@ export function nodeVolumes(
     if (!metric) continue;
     if (metric === "sessoes") {
       const url = normalizeUrl(n.url);
-      result.set(n.id, { metric, value: url ? data.sessions.get(url) ?? 0 : 0 });
+      const pid = n.linked_project_id || data.mapProjectId;
+      const sessions = data.pageSessionsByProject ? (pid ? data.pageSessionsByProject[pid] : undefined) : data.sessions;
+      // Ausência da fonte não vira uma etapa com zero medido.
+      if (data.pageSessionsByProject && (!url || !sessions?.has(url))) continue;
+      result.set(n.id, { metric, value: url ? sessions?.get(url) ?? 0 : 0 });
       continue;
     }
     const pid = n.linked_project_id || data.mapProjectId;

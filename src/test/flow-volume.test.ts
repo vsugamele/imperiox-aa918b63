@@ -33,6 +33,18 @@ describe("volume real nas setas (UX1.4)", () => {
     expect(flowMotion(12).particles).toBe(3);
     expect(flowMotion(500).durationSec).toBeLessThan(flowMotion(2).durationSec);
   });
+
+  it("isolates page volume by project and distinguishes an unseen URL from measured zero", () => {
+    const vols = nodeVolumes([
+      { id: "a", kind: "vsl", url: "https://same.test", linked_project_id: "slimsoda" },
+      { id: "b", kind: "vsl", url: "https://same.test", linked_project_id: "memoflow" },
+      { id: "unseen", kind: "vsl", url: "https://missing.test", linked_project_id: "slimsoda" },
+    ], { sessions: new Map([["same.test", 99]]), byProject: {},
+      pageSessionsByProject: { slimsoda: new Map([["same.test", 0]]), memoflow: new Map([["same.test", 7]]) } });
+    expect(vols.get("a")?.value).toBe(0);
+    expect(vols.get("b")?.value).toBe(7);
+    expect(vols.has("unseen")).toBe(false);
+  });
 });
 
 describe("aviso de venda nova", () => {

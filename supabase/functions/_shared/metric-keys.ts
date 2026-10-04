@@ -16,9 +16,11 @@ export interface MetricKey {
 
 export const METRIC_KEYS: MetricKey[] = [
   // Páginas e funil (tracker do Império)
-  { key: "sessoes_pagina", label: "Sessões na página", unidade: "numero", escopo: "etapa", fonte: "imphq_events (page_url da etapa)", disponivel: true, descricao: "Sessões distintas na URL da etapa, sem heartbeat." },
-  { key: "cliques_checkout", label: "Cliques para o checkout", unidade: "numero", escopo: "etapa", fonte: "imphq_events InitiateCheckout", disponivel: true, descricao: "Cliques que levaram ao checkout a partir da página da etapa." },
-  { key: "taxa_clique_checkout", label: "Taxa de clique para o checkout", unidade: "percentual", escopo: "etapa", fonte: "imphq_events", disponivel: true, descricao: "Cliques para o checkout ÷ sessões da página." },
+  { key: "sessoes_pagina", label: "Sessões na página", unidade: "numero", escopo: "etapa", fonte: "imphq_page_metrics (projeto + URL)", disponivel: true, descricao: "Sessões distintas com visualização registrada na URL da etapa; combina os trackers e exclui validação e heartbeat." },
+  { key: "cliques_cta", label: "Sessões com clique no CTA", unidade: "numero", escopo: "etapa", fonte: "imphq_page_metrics", disponivel: true, descricao: "Sessões distintas com CTA registrado nesta página; repetição na mesma sessão conta uma vez. Clique não significa checkout iniciado ou compra." },
+  { key: "taxa_clique_cta", label: "Taxa de clique no CTA", unidade: "percentual", escopo: "etapa", fonte: "imphq_page_metrics", disponivel: true, descricao: "Percentual das sessões com visualização nesta URL que também acionaram CTA. A confirmar quando não há visualizações." },
+  { key: "cliques_checkout", label: "Sessões com checkout iniciado", unidade: "numero", escopo: "etapa", fonte: "imphq_events InitiateCheckout", disponivel: true, descricao: "Sessões distintas com evento InitiateCheckout registrado a partir desta URL. Não comprova compra." },
+  { key: "taxa_clique_checkout", label: "Taxa de checkout iniciado", unidade: "percentual", escopo: "etapa", fonte: "imphq_page_metrics", disponivel: true, descricao: "Percentual das sessões com visualização nesta URL que também registraram InitiateCheckout." },
   { key: "leads", label: "Leads", unidade: "numero", escopo: "projeto", fonte: "imphq_leads", disponivel: true, descricao: "Leads novos do projeto no período." },
   // Conversa (X1)
   { key: "conversas_x1", label: "Conversas 1 a 1 novas", unidade: "numero", escopo: "projeto", fonte: "imphq_wa_conversations (sem grupos)", disponivel: true, descricao: "Conversas individuais iniciadas no período." },

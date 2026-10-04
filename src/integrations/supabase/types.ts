@@ -195,6 +195,8 @@ export type Database = {
           data: string
           horario: string
           id: string
+          modelo_motivo: string | null
+          modelo_objetivo: string | null
           observacoes: string | null
           origem_trafego: string | null
           profissional_id: string | null
@@ -204,6 +206,9 @@ export type Database = {
           sinal_obrigatorio: boolean
           sinal_pago: boolean
           status: string
+          termo_imagem_assinado: boolean | null
+          termo_imagem_assinado_em: string | null
+          tipo_agendamento: string | null
           token_confirmacao: string | null
           updated_at: string
           user_id: string
@@ -223,6 +228,8 @@ export type Database = {
           data: string
           horario: string
           id?: string
+          modelo_motivo?: string | null
+          modelo_objetivo?: string | null
           observacoes?: string | null
           origem_trafego?: string | null
           profissional_id?: string | null
@@ -232,6 +239,9 @@ export type Database = {
           sinal_obrigatorio?: boolean
           sinal_pago?: boolean
           status?: string
+          termo_imagem_assinado?: boolean | null
+          termo_imagem_assinado_em?: string | null
+          tipo_agendamento?: string | null
           token_confirmacao?: string | null
           updated_at?: string
           user_id: string
@@ -251,6 +261,8 @@ export type Database = {
           data?: string
           horario?: string
           id?: string
+          modelo_motivo?: string | null
+          modelo_objetivo?: string | null
           observacoes?: string | null
           origem_trafego?: string | null
           profissional_id?: string | null
@@ -260,6 +272,9 @@ export type Database = {
           sinal_obrigatorio?: boolean
           sinal_pago?: boolean
           status?: string
+          termo_imagem_assinado?: boolean | null
+          termo_imagem_assinado_em?: string | null
+          tipo_agendamento?: string | null
           token_confirmacao?: string | null
           updated_at?: string
           user_id?: string
@@ -739,6 +754,48 @@ export type Database = {
         }
         Relationships: []
       }
+      appbrabas_catalogo_jp: {
+        Row: {
+          ativo: boolean | null
+          categoria: string | null
+          comissao_pct: number | null
+          created_at: string | null
+          duracao_min: number | null
+          id: string
+          marca: string | null
+          nome: string
+          preco: number | null
+          tipo: string
+          unidade: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          categoria?: string | null
+          comissao_pct?: number | null
+          created_at?: string | null
+          duracao_min?: number | null
+          id?: string
+          marca?: string | null
+          nome: string
+          preco?: number | null
+          tipo: string
+          unidade?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          categoria?: string | null
+          comissao_pct?: number | null
+          created_at?: string | null
+          duracao_min?: number | null
+          id?: string
+          marca?: string | null
+          nome?: string
+          preco?: number | null
+          tipo?: string
+          unidade?: string | null
+        }
+        Relationships: []
+      }
       appbrabas_categorias_financeiras: {
         Row: {
           ativa: boolean | null
@@ -871,9 +928,11 @@ export type Database = {
           observacoes_capilares: string | null
           porosidade: string | null
           preferencias_capilares: Json | null
+          qtd_comandas: number | null
           salao_id: string | null
           tags: string[] | null
           tipo_curvatura: string | null
+          total_gasto: number | null
           tratamentos_anteriores: string | null
           updated_at: string
           user_id: string
@@ -899,9 +958,11 @@ export type Database = {
           observacoes_capilares?: string | null
           porosidade?: string | null
           preferencias_capilares?: Json | null
+          qtd_comandas?: number | null
           salao_id?: string | null
           tags?: string[] | null
           tipo_curvatura?: string | null
+          total_gasto?: number | null
           tratamentos_anteriores?: string | null
           updated_at?: string
           user_id: string
@@ -927,9 +988,11 @@ export type Database = {
           observacoes_capilares?: string | null
           porosidade?: string | null
           preferencias_capilares?: Json | null
+          qtd_comandas?: number | null
           salao_id?: string | null
           tags?: string[] | null
           tipo_curvatura?: string | null
+          total_gasto?: number | null
           tratamentos_anteriores?: string | null
           updated_at?: string
           user_id?: string
@@ -1130,6 +1193,76 @@ export type Database = {
           },
         ]
       }
+      appbrabas_contratos_equipe: {
+        Row: {
+          comissao_pct: number | null
+          conteudo: string
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string | null
+          id: string
+          membro_id: string | null
+          profissional_id: string | null
+          salao_id: string
+          status: string | null
+          tipo: string
+          titulo: string
+          updated_at: string | null
+        }
+        Insert: {
+          comissao_pct?: number | null
+          conteudo: string
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          id?: string
+          membro_id?: string | null
+          profissional_id?: string | null
+          salao_id: string
+          status?: string | null
+          tipo?: string
+          titulo: string
+          updated_at?: string | null
+        }
+        Update: {
+          comissao_pct?: number | null
+          conteudo?: string
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          id?: string
+          membro_id?: string | null
+          profissional_id?: string | null
+          salao_id?: string
+          status?: string | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_contratos_equipe_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_equipe_membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_contratos_equipe_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_contratos_equipe_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_crm_colunas: {
         Row: {
           cor: string
@@ -1226,10 +1359,65 @@ export type Database = {
           },
         ]
       }
+      appbrabas_diagnosticos_equipe: {
+        Row: {
+          carta_futuro: string | null
+          created_at: string | null
+          id: string
+          meta_financeira_mensal: number | null
+          profissional_id: string | null
+          profissional_nome: string | null
+          respostas: Json
+          salao_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          carta_futuro?: string | null
+          created_at?: string | null
+          id?: string
+          meta_financeira_mensal?: number | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          respostas?: Json
+          salao_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          carta_futuro?: string | null
+          created_at?: string | null
+          id?: string
+          meta_financeira_mensal?: number | null
+          profissional_id?: string | null
+          profissional_nome?: string | null
+          respostas?: Json
+          salao_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_diagnosticos_equipe_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_profissionais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_diagnosticos_equipe_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_equipe_membros: {
         Row: {
           ativo: boolean
           created_at: string
+          email: string | null
           id: string
           nome: string
           permissoes: Json | null
@@ -1241,6 +1429,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
+          email?: string | null
           id?: string
           nome: string
           permissoes?: Json | null
@@ -1252,6 +1441,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
+          email?: string | null
           id?: string
           nome?: string
           permissoes?: Json | null
@@ -1751,7 +1941,9 @@ export type Database = {
           id: string
           nome_servico: string
           pacote_id: string
+          produto_id: string | null
           servico_id: string | null
+          tipo: string | null
           total: number
           usado: number
         }
@@ -1760,7 +1952,9 @@ export type Database = {
           id?: string
           nome_servico: string
           pacote_id: string
+          produto_id?: string | null
           servico_id?: string | null
+          tipo?: string | null
           total?: number
           usado?: number
         }
@@ -1769,7 +1963,9 @@ export type Database = {
           id?: string
           nome_servico?: string
           pacote_id?: string
+          produto_id?: string | null
           servico_id?: string | null
+          tipo?: string | null
           total?: number
           usado?: number
         }
@@ -1913,6 +2109,71 @@ export type Database = {
           value?: string | null
         }
         Relationships: []
+      }
+      appbrabas_precificacao_config: {
+        Row: {
+          custo_agua: number | null
+          custo_aluguel: number | null
+          custo_condominio_iptu: number | null
+          custo_energia: number | null
+          custo_folha_fixa: number | null
+          custo_internet_sistemas: number | null
+          custo_outros_fixos: number | null
+          dias_trabalhados_mes: number | null
+          horas_dia: number | null
+          id: string
+          imposto_taxa_cartao_pct: number | null
+          margem_lucro_desejada: number | null
+          media_clientes_mes: number | null
+          qtd_cadeiras: number | null
+          salao_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          custo_agua?: number | null
+          custo_aluguel?: number | null
+          custo_condominio_iptu?: number | null
+          custo_energia?: number | null
+          custo_folha_fixa?: number | null
+          custo_internet_sistemas?: number | null
+          custo_outros_fixos?: number | null
+          dias_trabalhados_mes?: number | null
+          horas_dia?: number | null
+          id?: string
+          imposto_taxa_cartao_pct?: number | null
+          margem_lucro_desejada?: number | null
+          media_clientes_mes?: number | null
+          qtd_cadeiras?: number | null
+          salao_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          custo_agua?: number | null
+          custo_aluguel?: number | null
+          custo_condominio_iptu?: number | null
+          custo_energia?: number | null
+          custo_folha_fixa?: number | null
+          custo_internet_sistemas?: number | null
+          custo_outros_fixos?: number | null
+          dias_trabalhados_mes?: number | null
+          horas_dia?: number | null
+          id?: string
+          imposto_taxa_cartao_pct?: number | null
+          margem_lucro_desejada?: number | null
+          media_clientes_mes?: number | null
+          qtd_cadeiras?: number | null
+          salao_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_precificacao_config_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: true
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appbrabas_produtos: {
         Row: {
@@ -2326,6 +2587,60 @@ export type Database = {
           },
         ]
       }
+      appbrabas_servico_custos: {
+        Row: {
+          comissao_pct: number | null
+          custo_produtos_insumos: number | null
+          id: string
+          itens_produtos: Json | null
+          margem_desejada_pct: number | null
+          preco_sugerido: number | null
+          salao_id: string
+          servico_id: string | null
+          tempo_minutos: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          comissao_pct?: number | null
+          custo_produtos_insumos?: number | null
+          id?: string
+          itens_produtos?: Json | null
+          margem_desejada_pct?: number | null
+          preco_sugerido?: number | null
+          salao_id: string
+          servico_id?: string | null
+          tempo_minutos?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          comissao_pct?: number | null
+          custo_produtos_insumos?: number | null
+          id?: string
+          itens_produtos?: Json | null
+          margem_desejada_pct?: number | null
+          preco_sugerido?: number | null
+          salao_id?: string
+          servico_id?: string | null
+          tempo_minutos?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_servico_custos_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appbrabas_servico_custos_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_servicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appbrabas_servicos: {
         Row: {
           created_at: string
@@ -2352,6 +2667,59 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      appbrabas_simulacoes_pacotes: {
+        Row: {
+          created_at: string | null
+          custo_insumos_total: number | null
+          desconto_pct: number | null
+          id: string
+          lista_compras_insumos: Json | null
+          lucro_estimado_total: number | null
+          nome: string
+          preco_avulso_total: number | null
+          preco_pacote_sugerido: number | null
+          qtd_pacotes_planejados: number | null
+          salao_id: string
+          servicos_inclusos: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          custo_insumos_total?: number | null
+          desconto_pct?: number | null
+          id?: string
+          lista_compras_insumos?: Json | null
+          lucro_estimado_total?: number | null
+          nome: string
+          preco_avulso_total?: number | null
+          preco_pacote_sugerido?: number | null
+          qtd_pacotes_planejados?: number | null
+          salao_id: string
+          servicos_inclusos?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          custo_insumos_total?: number | null
+          desconto_pct?: number | null
+          id?: string
+          lista_compras_insumos?: Json | null
+          lucro_estimado_total?: number | null
+          nome?: string
+          preco_avulso_total?: number | null
+          preco_pacote_sugerido?: number | null
+          qtd_pacotes_planejados?: number | null
+          salao_id?: string
+          servicos_inclusos?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appbrabas_simulacoes_pacotes_salao_id_fkey"
+            columns: ["salao_id"]
+            isOneToOne: false
+            referencedRelation: "appbrabas_saloes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appbrabas_super_admins: {
         Row: {
@@ -18763,6 +19131,13 @@ export type Database = {
             foreignKeyName: "imphq_ads_spend_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_ads_spend_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -18874,6 +19249,7 @@ export type Database = {
           created_by: string | null
           error: string | null
           executed_at: string | null
+          expired_at: string | null
           id: string
           impact_brl: number | null
           kind: string
@@ -18898,6 +19274,7 @@ export type Database = {
           created_by?: string | null
           error?: string | null
           executed_at?: string | null
+          expired_at?: string | null
           id?: string
           impact_brl?: number | null
           kind: string
@@ -18922,6 +19299,7 @@ export type Database = {
           created_by?: string | null
           error?: string | null
           executed_at?: string | null
+          expired_at?: string | null
           id?: string
           impact_brl?: number | null
           kind?: string
@@ -19038,6 +19416,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_ai_chats_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_ai_chats_project_id_fkey"
@@ -19209,63 +19594,6 @@ export type Database = {
           provider?: string
           tag?: string | null
           total_tokens?: number | null
-        }
-        Relationships: []
-      }
-      imphq_profiles: {
-        Row: {
-          id: string
-          nome: string
-          project_id: string | null
-          email: string | null
-          maquina: string | null
-          proxy: string | null
-          status: string
-          aquecimento: string | null
-          publicacao_autorizada: boolean
-          canais: Json
-          paginas_facebook: Json
-          fonte: string | null
-          external_id: string | null
-          metadata: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          nome: string
-          project_id?: string | null
-          email?: string | null
-          maquina?: string | null
-          proxy?: string | null
-          status?: string
-          aquecimento?: string | null
-          publicacao_autorizada?: boolean
-          canais?: Json
-          paginas_facebook?: Json
-          fonte?: string | null
-          external_id?: string | null
-          metadata?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          nome?: string
-          project_id?: string | null
-          email?: string | null
-          maquina?: string | null
-          proxy?: string | null
-          status?: string
-          aquecimento?: string | null
-          publicacao_autorizada?: boolean
-          canais?: Json
-          paginas_facebook?: Json
-          fonte?: string | null
-          external_id?: string | null
-          metadata?: Json
-          created_at?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -19556,6 +19884,13 @@ export type Database = {
             foreignKeyName: "imphq_automacoes_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_automacoes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -19756,6 +20091,13 @@ export type Database = {
             foreignKeyName: "imphq_business_hours_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_business_hours_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -19817,6 +20159,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_calendar_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_calendar_events_project_id_fkey"
@@ -20361,6 +20710,13 @@ export type Database = {
             foreignKeyName: "imphq_chat_messages_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_chat_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -20430,6 +20786,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_cinna_x1_configs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_cinna_x1_configs_project_id_fkey"
@@ -20689,6 +21052,13 @@ export type Database = {
             foreignKeyName: "imphq_cloud_phones_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_cloud_phones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -20889,18 +21259,12 @@ export type Database = {
       }
       imphq_company_map_nodes: {
         Row: {
-          due_date: string | null
-          owner_member_id: string | null
-          path_role: string | null
-          status_changed_at: string | null
-          status_changed_by: string | null
-          step_status: string | null
-          print_meta: Json | null
           api_binding: Json | null
           checklist: Json
           color: string
           created_at: string
           description: string | null
+          due_date: string | null
           executor_type: string | null
           height: number | null
           id: string
@@ -20915,27 +21279,27 @@ export type Database = {
           map_id: string
           metrics_target: Json | null
           notes: string | null
+          owner_member_id: string | null
+          path_role: string | null
           position: Json
+          print_meta: Json | null
           show_live_kpis: boolean | null
           size: string
           stage_role: string | null
+          status_changed_at: string | null
+          status_changed_by: string | null
+          step_status: string | null
           updated_at: string
           url: string | null
           width: number | null
         }
         Insert: {
-          due_date?: string | null
-          owner_member_id?: string | null
-          path_role?: string | null
-          status_changed_at?: string | null
-          status_changed_by?: string | null
-          step_status?: string | null
-          print_meta?: Json | null
           api_binding?: Json | null
           checklist?: Json
           color?: string
           created_at?: string
           description?: string | null
+          due_date?: string | null
           executor_type?: string | null
           height?: number | null
           id?: string
@@ -20950,27 +21314,27 @@ export type Database = {
           map_id: string
           metrics_target?: Json | null
           notes?: string | null
+          owner_member_id?: string | null
+          path_role?: string | null
           position?: Json
+          print_meta?: Json | null
           show_live_kpis?: boolean | null
           size?: string
           stage_role?: string | null
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          step_status?: string | null
           updated_at?: string
           url?: string | null
           width?: number | null
         }
         Update: {
-          due_date?: string | null
-          owner_member_id?: string | null
-          path_role?: string | null
-          status_changed_at?: string | null
-          status_changed_by?: string | null
-          step_status?: string | null
-          print_meta?: Json | null
           api_binding?: Json | null
           checklist?: Json
           color?: string
           created_at?: string
           description?: string | null
+          due_date?: string | null
           executor_type?: string | null
           height?: number | null
           id?: string
@@ -20985,10 +21349,16 @@ export type Database = {
           map_id?: string
           metrics_target?: Json | null
           notes?: string | null
+          owner_member_id?: string | null
+          path_role?: string | null
           position?: Json
+          print_meta?: Json | null
           show_live_kpis?: boolean | null
           size?: string
           stage_role?: string | null
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          step_status?: string | null
           updated_at?: string
           url?: string | null
           width?: number | null
@@ -21015,7 +21385,38 @@ export type Database = {
             referencedRelation: "imphq_company_maps"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "imphq_company_map_nodes_owner_member_id_fkey"
+            columns: ["owner_member_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_team_members"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      imphq_company_map_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          map_id: string
+          reason: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          map_id: string
+          reason: string
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          map_id?: string
+          reason?: string
+          snapshot?: Json
+        }
+        Relationships: []
       }
       imphq_company_maps: {
         Row: {
@@ -21171,6 +21572,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_competitors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_competitors_project_id_fkey"
@@ -21343,8 +21751,168 @@ export type Database = {
             foreignKeyName: "imphq_content_library_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_content_library_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
+          },
+        ]
+      }
+      imphq_content_metrics_daily: {
+        Row: {
+          account_id: string
+          clicks: number | null
+          comments: number | null
+          created_at: string
+          followers: number | null
+          id: string
+          leads: number | null
+          likes: number | null
+          metric_date: string
+          post_id: string | null
+          raw: Json | null
+          revenue: number | null
+          sales: number | null
+          saves: number | null
+          sessions: number | null
+          shares: number | null
+          source: string
+          views: number | null
+        }
+        Insert: {
+          account_id: string
+          clicks?: number | null
+          comments?: number | null
+          created_at?: string
+          followers?: number | null
+          id?: string
+          leads?: number | null
+          likes?: number | null
+          metric_date: string
+          post_id?: string | null
+          raw?: Json | null
+          revenue?: number | null
+          sales?: number | null
+          saves?: number | null
+          sessions?: number | null
+          shares?: number | null
+          source: string
+          views?: number | null
+        }
+        Update: {
+          account_id?: string
+          clicks?: number | null
+          comments?: number | null
+          created_at?: string
+          followers?: number | null
+          id?: string
+          leads?: number | null
+          likes?: number | null
+          metric_date?: string
+          post_id?: string | null
+          raw?: Json | null
+          revenue?: number | null
+          sales?: number | null
+          saves?: number | null
+          sessions?: number | null
+          shares?: number | null
+          source?: string
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_content_metrics_daily_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_social_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_content_metrics_daily_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_content_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_content_posts: {
+        Row: {
+          account_id: string
+          attempts: number
+          content_id: string
+          created_at: string
+          id: string
+          last_error: string | null
+          metadata: Json
+          platform: string
+          post_url: string | null
+          project_id: string
+          provider_file_url: string | null
+          provider_task_id: string | null
+          published_at: string | null
+          scheduled_at: string
+          status: string
+          updated_at: string
+          utm_content: string | null
+        }
+        Insert: {
+          account_id: string
+          attempts?: number
+          content_id: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          metadata?: Json
+          platform: string
+          post_url?: string | null
+          project_id: string
+          provider_file_url?: string | null
+          provider_task_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+          utm_content?: string | null
+        }
+        Update: {
+          account_id?: string
+          attempts?: number
+          content_id?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          metadata?: Json
+          platform?: string
+          post_url?: string | null
+          project_id?: string
+          provider_file_url?: string | null
+          provider_task_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+          utm_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_content_posts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_social_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_content_posts_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_content_items"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -21788,6 +22356,13 @@ export type Database = {
             foreignKeyName: "imphq_daily_routines_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_daily_routines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -21869,6 +22444,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_docs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_docs_project_id_fkey"
@@ -21961,6 +22543,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_documents_project_id_fkey"
@@ -22139,6 +22728,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_empresa_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_empresa_project_id_fkey"
@@ -22983,6 +23579,13 @@ export type Database = {
             foreignKeyName: "imphq_funis_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_funis_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -23687,6 +24290,13 @@ export type Database = {
             foreignKeyName: "imphq_ig_comment_triggers_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_ig_comment_triggers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -23761,9 +24371,14 @@ export type Database = {
         Row: {
           account_id: string
           ai_active: boolean | null
+          ai_handled_message_id: string | null
           ai_paused: boolean | null
           ai_paused_reason: string | null
           ai_paused_until: string | null
+          ai_reply_attempts: number
+          ai_reply_lock_token: string | null
+          ai_reply_lock_until: string | null
+          ai_reply_pending_since: string | null
           conversation_summary: string | null
           created_at: string
           follow_up_sent_at: string | null
@@ -23788,9 +24403,14 @@ export type Database = {
         Insert: {
           account_id: string
           ai_active?: boolean | null
+          ai_handled_message_id?: string | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
           ai_paused_until?: string | null
+          ai_reply_attempts?: number
+          ai_reply_lock_token?: string | null
+          ai_reply_lock_until?: string | null
+          ai_reply_pending_since?: string | null
           conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
@@ -23815,9 +24435,14 @@ export type Database = {
         Update: {
           account_id?: string
           ai_active?: boolean | null
+          ai_handled_message_id?: string | null
           ai_paused?: boolean | null
           ai_paused_reason?: string | null
           ai_paused_until?: string | null
+          ai_reply_attempts?: number
+          ai_reply_lock_token?: string | null
+          ai_reply_lock_until?: string | null
+          ai_reply_pending_since?: string | null
           conversation_summary?: string | null
           created_at?: string
           follow_up_sent_at?: string | null
@@ -24123,6 +24748,13 @@ export type Database = {
             foreignKeyName: "imphq_ig_sequences_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_ig_sequences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -24366,6 +24998,125 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_jp_conversation_events: {
+        Row: {
+          channel: string
+          conversation_id: string
+          created_at: string
+          evidence: Json
+          id: string
+          kind: string
+          lead_id: string | null
+          source_message_at: string
+          source_message_id: string
+        }
+        Insert: {
+          channel: string
+          conversation_id: string
+          created_at?: string
+          evidence: Json
+          id?: string
+          kind: string
+          lead_id?: string | null
+          source_message_at: string
+          source_message_id: string
+        }
+        Update: {
+          channel?: string
+          conversation_id?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          kind?: string
+          lead_id?: string | null
+          source_message_at?: string
+          source_message_id?: string
+        }
+        Relationships: []
+      }
+      imphq_jp_conversation_state: {
+        Row: {
+          channel: string
+          conversation_id: string
+          decision: Json
+          facts: Json
+          latest_message_at: string | null
+          latest_message_id: string | null
+          lead_id: string | null
+          owner_id: string | null
+          pending_commitments: Json
+          project_id: string
+          support_confirmed_at: string | null
+          support_kind: string | null
+          support_opened_at: string | null
+          support_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          conversation_id: string
+          decision?: Json
+          facts?: Json
+          latest_message_at?: string | null
+          latest_message_id?: string | null
+          lead_id?: string | null
+          owner_id?: string | null
+          pending_commitments?: Json
+          project_id?: string
+          support_confirmed_at?: string | null
+          support_kind?: string | null
+          support_opened_at?: string | null
+          support_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          conversation_id?: string
+          decision?: Json
+          facts?: Json
+          latest_message_at?: string | null
+          latest_message_id?: string | null
+          lead_id?: string | null
+          owner_id?: string | null
+          pending_commitments?: Json
+          project_id?: string
+          support_confirmed_at?: string | null
+          support_kind?: string | null
+          support_opened_at?: string | null
+          support_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_jp_conversation_state_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_jp_conversation_state_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_jp_conversation_state_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_jp_conversation_state_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_kanban: {
         Row: {
           assignee: string | null
@@ -24416,6 +25167,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_kanban_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_kanban_project_id_fkey"
@@ -24583,6 +25341,13 @@ export type Database = {
             foreignKeyName: "imphq_kanban_cards_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_kanban_cards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -24623,6 +25388,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_kanban_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_kanban_columns_project_id_fkey"
@@ -25089,6 +25861,13 @@ export type Database = {
             foreignKeyName: "imphq_leads_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -25365,6 +26144,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_mi_favorites_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_mi_favorites_project_id_fkey"
@@ -26009,59 +26795,6 @@ export type Database = {
           },
         ]
       }
-      imphq_scale_rounds: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          data: Json
-          fase: string
-          id: string
-          node_id: string | null
-          params: Json
-          project_id: string
-          resultado: Json | null
-          resumo: string | null
-          rodada: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          data?: Json
-          fase: string
-          id?: string
-          node_id?: string | null
-          params?: Json
-          project_id: string
-          resultado?: Json | null
-          resumo?: string | null
-          rodada?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          data?: Json
-          fase?: string
-          id?: string
-          node_id?: string | null
-          params?: Json
-          project_id?: string
-          resultado?: Json | null
-          resumo?: string | null
-          rodada?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "imphq_scale_rounds_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "imphq_company_map_nodes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       imphq_playbook_steps: {
         Row: {
           checklist: string[]
@@ -26286,6 +27019,101 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_profiles: {
+        Row: {
+          aquecimento: string | null
+          canais: Json
+          created_at: string
+          email: string | null
+          external_id: string | null
+          fonte: string | null
+          id: string
+          maquina: string | null
+          metadata: Json
+          nome: string
+          paginas_facebook: Json
+          project_id: string | null
+          proxy: string | null
+          publicacao_autorizada: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          aquecimento?: string | null
+          canais?: Json
+          created_at?: string
+          email?: string | null
+          external_id?: string | null
+          fonte?: string | null
+          id?: string
+          maquina?: string | null
+          metadata?: Json
+          nome: string
+          paginas_facebook?: Json
+          project_id?: string | null
+          proxy?: string | null
+          publicacao_autorizada?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          aquecimento?: string | null
+          canais?: Json
+          created_at?: string
+          email?: string | null
+          external_id?: string | null
+          fonte?: string | null
+          id?: string
+          maquina?: string | null
+          metadata?: Json
+          nome?: string
+          paginas_facebook?: Json
+          project_id?: string | null
+          proxy?: string | null
+          publicacao_autorizada?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_project_access: {
+        Row: {
+          access_key: string
+          nota: string | null
+          owner_member_id: string | null
+          project_id: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          access_key: string
+          nota?: string | null
+          owner_member_id?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          access_key?: string
+          nota?: string | null
+          owner_member_id?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_project_access_owner_member_id_fkey"
+            columns: ["owner_member_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_project_costs: {
         Row: {
           beneficiario: string | null
@@ -26337,6 +27165,27 @@ export type Database = {
           tipo_recorrencia?: string | null
           user_id?: string
           valor?: number | null
+        }
+        Relationships: []
+      }
+      imphq_project_domains: {
+        Row: {
+          created_at: string
+          fonte: string
+          host: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          fonte?: string
+          host: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          fonte?: string
+          host?: string
+          project_id?: string
         }
         Relationships: []
       }
@@ -26637,6 +27486,13 @@ export type Database = {
             foreignKeyName: "imphq_projects_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_projects_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -26719,6 +27575,39 @@ export type Database = {
           thumbnail_url?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      imphq_provider_usage_daily: {
+        Row: {
+          balance: number | null
+          details: Json
+          provider: string
+          read_at: string
+          spent_usd: number | null
+          unit: string | null
+          units_used: number | null
+          usage_date: string
+        }
+        Insert: {
+          balance?: number | null
+          details?: Json
+          provider: string
+          read_at?: string
+          spent_usd?: number | null
+          unit?: string | null
+          units_used?: number | null
+          usage_date: string
+        }
+        Update: {
+          balance?: number | null
+          details?: Json
+          provider?: string
+          read_at?: string
+          spent_usd?: number | null
+          unit?: string | null
+          units_used?: number | null
+          usage_date?: string
         }
         Relationships: []
       }
@@ -27067,14 +27956,20 @@ export type Database = {
       }
       imphq_referencias: {
         Row: {
+          analise: Json | null
           created_at: string | null
+          duracao: number | null
+          external_id: string | null
+          fonte: string | null
           id: string
           image_url: string | null
+          lote: string | null
           notas: string | null
           pasta: string | null
           plataforma: string | null
           produto: string | null
           project_id: string | null
+          quadros: Json | null
           score: number | null
           tags: string[] | null
           tipo: string | null
@@ -27086,16 +27981,23 @@ export type Database = {
           transcricao: string | null
           updated_at: string | null
           url: string | null
+          video_ref: Json | null
         }
         Insert: {
+          analise?: Json | null
           created_at?: string | null
+          duracao?: number | null
+          external_id?: string | null
+          fonte?: string | null
           id: string
           image_url?: string | null
+          lote?: string | null
           notas?: string | null
           pasta?: string | null
           plataforma?: string | null
           produto?: string | null
           project_id?: string | null
+          quadros?: Json | null
           score?: number | null
           tags?: string[] | null
           tipo?: string | null
@@ -27107,16 +28009,23 @@ export type Database = {
           transcricao?: string | null
           updated_at?: string | null
           url?: string | null
+          video_ref?: Json | null
         }
         Update: {
+          analise?: Json | null
           created_at?: string | null
+          duracao?: number | null
+          external_id?: string | null
+          fonte?: string | null
           id?: string
           image_url?: string | null
+          lote?: string | null
           notas?: string | null
           pasta?: string | null
           plataforma?: string | null
           produto?: string | null
           project_id?: string | null
+          quadros?: Json | null
           score?: number | null
           tags?: string[] | null
           tipo?: string | null
@@ -27128,6 +28037,7 @@ export type Database = {
           transcricao?: string | null
           updated_at?: string | null
           url?: string | null
+          video_ref?: Json | null
         }
         Relationships: [
           {
@@ -27136,6 +28046,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_referencias_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_referencias_project_id_fkey"
@@ -27297,6 +28214,59 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_scale_rounds: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: Json
+          fase: string
+          id: string
+          node_id: string | null
+          params: Json
+          project_id: string
+          resultado: Json | null
+          resumo: string | null
+          rodada: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          fase: string
+          id?: string
+          node_id?: string | null
+          params?: Json
+          project_id: string
+          resultado?: Json | null
+          resumo?: string | null
+          rodada?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          fase?: string
+          id?: string
+          node_id?: string | null
+          params?: Json
+          project_id?: string
+          resultado?: Json | null
+          resumo?: string | null
+          rodada?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_scale_rounds_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_company_map_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_sdr_coach_audits: {
         Row: {
           created_at: string
@@ -27336,6 +28306,30 @@ export type Database = {
           project_id?: string
           score?: number
           vendedor_name?: string
+        }
+        Relationships: []
+      }
+      imphq_secret_access_log: {
+        Row: {
+          accessed_at: string
+          account_id: string
+          id: number
+          kind: string
+          user_id: string | null
+        }
+        Insert: {
+          accessed_at?: string
+          account_id: string
+          id?: never
+          kind: string
+          user_id?: string | null
+        }
+        Update: {
+          accessed_at?: string
+          account_id?: string
+          id?: never
+          kind?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -27501,6 +28495,13 @@ export type Database = {
             foreignKeyName: "imphq_skill_outputs_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_skill_outputs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -27595,6 +28596,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      imphq_social_accounts: {
+        Row: {
+          created_at: string
+          daily_post_limit: number
+          geelark_analytics_id: string | null
+          geelark_env_id: string | null
+          handle: string
+          id: string
+          link_url: string | null
+          metadata: Json
+          notes: string | null
+          platform: string
+          project_id: string
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_post_limit?: number
+          geelark_analytics_id?: string | null
+          geelark_env_id?: string | null
+          handle: string
+          id?: string
+          link_url?: string | null
+          metadata?: Json
+          notes?: string | null
+          platform: string
+          project_id: string
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_post_limit?: number
+          geelark_analytics_id?: string | null
+          geelark_env_id?: string | null
+          handle?: string
+          id?: string
+          link_url?: string | null
+          metadata?: Json
+          notes?: string | null
+          platform?: string
+          project_id?: string
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       imphq_studio_canvas_edges: {
         Row: {
@@ -28619,6 +29671,13 @@ export type Database = {
             foreignKeyName: "imphq_tasks_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -29082,6 +30141,13 @@ export type Database = {
             foreignKeyName: "imphq_vendas_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -29230,6 +30296,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ab_tests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_wa_ab_tests_project_id_fkey"
@@ -29586,6 +30659,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_ai_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_wa_ai_logs_project_id_fkey"
@@ -30713,6 +31793,13 @@ export type Database = {
             foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_lead_memories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -30900,6 +31987,13 @@ export type Database = {
             foreignKeyName: "imphq_wa_objections_projeto_id_fkey"
             columns: ["projeto_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_wa_objections_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -31064,6 +32158,7 @@ export type Database = {
         Row: {
           ab_group_id: string | null
           applied_at: string
+          attribution_policy: string | null
           conversation_id: string | null
           converted_at: string | null
           id: string
@@ -31075,6 +32170,7 @@ export type Database = {
         Insert: {
           ab_group_id?: string | null
           applied_at?: string
+          attribution_policy?: string | null
           conversation_id?: string | null
           converted_at?: string | null
           id?: string
@@ -31086,6 +32182,7 @@ export type Database = {
         Update: {
           ab_group_id?: string | null
           applied_at?: string
+          attribution_policy?: string | null
           conversation_id?: string | null
           converted_at?: string | null
           id?: string
@@ -31311,6 +32408,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_wa_voice_log: {
+        Row: {
+          audio_url: string | null
+          chars: number | null
+          conversation_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          kind: string
+          project_id: string | null
+          provider: string | null
+          reason: string | null
+          status: string
+          text_hash: string | null
+          voice_id: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          chars?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: string
+          project_id?: string | null
+          provider?: string | null
+          reason?: string | null
+          status: string
+          text_hash?: string | null
+          voice_id?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          chars?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          project_id?: string | null
+          provider?: string | null
+          reason?: string | null
+          status?: string
+          text_hash?: string | null
+          voice_id?: string | null
+        }
+        Relationships: []
+      }
       imphq_webchat_widgets: {
         Row: {
           allowed_origins: string[]
@@ -31492,6 +32637,13 @@ export type Database = {
             foreignKeyName: "imphq_webhooks_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_webhooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -31636,6 +32788,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imphq_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_webinar_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "imphq_webinar_sessions_project_id_fkey"
@@ -55661,6 +56820,24 @@ export type Database = {
           project_id: string | null
           ultimo_dia_com_gasto: string | null
         }
+        Insert: {
+          meta_configurado?: never
+          meta_erro?: never
+          meta_erro_codigo?: never
+          meta_status?: never
+          meta_ultimo_sync?: never
+          project_id?: string | null
+          ultimo_dia_com_gasto?: never
+        }
+        Update: {
+          meta_configurado?: never
+          meta_erro?: never
+          meta_erro_codigo?: never
+          meta_status?: never
+          meta_ultimo_sync?: never
+          project_id?: string | null
+          ultimo_dia_com_gasto?: never
+        }
         Relationships: []
       }
       imphq_v_ai_drafts: {
@@ -55957,6 +57134,13 @@ export type Database = {
             foreignKeyName: "imphq_vendas_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "vw_financas_resumo"
             referencedColumns: ["project_id"]
           },
@@ -55984,30 +57168,6 @@ export type Database = {
       }
     }
     Functions: {
-      imphq_reveal_account_secret: {
-        Args: { p_account_id: string; p_kind: string }
-        Returns: string
-      }
-      imphq_set_account_secret: {
-        Args: { p_account_id: string; p_kind: string; p_value: string }
-        Returns: undefined
-      }
-      imphq_machine_room: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      imphq_project_metrics: {
-        Args: { p_project_id: string; p_since: string }
-        Returns: Json
-      }
-      imphq_funnel_sessions: {
-        Args: { p_project_id: string; p_since: string }
-        Returns: number
-      }
-      imphq_snapshot_company_map: {
-        Args: { p_map_id: string; p_reason: string }
-        Returns: string
-      }
       adicionar_creditos_ia: {
         Args: {
           p_descricao: string
@@ -56081,6 +57241,7 @@ export type Database = {
         Returns: number
       }
       backup_deposits: { Args: { deposit_ids: string[] }; Returns: undefined }
+      bulk_update_spending: { Args: { updates: Json }; Returns: number }
       calculate_adherence_streaks: {
         Args: { p_min_adherence?: number; p_user_id: string }
         Returns: {
@@ -56166,6 +57327,17 @@ export type Database = {
         }[]
       }
       create_initial_cycle: { Args: { p_patient_id: string }; Returns: string }
+      criar_ou_atualizar_colaborador: {
+        Args: {
+          p_email: string
+          p_nome: string
+          p_profissional_id?: string
+          p_role?: string
+          p_salao_id: string
+          p_senha: string
+        }
+        Returns: Json
+      }
       dblink: { Args: { "": string }; Returns: Record<string, unknown>[] }
       dblink_cancel_query: { Args: { "": string }; Returns: string }
       dblink_close: { Args: { "": string }; Returns: string }
@@ -56271,6 +57443,7 @@ export type Database = {
         }[]
       }
       get_available_points_v2: { Args: { user_uuid: string }; Returns: number }
+      get_clientes_completos: { Args: { p_user_id: string }; Returns: Json }
       get_columns: {
         Args: { table_name: string }
         Returns: {
@@ -56427,7 +57600,75 @@ export type Database = {
         Returns: boolean
       }
       imphq_archive_webhook_logs: { Args: never; Returns: Json }
+      imphq_claim_ig_reply: {
+        Args: { p_conversation_id: string; p_message_id?: string }
+        Returns: string
+      }
+      imphq_expire_ai_actions: { Args: { p_days?: number }; Returns: number }
+      imphq_funnel_sessions: {
+        Args: { p_project_id: string; p_since: string }
+        Returns: number
+      }
+      imphq_ingest_ig_message: {
+        Args: {
+          p_ai_generated?: boolean
+          p_content: string
+          p_conversation_id: string
+          p_created_at: string
+          p_direction: string
+          p_media_url: string
+          p_metadata?: Json
+          p_mid: string
+          p_source: string
+          p_type: string
+        }
+        Returns: Json
+      }
+      imphq_is_shared_host: { Args: { p_host: string }; Returns: boolean }
+      imphq_machine_room: { Args: never; Returns: Json }
+      imphq_metric_page_url: { Args: { p_url: string }; Returns: string }
+      imphq_page_metrics: {
+        Args: { p_project_id: string; p_since: string }
+        Returns: Json
+      }
+      imphq_pending_ig_replies: {
+        Args: never
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          ig_user_id: string
+          mid: string
+          participant_id: string
+        }[]
+      }
+      imphq_project_metrics: {
+        Args: { p_project_id: string; p_since: string }
+        Returns: Json
+      }
+      imphq_release_ig_reply: {
+        Args: {
+          p_conversation_id: string
+          p_handled_id?: string
+          p_token: string
+        }
+        Returns: boolean
+      }
+      imphq_resolve_project: { Args: { p_url: string }; Returns: string }
+      imphq_reveal_account_secret: {
+        Args: { p_account_id: string; p_kind: string }
+        Returns: string
+      }
+      imphq_set_account_secret: {
+        Args: { p_account_id: string; p_kind: string; p_value: string }
+        Returns: undefined
+      }
+      imphq_snapshot_company_map: {
+        Args: { p_map_id: string; p_reason: string }
+        Returns: string
+      }
       imphq_train_lead_scoring_model: { Args: never; Returns: Json }
+      imphq_url_host: { Args: { p_url: string }; Returns: string }
       increment_ab_variant_conversion: {
         Args: { p_variant_id: string }
         Returns: undefined
@@ -56547,6 +57788,16 @@ export type Database = {
       }
       jp_is_admin: { Args: { _uid: string }; Returns: boolean }
       jp_issue_certificate: { Args: { _program_id: string }; Returns: Json }
+      jp_record_conversation_event: {
+        Args: {
+          p_channel: string
+          p_conversation_id: string
+          p_evidence: Json
+          p_kind: string
+          p_message_id: string
+        }
+        Returns: Json
+      }
       link_leads_by_utm: { Args: { p_campanha_id: string }; Returns: number }
       link_wa_conversation_to_lead: {
         Args: { p_conv_id: string; p_phone: string; p_project_id: string }
@@ -56804,6 +58055,10 @@ export type Database = {
       }
       recusar_recarga_ticket: {
         Args: { p_motivo?: string; p_ticket_id: string }
+        Returns: Json
+      }
+      redefinir_senha_colaborador: {
+        Args: { p_nova_senha: string; p_user_id: string }
         Returns: Json
       }
       register_lead: {
