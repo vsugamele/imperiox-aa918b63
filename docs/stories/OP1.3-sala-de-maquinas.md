@@ -16,13 +16,17 @@ Pedido (03/10/2026): transformar o Império em estrutura de automação com vis�
 - Voz: 2 áudios enviados em 03/10 (ElevenLabs voltou a ter saldo).
 
 ## Pendente
-- [ ] Aprovação do Vinicius: limpar o histórico do pg_cron (> 7 dias) e agendar limpeza diária; desativar o `job 1` quebrado; remover as 2 instâncias "default".
+- [x] Limpezas aprovadas pelo Vinicius (03/10), feitas em 04/10:
+  - histórico do pg_cron: 1,26 milhão de execuções com mais de 7 dias apagadas em lotes + `VACUUM FULL` (1.233 MB → 39 MB; banco 3.089 MB → 1.901 MB); limpeza diária agendada (`purge-cron-history-daily`, job 124, 04:30 UTC; migração `20261004_purge_cron_history.sql`);
+  - `job 1` (limpeza de recibos quebrada) desativado; o `job 2` igual já estava desativado desde a OP1.1;
+  - instâncias `imp_1790706312480` e `imp_1790706151817` removidas de `imphq_wa_providers` (nenhuma conversa, campanha, config de IA ou etapa apontava para elas). Se existirem no servidor da Evolution, seguem lá.
 - [ ] Custo por automação (story própria): 97 de 101 functions que chamam IA não registram custo.
 - [ ] Conferência visual logado.
 - [ ] MCP `get_machine_room` para a IA ler a mesma saúde.
 
 ## File List
 - supabase/migrations/20261003_imphq_machine_room.sql
+- supabase/migrations/20261004_purge_cron_history.sql
 - supabase/functions/_shared/machine-room.ts
 - scripts/health.mjs
 - src/pages/SalaMaquinas.tsx
