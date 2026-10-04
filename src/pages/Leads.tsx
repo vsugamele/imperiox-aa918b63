@@ -238,7 +238,8 @@ function LeadsDesktop() {
   const [quickRuleTag, setQuickRuleTag] = useState<string | null>(null);
 
 
-  const [mainTab, setMainTab] = useState("leads");
+  // "Agora" (quem precisa de ação) abre primeiro — UX2.1.
+  const [mainTab, setMainTab] = useState("quentes");
   const [editTab, setEditTab] = useState<string>(() => {
     try { return localStorage.getItem("leads:editTab") || "dados"; } catch { return "dados"; }
   });
@@ -714,15 +715,12 @@ function LeadsDesktop() {
             </button>
             <div className="w-full md:w-auto overflow-x-auto"><TabsList className="w-max">
               <TabsTrigger value="quentes" className="text-[10px] uppercase tracking-wider relative gap-1.5">
-                <Flame className="h-3 w-3" /> Quentes
+                <Flame className="h-3 w-3" /> Agora
                 {pixHoje.length > 0 && <span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5 animate-pulse">{pixHoje.length}</span>}
               </TabsTrigger>
               <TabsTrigger value="leads" className="text-[10px] uppercase tracking-wider gap-1.5"><ListChecks className="h-3 w-3" /> Leads</TabsTrigger>
               <TabsTrigger value="analytics" className="text-[10px] uppercase tracking-wider gap-1.5"><BarChart3 className="h-3 w-3" /> Analytics</TabsTrigger>
               <TabsTrigger value="formularios" className="text-[10px] uppercase tracking-wider gap-1.5"><FileText className="h-3 w-3" /> Formulários</TabsTrigger>
-              <TabsTrigger value="predicoes" className="text-[10px] uppercase tracking-wider gap-1.5"><Brain className="h-3 w-3" /> Predições</TabsTrigger>
-              <TabsTrigger value="custo" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Custo</TabsTrigger>
-              {pixHoje.length > 0 && (<TabsTrigger value="pix_hoje" className="text-[10px] uppercase tracking-wider gap-1.5"><DollarSign className="h-3 w-3" /> Pix Hoje<span className="ml-1 bg-orange-500 text-white text-[9px] font-bold rounded-full px-1.5">{pixHoje.length}</span></TabsTrigger>)}
             </TabsList></div>
             <div className="ml-auto flex items-center gap-2 flex-wrap">
               {periodKPIs.totalAds > 0 && periodKPIs.newLeads > 0 && (
@@ -864,6 +862,15 @@ function LeadsDesktop() {
               <Card className="bg-card border-border"><CardHeader className="pb-2"><CardTitle className="text-sm">🔻 Funil de Conversão</CardTitle></CardHeader><CardContent><ChartContainer config={chartConfig} className="h-[250px] w-full"><BarChart data={funnelData} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" className="stroke-border/30" /><XAxis dataKey="stage" className="text-[10px]" /><YAxis className="text-[10px]" /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="value" radius={[4, 4, 0, 0]}>{funnelData.map((entry, i) => <Cell key={i} fill={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} />)}</Bar></BarChart></ChartContainer></CardContent></Card>
               <Card className="bg-card border-border md:col-span-2"><CardHeader className="pb-2"><CardTitle className="text-sm">📈 Leads por Mês (histórico)</CardTitle></CardHeader><CardContent>{leadsByMonth.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Sem dados</p> : (<ChartContainer config={chartConfig} className="h-[220px] w-full"><LineChart data={leadsByMonth} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" className="stroke-border/30" /><XAxis dataKey="month" className="text-[10px]" /><YAxis className="text-[10px]" /><ChartTooltip content={<ChartTooltipContent />} /><Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: "hsl(var(--primary))" }} /></LineChart></ChartContainer>)}</CardContent></Card>
             </div>
+            {/* Custo por lead e predições ficam aqui (antes eram abas próprias) — UX2.1 */}
+            <section className="space-y-3">
+              <h3 className="text-xs uppercase tracking-wider text-muted-foreground">Custo por lead</h3>
+              <LeadCostPanel periodLeads={periodLeads} periodAds={periodAds} periodRange={periodRange} />
+            </section>
+            <section className="space-y-3">
+              <h3 className="text-xs uppercase tracking-wider text-muted-foreground">Predições de conversão</h3>
+              <LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} />
+            </section>
           </TabsContent>
 
           <TabsContent value="formularios" className="space-y-6">
@@ -874,8 +881,6 @@ function LeadsDesktop() {
               <FormInsights projects={projects} />
             </div>
           </TabsContent>
-          <TabsContent value="predicoes" className="space-y-4"><LeadPredictivePanel leadIds={filtered.map(l => l.id)} projectFilter={projectFilter} /></TabsContent>
-          <TabsContent value="custo" className="space-y-4"><LeadCostPanel periodLeads={periodLeads} periodAds={periodAds} periodRange={periodRange} /></TabsContent>
 
           {/* TAB: LEADS QUENTES */}
           <TabsContent value="quentes" className="space-y-4">
@@ -887,21 +892,6 @@ function LeadsDesktop() {
           </TabsContent>
 
           {/* TAB: PIX HOJE */}
-          <TabsContent value="pix_hoje" className="space-y-4">
-            <div className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-orange-400 animate-pulse" /><h3 className="font-bold text-sm">Leads com Pix pendente hoje — {pixHoje.length} lead{pixHoje.length !== 1 ? "s" : ""}</h3></div>
-            {pixHoje.length === 0 ? (<Card className="bg-card border-border"><CardContent className="p-8 text-center"><p className="text-sm text-muted-foreground">🎉 Nenhum pix pendente hoje!</p></CardContent></Card>) : (
-                <div className="space-y-3">{pixHoje.map(l => { const vendas = l._vendas || []; const produto = vendas[0]?.produto_nome || jsonText(jsonFields(l.data).ultimo_produto) || "—"; const valor = vendas.reduce((s, v) => s + v.valor, 0) || Number(jsonNumber(jsonFields(l.data).ultimo_valor) || 0); return (
-                <Card key={l.id} className="bg-card border-border hover:ring-1 hover:ring-orange-500/30 transition-all"><CardContent className="p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0"><Avatar className="h-10 w-10 bg-secondary shrink-0"><AvatarFallback className="font-bold bg-secondary text-foreground">{(l.nome || "?")[0].toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><p className="font-medium text-sm truncate">{l.nome}</p><p className="text-[10px] text-muted-foreground truncate">{l.email || "—"} • {l.phone || "sem tel."}</p><div className="flex items-center gap-2 mt-0.5"><Badge variant="outline" className="text-[9px]">{produto}</Badge>{valor > 0 && <span className="text-xs font-mono text-primary">R$ {valor.toFixed(2)}</span>}</div></div></div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button size="sm" variant="outline" onClick={() => sendQuickEmail(l)} disabled={!l.email || !l.project_id}><Mail className="h-3 w-3 mr-1" /> Email</Button>
-                    <Button size="sm" variant="outline" onClick={() => sendQuickWhatsApp(l)} disabled={!l.phone}><MessageCircle className="h-3 w-3 mr-1" /> WhatsApp</Button>
-                    {automations.length > 0 && (<Select onValueChange={(autoId) => { const auto = automations.find(a => a.id === autoId); if (auto) triggerAutomation(l, auto); }}><SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="⚡ Automação" /></SelectTrigger><SelectContent>{automations.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}</SelectContent></Select>)}
-                    <Button size="sm" variant="ghost" onClick={() => setEditLead({ ...l })}><Eye className="h-3 w-3" /></Button>
-                  </div>
-                </CardContent></Card>); })}</div>
-            )}
-          </TabsContent>
         </Tabs>
 
         {/* New Lead Dialog */}

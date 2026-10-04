@@ -13,7 +13,8 @@ Ponto de partida: 101 functions chamam IA; só 4 registravam custo (`wa-ai-reply
 - [x] `_shared/ai-usage.ts`: `installAiUsageTracking("nome")` envolve o fetch global; só chamadas a OpenRouter, Lovable, OpenAI, Anthropic, Google, ElevenLabs, Kie e Luma; lê tokens, modelo e custo (quando o provedor informa) e grava em `imphq_ai_usage` em segundo plano; nunca prompt, resposta ou chave; falha ao registrar não afeta a chamada.
 - [x] Lote 1 no código (10 functions, conferidas idênticas ao que estava no ar antes de mexer; Deno check 0 erro antes e depois): hot-lead-responder, wa-ai-decide-escalation, wa-learn-from-sale, wa-pitch-followup, wa-consultive-followup, instagram-followup-scheduler, instagram-webhook, wa-ai-conv-scoring, wa-ai-detect-gaps, nurture-auto-segment.
 - [x] Publicada a 1ª do lote (`wa-ai-decide-escalation`) para validar com tráfego real.
-- [ ] Confirmar a 1ª linha real em `imphq_ai_usage` e publicar as outras 9.
+- [x] Publicadas também `wa-ai-detect-gaps` e `wa-ai-conv-scoring` (04/10). Chamadas à mão: as três estavam sem trabalho (`no_enabled_configs`, `no_pending_msgs`, `no_candidates`), então ainda não houve chamada de IA para registrar. A escalação (`wa-ai-decide-escalation`) está desligada em todos os projetos.
+- [ ] Confirmar a 1ª linha real em `imphq_ai_usage` (precisa de tráfego: `instagram-webhook` tem ~333 DMs/dia, mas responde cliente) e publicar as outras 7.
 - [ ] Lotes seguintes até cobrir as 97.
 - [ ] Custo estimado por token quando o provedor não devolve custo (tabela de preços por modelo).
 

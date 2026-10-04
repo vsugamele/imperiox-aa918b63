@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Flame, MessageCircle, Eye, Copy, Search, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Flame, MessageCircle, Eye, Copy, Search, RefreshCw, Clock } from "lucide-react";
 import { calcHotLead, heatColor, type HotLeadResult, type LeadSignals } from "@/lib/hotLeadScore";
+import { ACTION_GROUPS, actionGroupFor, nextActionText, waitingConversations, waitingLabel, type ConversationRow } from "@/lib/lead-next-action";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -43,10 +45,22 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [hideContacted, setHideContacted] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [conversations, setConversations] = useState<ConversationRow[]>([]);
 
   // Carrega predições e últimos contatos para os leads visíveis
   const loadAux = useCallback(async () => {
     setRefreshing(true);
+    // Conversas com a última mensagem do cliente (48 h): o grupo "Responder agora".
+    const since = new Date(Date.now() - 48 * 3_600_000).toISOString();
+    const { data: convs } = await supabase
+      .from("imphq_wa_conversations")
+      .select("id, phone, contact_name, project_id, last_message, last_message_at, last_message_direction, jid_suffix")
+      .eq("last_message_direction", "incoming")
+      .gte("last_message_at", since)
+      .order("last_message_at", { ascending: true })
+      .limit(100);
+    setConversations((convs || []) as ConversationRow[]);
+
     const ids = leads.map((l) => l.id);
     if (ids.length === 0) { setRefreshing(false); return; }
 
@@ -117,6 +131,21 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
     });
   }, [ranked, hideContacted, projectFilter, reasonFilter, search]);
 
+  const waiting = useMemo(() => waitingConversations(conversations).filter((c) => {
+    if (projectFilter !== "all" && c.project_id !== projectFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!`${c.nome} ${c.phone || ""}`.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [conversations, projectFilter, search]);
+
+  const grouped = useMemo(() => {
+    const by: Record<string, typeof filtered> = {};
+    for (const r of filtered) (by[actionGroupFor(r.reasons)] ||= []).push(r);
+    return by;
+  }, [filtered]);
+
   const reasonLabel = (key: string): string => {
     const sample = ranked.flatMap((r) => r.reasons).find((rs) => rs.key === key);
     return sample?.label || key;
@@ -169,9 +198,9 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
       {/* Header */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <Flame className="h-5 w-5 text-amber-500" />
-          <h2 className="font-display text-lg font-bold text-foreground">Inbox de Leads Quentes</h2>
-          <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">{filtered.length}</Badge>
+          <Flame className="h-5 w-5 text-warning" />
+          <h2 className="font-display text-lg font-bold text-foreground">Agora: quem precisa de ação</h2>
+          <Badge variant="outline" className="text-[10px]">{waiting.length + filtered.length}</Badge>
         </div>
         <Button variant="ghost" size="sm" onClick={loadAux} disabled={refreshing} className="ml-auto h-7 text-xs">
           <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? "animate-spin" : ""}`} />
@@ -210,18 +239,51 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
         </div>
       </div>
 
-      {/* Lista */}
-      {filtered.length === 0 ? (
+      {/* Grupos por próxima ação */}
+      {waiting.length === 0 && filtered.length === 0 ? (
         <Card className="bg-card/50">
           <CardContent className="py-8 text-center space-y-2">
             <Flame className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-            <p className="text-sm text-muted-foreground">Nenhum lead quente no momento.</p>
-            <p className="text-[11px] text-muted-foreground/70">Sinais de calor aparecem aqui em tempo real.</p>
+            <p className="text-sm text-muted-foreground">Ninguém esperando ação agora.</p>
+            <p className="text-[11px] text-muted-foreground/70">Mensagens sem resposta, pagamentos parados e leads quentes aparecem aqui.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {filtered.map(({ lead, score, reasons, contacted: wasContacted }) => {
+        <div className="space-y-5">
+          {waiting.length > 0 && (
+            <section className="space-y-2">
+              <GroupHeader label={ACTION_GROUPS[0].label} hint={ACTION_GROUPS[0].hint} count={waiting.length} />
+              {waiting.map((c) => {
+                const project = projects.find((p) => p.id === c.project_id);
+                return (
+                  <Card key={c.id} className="bg-card border border-primary/30">
+                    <CardContent className="p-3 flex items-start gap-3">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm truncate">{c.nome}</span>
+                          {project && <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">{project.icon || "📁"} {project.name}</Badge>}
+                          <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-warning shrink-0"><Clock className="h-3 w-3" />{waitingLabel(c.waitingMin)}</span>
+                        </div>
+                        {c.preview && <p className="text-[12px] text-muted-foreground truncate">"{c.preview}"</p>}
+                        <p className="text-[12px] text-foreground/90"><span className="text-muted-foreground">Próxima ação: </span>{nextActionText("responder", [])}</p>
+                      </div>
+                      {c.phone && (
+                        <Button asChild size="sm" className="h-7 text-[10px] shrink-0">
+                          <Link to={`/inbox?tab=whatsapp&phone=${encodeURIComponent(c.phone)}`}><MessageCircle className="h-3 w-3 mr-1" /> Abrir conversa</Link>
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </section>
+          )}
+          {ACTION_GROUPS.filter((g) => g.key !== "responder" && (grouped[g.key]?.length ?? 0) > 0).map((group) => {
+            const items = grouped[group.key];
+            return (
+            <section key={group.key} className="space-y-2">
+              <GroupHeader label={group.label} hint={group.hint} count={items.length} />
+              {items.map(({ lead, score, reasons, contacted: wasContacted }) => {
             const heat = heatColor(score);
             const project = projects.find((p) => p.id === lead.project_id);
             const lastInteractionAt = lead.updated_at;
@@ -263,6 +325,7 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
                       )}
                     </div>
 
+                    <p className="text-[12px] text-foreground/90"><span className="text-muted-foreground">Próxima ação: </span>{nextActionText(group.key, reasons)}</p>
                     <div className="flex flex-wrap gap-1">
                       {reasons.map((r) => (
                         <Badge
@@ -302,9 +365,22 @@ export default function HotLeadsInbox({ leads, projects, onOpenLead }: Props) {
                 </CardContent>
               </Card>
             );
+              })}
+            </section>
+            );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function GroupHeader({ label, hint, count }: { label: string; hint: string; count: number }) {
+  return (
+    <div className="flex items-baseline gap-2 border-b border-border/50 pb-1">
+      <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+      <span className="text-[11px] text-muted-foreground">{count}</span>
+      <span className="text-[11px] text-muted-foreground/80 truncate">· {hint}</span>
     </div>
   );
 }
