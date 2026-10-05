@@ -87,7 +87,8 @@ export default function AcervoPage() {
 
   // Knowledge list
   const [knowledgeList, setKnowledgeList] = useState<KnowledgeRow[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [dossieCount, setDossieCount] = useState<number | null>(null);
   const [projectCounts, setProjectCounts] = useState<Record<string, number>>({});
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
@@ -115,10 +116,16 @@ export default function AcervoPage() {
     setIsLoadingList(true);
     try {
       // 1. Total count
-      const { count: exactTotal } = await supabase
+      const { count: exactTotal, error: totalErr } = await supabase
         .from("imphq_wa_knowledge")
         .select("id", { count: "exact", head: true });
-      setTotalCount(exactTotal || 0);
+      setTotalCount(totalErr ? null : exactTotal ?? 0);
+
+      const { count: dossies, error: dossieErr } = await supabase
+        .from("imphq_wa_knowledge")
+        .select("id", { count: "exact", head: true })
+        .like("source", "dossie:%");
+      setDossieCount(dossieErr ? null : dossies ?? 0);
 
       // 2. Query knowledge rows (limit 150 for responsiveness)
       let q = supabase
@@ -385,9 +392,9 @@ export default function AcervoPage() {
               <Database className="h-4 w-4 text-primary" />
             </div>
             <div className="text-2xl font-bold mt-1 text-foreground tabular-nums">
-              {totalCount > 0 ? totalCount.toLocaleString("pt-BR") : "22.593"}
+              {totalCount === null ? "sem dado" : totalCount.toLocaleString("pt-BR")}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Vetorizados no Supabase</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Itens no acervo (Supabase)</p>
           </CardContent>
         </Card>
 
@@ -411,9 +418,9 @@ export default function AcervoPage() {
               <BookOpen className="h-4 w-4 text-blue-500" />
             </div>
             <div className="text-2xl font-bold mt-1 text-foreground">
-              8 Dossiês
+              {dossieCount === null ? "sem dado" : dossieCount.toLocaleString("pt-BR")}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Avatares Godmode & Fórmulas</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Itens com fonte "dossiê"</p>
           </CardContent>
         </Card>
 
@@ -438,7 +445,7 @@ export default function AcervoPage() {
         </span>
         {PROJECT_OPTIONS.map(opt => {
           const isSelected = selectedProject === opt.id;
-          const count = opt.id === "all" ? totalCount : (projectCounts[opt.id] ?? 0);
+          const count = opt.id === "all" ? (totalCount ?? 0) : (projectCounts[opt.id] ?? 0);
           return (
             <button
               key={opt.id}

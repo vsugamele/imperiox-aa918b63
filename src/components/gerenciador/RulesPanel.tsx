@@ -34,6 +34,32 @@ interface Suggestion {
 }
 
 const suggestionSchema = z.object({ name: z.string(), rule_type: z.string(), conditions: z.record(z.number()), expected_delta: z.string(), confidence: z.number(), samples: z.number(), rationale: z.string() }).passthrough();
+
+interface HistoryItem {
+  id: string;
+  title: string | null;
+  reason: string | null;
+  status: string;
+  error: string | null;
+  created_at: string;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  proposed: "Aguardando aprovação",
+  approved: "Aprovada",
+  executed: "Executada",
+  failed: "Falhou",
+  rejected: "Rejeitada",
+  expired: "Expirou",
+  reverted: "Revertida",
+};
+
+const STATUS_TONE: Record<string, string> = {
+  proposed: "text-amber-400 border-amber-500/30",
+  approved: "text-sky-400 border-sky-500/30",
+  executed: "text-emerald-400 border-emerald-500/30",
+  failed: "text-rose-400 border-rose-500/30",
+};
 const META: Record<string, { label: string; desc: string; icon: LucideIcon; fields: { key: string; label: string; suffix?: string }[] }> = {
   auto_pause_cpa: {
     label: "Pausar se CPA estourar",
@@ -67,17 +93,27 @@ export function RulesPanel() {
   const [loadingSugg, setLoadingSugg] = useState(false);
   const [totalSamples, setTotalSamples] = useState(0);
 
-  // AI Budget Optimizer States
-  const [isOptimizerActive, setIsOptimizerActive] = useState(true);
-  const [maxCpl, setMaxCpl] = useState(5.00);
-  const [isWaNotifyActive, setIsWaNotifyActive] = useState(true);
-  const [isSavingOptimizer, setIsSavingOptimizer] = useState(false);
+  // Histórico real do motor de regras
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
     const { data } = await supabase.from("imphq_ads_rules").select("*").order("rule_type");
     setRules((data || []).map((row) => ({ ...row, params: jsonFields(row.params) })));
     setLoading(false);
+  };
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from("imphq_ai_actions")
+      .select("id, title, reason, status, error, created_at")
+      .eq("source", "ads-rules-engine")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setHistory((data as HistoryItem[]) || []);
+    setHistoryLoading(false);
   };
 
   const loadSuggestions = async () => {
@@ -96,7 +132,11 @@ export function RulesPanel() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadHistory(); }, []);
+
+  const staleDays = history[0]
+    ? Math.floor((Date.now() - new Date(history[0].created_at).getTime()) / 86_400_000)
+    : null;
 
   const toggle = async (id: string, enabled: boolean) => {
     setRules(rs => rs.map(r => r.id === id ? { ...r, enabled } : r));
@@ -161,7 +201,7 @@ export function RulesPanel() {
               <Sparkles className="h-3 w-3" /> Sugestões da IA
             </TabsTrigger>
             <TabsTrigger value="optimizer" className="text-xs gap-1.5">
-              <TrendingUp className="h-3 w-3 text-emerald-400" /> AI Optimizer
+              <TrendingUp className="h-3 w-3 text-emerald-400" /> Histórico
             </TabsTrigger>
           </TabsList>
 
@@ -251,125 +291,39 @@ export function RulesPanel() {
             ))}
           </TabsContent>
 
-          {/* TAB 3: AI Budget Optimizer */}
-          <TabsContent value="optimizer" className="space-y-4 animate-fade-in text-foreground">
-            
-            {/* Optimizer Control Card */}
-            <div className="border border-border/60 rounded-xl p-4 bg-card/40 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                    🤖 Piloto Automático de Tráfego
-                  </h4>
-                  <p className="text-[10px] text-muted-foreground">Monitora campanhas a cada hora e pausa adsets se estourar o CPL limite</p>
-                </div>
-                <Switch 
-                  checked={isOptimizerActive} 
-                  onCheckedChange={setIsOptimizerActive} 
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">CPL Máximo de Segurança (R$)</span>
-                  <Input 
-                    type="number" 
-                    step="0.5" 
-                    value={maxCpl} 
-                    onChange={(e) => setMaxCpl(Number(e.target.value))} 
-                    className="h-8 text-xs bg-background/50 border-border/80 font-mono"
-                    disabled={!isOptimizerActive}
-                  />
-                </label>
-
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Notificações no WhatsApp</span>
-                  <div className="flex items-center justify-between h-8 border border-border/80 rounded-lg px-3 bg-background/50">
-                    <span className="text-xs text-muted-foreground">Alerta instantâneo à equipe</span>
-                    <Switch 
-                      checked={isWaNotifyActive} 
-                      onCheckedChange={setIsWaNotifyActive}
-                      disabled={!isOptimizerActive}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                onClick={async () => {
-                  setIsSavingOptimizer(true);
-                  await new Promise(r => setTimeout(r, 1000));
-                  setIsSavingOptimizer(false);
-                  toast.success("Configurações do Piloto Automático salvas!");
-                }}
-                disabled={isSavingOptimizer || !isOptimizerActive}
-                className="h-8 text-xs font-bold gap-1.5 w-full bg-emerald-500 hover:bg-emerald-600 text-white"
-              >
-                {isSavingOptimizer ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Salvar Configurações"}
-              </Button>
-            </div>
-
-            {/* Simulated WhatsApp notification mockup */}
-            {isWaNotifyActive && isOptimizerActive && (
-              <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-xl p-4 space-y-2">
-                <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-400 block select-none">Mockup do Alerta Enviado no WhatsApp</span>
-                
-                <div className="flex justify-start">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs shadow shrink-0 mr-2.5">
-                    🤖
-                  </div>
-                  <div className="bg-emerald-950/40 border border-emerald-500/25 rounded-2xl rounded-tl-none p-3 max-w-[85%] text-xs shadow-sm">
-                    <div className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-400 select-none pb-1.5 border-b border-emerald-500/20 mb-1.5">
-                      <span>Imperius AI Optimizer</span>
-                      <Badge className="bg-emerald-500/20 text-emerald-400 text-[8px] h-3 px-1.5">Tráfego Ativo</Badge>
-                    </div>
-                    <p className="text-foreground/90 font-medium">
-                      🚨 **CPL ESTOURADO - ADSET PAUSADO AUTOMATICAMENTE** 🚨
-                      <br /><br />
-                      Pausamos o conjunto de anúncios **'Adset 02 - Lookalike Vendas'** no Facebook Ads, pois o CPL atingiu **R$ 12,50** nas últimas horas (sua meta máxima era **R$ {maxCpl.toFixed(2)}**).
-                      <br /><br />
-                      📈 Deseja realocar o orçamento diário de **R$ 150,00** para o conjunto vencedor **'Adset 03 - Público Quente'** que está convertendo lead a **R$ 3,10**?
-                    </p>
-                    <div className="flex gap-2 mt-3 select-none">
-                      <Button size="sm" className="h-7 text-[10px] bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg">Sim, Realocar Verba</Button>
-                      <Button size="sm" variant="ghost" className="h-7 text-[10px] border border-emerald-500/30 text-emerald-400 rounded-lg">Manter Pausado</Button>
-                    </div>
-                  </div>
-                </div>
+          {/* TAB 3: Histórico real do motor de regras (imphq_ai_actions, source=ads-rules-engine) */}
+          <TabsContent value="optimizer" className="space-y-3">
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              O que o motor de regras propôs ou executou de verdade. Ele só <strong>propõe</strong> — a pausa acontece quando alguém aprova na fila.
+            </p>
+            {historyLoading && <p className="text-xs text-muted-foreground">Carregando...</p>}
+            {!historyLoading && history.length === 0 && (
+              <p className="text-xs text-muted-foreground italic text-center py-6">
+                O motor ainda não registrou nenhuma ação.
+              </p>
+            )}
+            {!historyLoading && history.length > 0 && staleDays !== null && staleDays > 2 && (
+              <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-2.5 text-[11px] text-amber-300">
+                ⚠️ Última ação há {staleDays} dias. Se há campanhas rodando, o motor pode estar parado ou sem dados de gasto atualizados.
               </div>
             )}
-
-            {/* Audit sweeps log */}
-            <div className="space-y-2">
-              <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground block select-none">Log de Monitoramento da IA (Últimas Varreduras)</span>
-              
-              <div className="border border-border/40 rounded-xl bg-background/20 p-3 space-y-2 text-[11px] max-h-[140px] overflow-y-auto">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="font-mono text-[10px]">14:00 (Varredura de Rotina)</span>
-                  <span className="text-emerald-400 font-semibold">✓ Saudável</span>
+            <div className="space-y-2 max-h-[320px] overflow-y-auto">
+              {history.map(h => (
+                <div key={h.id} className="border border-border/30 rounded-lg p-2.5 text-[11px] space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {new Date(h.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <Badge variant="outline" className={`text-[9px] ${STATUS_TONE[h.status] || ""}`}>
+                      {STATUS_LABEL[h.status] || h.status}
+                    </Badge>
+                  </div>
+                  <p className="text-foreground/90">{h.title}</p>
+                  {h.reason && <p className="text-muted-foreground">{h.reason}</p>}
+                  {h.error && <p className="text-rose-400">Erro: {h.error}</p>}
                 </div>
-                <p className="text-muted-foreground/80 leading-relaxed border-b border-border/10 pb-1.5 pl-2">
-                  🔎 Varredura completa realizada. 3 campanhas ativas monitoradas no Facebook Ads. CPL médio R$ 4,10 (abaixo do limite de R$ {maxCpl.toFixed(2)}). Nenhuma ação necessária.
-                </p>
-
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="font-mono text-[10px]">13:00 (Varredura de Rotina)</span>
-                  <span className="text-rose-400 font-semibold">🚨 Alerta Gerado</span>
-                </div>
-                <p className="text-muted-foreground/80 leading-relaxed border-b border-border/10 pb-1.5 pl-2">
-                  🚨 Detecção de anomalia: Conjunto de anúncios 'Adset 02 - Lookalike Vendas' ultrapassou o CPL limite (R$ 12,50 vs R$ {maxCpl.toFixed(2)}). Ação: Pausado via API Meta Ads. Notificação disparada via WhatsApp.
-                </p>
-
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="font-mono text-[10px]">12:00 (Varredura de Rotina)</span>
-                  <span className="text-emerald-400 font-semibold">✓ Saudável</span>
-                </div>
-                <p className="text-muted-foreground/80 leading-relaxed pl-2">
-                  🔎 Varredura completa realizada. Gasto total Meta R$ 1.200,00. ROAS médio 3.1x. Sem estouro de CPL.
-                </p>
-              </div>
+              ))}
             </div>
-
           </TabsContent>
         </Tabs>
       </CardContent>

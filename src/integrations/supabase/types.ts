@@ -57667,6 +57667,7 @@ export type Database = {
         Args: { p_map_id: string; p_reason: string }
         Returns: string
       }
+      imphq_system_health: { Args: never; Returns: Json }
       imphq_train_lead_scoring_model: { Args: never; Returns: Json }
       imphq_url_host: { Args: { p_url: string }; Returns: string }
       increment_ab_variant_conversion: {

@@ -17,6 +17,7 @@ import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCompanyMap } from "@/hooks/useCompanyMap";
 import { Stat } from "@/components/mapa/Stat";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { HealthAlertStrip } from "@/components/saude/HealthAlertStrip";
 
 const STEP_STATUSES: StepStatus[] = ["pending", "in_progress", "ready_review", "done"];
 const MAX_ROWS = 6;
@@ -89,6 +90,8 @@ export default function Hoje() {
           <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isFetching && "animate-spin")} /> Atualizar
         </Button>
       </header>
+
+      <HealthAlertStrip />
 
       {members.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="De quem">

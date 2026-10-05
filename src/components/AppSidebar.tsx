@@ -5,13 +5,14 @@ import {
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
   Inbox, Pencil, Workflow, Globe, Coins,
-  Layers, Map as MapIcon, CalendarCheck, Lightbulb, CheckCheck,
+  Layers, Map as MapIcon, CalendarCheck, Lightbulb, CheckCheck, HeartPulse,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/auth-context";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter } from "@/components/ui/sidebar";
 import { useSidebar } from "@/components/ui/sidebar-context";
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
+import { useSystemHealth } from "@/lib/system-health";
 import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 
 // ── Nav items ──────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ const hojeitems = [
   { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
   { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
   { title: "Recuperação",      url: "/recuperacao",icon: LifeBuoy },
+  { title: "Saúde do sistema", url: "/saude",      icon: HeartPulse,      badge: "saude" as const },
 ];
 
 const venderItems = [
@@ -79,7 +81,7 @@ type NavItem = {
   title: string;
   url: string;
   icon: React.ElementType;
-  badge?: "imperius" | "inbox" | "leads" | "rag" | "aprovar";
+  badge?: "imperius" | "inbox" | "leads" | "rag" | "aprovar" | "saude";
 };
 
 // â”€â”€ Badge pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -200,6 +202,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { signOut } = useAuth();
   const { data: badgeData } = useSidebarBadges();
+  const { data: health } = useSystemHealth();
   const { favorites, toggleFavorite } = useSidebarFavorites();
 
   const badges: Record<string, number> = {
@@ -208,6 +211,7 @@ export function AppSidebar() {
     leads: badgeData?.leads ?? 0,
     rag: badgeData?.rag ?? 0,
     aprovar: badgeData?.aprovar ?? 0,
+    saude: health?.checks.filter((c) => c.status === "fail").length ?? 0,
   };
 
   // All items pool for favourites lookup

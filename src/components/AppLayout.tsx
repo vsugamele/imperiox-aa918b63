@@ -46,6 +46,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   dashboard: { kicker: "Overview", title: "Cockpit" },
   imperius: { kicker: "Autonomia", title: "Imperius" },
   "ai-saude": { kicker: "IA", title: "Saúde da IA" },
+  saude: { kicker: "Clareza", title: "Saúde do sistema" },
   "funil-conversao": { kicker: "Análise", title: "Funil" },
   inbox: { kicker: "Canais", title: "Caixa de Entrada" },
   leads: { kicker: "CRM", title: "Leads" },

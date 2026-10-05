@@ -13,9 +13,9 @@ import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages for bundle size optimization and faster page load speeds
 const Login = lazyWithRetry(() => import("./pages/Login"));
-const Cockpit = lazyWithRetry(() => import("./pages/Cockpit"));
 const RedesignPrototype = lazyWithRetry(() => import("./pages/RedesignPrototype"));
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
+const SaudeSistema = lazyWithRetry(() => import("./pages/SaudeSistema"));
 const DashboardClassic = lazyWithRetry(() => import("./pages/DashboardClassic"));
 const AISaude = lazyWithRetry(() => import("./pages/AISaude"));
 const Funil = lazyWithRetry(() => import("./pages/Funil"));
@@ -157,8 +157,10 @@ const App = () => (
                 <Route path="aprovar" element={<Aprovar />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="mapa" element={<MapaEmpresa />} />
+                <Route path="saude" element={<SaudeSistema />} />
                 <Route path="dashboard-classic" element={<DashboardClassic />} />
-                <Route path="cockpit" element={<Cockpit />} />
+                {/* /cockpit era protótipo com números fictícios — redireciona pro painel real */}
+                <Route path="cockpit" element={<Navigate to="/dashboard" replace />} />
                 <Route path="redesign" element={<RedesignPrototype />} />
                 <Route path="inteligencia-ia" element={<InteligenciaIA />} />
                 <Route path="ai-saude" element={<Navigate to="/inteligencia-ia?tab=saude" replace />} />

@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => ({
     // Build stamp so we can tell instantly which build a domain is serving
     // (Lovable vs Vercel vs stale CDN/service-worker cache).
     __APP_BUILD__: JSON.stringify(new Date().toISOString()),
+    __APP_COMMIT__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA || ""),
   },
   server: {
     host: "::",
