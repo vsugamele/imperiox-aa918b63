@@ -107,12 +107,12 @@ export const PROJECT_ANGLE_PRESETS: Record<string, ProjectAnglePreset[]> = {
   ],
   jp_freitas: [
     {
-      id: "jp_barbearia_elite",
-      title: "Do Corte de R$ 25 à Barbearia de R$ 15k/Mês",
-      avatar: "Barbeiro talentoso que trabalha 12h por dia mas não vê a cor do dinheiro no fim do mês",
-      vilao: "Vender corte em vez de experiência e autoridade (guerra de preços do bairro)",
-      mecanismo: "Método de Precificação & Retenção de Clientes Fiéis sem depender de dancinhas",
-      promptHint: "Contraste o barbeiro cansado que vira refém da cadeira vs o barbeiro empresário.",
+      id: "jp_corte_cacheado_seguro",
+      title: "Cortar Cacheado, Crespo e Ondulado com Segurança e Cobrar Mais",
+      avatar: "Cabeleireira(o) que atende cachos, crespos e ondulados, mas tem medo de errar o corte e cobra pouco por insegurança",
+      vilao: "Cortar cacho como se fosse liso: puxar, molhar e cortar reto, sem respeitar o encolhimento e a curvatura de cada fio",
+      mecanismo: "Código dos Cortes Perfeitos: leitura da curvatura e corte que prevê o encolhimento, para entregar volume e formato previsíveis",
+      promptHint: "Contraste a profissional insegura que evita cliente cacheada vs a especialista disputada que cobra o dobro com agenda cheia.",
     },
   ],
   global: [

@@ -112,35 +112,35 @@ function parsePrice(raw: unknown, fallback = 47): number {
 
     const angulos = isJP ? [
       {
-        titulo: "Ângulo 1: O Erro de Ângulo da Tesoura",
+        titulo: "Ângulo 1: O Erro de Cortar Cacho como Liso",
         skill: "angulos-criativos",
-        gancho: "O erro de 15 graus na empunhadura da tesoura que faz 90% dos barbeiros perderem 40 minutos por corte...",
-        headline: "Corte em 25 Minutos Sem Degrau: O Segredo da Tesoura Japonesa",
-        copy: "Se você ainda passa aperto no topo e gasta 50 minutos num corte simples, você não precisa de mais clientes, precisa corrigir esse erro de tesoura. Domine a técnica do Código dos Cortes por apenas R$ 47.",
-        utm: `utm_source=meta&utm_campaign=lowticket_${budgetNum}&utm_content=erro_tesoura`
+        gancho: "O erro que faz 9 em cada 10 cabeleireiras estragarem um cacheado: cortar o fio esticado sem prever o encolhimento...",
+        headline: "Corte Cacheado Sem Medo: Preveja o Encolhimento Antes da Tesoura",
+        copy: "Se você ainda sente frio na barriga quando senta uma cliente cacheada ou crespa na cadeira, o problema não é falta de talento, é a técnica de corte. Domine o Código dos Cortes Perfeitos por apenas R$ 47.",
+        utm: `utm_source=meta&utm_campaign=lowticket_${budgetNum}&utm_content=erro_cacho_liso`
       },
       {
-        titulo: "Ângulo 2: Tabela de Preço / Lucro por Hora",
+        titulo: "Ângulo 2: Especialista Cobra Mais",
         skill: "devastador-v4",
-        gancho: "Como cobrar R$ 70 no corte comum sem perder um único cliente do bairro...",
-        headline: "De R$ 35 para R$ 70: A Técnica do Fade Limpo Que Clientes Pagam Rindo",
-        copy: "Barbeiro que cobra barato sofre para pagar o aluguel da cadeira. Quando você entrega a régua perfeita do fade militar, seu valor dobra imediatamente. Acesse o treinamento completo com 2 bônus exclusivos hoje.",
-        utm: `utm_source=meta&utm_campaign=lowticket_${budgetNum}&utm_content=preco_lucro`
+        gancho: "Como cobrar o dobro no corte de cacheado sem perder cliente...",
+        headline: "De Cabeleireira Comum a Especialista em Cachos: Agenda Cheia e Ticket Dobrado",
+        copy: "Cliente cacheada, crespa ou ondulada roda a cidade atrás de quem entende o cabelo dela, e paga mais por isso. Quando você entrega volume e formato previsíveis, vira a referência. Acesse o treinamento completo com 2 bônus hoje.",
+        utm: `utm_source=meta&utm_campaign=lowticket_${budgetNum}&utm_content=especialista_ticket`
       },
       {
         titulo: "Ângulo 3: Vídeo Roleta Gamificado",
         skill: "video-roleta-sorteio",
-        gancho: "[Roleta girando sobre foto de corte]: 'Tire um print! Se cair no Degradê Navalhado, você tem que dominar essa técnica hoje.'",
-        headline: "Desafio do Barbeiro: Você Consegue Fazer Esse Fade em 20 Minutos?",
-        copy: "A brincadeira que parou o feed dos barbeiros. Aprenda o passo a passo exato do Código dos Cortes Perfeitos.",
+        gancho: "[Roleta girando sobre foto de cacheados]: 'Tire um print! Se cair no Corte Coração, você tem que dominar essa técnica hoje.'",
+        headline: "Desafio dos Cachos: Você Sabe Qual Corte Valoriza Cada Curvatura?",
+        copy: "A brincadeira que parou o feed das cabeleireiras. Aprenda o passo a passo exato do Código dos Cortes Perfeitos.",
         utm: `utm_source=meta&utm_campaign=lowticket_${budgetNum}&utm_content=roleta_gamificada`
       },
       {
-        titulo: "Ângulo 4: UGC / Transformação de Aluno",
+        titulo: "Ângulo 4: UGC / Transformação de Aluna",
         skill: "proof-elements",
-        gancho: "[Vídeo selfie no salão]: 'Cara, eu estava quase desistindo da barbearia porque demorava demais...'",
-        headline: "Mais de 1.400 Barbeiros Mudaram de Nível com Este Método",
-        copy: "Veja como barbeiros de todo o Brasil aceleraram o atendimento e dobraram o faturamento com o Código dos Cortes do JP Freitas.",
+        gancho: "[Vídeo selfie no salão]: 'Eu recusava cliente cacheada porque tinha medo de estragar o cabelo dela...'",
+        headline: "Cabeleireiras de Todo o Brasil Perderam o Medo de Cortar Cachos com Este Método",
+        copy: "Veja como profissionais de cacheados, crespos e ondulados ganharam segurança no corte e aumentaram o ticket com o Código dos Cortes do JP Freitas.",
         utm: `utm_source=meta&utm_campaign=lowticket_${budgetNum}&utm_content=ugc_prova`
       }
     ] : [
