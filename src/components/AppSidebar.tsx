@@ -57,6 +57,7 @@ const capitalItems = [
 
 // Fora do menu (rotas seguem no ar, só com login): /cockpit e /redesign (experimentos) e /openrouter-custos (repete Custos IA).
 const acervoItems = [
+  { title: "Acervo RAG",   url: "/acervo",      icon: Brain },
   { title: "Referências",  url: "/referencias", icon: Library },
   { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
   { title: "Docs / KB",    url: "/docs",        icon: FileText },

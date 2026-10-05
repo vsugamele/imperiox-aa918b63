@@ -7,9 +7,9 @@ import { Brain, Zap, Tag, Activity, Cpu, ShoppingBag, Flame, ListPlus, ExternalL
 import { toast } from "sonner";
 import { brPhoneVariants } from "@/lib/phoneVariants";
 import { LeadMemoryEditor } from "@/components/whatsapp/LeadMemoryEditor";
+import { LeadAccessDiagnosticCard } from "@/components/leads/LeadAccessDiagnosticCard";
 
-
-type Intel = Pick<Tables<"imphq_leads">, "id" | "score" | "awareness_level" | "tags" | "lead_memory" | "nome" | "project_id"> & { lastIntent?: string | null };
+type Intel = Pick<Tables<"imphq_leads">, "id" | "score" | "awareness_level" | "tags" | "lead_memory" | "nome" | "project_id" | "email"> & { lastIntent?: string | null };
 type Sale = Pick<Tables<"imphq_vendas">, "id" | "produto_nome" | "valor" | "status" | "data_venda" | "tipo_venda" | "project_id" | "lead_id">;
 type ActiveFlow = Pick<Tables<"imphq_flow_executions">, "id" | "automacao_id" | "current_step" | "status" | "updated_at"> & { nome?: string; totalSteps: number };
 
@@ -50,7 +50,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
           if (variants.length) {
             const { data } = await supabase
               .from("imphq_leads")
-              .select("id, score, awareness_level, tags, lead_memory, nome, project_id")
+              .select("id, score, awareness_level, tags, lead_memory, nome, project_id, email")
               .in("phone", variants);
             allLeads = data || [];
           }
@@ -58,7 +58,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
         if (leadId && !allLeads.some((l) => l.id === leadId)) {
           const { data } = await supabase
             .from("imphq_leads")
-            .select("id, score, awareness_level, tags, lead_memory, nome, project_id")
+            .select("id, score, awareness_level, tags, lead_memory, nome, project_id, email")
             .eq("id", leadId)
             .maybeSingle();
           if (data) allLeads.push(data);
@@ -380,6 +380,30 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
           )}
         </div>
 
+
+        {/* Diagnóstico de Acesso JP (Aparece se for aluna JP Freitas) */}
+        {intel && (
+          <div className="p-3">
+            <LeadAccessDiagnosticCard
+              lead={{
+                id: intel.id,
+                nome: intel.nome,
+                email: intel.email,
+                phone: phone,
+                project_id: intel.project_id,
+                tags: intel.tags,
+                _vendas: sales.map((s) => ({
+                  id: s.id,
+                  produto_nome: s.produto_nome,
+                  valor: s.valor,
+                  status: s.status,
+                })),
+              }}
+              projectName={projectNameById(intel.project_id || projectId || null)}
+              compact={true}
+            />
+          </div>
+        )}
 
         {/* Histórico de Compras */}
         <div className="p-4 space-y-2">

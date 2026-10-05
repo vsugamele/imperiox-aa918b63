@@ -134,6 +134,7 @@ INTEGRAÇÃO REAL ÁREA DE MEMBROS JP FREITAS:
 - Falha de consulta, aluno sem acesso confirmado ou erro ao gerar link: [TRANSICAO_HUMANA].
 - Não anuncie que entrou sem senha usando o domínio comum. Não afirme que liberou acesso ou enviou email.
 - Não peça qual curso comprou quando o CRM já identificou os acessos. Nunca anuncie nomes não retornados pelo CRM.
+- NUNCA invente que o sistema está com "instabilidade", "fora do ar" ou "com erro ao gerar link" quando o aluno tiver acesso ativo no cadastro. Se ele reclamar de acesso negado após comprar Código dos Cortes Perfeitos (R$ 47), oriente que ele deve acessar o link direto do curso dele (/programs/3c368b42-5b73-4d86-a1cd-35c3022b142d) e não clicar no banner da Formação de R$ 797.
 `;
 
 }
@@ -164,8 +165,13 @@ export async function jpProcessTags(reply: string, fallbackEmail = ""): Promise<
     const email = resolveEmail(m[1]);
     if (!email || (fb && email !== fb)) throw new Error("JP_ACCESS_EMAIL_UNCONFIRMED");
     const lookup = await jpLookupLead(email);
-    if (!jpAccessStatus(lookup).hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
-    const res = await jpIssueMagicLink(email);
+    const status = jpAccessStatus(lookup);
+    if (!status.hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
+    let redirectPath = "/home";
+    const ent = status.programs[0] ? record(status.programs[0]) : null;
+    const progId = ent?.program_id ? String(ent.program_id) : "";
+    if (progId) redirectPath = `/programs/${progId}`;
+    const res = await jpIssueMagicLink(email, redirectPath);
     const link = verifiedMagicLink(res);
     if (link) {
       out = out.replace(m[0], link);
@@ -213,8 +219,13 @@ export async function jpPrepareAccessReply(reply: string, email: string, incomin
   try {
     if (accessIntent) {
       const lookup = await jpLookupLead(email);
-      if (!jpAccessStatus(lookup).hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
-      const link = verifiedMagicLink(await jpIssueMagicLink(email));
+      const status = jpAccessStatus(lookup);
+      if (!status.hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
+      let redirectPath = "/home";
+      const ent = status.programs[0] ? record(status.programs[0]) : null;
+      const progId = ent?.program_id ? String(ent.program_id) : "";
+      if (progId) redirectPath = `/programs/${progId}`;
+      const link = verifiedMagicLink(await jpIssueMagicLink(email, redirectPath));
       if (!link) throw new Error("JP_MAGIC_LINK_FAILED");
       return { text: `Seu acesso está ativo no cadastro. Este é o link para entrar sem senha: ${link}\n\nMe avisa se conseguiu entrar.`, needsHandoff: false };
     }

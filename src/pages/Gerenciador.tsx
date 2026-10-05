@@ -1,13 +1,14 @@
 import type { Tables } from "@/integrations/supabase/types";
 type AdSpend = Tables<"imphq_ads_spend">;
-type RevenueRow = Pick<Tables<"imphq_vendas">,"id"|"project_id"|"produto_nome"|"valor"|"valor_liquido"|"plataforma"|"data_venda"|"utm_campaign">;
+type RevenueRow = Pick<Tables<"imphq_vendas">,"id"|"project_id"|"produto_nome"|"valor"|"valor_liquido"|"plataforma"|"data_venda"|"utm_campaign"|"utm_content"|"utm_term">;
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Calendar, Plus } from "lucide-react";
+import { Download, Calendar, Plus, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
 import { CampanhasTable } from "@/components/gerenciador/CampanhasTable";
 import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
@@ -31,7 +32,7 @@ const PERIODS = [
 ];
 
 export default function Gerenciador() {
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; data?: unknown }[]>([]);
   const [projectId, setProjectId] = useState<string>("__all__");
   const [days, setDays] = useState<number>(30);
   const [ads, setAds] = useState<AdSpend[]>([]);
@@ -46,8 +47,8 @@ export default function Gerenciador() {
   // Carregar projetos
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("imphq_projects").select("id, name").order("name");
-      setProjects(data || []);
+      const { data } = await supabase.from("imphq_projects").select("id, name, data").order("name");
+      setProjects((data as { id: string; name: string; data?: unknown }[]) || []);
     })();
   }, []);
 
@@ -66,7 +67,7 @@ export default function Gerenciador() {
         return q;
       };
       const baseVendas = (gte: string, lte: string) => {
-        let q = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, data_venda, utm_campaign").gte("data_venda", gte).lte("data_venda", lte).limit(2000);
+        let q = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, data_venda, utm_campaign, utm_content, utm_term").gte("data_venda", gte).lte("data_venda", lte).limit(2000);
         if (projectId !== "__all__") q = q.eq("project_id", projectId);
         return q;
       };
@@ -107,6 +108,15 @@ export default function Gerenciador() {
     };
   }, [metaAds, metaAdsPrev, vendas, vendasPrev, revenueMode]);
 
+  // Meta de CPA do projeto ou calculada pelo ticket médio global
+  const cpaTarget = useMemo(() => {
+    const currentProject = projects.find(p => p.id === projectId);
+    const pData = currentProject?.data as Record<string, unknown> | null;
+    if (typeof pData?.cpa_alvo === "number" && pData.cpa_alvo > 0) return pData.cpa_alvo;
+    const avgTicket = vendas.length > 0 ? (totals.cur.receita / vendas.length) : 0;
+    return avgTicket > 0 ? avgTicket * 0.4 : 50;
+  }, [projects, projectId, vendas, totals.cur.receita]);
+
   // Série diária de gasto por campaign_id (para sparkline)
   const dailySpendByCamp = useMemo(() => {
     const m = new Map<string, Map<string, number>>(); // camp -> (date -> spend)
@@ -127,6 +137,42 @@ export default function Gerenciador() {
     });
     return result;
   }, [metaAds]);
+
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+    try {
+      if (projectId === "__all__") {
+        const { data, error } = await supabase.functions.invoke("facebook-ads-sync-all", {
+          body: {},
+        });
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(`Falha no sync da Meta: ${data.details || data.error}`);
+        } else {
+          const syncedCount = data?.synced ?? data?.results?.length ?? 0;
+          toast.success(`Sincronização com a Meta concluída (${syncedCount} projeto(s))!`);
+          setRefreshKey((k) => k + 1);
+        }
+      } else {
+        const { data, error } = await supabase.functions.invoke("facebook-ads-sync", {
+          body: { project_id: projectId },
+        });
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(`Falha no sync da Meta: ${data.details || data.error}`);
+        } else {
+          toast.success("Sincronização com o Meta Ads concluída com sucesso!");
+          setRefreshKey((k) => k + 1);
+        }
+      }
+    } catch (e) {
+      toast.error(`Erro ao sincronizar: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const exportCsv = () => {
     if (ads.length === 0) return;
@@ -167,6 +213,17 @@ export default function Gerenciador() {
               {PERIODS.map(p => <SelectItem key={p.days} value={String(p.days)}>{p.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleSyncNow}
+            disabled={isSyncing}
+            className="gap-1.5 h-9 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition"
+            title={projectId === "__all__" ? "Sincronizar todos os projetos configurados com a Meta" : "Sincronizar projeto selecionado com o Meta Ads"}
+          >
+            {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Sincronizar Meta Agora
+          </Button>
           <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5 h-9 text-xs">
             <Download className="h-3.5 w-3.5" /> CSV
           </Button>
@@ -216,6 +273,7 @@ export default function Gerenciador() {
               adsPrev={metaAdsPrev}
               vendas={vendas}
               projectId={projectId !== "__all__" ? projectId : undefined}
+              cpaTarget={cpaTarget}
               onAfterToggle={() => setRefreshKey(k => k + 1)}
               forcedSearch={forcedSearch}
               onSearchChange={() => setForcedSearch(undefined)}

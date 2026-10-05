@@ -1177,6 +1177,24 @@ Deno.serve(async (req) => {
 
       let jpBookingInstruction = "";
       let jpMastercutsInstruction = "";
+      let jpAccessRecoveryInstruction = "";
+      if (isJPProject(project_id)) {
+        const lcMsg = (message || "").toLowerCase();
+        const ACCESS_PATTERNS = /\b(acess(o|ar|ando)?|login|entrar|bloquea(do|da)|negado|n[aã]o (consigo|abre|entra|estou conseguindo)|plataforma|aulas?|minhas aulas|assistir|link de acesso|onde assisto|c[oó]digo dos cortes)\b/i;
+        if (ACCESS_PATTERNS.test(lcMsg)) {
+          jpAccessRecoveryInstruction = `\n🚨 REGRA CRÍTICA DE SUPORTE E ACESSO — BLINDAGEM CONTRA ALUCINAÇÃO:
+O aluno/cliente está perguntando sobre ACESSO, LOGIN, AULAS OU "ACESSO NEGADO".
+SUA CONDUTA OBRIGATÓRIA:
+1. SE O ALUNO JÁ TEM CONTA OU ACESSO CONFIRMADO NO CRM:
+   - É ESTRITAMENTE PROIBIDO inventar que o sistema está com "instabilidade", "fora do ar", "em manutenção" ou "com erro ao gerar link". A plataforma está funcionando normalmente!
+   - Se a aluna comprou "Código dos Cortes Perfeitos" (R$ 47) e viu a mensagem "Acesso Negado", EXPLIQUE CORDIALMENTE:
+     Ao acessar pela Home (/home), o banner de destaque principal é da Formação Completa (de R$ 797), o que gera a mensagem de acesso negado.
+     Para assistir às aulas dela, envie o LINK DIRETO do curso:
+     👉 https://www.jphaireducation.com.br/programs/3c368b42-5b73-4d86-a1cd-35c3022b142d
+     Ou envie o token de login sem senha usando a tag: [JP_MAGIC_LINK:${jpEffectiveEmail || "email"}].
+2. Se o aluno ainda não informou o e-mail, pergunte de forma direta e acolhedora: "Qual é o seu e-mail de compra para eu localizar o seu acesso?".\n`;
+        }
+      }
       if (isJPProject(project_id)) {
         const lcMsg = (message || "").toLowerCase();
         const SALAO_AGENDA_PATTERNS = /\b(agend(ar|amento|a)|cort(e|ar|ando)|hor[aá]rio|marcar|sal[aã]o|est[uú]dio|jp6|quanto (custa|fica|est[aá]) o corte|corte com o jp|fazer o cabelo|cortar o cabelo|lavar e cortar|transi[çc][aã]o no sal[aã]o)\b/i;
@@ -1855,7 +1873,7 @@ ${sugameleStyleRules}
 ${sentimentRules}
 ${draggingRules}
 ${offTopicBlock}
-${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? (jpBuildInstructionsBlock(jpEmailKnown) + jpBookingInstruction + jpMastercutsInstruction + jpConversationRules(project_id)) : ""}`.trim();
+${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus}${productLinkMapBlock}${pixBlock}${customInstr}${bannedBlock}${faqBlock}${lessonsBlock}${memoryBlock}${objectionsBlock}${closerBlock}${openFlowBlock}${isJPProject(project_id) ? (jpBuildInstructionsBlock(jpEmailKnown) + jpBookingInstruction + jpMastercutsInstruction + jpAccessRecoveryInstruction + jpConversationRules(project_id)) : ""}`.trim();
 
       // 8. Monta array de mensagens (histórico + mensagem atual)
       const jpServiceState = isJPProject(project_id) ? await jpLoadServiceState(supabase, "whatsapp", conversation_id) : {};

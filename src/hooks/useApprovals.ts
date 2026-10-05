@@ -4,10 +4,7 @@ import { buildApprovalQueue, type ApprovalItem } from "@shared/approval-queue";
 import { writeAgentNotes, type StepStatus } from "@shared/map-steps";
 
 async function loadApprovals(): Promise<ApprovalItem[]> {
-  const [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes] = await Promise.all([
-    supabase.from("imphq_company_map_nodes")
-      .select("id, map_id, label, description, linked_project_id, status_changed_at, updated_at, image_url")
-      .eq("step_status", "ready_review"),
+  const [actionsRes, contentsRes, draftsRes] = await Promise.all([
     supabase.from("imphq_ai_actions")
       .select("id, kind, title, reason, risk_level, impact_brl, projeto_id, created_at")
       .eq("status", "proposed").order("created_at").limit(100),
@@ -17,19 +14,17 @@ async function loadApprovals(): Promise<ApprovalItem[]> {
     supabase.from("imphq_v_ai_drafts")
       .select("id, project_id, contact_name, incoming_text, suggested_text, created_at")
       .eq("status", "pending").limit(100),
-    supabase.from("imphq_company_maps").select("id").not("archived_at", "is", null),
   ]);
-  for (const res of [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes]) if (res.error) throw res.error;
-  const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
+  for (const res of [actionsRes, contentsRes, draftsRes]) if (res.error) throw res.error;
   return buildApprovalQueue({
-    steps: (stepsRes.data ?? []).filter((s) => !archived.has(s.map_id)),
+    steps: [], // Nós do mapa são verificações técnicas de rota, não tarefas de aprovação humana
     actions: actionsRes.data ?? [],
     contents: contentsRes.data ?? [],
     drafts: draftsRes.data ?? [],
   });
 }
 
-/** Fila única "Aprovar": etapas para revisar, ações da IA, conteúdo pronto e respostas da IA pendentes. */
+/** Fila única "Aprovar": focada em decisões de impacto real (ações da IA, criativos prontos e respostas a clientes). */
 export function useApprovals() {
   return useQuery({ queryKey: ["approvals"], queryFn: loadApprovals, staleTime: 30_000, refetchInterval: 60_000 });
 }

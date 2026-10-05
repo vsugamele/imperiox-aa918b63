@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -9,12 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope, Film, Zap, Shield } from "lucide-react";
+import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope, Film, Zap, Shield, Megaphone } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { parseMemoFlowAdBatch, formatBatchForMediaBuyer } from "@/lib/memoflow-ads-generator";
 
 type Project = { id: string; name: string };
 type Intent =
+  | "lote_anuncios_memoflow"
   | "vsl_imperador"
   | "criativo_imperador"
   | "conversa_imperador"
@@ -24,6 +27,7 @@ type Intent =
   | "weaponized_credibility";
 
 const TABS: Array<{ id: Intent; label: string; icon: LucideIcon; subtitle: string }> = [
+  { id: "lote_anuncios_memoflow", label: "Lote Tráfego (MemoFlow)", icon: Megaphone, subtitle: "Esteira executiva: Ângulo + Copy Mestre + 3 Ganchos + Headlines prontas para a Meta" },
   { id: "vsl_imperador", label: "VSL Reversa", icon: Film, subtitle: "Engenharia reversa: mecanismo → provas → abertura" },
   { id: "criativo_imperador", label: "Criativo", icon: Sparkles, subtitle: "5 variações com mecanismo nomeado" },
   { id: "conversa_imperador", label: "Conversa WA", icon: MessageSquare, subtitle: "Sequência em cadeia de sins" },
@@ -34,17 +38,26 @@ const TABS: Array<{ id: Intent; label: string; icon: LucideIcon; subtitle: strin
 ];
 
 export default function CopyLab() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState<string>("__none__");
-  const [activeTab, setActiveTab] = useState<Intent>("vsl_imperador");
+  const location = useLocation();
+  const routeState = (location.state || {}) as {
+    initialIntent?: Intent;
+    projectId?: string;
+    briefing?: string;
+    initialOutput?: string;
+  };
 
-  const [briefing, setBriefing] = useState("");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState<string>(routeState.projectId || "__none__");
+  const [activeTab, setActiveTab] = useState<Intent>(routeState.initialIntent || "lote_anuncios_memoflow");
+
+  const [briefing, setBriefing] = useState(routeState.briefing || "");
   const [crenca, setCrenca] = useState("");
   const [referencia, setReferencia] = useState("");
   const [copyParaDiagnostico, setCopyParaDiagnostico] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState<string>("");
+  const [output, setOutput] = useState<string>(routeState.initialOutput || "");
+
 
   useEffect(() => {
     (async () => {
@@ -222,10 +235,66 @@ export default function CopyLab() {
                     <Label className="text-xs">Saída</Label>
                     {output && (
                       <Button size="sm" variant="ghost" onClick={copyToClipboard}>
-                        <CopyIcon className="h-3 w-3 mr-1" /> Copiar
+                        <CopyIcon className="h-3 w-3 mr-1" /> Copiar Tudo
                       </Button>
                     )}
                   </div>
+
+                  {output && activeTab === "lote_anuncios_memoflow" && (
+                    <div className="flex flex-wrap items-center gap-1.5 p-2 bg-background/80 rounded border border-border/60">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] gap-1 text-primary border-primary/30 font-semibold"
+                        onClick={() => {
+                          const batch = parseMemoFlowAdBatch(output);
+                          navigator.clipboard.writeText(formatBatchForMediaBuyer(batch));
+                          toast.success("Briefing executivo copiado para o gestor de tráfego!");
+                        }}
+                      >
+                        <Zap className="h-3 w-3" /> Pacote Gestor (WhatsApp)
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 text-[11px] gap-1 font-medium"
+                        onClick={() => {
+                          const batch = parseMemoFlowAdBatch(output);
+                          navigator.clipboard.writeText(batch.copyMestre);
+                          toast.success("Copy Mestre (Texto Principal) copiada!");
+                        }}
+                      >
+                        📝 Copy Mestre
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 text-[11px] gap-1 font-medium"
+                        onClick={() => {
+                          const batch = parseMemoFlowAdBatch(output);
+                          const gText = batch.ganchos.map(g => `${g.id} (${g.tipo}):\n"${g.texto}"`).join("\n\n");
+                          navigator.clipboard.writeText(gText);
+                          toast.success("3 Ganchos copiados!");
+                        }}
+                      >
+                        🪝 3 Ganchos
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 text-[11px] gap-1 font-medium"
+                        onClick={() => {
+                          const batch = parseMemoFlowAdBatch(output);
+                          const hText = batch.headlines.map(h => `${h.id} (${h.tipo}): ${h.texto}`).join("\n");
+                          navigator.clipboard.writeText(hText);
+                          toast.success("3 Headlines copiadas!");
+                        }}
+                      >
+                        📌 3 Headlines
+                      </Button>
+                    </div>
+                  )}
+
                   <div className="min-h-[420px] max-h-[70vh] overflow-y-auto prose prose-sm prose-invert max-w-none bg-secondary/40 rounded p-4 leading-7">
                     {output ? (
                       <ReactMarkdown>{output}</ReactMarkdown>

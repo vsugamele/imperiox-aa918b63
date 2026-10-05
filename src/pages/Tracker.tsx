@@ -329,15 +329,21 @@ export default function Tracker() {
     else { var s = localStorage.getItem("imp_"+k); if(s) utms[k] = s; }
   });
   
-  // Capture link_id
+  // Capture link_id & click_id
   var linkId = params.get("imp_link_id") || localStorage.getItem("imp_link_id") || null;
   if(params.get("imp_link_id")){ localStorage.setItem("imp_link_id", params.get("imp_link_id")); }
   
+  var clickId = params.get("imp_click_id") || params.get("sck") || localStorage.getItem("imp_click_id");
+  if(!clickId){
+    clickId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "c_" + Math.random().toString(36).substr(2,9) + Date.now().toString(36);
+  }
+  localStorage.setItem("imp_click_id", clickId);
+
   // Store landing page
   if(!localStorage.getItem("imp_landing")) localStorage.setItem("imp_landing", window.location.href);
   
   // Helper: generate event_id for deduplication
-  function genEventId(){ return crypto.randomUUID(); }
+  function genEventId(){ return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "e_" + Math.random().toString(36).substr(2,9) + Date.now().toString(36); }
   
   // Helper: post to Supabase
   function sbPost(table, data){
@@ -356,16 +362,15 @@ export default function Tracker() {
   // Register click (if UTMs or linkId present)
   if(Object.keys(utms).length > 0 || linkId){
     sbPost("imphq_clicks", {
-      id: crypto.randomUUID(),
+      id: clickId,
       link_id: linkId,
       utm_source: utms.utm_source || null,
       utm_medium: utms.utm_medium || null,
       utm_campaign: utms.utm_campaign || null,
       utm_content: utms.utm_content || null,
       utm_term: utms.utm_term || null,
-      referrer: document.referrer || null,
-      page_url: window.location.href,
-      user_agent: navigator.userAgent
+      referer: document.referrer || null,
+      ua: navigator.userAgent
     });
   }
   
@@ -392,6 +397,73 @@ export default function Tracker() {
       user_agent: navigator.userAgent
     });
   }
+
+  // Decorate checkout links so no sales are orphaned
+  function decorateCheckoutLinks(){
+    var checkoutDomains = [
+      "kiwify.com.br", "ticto.app", "ticto.com.br", "hotmart.com", "eduzz.com",
+      "greenn.com.br", "braip.com", "perfectpay.com.br", "monetizze.com.br",
+      "whop.com", "checkout."
+    ];
+    var links = document.querySelectorAll("a[href]");
+    for(var i=0; i<links.length; i++){
+      var a = links[i];
+      var href = a.getAttribute("href");
+      if(!href || href.indexOf("#") === 0 || href.indexOf("javascript:") === 0) continue;
+      var isCheckout = false;
+      for(var d=0; d<checkoutDomains.length; d++){
+        if(href.indexOf(checkoutDomains[d]) !== -1){
+          isCheckout = true;
+          break;
+        }
+      }
+      if(isCheckout){
+        try {
+          var url = new URL(href, window.location.origin);
+          ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){
+            if(utms[k] && !url.searchParams.get(k)) url.searchParams.set(k, utms[k]);
+          });
+          if(clickId && !url.searchParams.get("imp_click_id")) url.searchParams.set("imp_click_id", clickId);
+          if(clickId && !url.searchParams.get("sck")) url.searchParams.set("sck", clickId);
+          if(utms.utm_source && !url.searchParams.get("src")) url.searchParams.set("src", utms.utm_source);
+          if(clickId && !url.searchParams.get("xcod")) url.searchParams.set("xcod", clickId);
+          a.href = url.toString();
+        } catch(e){}
+      }
+    }
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", decorateCheckoutLinks);
+  } else {
+    decorateCheckoutLinks();
+  }
+  setTimeout(decorateCheckoutLinks, 1500);
+  setTimeout(decorateCheckoutLinks, 4000);
+
+  // Auto-telemetry for VSL video tags
+  function initVslTracking(){
+    var videos = document.querySelectorAll("video");
+    videos.forEach(function(v){
+      if(v._impTracked) return;
+      v._impTracked = true;
+      var milestones = { 25: false, 50: false, 75: false, 90: false };
+      v.addEventListener("play", function(){
+        trackEvent("VSL_Play", { currentTime: v.currentTime, duration: v.duration });
+      }, { once: true });
+      v.addEventListener("timeupdate", function(){
+        if(!v.duration) return;
+        var pct = Math.floor((v.currentTime / v.duration) * 100);
+        [25, 50, 75, 90].forEach(function(m){
+          if(pct >= m && !milestones[m]){
+            milestones[m] = true;
+            trackEvent("VSL_" + m + "pct", { currentTime: v.currentTime, duration: v.duration });
+          }
+        });
+      });
+    });
+  }
+  setTimeout(initVslTracking, 2000);
   
   // Load Facebook Pixel dynamically
   var pixelId = document.querySelector('meta[name="imp-pixel-id"]');
@@ -414,6 +486,8 @@ export default function Tracker() {
     getUtms: function(){ return utms; },
     getVisitorId: function(){ return visitorId; },
     getSessionId: function(){ return sessionId; },
+    getClickId: function(){ return clickId; },
+    decorateCheckoutLinks: decorateCheckoutLinks,
     trackEvent: trackEvent,
     trackViewContent: function(data){
       var eid = genEventId();
@@ -430,9 +504,9 @@ export default function Tracker() {
       if(window.fbq) fbq("track", "Lead", { email: data.email }, { eventID: eid });
       trackEvent("LeadCapture", { email: data.email, nome: data.nome }, eid);
       return sbPost("imphq_leads", Object.assign({
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "l_" + Math.random().toString(36).substr(2,9),
         plataforma: utms.utm_source || null,
-        data: { utms: utms, landing: localStorage.getItem("imp_landing"), visitor_id: visitorId }
+        data: { utms: utms, landing: localStorage.getItem("imp_landing"), visitor_id: visitorId, click_id: clickId }
       }, data));
     }
   };
@@ -1299,12 +1373,14 @@ export default function Tracker() {
                 <p><span className="text-primary">imptrack.getUtms()</span> → retorna objeto com UTMs capturados</p>
                 <p><span className="text-primary">imptrack.getVisitorId()</span> → retorna ID persistente do visitante</p>
                 <p><span className="text-primary">imptrack.getSessionId()</span> → retorna ID da sessão atual</p>
+                <p><span className="text-primary">imptrack.getClickId()</span> → retorna ID único do clique para checkout</p>
+                <p><span className="text-primary">imptrack.decorateCheckoutLinks()</span> → auto-decora botões de checkout (Kiwify, Ticto, Hotmart, Whop, etc)</p>
                 <p><span className="text-primary">imptrack.trackLead({"{"} nome, email, phone {"}"})</span> → registra lead + CAPI Lead</p>
                 <p><span className="text-primary">imptrack.trackEvent("NomeEvento", {"{"} dados {"}"})</span> → registra evento customizado</p>
                 <p><span className="text-primary">imptrack.trackViewContent({"{"} content_name {"}"})</span> → ViewContent + fbq</p>
                 <p><span className="text-primary">imptrack.trackAddToCart({"{"} value, currency {"}"})</span> → AddToCart + fbq</p>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">⚡ PageView é registrado automaticamente. Pixel do Facebook carrega se <code>&lt;meta name="imp-pixel-id" content="SEU_PIXEL_ID"&gt;</code> estiver na página.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">⚡ PageView e VSL Telemetry são registrados automaticamente. Botões de checkout (Kiwify, Ticto, Hotmart, Whop) recebem UTMs e clickId sem perder atribuição.</p>
               
               {/* Facebook Integration Explanation */}
               <div className="mt-4 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-2">

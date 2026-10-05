@@ -34,11 +34,10 @@ export default function Aprovar() {
   return (
     <div className="space-y-6">
       <header>
-        <div className="kicker">Aprovar</div>
-        <h1 className="section-title mt-1 text-2xl md:text-3xl">O que espera um sim ou não</h1>
+        <div className="kicker">Decisões Comerciais & IA</div>
+        <h1 className="section-title mt-1 text-2xl md:text-3xl">Aprovações Estratégicas</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Tudo que a IA ou o time deixou para alguém decidir, num lugar só: etapas para revisar, ações propostas pela IA, conteúdo pronto e respostas para clientes.
-          Proposta da IA sem resposta em 7 dias expira sozinha.
+          Fila comercial limpa para decisões que geram tração e faturamento: campanhas da IA, lotes de criativos prontos e respostas pendentes para clientes. Alertas técnicos de infraestrutura/tracking foram removidos do fluxo humano.
         </p>
       </header>
 

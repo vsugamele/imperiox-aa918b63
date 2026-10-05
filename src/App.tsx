@@ -78,6 +78,7 @@ const Assistente = lazyWithRetry(() => import("./pages/Assistente"));
 const Webinar = lazyWithRetry(() => import("./pages/Webinar"));
 const VslLab = lazyWithRetry(() => import("./pages/VslLab"));
 const Rascunhos = lazyWithRetry(() => import("./pages/Rascunhos"));
+const AcervoPage = lazyWithRetry(() => import("./pages/AcervoPage"));
 const WebinarSessao = lazyWithRetry(() => import("./pages/WebinarSessao"));
 const WebinarPublic = lazyWithRetry(() => import("./pages/WebinarPublic"));
 const FormPublic = lazyWithRetry(() => import("./pages/FormPublic"));
@@ -205,6 +206,8 @@ const App = () => (
                 <Route path="tracker" element={<Tracker />} />
                 <Route path="atribuicao" element={<Atribuicao />} />
                 <Route path="openrouter-custos" element={<OpenRouterCustos />} />
+                <Route path="acervo" element={<AcervoPage />} />
+                <Route path="rag" element={<Navigate to="/acervo" replace />} />
                 <Route path="referencias" element={<Referencias />} />
                 <Route path="sites" element={<Sites />} />
                 <Route path="skills" element={<Skills />} />

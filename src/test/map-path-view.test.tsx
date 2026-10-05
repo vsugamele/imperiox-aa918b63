@@ -63,4 +63,54 @@ describe("MapPathView", () => {
     expect(screen.getByText(/falha de leitura/)).toBeInTheDocument();
     expect(screen.queryByText("99%")).not.toBeInTheDocument();
   });
+
+  it("renders overall funnel health summary when projectMetrics is provided", () => {
+    const projectMetrics = {
+      slimsoda: {
+        values: { gasto_ads: 1200, vendas: 24, receita: 4728, sessoes_pagina: 2500, cliques_checkout: 120 },
+        refs: { cpaAlvo: 60 },
+        pages: [],
+        updatedAt: "2026-10-04T20:00:00Z",
+      },
+    };
+    render(
+      <MapPathView
+        nodes={nodes}
+        edges={edges}
+        today="2026-10-03"
+        projectMetrics={projectMetrics}
+        onOpen={vi.fn()}
+        onSetRole={vi.fn()}
+      />
+    );
+    expect(screen.getByText("Saúde Geral do Funil (Últimos 7 dias)")).toBeInTheDocument();
+    expect(screen.getByText("🟢 CPA no Alvo")).toBeInTheDocument();
+    expect(screen.getByText("R$ 1.200,00")).toBeInTheDocument();
+    expect(screen.getByText("R$ 4.728,00")).toBeInTheDocument();
+    expect(screen.getByText("3,94x")).toBeInTheDocument();
+  });
+
+  it("suggests auto-sequence when stages exist without connected purchase DAG", () => {
+    const looseNodes = [
+      node("ads1", "meta_ads", 0),
+      node("vsl1", "vsl", 300),
+      node("pay1", "checkout", 600),
+      node("sale1", "compra", 900),
+    ];
+    const onSetRole = vi.fn();
+    render(
+      <MapPathView
+        nodes={looseNodes}
+        edges={[]}
+        today="2026-10-03"
+        onOpen={vi.fn()}
+        onSetRole={onSetRole}
+      />
+    );
+    expect(screen.getByText(/Sequência Sugerida pelo Funil \(4 etapas\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Ativar como Caminho Principal"));
+    expect(onSetRole).toHaveBeenCalledTimes(4);
+    expect(onSetRole).toHaveBeenCalledWith("ads1", "principal");
+    expect(onSetRole).toHaveBeenCalledWith("sale1", "principal");
+  });
 });

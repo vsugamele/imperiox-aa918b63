@@ -29,6 +29,8 @@ import { useRevenueMode, getRevenue, type RevenueMode } from "@/lib/revenueMode"
 interface VendaItem {
   produto_nome?: string;
   utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
   valor: number;
   valor_liquido?: number | null;
 }
@@ -39,6 +41,7 @@ interface Props {
   adsPrev?: AdInput[];
   vendas?: VendaItem[];
   projectId?: string;
+  cpaTarget?: number;
   onAfterToggle?: () => void;
   forcedSearch?: string;
   onSearchChange?: () => void;
@@ -94,17 +97,106 @@ const DEFAULT_VISIBLE = new Set<SortKey>([
   "trend", "valor", "cliques", "ctr", "ic", "cpi", "compras", "cpa", "receita", "roas", "daily_budget", "verdict",
 ]);
 
-function buildRows(ads: AdInput[], vendas: VendaItem[], revenueMode: RevenueMode): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
-  // Receita por nome de campanha (utm) — respeita modo bruto/líquido
-  const revByCamp = new Map<string, number>();
+export function normalizeTag(str: string | null | undefined): string {
+  if (!str) return "";
+  let s = String(str).trim().toLowerCase();
+  try {
+    s = decodeURIComponent(s);
+  } catch (_) { /* ignore */ }
+  return s.replace(/[\+_\-\[\]\(\)\/]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function cleanSlug(str: string | null | undefined): string {
+  if (!str) return "";
+  return normalizeTag(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+export function buildRows(ads: AdInput[], vendas: VendaItem[], revenueMode: RevenueMode): { campaigns: Row[]; adsetsByCampaign: Map<string, Row[]>; adsByAdset: Map<string, Row[]> } {
+  // Alias mapping for accurate UTM matching (exact id, exact name, normalized tag, clean slug)
+  const campAliasMap = new Map<string, string>();
+  const adsetAliasMap = new Map<string, string>();
+  const adAliasMap = new Map<string, string>();
+
+  function registerAlias(map: Map<string, string>, targetKey: string, ...tokens: (string | null | undefined)[]) {
+    for (const t of tokens) {
+      if (!t) continue;
+      const raw = String(t).trim().toLowerCase();
+      if (raw && !map.has(raw)) map.set(raw, targetKey);
+      const norm = normalizeTag(t);
+      if (norm && !map.has(norm)) map.set(norm, targetKey);
+      const slug = cleanSlug(t);
+      if (slug && !map.has(slug)) map.set(slug, targetKey);
+    }
+  }
+
+  // Pre-index entities from Meta ads spend records
+  for (const a of ads) {
+    const campKey = a.campaign_id || a.campanha || "Sem nome";
+    registerAlias(campAliasMap, campKey, a.campaign_id, a.campanha);
+
+    const adsetKey = a.adset_id || a.conjunto_anuncios || "—";
+    registerAlias(adsetAliasMap, adsetKey, a.adset_id, a.conjunto_anuncios);
+
+    const adKey = a.ad_id || a.anuncio || "—";
+    registerAlias(adAliasMap, adKey, a.ad_id, a.anuncio);
+  }
+
+  const findMatch = (map: Map<string, string>, ...candidates: (string | null | undefined)[]) => {
+    for (const c of candidates) {
+      if (!c) continue;
+      const raw = String(c).trim().toLowerCase();
+      if (map.has(raw)) return map.get(raw);
+      const norm = normalizeTag(c);
+      if (map.has(norm)) return map.get(norm);
+      const slug = cleanSlug(c);
+      if (map.has(slug)) return map.get(slug);
+    }
+    // Substring fallback for slugs with length >= 4
+    for (const c of candidates) {
+      const slug = cleanSlug(c);
+      if (slug.length >= 4) {
+        for (const [token, key] of map.entries()) {
+          if (token.length >= 4 && (token.includes(slug) || slug.includes(token))) {
+            return key;
+          }
+        }
+      }
+    }
+    return undefined;
+  };
+
+  const salesByCamp = new Map<string, { revenue: number; count: number }>();
+  const salesByAdset = new Map<string, { revenue: number; count: number }>();
+  const salesByAd = new Map<string, { revenue: number; count: number }>();
+
   let avgTicket = 0;
   if (vendas.length) {
     const total = vendas.reduce((s, v) => s + getRevenue(v, revenueMode), 0);
     avgTicket = total / vendas.length;
+
     for (const v of vendas) {
-      const k = (v.utm_campaign || "").trim().toLowerCase();
-      if (!k) continue;
-      revByCamp.set(k, (revByCamp.get(k) || 0) + getRevenue(v, revenueMode));
+      const rev = getRevenue(v, revenueMode);
+
+      // Match Ad (utm_term or utm_content)
+      const matchedAd = findMatch(adAliasMap, v.utm_term, v.utm_content);
+      if (matchedAd) {
+        const cur = salesByAd.get(matchedAd) || { revenue: 0, count: 0 };
+        salesByAd.set(matchedAd, { revenue: cur.revenue + rev, count: cur.count + 1 });
+      }
+
+      // Match AdSet (utm_content or utm_term)
+      const matchedAdset = findMatch(adsetAliasMap, v.utm_content, v.utm_term);
+      if (matchedAdset) {
+        const cur = salesByAdset.get(matchedAdset) || { revenue: 0, count: 0 };
+        salesByAdset.set(matchedAdset, { revenue: cur.revenue + rev, count: cur.count + 1 });
+      }
+
+      // Match Campaign (utm_campaign)
+      const matchedCamp = findMatch(campAliasMap, v.utm_campaign);
+      if (matchedCamp) {
+        const cur = salesByCamp.get(matchedCamp) || { revenue: 0, count: 0 };
+        salesByCamp.set(matchedCamp, { revenue: cur.revenue + rev, count: cur.count + 1 });
+      }
     }
   }
 
@@ -139,13 +231,10 @@ function buildRows(ads: AdInput[], vendas: VendaItem[], revenueMode: RevenueMode
     r.hook_rate = hookN ? hookSum / hookN : 0;
     r.cpm = cpmN ? cpmSum / cpmN : 0;
     r.frequencia = freqN ? freqSum / freqN : 0;
-    const lname = name.trim().toLowerCase();
-    r.receita = revByCamp.get(lname) || (level === "campaign" && r.compras > 0 && avgTicket ? avgTicket * r.compras : 0);
-    r.ticket = r.compras > 0 ? r.receita / r.compras : undefined;
     return r;
   };
 
-  // Group by campaign
+  // Group by campaign -> adset -> ad
   const byCamp = new Map<string, AdInput[]>();
   for (const a of ads) {
     const k = a.campaign_id || a.campanha || "Sem nome";
@@ -159,35 +248,74 @@ function buildRows(ads: AdInput[], vendas: VendaItem[], revenueMode: RevenueMode
 
   for (const [campKey, campRows] of byCamp.entries()) {
     const campName = campRows[0]?.campanha || "Sem nome";
-    campaigns.push(aggregate(campKey, campRows, "campaign", campName));
+    const campRow = aggregate(campKey, campRows, "campaign", campName);
 
-    // adsets
+    // Group adsets in campaign
     const byAdset = new Map<string, AdInput[]>();
     for (const a of campRows) {
       const ak = a.adset_id || a.conjunto_anuncios || "—";
       if (!byAdset.has(ak)) byAdset.set(ak, []);
       byAdset.get(ak)!.push(a);
     }
+
     const adsetRows: Row[] = [];
     for (const [adsetKey, adsetRowsArr] of byAdset.entries()) {
       const adsetName = adsetRowsArr[0]?.conjunto_anuncios || "Sem conjunto";
-      adsetRows.push(aggregate(adsetKey, adsetRowsArr, "adset", adsetName, campKey));
+      const adsetRow = aggregate(adsetKey, adsetRowsArr, "adset", adsetName, campKey);
 
-      // ads
+      // Group ads in adset
       const byAd = new Map<string, AdInput[]>();
       for (const a of adsetRowsArr) {
         const adk = a.ad_id || a.anuncio || "—";
         if (!byAd.has(adk)) byAd.set(adk, []);
         byAd.get(adk)!.push(a);
       }
+
       const adRows: Row[] = [];
       for (const [adKey, adArr] of byAd.entries()) {
         const adName = adArr[0]?.anuncio || "Sem anúncio";
-        adRows.push(aggregate(adKey, adArr, "ad", adName, adsetKey));
+        const adRow = aggregate(adKey, adArr, "ad", adName, adsetKey);
+
+        // Matching de vendas no Criativo individual
+        const matchedAd = salesByAd.get(adKey);
+        if (matchedAd && matchedAd.revenue > 0) {
+          adRow.receita = matchedAd.revenue;
+          adRow.compras = Math.max(adRow.compras, matchedAd.count);
+        } else if (adRow.compras > 0 && avgTicket > 0) {
+          adRow.receita = avgTicket * adRow.compras;
+        }
+        adRow.ticket = adRow.compras > 0 ? adRow.receita / adRow.compras : undefined;
+        adRows.push(adRow);
       }
       adsByAdset.set(adsetKey, adRows);
+
+      // Matching e agregação no Conjunto (AdSet): no mínimo a soma dos criativos
+      const childAdsRevenue = adRows.reduce((sum, a) => sum + (a.receita || 0), 0);
+      const childAdsCompras = adRows.reduce((sum, a) => sum + (a.compras || 0), 0);
+      const matchedAdset = salesByAdset.get(adsetKey);
+      const directAdsetRev = matchedAdset?.revenue || 0;
+      const directAdsetCount = matchedAdset?.count || 0;
+
+      adsetRow.receita = Math.max(directAdsetRev, childAdsRevenue, (adsetRow.compras > 0 && avgTicket > 0 ? avgTicket * adsetRow.compras : 0));
+      adsetRow.compras = Math.max(adsetRow.compras, directAdsetCount, childAdsCompras);
+      adsetRow.ticket = adsetRow.compras > 0 ? adsetRow.receita / adsetRow.compras : undefined;
+
+      adsetRows.push(adsetRow);
     }
     adsetsByCampaign.set(campKey, adsetRows);
+
+    // Matching e agregação na Campanha: no mínimo a soma dos conjuntos
+    const childAdsetsRevenue = adsetRows.reduce((sum, as) => sum + (as.receita || 0), 0);
+    const childAdsetsCompras = adsetRows.reduce((sum, as) => sum + (as.compras || 0), 0);
+    const matchedCamp = salesByCamp.get(campKey);
+    const directCampRev = matchedCamp?.revenue || 0;
+    const directCampCount = matchedCamp?.count || 0;
+
+    campRow.receita = Math.max(directCampRev, childAdsetsRevenue, (campRow.compras > 0 && avgTicket > 0 ? avgTicket * campRow.compras : 0));
+    campRow.compras = Math.max(campRow.compras, directCampCount, childAdsetsCompras);
+    campRow.ticket = campRow.compras > 0 ? campRow.receita / campRow.compras : undefined;
+
+    campaigns.push(campRow);
   }
 
   return { campaigns, adsetsByCampaign, adsByAdset };
@@ -197,7 +325,19 @@ function num(v: number) { return v.toLocaleString("pt-BR"); }
 function brl(v: number) { return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 function pct(v: number) { return `${v.toFixed(1)}%`; }
 
-function enrich(r: Row, ticketMedioGlobal = 0) {
+export type EnrichedRow = Row & {
+  ctr: number;
+  cpc: number;
+  cpi: number;
+  cpa: number;
+  roas: number;
+  ic: number;
+  lp_to_ckt: number;
+  verdict: Verdict;
+  verdictReason: string;
+};
+
+function enrich(r: Row, ticketMedioGlobal = 0, cpaTarget?: number): EnrichedRow {
   const ctr = r.impressoes ? (r.cliques / r.impressoes) * 100 : 0;
   const cpc = r.cliques ? r.valor / r.cliques : 0;
   const cpi = r.init_checkout ? r.valor / r.init_checkout : 0;
@@ -205,13 +345,19 @@ function enrich(r: Row, ticketMedioGlobal = 0) {
   const roas = r.valor > 0 ? r.receita / r.valor : 0;
   const lp_to_ckt = r.lp_views ? (r.init_checkout / r.lp_views) * 100 : 0;
   const v = computeVerdict({
-    valor: r.valor, compras: r.compras, receita: r.receita,
-    frequencia: r.frequencia, ticketMedioGlobal,
+    valor: r.valor,
+    compras: r.compras,
+    receita: r.receita,
+    frequencia: r.frequencia,
+    cliques: r.cliques,
+    ticketMedioGlobal,
+    cpaTarget,
+    status: r.effective_status,
   });
   return { ...r, ctr, cpc, cpi, cpa, roas, ic: r.init_checkout, lp_to_ckt, verdict: v.verdict, verdictReason: v.reason };
 }
 
-export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAfterToggle, forcedSearch, onSearchChange, dailySpendByCamp }: Props) {
+export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, cpaTarget, onAfterToggle, forcedSearch, onSearchChange, dailySpendByCamp }: Props) {
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);
@@ -257,54 +403,113 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
     return vendas.reduce((s, v) => s + getRevenue(v, revenueMode), 0) / vendas.length;
   }, [vendas, revenueMode]);
 
+  // Vereditos dos filhos (adsets e criativos) para alimentar o semáforo de decisão
+  const campaignChildVerdicts = useMemo(() => {
+    const m = new Map<string, Set<Verdict>>();
+    for (const camp of campaigns) {
+      const verdicts = new Set<Verdict>();
+      const adsets = adsetsByCampaign.get(camp.id) || [];
+      for (const adset of adsets) {
+        const enrichedAdset = enrich(adset, ticketMedioGlobal, cpaTarget);
+        verdicts.add(enrichedAdset.verdict);
+        const adsArr = adsByAdset.get(adset.id) || [];
+        for (const ad of adsArr) {
+          const enrichedAd = enrich(ad, ticketMedioGlobal, cpaTarget);
+          verdicts.add(enrichedAd.verdict);
+        }
+      }
+      m.set(camp.id, verdicts);
+    }
+    return m;
+  }, [campaigns, adsetsByCampaign, adsByAdset, ticketMedioGlobal, cpaTarget]);
+
   // Busca forçada (vinda dos alertas)
   useEffect(() => {
     if (forcedSearch) { setSearch(forcedSearch); setPage(1); }
   }, [forcedSearch]);
 
   const enrichedCampaigns = useMemo(() => {
-    const filtered = campaigns.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
-    const e = filtered.map(r => enrich(r, ticketMedioGlobal));
+    const query = (forcedSearch !== undefined ? forcedSearch : search).trim().toLowerCase();
+    const filtered = campaigns.filter(r => !query || r.name.toLowerCase().includes(query));
+    const e = filtered.map(r => enrich(r, ticketMedioGlobal, cpaTarget));
     e.sort((a, b) => {
       const av = sortKey === "trend" ? 0 : a[sortKey] ?? 0;
       const bv = sortKey === "trend" ? 0 : b[sortKey] ?? 0;
       if (typeof av === "string" || typeof bv === "string") {
         return sortDir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
       }
-      return sortDir === "asc" ? av - bv : bv - av;
+      return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
     return e;
-  }, [campaigns, search, sortKey, sortDir, ticketMedioGlobal]);
+  }, [campaigns, search, forcedSearch, sortKey, sortDir, ticketMedioGlobal, cpaTarget]);
 
-  // Contagens dos filtros rápidos (sobre o universo já buscado, antes do filtro)
+  // Contagens dos filtros rápidos (Semáforo do Gestor: Sangrando, Campeões, Validando, Pausados, Saturados)
   const quickCounts = useMemo(() => {
-    const c = { ESCALAR: 0, MATAR: 0, SATURADO: 0, SEM_VENDA: 0, PAUSADO: 0 };
+    const c: Record<string, number> = {
+      SANGRANDO: 0,
+      CAMPEOES: 0,
+      VALIDANDO: 0,
+      PAUSADO: 0,
+      SATURADO: 0,
+      ESCALAR: 0,
+      MATAR: 0,
+      SEM_VENDA: 0,
+    };
     for (const r of enrichedCampaigns) {
       const v = r.verdict;
-      if (v === "ESCALAR") c.ESCALAR++;
-      if (v === "MATAR") c.MATAR++;
+      const childVs = campaignChildVerdicts.get(r.id);
+      const isBleeding = v === "MATAR" || (childVs?.has("MATAR") ?? false);
+      const isChamp = v === "ESCALAR" || (childVs?.has("ESCALAR") ?? false);
+      const isValidating = v === "AGUARDAR" || (childVs?.has("AGUARDAR") ?? false);
+
+      if (isBleeding) { c.SANGRANDO++; c.MATAR++; }
+      if (isChamp) { c.CAMPEOES++; c.ESCALAR++; }
+      if (isValidating) { c.VALIDANDO++; }
       if (r.frequencia > 4) c.SATURADO++;
       if (r.compras === 0 && r.valor > 50) c.SEM_VENDA++;
       const status = optimistic.get(r.id) ?? r.effective_status;
       if (status === "PAUSED") c.PAUSADO++;
     }
     return c;
-  }, [enrichedCampaigns, optimistic]);
+  }, [enrichedCampaigns, campaignChildVerdicts, optimistic]);
 
-  // Aplica filtro rápido por cima
+  // Aplica filtro rápido por cima — inclui campanhas cujos criativos correspondam ao critério
   const filteredByQuick = useMemo(() => {
     if (!quickFilter) return enrichedCampaigns;
     return enrichedCampaigns.filter((r) => {
       const v = r.verdict;
+      const childVs = campaignChildVerdicts.get(r.id);
       const status = optimistic.get(r.id) ?? r.effective_status;
-      if (quickFilter === "ESCALAR") return v === "ESCALAR";
-      if (quickFilter === "MATAR") return v === "MATAR";
+      if (quickFilter === "SANGRANDO" || quickFilter === "MATAR") {
+        return v === "MATAR" || (childVs?.has("MATAR") ?? false);
+      }
+      if (quickFilter === "CAMPEOES" || quickFilter === "ESCALAR") {
+        return v === "ESCALAR" || (childVs?.has("ESCALAR") ?? false);
+      }
+      if (quickFilter === "VALIDANDO") {
+        return v === "AGUARDAR" || (childVs?.has("AGUARDAR") ?? false);
+      }
       if (quickFilter === "SATURADO") return r.frequencia > 4;
       if (quickFilter === "SEM_VENDA") return r.compras === 0 && r.valor > 50;
       if (quickFilter === "PAUSADO") return status === "PAUSED";
       return true;
     });
-  }, [enrichedCampaigns, quickFilter, optimistic]);
+  }, [enrichedCampaigns, quickFilter, campaignChildVerdicts, optimistic]);
+
+  // Auto-expandir quando um filtro crítico (ex: Sangrando ou Campeões) for selecionado
+  useEffect(() => {
+    if (quickFilter === "SANGRANDO" || quickFilter === "CAMPEOES" || quickFilter === "MATAR") {
+      const toExpand = new Set<string>();
+      for (const camp of filteredByQuick) {
+        toExpand.add(camp.id);
+        const adsets = adsetsByCampaign.get(camp.id) || [];
+        for (const as of adsets) {
+          toExpand.add(as.id);
+        }
+      }
+      setExpanded(toExpand);
+    }
+  }, [quickFilter, filteredByQuick, adsetsByCampaign]);
 
   const totalPages = Math.max(1, Math.ceil(filteredByQuick.length / pageSize));
   const pageRows = filteredByQuick.slice((page - 1) * pageSize, page * pageSize);
@@ -403,7 +608,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
 
   const renderSubRows = (campaign: Row, depth = 1) => {
     const adsets = adsetsByCampaign.get(campaign.id) || [];
-    const sortedAdsets = [...adsets].map(r => enrich(r, ticketMedioGlobal)).sort((a, b) => b.valor - a.valor);
+    const sortedAdsets = [...adsets].map(r => enrich(r, ticketMedioGlobal, cpaTarget)).sort((a, b) => b.valor - a.valor);
     return sortedAdsets.map((adset) => {
       const adsetExpanded = expanded.has(adset.id);
       const adsetStatus = optimistic.get(adset.id) ?? adset.effective_status;
@@ -416,7 +621,7 @@ export function CampanhasTable({ ads, adsPrev = [], vendas = [], projectId, onAf
           loading={togglingId === adset.id}
           isVisible={isVisible}
           depth={depth}
-          adsRows={(adsByAdset.get(adset.id) || []).map(r => enrich(r, ticketMedioGlobal)).sort((a, b) => b.valor - a.valor)}
+          adsRows={(adsByAdset.get(adset.id) || []).map(r => enrich(r, ticketMedioGlobal, cpaTarget)).sort((a, b) => b.valor - a.valor)}
           optimistic={optimistic}
           optimisticBudget={optimisticBudget}
           togglingId={togglingId}
@@ -703,7 +908,7 @@ function labelFor(k: SortKey): string {
 
 // Sub-row wrapper para adsets/ads
 function ReactFragment(props: {
-  adset: Row & { ctr: number; cpc: number; cpi: number; cpa: number; roas: number; ic: number; lp_to_ckt: number };
+  adset: EnrichedRow;
   adsetStatus: string | null;
   adsetBudget: number | null;
   adsetExpanded: boolean;
@@ -713,7 +918,7 @@ function ReactFragment(props: {
   loading: boolean;
   isVisible: (k: SortKey) => boolean;
   depth: number;
-  adsRows: (Row & { ctr: number; cpc: number; cpi: number; cpa: number; roas: number; ic: number; lp_to_ckt: number })[];
+  adsRows: EnrichedRow[];
   optimistic: Map<string, string>;
   optimisticBudget: Map<string, number>;
   togglingId: string | null;
@@ -759,7 +964,16 @@ function ReactFragment(props: {
         {isVisible("daily_budget") && <TableCell className="text-right">
           <BudgetEditor value={adsetBudget} disabled={!hasValidId(adset)} onSave={onBudget} />
         </TableCell>}
-        {isVisible("verdict") && <TableCell></TableCell>}
+        {isVisible("verdict") && (
+          <TableCell className="text-right">
+            <span
+              className={cn("inline-block px-2 py-0.5 rounded border text-[10px] font-medium tracking-wider", verdictColor(adset.verdict || "—"))}
+              title={adset.verdictReason}
+            >
+              {adset.verdict || "—"}
+            </span>
+          </TableCell>
+        )}
       </TableRow>
 
       {adsetExpanded && adsRows.map((ad) => {
@@ -814,7 +1028,16 @@ function ReactFragment(props: {
             {isVisible("daily_budget") && <TableCell className="text-right">
               <BudgetEditor value={adBudget} disabled={!hasValidId(ad)} onSave={(n) => onAdBudget(ad, n)} />
             </TableCell>}
-            {isVisible("verdict") && <TableCell></TableCell>}
+            {isVisible("verdict") && (
+              <TableCell className="text-right">
+                <span
+                  className={cn("inline-block px-2 py-0.5 rounded border text-[10px] font-medium tracking-wider", verdictColor(ad.verdict || "—"))}
+                  title={ad.verdictReason}
+                >
+                  {ad.verdict || "—"}
+                </span>
+              </TableCell>
+            )}
           </TableRow>
         );
       })}

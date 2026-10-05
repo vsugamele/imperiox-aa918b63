@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "imperio-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--host", "127.0.0.1", "--port", "8081", "--strictPort"],
+      "port": 8081,
+      "autoPort": false,
+      "url": "http://127.0.0.1:8081"
+    }
+  ]
+}

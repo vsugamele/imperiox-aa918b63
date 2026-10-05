@@ -4,7 +4,7 @@ import { errorMessage } from "@/lib/error-message";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { RotateCcw, ShieldAlert } from "lucide-react";
+import { Check, Clock, RotateCcw, ShieldAlert, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   formatCurrency,
   getAutomationBlueprint,
   getTemplateForBucket,
+  getTouchCadenceMessage,
   interpolateRecoveryTemplate,
   mergeRecoveryTemplates,
   type RecoveryBucketId,
@@ -38,6 +39,7 @@ export default function Recuperacao() {
   const [savingTemplateKey, setSavingTemplateKey] = useState<string | null>(null);
   const [templates, setTemplates] = useState<RecoveryTemplateDraft[]>([]);
   const [dispatchingBucket, setDispatchingBucket] = useState<RecoveryBucketId | null>(null);
+  const [dispatchingItemId, setDispatchingItemId] = useState<string | null>(null);
 
   const selectedProject = searchParams.get("projeto") || "all";
   const selectedProjectName = useMemo(
@@ -147,12 +149,81 @@ export default function Recuperacao() {
     }
 
     const template = getResolvedTemplate(item, "whatsapp");
-    const message = interpolateRecoveryTemplate(template.corpo, item);
+    const cadenceCorpo = getTouchCadenceMessage(item, template.corpo);
+    const message = interpolateRecoveryTemplate(cadenceCorpo, item);
     await navigator.clipboard.writeText(message);
-    await createLog(item, "template_whatsapp", "enviado", "whatsapp", "Mensagem copiada para envio manual");
+    await createLog(item, "template_whatsapp", "enviado", "whatsapp", `Mensagem copiada para envio manual (${item.touchLabel || "Toque"})`);
     window.open(`https://wa.me/${item.phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
     toast.success("Mensagem pronta e copiada para o WhatsApp.");
     load();
+  };
+
+  const handleDirectWhatsApp = async (item: RecoveryItem) => {
+    if (!item.phone) {
+      toast.error("Este lead não possui telefone cadastrado.");
+      return;
+    }
+    const targetProjectId = item.projectId || (selectedProject !== "all" ? selectedProject : null);
+    if (!targetProjectId) {
+      toast.error("Selecione um projeto para enviar via WhatsApp do projeto.");
+      return;
+    }
+    try {
+      setDispatchingItemId(item.id);
+      const template = getResolvedTemplate(item, "whatsapp");
+      const cadenceCorpo = getTouchCadenceMessage(item, template.corpo);
+      const message = interpolateRecoveryTemplate(cadenceCorpo, item);
+
+      const payload = {
+        project_id: targetProjectId,
+        bucket: item.bucket,
+        max: 1,
+        items: [
+          {
+            id: item.id,
+            leadId: item.leadId,
+            vendaId: item.vendaId,
+            leadName: item.leadName,
+            email: item.email,
+            phone: item.phone,
+            product: item.product,
+            value: item.value,
+            projectId: targetProjectId,
+            pixCode: item.pixCode || null,
+            paymentLink: item.paymentLink || null,
+            touchLevel: item.touchLevel || 1,
+            customMessage: message,
+          },
+        ],
+      };
+
+      const { data, error } = await supabase.functions.invoke("recovery-bucket-dispatch", { body: payload });
+      if (error) throw error;
+      const resp = record(data);
+      const errMsg = typeof resp.error === "string" ? String(resp.error) : undefined;
+      if (errMsg?.toLowerCase().includes("provider")) {
+        toast.error("Nenhum WhatsApp ativo no projeto.", {
+          action: { label: "Configurar", onClick: () => window.location.assign("/whatsapp") },
+        });
+        return;
+      }
+      const sent = Number(resp.sent) || 0;
+      const details = Array.isArray(resp.details) ? (resp.details as Array<{ ok: boolean; error?: string }>) : [];
+      if (sent > 0) {
+        toast.success(`Mensagem enviada com sucesso no WhatsApp para ${item.leadName}!`);
+      } else if (details[0]?.error === "already_purchased") {
+        toast.info("Bloqueado pela Trava Anti-Duplicação: este cliente já comprou.");
+      } else if (details[0]?.error === "already_sent_24h") {
+        toast.info("Este lead já recebeu mensagem de recuperação nas últimas 24h.");
+      } else {
+        toast.error(`Falha no envio: ${details[0]?.error || "erro desconhecido"}`);
+      }
+      load();
+    } catch (err: unknown) {
+      toast.error(errorMessage(err) || "Erro ao disparar mensagem no WhatsApp.");
+    } finally {
+      setDispatchingItemId(null);
+    }
   };
 
   const handleEmail = async (item: RecoveryItem) => {
@@ -275,15 +346,26 @@ export default function Recuperacao() {
         project_id: selectedProject,
         bucket: bucketId,
         max: 25,
-        items: bucket.items.slice(0, 25).map((it) => ({
-          id: it.id,
-          leadId: it.leadId,
-          vendaId: it.vendaId,
-          leadName: it.leadName,
-          phone: it.phone,
-          product: it.product,
-          value: it.value,
-        })),
+        items: bucket.items.slice(0, 25).map((it) => {
+          const template = getResolvedTemplate(it, "whatsapp");
+          const cadenceCorpo = getTouchCadenceMessage(it, template.corpo);
+          const message = interpolateRecoveryTemplate(cadenceCorpo, it);
+          return {
+            id: it.id,
+            leadId: it.leadId,
+            vendaId: it.vendaId,
+            leadName: it.leadName,
+            email: it.email,
+            phone: it.phone,
+            product: it.product,
+            value: it.value,
+            projectId: it.projectId || selectedProject,
+            pixCode: it.pixCode || null,
+            paymentLink: it.paymentLink || null,
+            touchLevel: it.touchLevel || 1,
+            customMessage: message,
+          };
+        }),
       };
       const { data, error } = await supabase.functions.invoke("recovery-bucket-dispatch", { body: payload });
       if (error) throw error;
@@ -296,7 +378,7 @@ export default function Recuperacao() {
       }
       const sent = record(data).sent ?? 0;
       const skipped = record(data).skipped ?? 0;
-      toast.success(`Disparo: ${sent} enviadas, ${skipped} ignoradas.`, {
+      toast.success(`Disparo: ${sent} enviadas, ${skipped} ignoradas pela trava.`, {
         action: { label: "Ver logs", onClick: () => window.location.assign("/imperius") },
       });
       load();
@@ -336,6 +418,39 @@ export default function Recuperacao() {
           <Button variant="outline" onClick={load}>
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Atualizar
           </Button>
+        </div>
+      </div>
+
+      {/* Banner Operacional: Régua de 3 Toques & Trava Anti-Duplicação */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3.5 text-xs text-foreground">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-400">
+            <Check className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="font-semibold text-emerald-400">Trava Anti-Duplicação Estrita</p>
+            <p className="text-muted-foreground text-[11px]">Leads com compra aprovada em qualquer canal saem do radar imediatamente.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3.5 text-xs text-foreground">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sky-500/20 text-sky-400">
+            <Clock className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="font-semibold text-sky-400">Régua de 3 Toques Ativa</p>
+            <p className="text-muted-foreground text-[11px]">Toque 1 (15m: Pix Copia e Cola) ➔ Toque 2 (2h: Reserva) ➔ Toque 3 (Urgência final).</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3.5 text-xs text-foreground">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-400">
+            <Zap className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="font-semibold text-amber-400">Disparo 1-Clique no WhatsApp</p>
+            <p className="text-muted-foreground text-[11px]">Envio instantâneo pelo WhatsApp ativo com código Pix Copia e Cola e link.</p>
+          </div>
         </div>
       </div>
 
@@ -408,10 +523,12 @@ export default function Recuperacao() {
           ) : (
             <RecoveryTable
               items={activeItems}
+              onDirectWhatsApp={handleDirectWhatsApp}
               onSendWhatsApp={handleWhatsApp}
               onSendEmail={handleEmail}
               onMarkRecovered={(item) => handleMarkStatus(item, "recuperado")}
               onMarkLost={(item) => handleMarkStatus(item, "perdido")}
+              dispatchingId={dispatchingItemId}
             />
           )}
         </CardContent>

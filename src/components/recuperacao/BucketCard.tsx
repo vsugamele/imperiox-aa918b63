@@ -12,6 +12,14 @@ const bucketIcons = {
   refunds: RotateCcw,
 } as const;
 
+const bucketTouchMeta: Record<string, { label: string; className: string }> = {
+  pix_urgent: { label: "Toque 1 (15m)", className: "bg-sky-500/10 text-sky-400 border-sky-500/30" },
+  pix_cooling: { label: "Toque 2 (2h)", className: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+  boleto_due: { label: "Toque Boleto", className: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
+  abandoned_cart: { label: "Régua 15m–24h", className: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
+  refunds: { label: "Feedback", className: "bg-rose-500/10 text-rose-400 border-rose-500/30" },
+};
+
 interface BucketCardProps {
   bucket: RecoveryBucketSummary;
   active?: boolean;
@@ -24,6 +32,7 @@ interface BucketCardProps {
 
 export function BucketCard({ bucket, active, disabledAutomate, dispatching, onSelect, onAutomate, onDispatch }: BucketCardProps) {
   const Icon = bucketIcons[bucket.id];
+  const touch = bucketTouchMeta[bucket.id];
   const canDispatch = !!onDispatch && bucket.items.length > 0 && bucket.id !== "refunds";
 
   return (
@@ -31,10 +40,17 @@ export function BucketCard({ bucket, active, disabledAutomate, dispatching, onSe
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Icon className="h-4 w-4 text-primary" />
-              {bucket.shortTitle}
-            </CardTitle>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Icon className="h-4 w-4 text-primary" />
+                {bucket.shortTitle}
+              </CardTitle>
+              {touch && (
+                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${touch.className}`}>
+                  {touch.label}
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">{bucket.description}</p>
           </div>
           <Badge variant="outline" className="shrink-0 text-[10px]">
@@ -55,10 +71,10 @@ export function BucketCard({ bucket, active, disabledAutomate, dispatching, onSe
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant={active ? "default" : "outline"} size="sm" className="flex-1 min-w-[90px]" onClick={onSelect}>
+          <Button variant={active ? "default" : "outline"} size="sm" className="flex-1 min-w-[80px]" onClick={onSelect}>
             Ver itens
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 min-w-[90px]" onClick={onAutomate} disabled={disabledAutomate}>
+          <Button variant="outline" size="sm" className="flex-1 min-w-[80px]" onClick={onAutomate} disabled={disabledAutomate}>
             <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
             Automatizar
           </Button>
@@ -66,12 +82,13 @@ export function BucketCard({ bucket, active, disabledAutomate, dispatching, onSe
             <Button
               variant="default"
               size="sm"
-              className="flex-1 min-w-[110px]"
+              className="flex-1 min-w-[125px] bg-emerald-600 hover:bg-emerald-500 text-white"
               onClick={onDispatch}
               disabled={disabledAutomate || dispatching}
+              title="Dispara mensagem com Pix Copia e Cola e link respeitando a trava anti-duplicação"
             >
               {dispatching ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
-              Disparar IA
+              Disparar Régua IA
             </Button>
           )}
         </div>

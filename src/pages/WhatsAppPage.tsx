@@ -44,6 +44,18 @@ interface WaTemplate {
   id: string; name: string; content: string; category: string; project_id: string | null;
 }
 
+const TAB_LABELS: Record<string, string> = {
+  sessoes: "Atendimento",
+  templates: "Templates",
+  campanhas: "Campanhas",
+  comandos: "Comandos",
+  ai: "IA Autônoma",
+  triagem: "Triagem IA",
+  objecoes: "Objeções",
+  conversao: "Conversão",
+  hub: "Hub Local",
+};
+
 type WaSession = Pick<Tables<"imphq_wa_conversations">, "id" | "contact_name" | "phone" | "session" | "project_id" | "status" | "message_count" | "metadata" | "created_at" | "provider_id" | "last_message" | "updated_at" | "last_message_at" | "last_read_at" | "avatar_url" | "unread_count" | "last_message_direction" | "jid_suffix" | "ai_last_reply_at" | "ai_lock_until" | "ai_paused_until" | "assigned_to" | "snoozed_until" | "handoff_at" | "color_override">;
 type WaProvider = Pick<Tables<"imphq_wa_providers">, "id" | "display_name" | "instance_name" | "provider" | "api_url" | "is_active" | "project_id" | "webhook_verify_token" | "waba_id" | "phone_number_id" | "health_alerts_enabled" | "health_alerts_muted_until" | "twilio_from" | "created_at" | "ai_enabled" | "status">;
 
@@ -362,100 +374,215 @@ export default function WhatsApp() {
     ? (selectedSession.provider_id ? providers.find(p => p.id === selectedSession.provider_id) : null) || getProvider(selectedSession.project_id)
     : null;
 
-  return (
-    <div className="h-[calc(100vh-64px)] flex flex-col">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-card">
-        <h1 className="font-display text-xl font-bold text-primary flex items-center gap-2">💬 WhatsApp <SectionInfo {...sectionHelpTexts.whatsapp} /></h1>
-        <div className="flex gap-2 items-center">
-          <Button
-            size="sm"
-            onClick={() => {
-              setConnectingProvider(null);
-              setShowConnectModal(true);
-            }}
-            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-colors"
-          >
-            <QrCode className="h-3.5 w-3.5 mr-1.5" /> Conectar WhatsApp
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => { setEditingProvider(null); setShowProviderConfig(true); }} className="h-8 text-xs">
-            <Settings2 className="h-3.5 w-3.5 mr-1" /> Provider
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowBulk(true)} className="h-8 text-xs">
-            <Megaphone className="h-3.5 w-3.5 mr-1" /> Disparo
-          </Button>
-        </div>
-      </div>
+  const activeProvider = selectedProvider || (filterProvider !== "all" ? providers.find(p => p.id === filterProvider) : null) || providers[0] || null;
 
-      {/* Provider status strip */}
-      {providers.map(p => {
-        if (p.provider === "evolution") {
-          return (
-            <EvolutionStatusCard
-              key={p.id}
-              provider={p}
-              projectName={projectName(p.project_id)}
-              projects={projects}
-              onSynced={load}
-              onEdit={(prov) => { setEditingProvider(prov); setShowProviderConfig(true); }}
-              onConnect={(prov) => { setConnectingProvider(prov); setShowConnectModal(true); }}
-            />
-          );
-        }
-        if (p.provider === "meta_cloud") {
-          return <MetaCloudStatusCard key={p.id} provider={p} projectName={projectName(p.project_id)} projects={projects} onSynced={load} onEdit={(prov) => { setEditingProvider(prov); setShowProviderConfig(true); }} />;
-        }
-        return null;
-      })}
-      {providers.length === 0 && (
-        <div className="px-4 py-2.5 bg-muted/30 border-b border-border text-center shrink-0 flex items-center justify-center gap-3">
-          <p className="text-xs text-muted-foreground">Nenhum provider conectado.</p>
-          <Button
-            size="sm"
-            onClick={() => {
-              setConnectingProvider(null);
-              setShowConnectModal(true);
-            }}
-            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
-          >
-            <QrCode className="h-3 w-3 mr-1" /> Conectar WhatsApp Agora
-          </Button>
-          <Button size="sm" variant="link" className="text-xs h-auto p-0" onClick={() => setShowProviderConfig(true)}>
-            Configuração Avançada →
-          </Button>
+  const syncContacts = async (providerId?: string) => {
+    const id = providerId || activeProvider?.id;
+    if (!id) return;
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/whatsapp-api?action=sync_contacts`,
+        { method: "POST", headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: JSON.stringify({ provider_id: id }) }
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${data.imported || 0} contato(s) sincronizado(s)`);
+        load();
+      } else {
+        toast.error(data.error || "Erro ao sincronizar");
+      }
+    } catch (err: unknown) {
+      toast.error("Falha ao sincronizar: " + errorMessage(err));
+    }
+  };
+
+  const importMessages = async (providerId?: string) => {
+    const id = providerId || activeProvider?.id;
+    if (!id) return;
+    toast.info("Importando histórico (pode levar 1-2 min)…");
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/whatsapp-api?action=sync_messages`,
+        { method: "POST", headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: JSON.stringify({ provider_id: id, days: 30 }) }
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${data.imported || 0} mensagens · ${data.conversations_created || 0} conversas importadas`);
+        load();
+      } else {
+        toast.error(data.error || "Erro ao importar histórico");
+      }
+    } catch (err: unknown) {
+      toast.error("Falha ao importar: " + errorMessage(err));
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Unified Atendimento Top Bar */}
+      {activeTab === "sessoes" ? (
+        <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-border shrink-0 bg-card/90 backdrop-blur-sm min-h-[40px]">
+          {/* Left: Chip status & active project */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {activeProvider ? (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                </span>
+                <span className="font-semibold text-xs text-foreground truncate">
+                  {activeProvider.display_name || activeProvider.instance_name || "WhatsApp"}
+                </span>
+                {projectName(activeProvider.project_id) && (
+                  <Badge variant="outline" className="text-[10px] h-4.5 px-1.5 font-normal bg-primary/10 text-primary border-primary/20 shrink-0">
+                    {projectName(activeProvider.project_id)}
+                  </Badge>
+                )}
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] h-4.5 px-1.5 font-medium shrink-0 ${
+                    activeProvider.ai_enabled !== false
+                      ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
+                      : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  🤖 {activeProvider.ai_enabled !== false ? "IA Ativa" : "IA Pausada"}
+                </Badge>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-500/60" />
+                <span className="text-xs text-muted-foreground">Nenhum chip conectado</span>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Quick actions + Unified Config Dropdown */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* If no provider is connected, prominent connect button */}
+            {providers.length === 0 && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setConnectingProvider(null);
+                  setShowConnectModal(true);
+                }}
+                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-colors"
+              >
+                <QrCode className="h-3 w-3 mr-1" /> Conectar WhatsApp
+              </Button>
+            )}
+
+            {/* Quick bulk send */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowBulk(true)}
+              className="h-7 px-2.5 text-xs gap-1.5 hover:text-primary transition-colors"
+              title="Disparo de Mensagens em Massa"
+            >
+              <Megaphone className="h-3 w-3 text-primary" />
+              <span className="hidden sm:inline">Disparo</span>
+            </Button>
+
+            {/* Quick sync contacts */}
+            {activeProvider && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => syncContacts(activeProvider.id)}
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                title="Sincronizar contatos do WhatsApp"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            )}
+
+            {/* ⚙️ Configurar Bot & Infraestrutura Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1.5 font-medium">
+                  <Settings2 className="h-3.5 w-3.5 text-primary" />
+                  <span>⚙️ Configurar Bot</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 bg-card border-border">
+                <DropdownMenuLabel className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Infraestrutura & Chip
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setConnectingProvider(activeProvider || null);
+                    setShowConnectModal(true);
+                  }}
+                  className="text-xs cursor-pointer"
+                >
+                  <QrCode className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Conectar / QR Code
+                </DropdownMenuItem>
+                {activeProvider && (
+                  <DropdownMenuItem
+                    onClick={() => importMessages(activeProvider.id)}
+                    className="text-xs cursor-pointer"
+                  >
+                    <History className="h-3.5 w-3.5 mr-2 text-primary" /> Importar histórico (30 dias)
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditingProvider(activeProvider || null);
+                    setShowProviderConfig(true);
+                  }}
+                  className="text-xs cursor-pointer"
+                >
+                  <Settings2 className="h-3.5 w-3.5 mr-2" /> Gerenciar Provedores
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Módulos de IA & Vendas
+                </DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setActiveTab("ai")} className="text-xs cursor-pointer">
+                  <span className="mr-2">🤖</span> IA Autônoma (Prompt & Regras)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("triagem")} className="text-xs cursor-pointer">
+                  <span className="mr-2">🎯</span> Triagem Inteligente
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("objecoes")} className="text-xs cursor-pointer">
+                  <span className="mr-2">📚</span> Matriz de Objeções
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("templates")} className="text-xs cursor-pointer">
+                  <FileText className="h-3.5 w-3.5 mr-2" /> Templates de Resposta ({templates.length})
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("campanhas")} className="text-xs cursor-pointer">
+                  <Rocket className="h-3.5 w-3.5 mr-2" /> Campanhas & Disparos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("comandos")} className="text-xs cursor-pointer">
+                  <span className="mr-2">⚡</span> Comandos Rápidos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("conversao")} className="text-xs cursor-pointer">
+                  <span className="mr-2">📊</span> Funil de Conversão
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("hub")} className="text-xs cursor-pointer">
+                  <Radio className="h-3.5 w-3.5 mr-2" /> Hub Local (Baileys)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      ) : (
+        /* Top bar when inside a technical tool: simple back banner */
+        <div className="px-4 py-2 bg-secondary/50 border-b border-border flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-xs">
+            <Button size="sm" variant="outline" onClick={() => setActiveTab("sessoes")} className="h-7 text-xs gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/10">
+              ← Voltar ao Atendimento (Conversas)
+            </Button>
+            <span className="text-muted-foreground">/</span>
+            <span className="font-semibold text-foreground">{TAB_LABELS[activeTab]}</span>
+          </div>
         </div>
       )}
-
-      {/* Tab switcher */}
-      <div className="flex items-center gap-0 border-b border-border shrink-0 bg-card px-2">
-        <button onClick={() => setActiveTab("sessoes")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "sessoes" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <MessageSquare className="h-3 w-3 inline mr-1" />Sessões
-        </button>
-        <button onClick={() => setActiveTab("templates")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "templates" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <FileText className="h-3 w-3 inline mr-1" />Templates ({templates.length})
-        </button>
-        <button onClick={() => setActiveTab("campanhas")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "campanhas" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <Rocket className="h-3 w-3 inline mr-1" />Campanhas
-        </button>
-        <button onClick={() => setActiveTab("comandos")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "comandos" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          ⚡ Comandos
-        </button>
-        <button onClick={() => setActiveTab("ai")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "ai" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          🤖 IA Autônoma
-        </button>
-        <button onClick={() => setActiveTab("triagem")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "triagem" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          🎯 Triagem IA
-        </button>
-        <button onClick={() => setActiveTab("objecoes")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "objecoes" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          📚 Objeções
-        </button>
-        <button onClick={() => setActiveTab("conversao")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "conversao" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          📊 Conversão
-        </button>
-        <button onClick={() => setActiveTab("hub")} className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === "hub" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          <Radio className="h-3 w-3 inline mr-1 text-primary" />📡 Hub Local (Baileys)
-        </button>
-      </div>
 
       {/* Main content */}
       <div className="flex-1 min-h-0">

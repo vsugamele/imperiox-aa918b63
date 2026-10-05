@@ -44,7 +44,12 @@ vi.mock("@/hooks/useTodayBoard", () => ({
   useTodayBoard: () => ({ data: [{ projectId: "vende", mapIds: ["map-vende"] }] }),
 }));
 
-const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+vi.mock("@/hooks/useMapPathMetrics", () => ({
+  useMapPathMetrics: () => ({ data: {} }),
+}));
+
+const render = (ui: ReactElement, initialEntries = ["/mapa?tab=matriz"]) =>
+  rtlRender(<MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>);
 
 describe("MapaEmpresa", () => {
   it("lists projects with critical gaps first and opens the project detail", () => {

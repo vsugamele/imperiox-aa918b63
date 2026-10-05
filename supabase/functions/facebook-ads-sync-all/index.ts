@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
             video_thruplay: videoThruplay,
             link_clicks: linkClicks,
             custo_por_compra: compras > 0 ? spend / compras : null,
-            hook_rate: null,
+            hook_rate: video3s > 0 && parseInt(row.impressions || "0") > 0 ? Number(((video3s / parseInt(row.impressions || "0")) * 100).toFixed(2)) : null,
             ctr: parseFloat(row.ctr || "0"),
             frequencia: parseFloat(row.frequency || "0"),
             moeda: "BRL",

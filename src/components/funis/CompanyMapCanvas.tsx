@@ -400,10 +400,23 @@ function InnerMap({
   const [ctxMenu, setCtxMenu] = useState<{ screenX: number; screenY: number; flowX: number; flowY: number; annotationId?: string; edgeId?: string } | null>(null);
   const [commentsTarget, setCommentsTarget] = useState<{ id: string; label?: string } | null>(null);
   const [paletteCollapsed, setPaletteCollapsed] = useState(() => localStorage.getItem("funis:palette-collapsed") === "true");
-  // Modo apresentação: só o mapa em tela cheia (sem barras e paleta), para ler o fluxo e mostrar ao time.
-  const [presenting, setPresenting] = useState(false);
-  // Duas formas de ver o mesmo mapa: livre (canvas) ou o caminho principal em linha (MAP2.3).
-  const [view, setView] = useState<"mapa" | "caminho">("mapa");
+  // Duas formas de ver o mesmo mapa: livre (canvas 2D) ou o caminho principal executivo em linha (MAP2.3).
+  const [view, setView] = useState<"mapa" | "caminho">(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sub = urlParams.get("subview") || urlParams.get("view");
+      if (sub === "caminho" || sub === "mapa") return sub;
+      const saved = localStorage.getItem("funis:company-map-view");
+      if (saved === "caminho" || saved === "mapa") return saved;
+    } catch {}
+    return "caminho";
+  });
+  const handleSetView = useCallback((v: "mapa" | "caminho") => {
+    setView(v);
+    try {
+      localStorage.setItem("funis:company-map-view", v);
+    } catch {}
+  }, []);
   const [paletteQuery, setPaletteQuery] = useState("");
   const paletteGroups = useMemo(() => {
     const q = paletteQuery.trim().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -415,6 +428,7 @@ function InnerMap({
   const [libPickerMode, setLibPickerMode] = useState<"edit" | "new-image">("edit");
   const [imageSourceOpen, setImageSourceOpen] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; label?: string } | null>(null);
+  const [presenting, setPresenting] = useState(false);
   useEffect(() => {
     const h = (e: Event) => { if (!(e instanceof CustomEvent)) return; const detail = record(e.detail); if (typeof detail.url === "string") setLightbox({ url: detail.url, label: typeof detail.label === "string" ? detail.label : undefined }); };
     window.addEventListener("open-image-lightbox", h);
@@ -1367,7 +1381,7 @@ function InnerMap({
   const openFromPath = (id: string) => {
     const raw = rawNodes.find(n => n.id === id);
     if (!raw) return;
-    setView("mapa");
+    handleSetView("mapa");
     setSelected({ ...raw, checklist: raw.checklist || [] });
     setTimeout(() => focusNode(id, raw.position || { x: 0, y: 0 }), 50);
   };
@@ -2080,10 +2094,10 @@ function InnerMap({
         </Button>
         <div className="mx-0.5 h-5 w-px bg-border" />
         <div className="flex items-center rounded-md bg-secondary/60 p-0.5" role="tablist" aria-label="Forma de ver o mapa">
-          {(["mapa", "caminho"] as const).map(v => (
-            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
-              className={cn("h-7 rounded px-2.5 text-xs font-medium transition-colors", view === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-              {v === "mapa" ? "Mapa" : "Caminho"}
+          {(["caminho", "mapa"] as const).map(v => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => handleSetView(v)}
+              className={cn("h-7 rounded px-3 text-xs font-medium transition-colors flex items-center gap-1.5", view === v ? "bg-card text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground")}>
+              {v === "caminho" ? "🎯 Caminho" : "🗺️ Mapa 2D"}
             </button>
           ))}
         </div>
@@ -2367,8 +2381,10 @@ function InnerMap({
             edges={edges.map(e => ({ source: e.source, target: e.target }))}
             today={localDate()}
             metricsByNode={pathMetricsByNode}
+            projectMetrics={pathMetrics.data}
             onOpen={openFromPath}
             onSetRole={setPathRole}
+            onSwitchToCanvas={() => handleSetView("mapa")}
           />
         </div>
       )}

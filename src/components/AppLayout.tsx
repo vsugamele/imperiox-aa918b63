@@ -8,10 +8,8 @@ import { ProactiveAlertsBell } from "@/components/ProactiveAlertsBell";
 import { supabase } from "@/integrations/supabase/client";
 
 import { PushOptIn } from "@/components/PushOptIn";
-import { CopilotFab } from "@/components/copilot/CopilotFab";
 import { ActionInbox } from "@/components/imperius/ActionInbox";
 import { SaleWatcher } from "@/components/SaleWatcher";
-import { ImperiusRail } from "@/components/imperius/ImperiusRail";
 import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
 import { MobilePushNudge } from "@/components/mobile/MobilePushNudge";
@@ -75,6 +73,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   "vsl-lab": { kicker: "IA", title: "VSL Lab" },
   criativos: { kicker: "IA", title: "Criativos" },
   studio: { kicker: "IA", title: "Studio" },
+  acervo: { kicker: "Acervo", title: "Base de Conhecimento RAG" },
   swipe: { kicker: "Acervo", title: "Swipe File" },
   referencias: { kicker: "Acervo", title: "Referências" },
   skills: { kicker: "IA", title: "Skills" },
@@ -201,8 +200,6 @@ export function AppLayout() {
             <Outlet />
           </main>
         </div>
-        {!isMobile && <CopilotFab />}
-        <ImperiusRail />
         {isMobile && <MobileBottomNav />}
       </div>
     </SidebarProvider>

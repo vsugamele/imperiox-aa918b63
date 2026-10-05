@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { objectFields } from "@/lib/json-fields";
+import { LeadAccessDiagnosticCard } from "./LeadAccessDiagnosticCard";
 
 type Automation = Tables<"imphq_automacoes">;
 
@@ -356,6 +357,9 @@ export function LeadAutomationsTab({
 
   return (
     <div className="space-y-4">
+      {/* Card de Diagnóstico IA e Resolução de Acesso (Exibido para projetos/produtos JP) */}
+      <LeadAccessDiagnosticCard lead={lead} projectName={currentProject?.name} />
+
       {/* 1. Header de Contexto do Lead e Seletor de Escopo */}
       <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/60 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
         <div className="space-y-1">

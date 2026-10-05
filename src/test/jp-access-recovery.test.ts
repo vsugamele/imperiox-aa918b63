@@ -30,7 +30,9 @@ describe("JP operational recovery contract", () => {
     vi.stubGlobal("fetch",fetch);
     const result = await jpPrepareAccessReply("Pronto!",email,"Quero acessar as aulas");
     expect(result.needsHandoff).toBe(false); expect(result.text).toContain(link);
-    expect(JSON.parse(fetch.mock.calls[1][1].body)).toMatchObject({action:"issue_magic_link",create_if_missing:false});
+    const body = JSON.parse(fetch.mock.calls[1][1].body);
+    expect(body).toMatchObject({action:"issue_magic_link",create_if_missing:false});
+    expect(body.redirect_path).toBe("/programs/fixture-course");
   });
   it("rejects a root-domain fallback after a successful lookup", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(active))).mockResolvedValueOnce(new Response(JSON.stringify({magic_link:"https://jphaireducation.com.br"}))));
@@ -52,5 +54,33 @@ describe("JP operational recovery contract", () => {
     const fetch = vi.fn();vi.stubGlobal("fetch",fetch);
     expect((await jpPrepareAccessReply(`[JP_GRANT:${email}] Acesso liberado!`,email,"Meu pagamento não apareceu")).needsHandoff).toBe(true);
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("JP Course Mapping & Anti-Hallucination Support Messages", () => {
+  it("resolves Código dos Cortes Perfeitos to its direct program UUID", async () => {
+    const { resolveJPCourse } = await import("../lib/jpCourseMap");
+    const course = resolveJPCourse("Código dos Cortes Perfeitos");
+    expect(course.programId).toBe("3c368b42-5b73-4d86-a1cd-35c3022b142d");
+    expect(course.directUrl).toContain("3c368b42-5b73-4d86-a1cd-35c3022b142d");
+  });
+
+  it("resolves other satellite courses like Cortes Descomplicados and Segredo do Corte", async () => {
+    const { resolveJPCourse } = await import("../lib/jpCourseMap");
+    expect(resolveJPCourse("Cortes Descomplicados").programId).toBe("3c5551b0-7379-4ade-b306-194d9814f601");
+    expect(resolveJPCourse("O Segredo do Corte").programId).toBe("164d66e6-8186-4d1a-8303-e2b88bf95f7f");
+  });
+
+  it("builds a friendly support message explaining why Home shows Acesso Negado", async () => {
+    const { buildJPSupportMessage } = await import("../lib/jpCourseMap");
+    const msg = buildJPSupportMessage({
+      leadName: "Manoelle Cabral",
+      courseTitle: "Código dos Cortes Perfeitos",
+      directUrl: "https://www.jphaireducation.com.br/programs/3c368b42-5b73-4d86-a1cd-35c3022b142d",
+    });
+    expect(msg).toContain("Oi Manoelle!");
+    expect(msg).toContain("3c368b42-5b73-4d86-a1cd-35c3022b142d");
+    expect(msg).toContain("Acesso negado");
+    expect(msg).toContain("797");
   });
 });

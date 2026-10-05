@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { UsersRound, Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase, Palette } from "lucide-react";
+import { UsersRound, Plus, Trash2, Mail, Instagram, Music2, Building2, Eye, EyeOff, Pencil, CreditCard, Youtube, KeyRound, List, LayoutGrid, Upload, X, Map as MapIcon, Sprout, ShieldAlert, MapPinPlus, Smartphone, Briefcase, Palette, CheckCircle2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ColumnColorMenu } from "@/components/kanban/ColumnColorMenu";
 import { hexToTint } from "@/components/kanban/column-color";
@@ -21,6 +21,7 @@ import { DevicesTab } from "@/components/empresa/DevicesTab";
 import { AccountFarmDialog } from "@/components/empresa/AccountFarmDialog";
 import { AddAccountToMapDialog } from "@/components/empresa/AddAccountToMapDialog";
 import { ProfilesMatrix } from "@/components/empresa/ProfilesMatrix";
+import { BulkImportDialog } from "@/components/empresa/BulkImportDialog";
 import { toast } from "sonner";
 
 
@@ -84,6 +85,7 @@ export default function Empresa() {
   const [devices, setDevices] = useState<DeviceOpt[]>([]);
   const [projects, setProjects] = useState<ProjectOpt[]>([]);
   const [activeTab, setActiveTab] = useState("email");
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   const load = async () => {
     const { data } = await supabase
@@ -114,12 +116,87 @@ export default function Empresa() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Building2 className="h-6 w-6 text-primary" />
           <div>
             <h1 className="font-display text-2xl font-bold">Controle da Empresa</h1>
-            <p className="text-xs text-muted-foreground">Gerencie emails, contas de redes sociais e ativos digitais da operação</p>
+            <p className="text-xs text-muted-foreground">Centro de comando dos ativos digitais, contingência, redes e devices</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setBulkImportOpen(true)}
+            className="gap-1.5 bg-primary text-primary-foreground shadow-xs"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Importar em Lote
+          </Button>
+        </div>
+      </div>
+
+      {/* Top Bar Executivo de Saúde dos Ativos */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="rounded-lg border border-border/60 bg-card p-3 shadow-xs">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5 text-primary" />
+            Total de Ativos
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-display text-foreground">{contas.length}</span>
+            <span className="text-xs text-muted-foreground">contas</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border/60 bg-card p-3 shadow-xs">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Sprout className="h-3.5 w-3.5 text-emerald-500" />
+            Em Aquecimento
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-display text-emerald-500">
+              {contas.filter((c) => c.warmup_status === "Aquecendo" || c.tipo === "farm").length}
+            </span>
+            <span className="text-xs text-muted-foreground">no farm</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border/60 bg-card p-3 shadow-xs">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+            Prontas p/ Tráfego
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-display text-blue-500">
+              {contas.filter((c) => c.warmup_status === "Pronto" || c.pronta_venda).length}
+            </span>
+            <span className="text-xs text-muted-foreground">validadas</span>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border/60 bg-card p-3 shadow-xs">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+            Atenção / Risco
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-display text-amber-500">
+              {contas.filter((c) => c.warmup_status === "Banido" || (Array.isArray(c.sinais_risco) && c.sinais_risco.length > 0)).length}
+            </span>
+            <span className="text-xs text-muted-foreground">risco/ban</span>
+          </div>
+        </div>
+
+        <div className="col-span-2 sm:col-span-4 lg:col-span-1 rounded-lg border border-border/60 bg-card p-3 shadow-xs">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Smartphone className="h-3.5 w-3.5 text-purple-500" />
+            Cloud Phones
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-bold font-display text-purple-500">{devices.length}</span>
+            <span className="text-xs text-muted-foreground">GeeLark</span>
           </div>
         </div>
       </div>
@@ -174,6 +251,14 @@ export default function Empresa() {
           <FarmTab />
         </TabsContent>
       </Tabs>
+
+      <BulkImportDialog
+        open={bulkImportOpen}
+        onOpenChange={setBulkImportOpen}
+        projects={projects}
+        devices={devices}
+        onSuccess={load}
+      />
     </div>
   );
 }

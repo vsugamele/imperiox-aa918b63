@@ -14,7 +14,8 @@ Ponto de partida: 101 functions chamam IA; só 4 registravam custo (`wa-ai-reply
 - [x] Lote 1 no código (10 functions, conferidas idênticas ao que estava no ar antes de mexer; Deno check 0 erro antes e depois): hot-lead-responder, wa-ai-decide-escalation, wa-learn-from-sale, wa-pitch-followup, wa-consultive-followup, instagram-followup-scheduler, instagram-webhook, wa-ai-conv-scoring, wa-ai-detect-gaps, nurture-auto-segment.
 - [x] Publicada a 1ª do lote (`wa-ai-decide-escalation`) para validar com tráfego real.
 - [x] Publicadas também `wa-ai-detect-gaps` e `wa-ai-conv-scoring` (04/10). Chamadas à mão: as três estavam sem trabalho (`no_enabled_configs`, `no_pending_msgs`, `no_candidates`), então ainda não houve chamada de IA para registrar. A escalação (`wa-ai-decide-escalation`) está desligada em todos os projetos.
-- [ ] Confirmar a 1ª linha real em `imphq_ai_usage` (precisa de tráfego: `instagram-webhook` tem ~333 DMs/dia, mas responde cliente) e publicar as outras 7.
+- [x] Publicadas as outras 7 em 04/10 às 14:37 UTC (autorização do Vinicius): hot-lead-responder, wa-learn-from-sale, nurture-auto-segment, wa-consultive-followup, wa-pitch-followup, instagram-followup-scheduler e instagram-webhook. Antes, o código no ar foi conferido igual ao do repositório fora as 3 linhas do registrador (a publicação em lote de outra sessão em 03/10 19:02 não tinha mudanças a preservar).
+- [ ] Confirmar a 1ª linha real em `imphq_ai_usage` e que a `instagram-webhook` segue processando DMs sem erro.
 - [ ] Lotes seguintes até cobrir as 97.
 - [ ] Custo estimado por token quando o provedor não devolve custo (tabela de preços por modelo).
 

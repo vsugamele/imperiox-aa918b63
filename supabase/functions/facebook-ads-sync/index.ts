@@ -221,7 +221,7 @@ Deno.serve(async (req) => {
         video_thruplay: videoThruplay,
         link_clicks: linkClicks,
         custo_por_compra: compras > 0 ? spend / compras : null,
-        hook_rate: null,
+        hook_rate: video3s > 0 && impressoes > 0 ? Number(((video3s / impressoes) * 100).toFixed(2)) : null,
         ctr,
         frequencia,
         moeda: "BRL",

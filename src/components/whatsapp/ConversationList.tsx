@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Search, Plus, Mail, HelpCircle } from "lucide-react";
+import { MessageSquare, Search, Plus, Mail, SlidersHorizontal, CheckCircle2, Bot } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,9 @@ interface WaSession {
   assigned_to?: string | null;
   handoff_at?: string | null;
   color_override?: string | null;
+  ai_last_reply_at?: string | null;
+  ai_lock_until?: string | null;
+  ai_paused_until?: string | null;
 }
 
 function isUnreadSession(s: WaSession): boolean {
@@ -138,6 +141,7 @@ export default function ConversationList({
   onMarkUnread,
 }: Props) {
   const [search, setSearch] = useState("");
+  const [viewTab, setViewTab] = useState<"responder" | "todas" | "ia">("responder");
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
     () => { const value = typeof window !== "undefined" ? localStorage.getItem("wa-snooze-mode") : null; return value === "show" || value === "only" ? value : "hide"; }
@@ -163,22 +167,54 @@ export default function ConversationList({
     }
   };
 
-  const cycleSnoozeMode = () => {
-    const next = snoozeMode === "hide" ? "show" : snoozeMode === "show" ? "only" : "hide";
-    setSnoozeMode(next);
-    try { localStorage.setItem("wa-snooze-mode", next); } catch { /* Storage preferences are optional in restricted browsers. */ }
-  };
-  const cycleAssignFilter = () => {
-    const next = assignFilter === "all" ? "mine" : assignFilter === "mine" ? "unassigned" : "all";
-    setAssignFilter(next);
-    try { localStorage.setItem("wa-assign-filter", next); } catch { /* Storage preferences are optional in restricted browsers. */ }
-  };
-
   const projectName = (id: string) => projects.find(p => p.id === id)?.name || "";
   const findProvider = (providerId: string | null) =>
     providerId && providers ? providers.find(p => p.id === providerId) : undefined;
 
   const isSnoozed = (s: WaSession) => !!s.snoozed_until && new Date(s.snoozed_until).getTime() > Date.now();
+  const isHandoff = (s: WaSession) => !!s.handoff_at;
+
+  const isAiHandling = (s: WaSession) => {
+    if (isHandoff(s)) return false;
+    if (s.ai_paused_until && new Date(s.ai_paused_until).getTime() > Date.now()) return false;
+    const hasAiLock = !!s.ai_lock_until && new Date(s.ai_lock_until).getTime() > Date.now();
+    if (hasAiLock) return true;
+    if (!s.ai_last_reply_at) return false;
+    const aiTime = new Date(s.ai_last_reply_at).getTime();
+    const lastMsgTime = s.last_message_at ? new Date(s.last_message_at).getTime() : 0;
+    return aiTime >= lastMsgTime - 120000;
+  };
+
+  const isAwaitingReply = (s: WaSession) => {
+    if (isSnoozed(s)) return false;
+    if (isHandoff(s)) return true;
+    const lastMsgTime = s.last_message_at ? new Date(s.last_message_at).getTime() : 0;
+    if (!lastMsgTime) return false;
+    // Foco em leads ativos nos últimos 7 dias (elimina o ruído de chats mortos)
+    const sevenDaysAgo = Date.now() - 7 * 86400000;
+    if (lastMsgTime < sevenDaysAgo) return false;
+
+    const isInbound = s.last_message_direction === "in" || s.last_message_direction === "incoming";
+    const unread = isUnreadSession(s);
+    return (isInbound || unread) && !isAiHandling(s);
+  };
+
+  // Contadores para o projeto/provider atual
+  const projectSessions = sessions.filter(s => {
+    const matchProject = filterProject === "all" || s.project_id === filterProject;
+    const matchProvider = filterProvider === "all" || s.provider_id === filterProvider;
+    return matchProject && matchProvider;
+  });
+
+  const waitingCount = projectSessions.filter(isAwaitingReply).length;
+  const aiCount = projectSessions.filter(isAiHandling).length;
+  const snoozedCount = sessions.filter(isSnoozed).length;
+
+  const activeFiltersCount =
+    (assignFilter !== "all" ? 1 : 0) +
+    (snoozeMode !== "hide" ? 1 : 0) +
+    (colorFilter !== "all" ? 1 : 0) +
+    (onlyUnread ? 1 : 0);
 
   const filtered = sessions.filter(s => {
     const matchProject = filterProject === "all" || s.project_id === filterProject;
@@ -186,6 +222,12 @@ export default function ConversationList({
     const matchSearch = !search ||
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
+    
+    // Filtro da aba principal
+    if (viewTab === "responder" && !isAwaitingReply(s)) return false;
+    if (viewTab === "ia" && !isAiHandling(s)) return false;
+
+    // Filtros secundários
     const matchUnread = !onlyUnread || isUnreadSession(s);
     const snoozed = isSnoozed(s);
     const matchSnooze = snoozeMode === "show" ? true : snoozeMode === "only" ? snoozed : !snoozed;
@@ -194,8 +236,15 @@ export default function ConversationList({
       assignFilter === "mine" ? s.assigned_to === myUserId :
       !s.assigned_to;
     const matchColor = colorFilter === "all" || resolveConvColor(s as ConvForColor).key === colorFilter;
+
     return matchProject && matchProvider && matchSearch && matchUnread && matchSnooze && matchAssign && matchColor;
   }).sort((a, b) => {
+    // Na visualização de responder agora, prioriza maior tempo de espera (SLA urgente)
+    if (viewTab === "responder") {
+      const wa = waitingMinutes(a) || 0;
+      const wb = waitingMinutes(b) || 0;
+      if (wa !== wb) return wb - wa;
+    }
     const ua = isUnreadSession(a) ? 1 : 0;
     const ub = isUnreadSession(b) ? 1 : 0;
     if (ua !== ub) return ub - ua;
@@ -204,13 +253,6 @@ export default function ConversationList({
     return tb - ta;
   });
 
-  const snoozedCount = sessions.filter(isSnoozed).length;
-
-  const totalUnread = sessions.reduce(
-    (acc, s) => acc + (isUnreadSession(s) ? Math.max(s.unread_count || 0, 1) : 0),
-    0,
-  );
-
   return (
     <div className="flex flex-col h-full border-r border-border bg-card">
       {/* Header */}
@@ -218,48 +260,225 @@ export default function ConversationList({
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-sm text-foreground flex items-center gap-2">
             Conversas
-            {totalUnread > 0 && (
-              <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-1.5 py-0.5 leading-none">
-                {totalUnread} nova{totalUnread > 1 ? "s" : ""}
-              </span>
-            )}
           </h2>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={cycleAssignFilter}
-              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${
-                assignFilter === "mine" ? "bg-blue-500/15 border-blue-500/50 text-blue-300"
-                : assignFilter === "unassigned" ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
-                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
-              }`}
-              title="Filtro de atribuição: clique para alternar"
-            >
-              {assignFilter === "all" ? "👥 Todas" : assignFilter === "mine" ? "👤 Minhas" : "❓ Sem dono"}
-            </button>
-            <button
-              onClick={() => setOnlyUnread(v => !v)}
-              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${onlyUnread ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
-              title="Mostrar apenas não lidas"
-            >
-              Não lidas
-            </button>
-            <button
-              onClick={cycleSnoozeMode}
-              className={`text-[10px] h-7 px-2 rounded-md border transition-colors ${
-                snoozeMode === "only" ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
-                : snoozeMode === "show" ? "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
-                : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
-              }`}
-              title="Silenciadas: clique para alternar (ocultar / mostrar / só silenciadas)"
-            >
-              {snoozeMode === "hide" ? "🔕 Ocultar" : snoozeMode === "show" ? "🔔 Todas" : "🔕 Só silenciadas"}
-              {snoozedCount > 0 && snoozeMode !== "only" && <span className="ml-1 opacity-70">({snoozedCount})</span>}
-            </button>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova sessão">
+          <div className="flex items-center gap-1.5">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 px-2 text-xs gap-1.5 transition-colors ${
+                    activeFiltersCount > 0
+                      ? "border-primary/50 bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Filtros avançados (atribuição, status, silenciadas)"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  <span>Filtros</span>
+                  {activeFiltersCount > 0 && (
+                    <span className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center">
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="end" className="w-80 p-3 bg-secondary/95 backdrop-blur-xl border-border space-y-3 z-50">
+                <div className="flex items-center justify-between pb-2 border-b border-border">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-primary" /> Filtros Avançados
+                  </span>
+                  {activeFiltersCount > 0 && (
+                    <button
+                      onClick={() => {
+                        setAssignFilter("all");
+                        setSnoozeMode("hide");
+                        setColorFilter("all");
+                        setOnlyUnread(false);
+                        try {
+                          localStorage.removeItem("wa-assign-filter");
+                          localStorage.removeItem("wa-snooze-mode");
+                          localStorage.removeItem("wa-color-filter");
+                        } catch { /* storage fallback */ }
+                      }}
+                      className="text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Limpar filtros
+                    </button>
+                  )}
+                </div>
+
+                {/* Atribuição */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-muted-foreground">Atendente</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { k: "all", label: "👥 Todas" },
+                      { k: "mine", label: "👤 Minhas" },
+                      { k: "unassigned", label: "❓ Sem dono" },
+                    ].map(item => (
+                      <button
+                        key={item.k}
+                        onClick={() => {
+                          const val = item.k as "all" | "mine" | "unassigned";
+                          setAssignFilter(val);
+                          try { localStorage.setItem("wa-assign-filter", val); } catch {}
+                        }}
+                        className={`text-[11px] py-1 px-2 rounded border transition-colors ${
+                          assignFilter === item.k
+                            ? "bg-primary/15 border-primary/50 text-primary font-medium"
+                            : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Silenciadas */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-medium text-muted-foreground">Silenciadas</label>
+                    {snoozedCount > 0 && (
+                      <span className="text-[10px] text-muted-foreground">({snoozedCount} ativas)</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { k: "hide", label: "🔕 Ocultar" },
+                      { k: "show", label: "🔔 Todas" },
+                      { k: "only", label: "🔕 Apenas" },
+                    ].map(item => (
+                      <button
+                        key={item.k}
+                        onClick={() => {
+                          const val = item.k as "hide" | "show" | "only";
+                          setSnoozeMode(val);
+                          try { localStorage.setItem("wa-snooze-mode", val); } catch {}
+                        }}
+                        className={`text-[11px] py-1 px-2 rounded border transition-colors ${
+                          snoozeMode === item.k
+                            ? "bg-purple-500/20 border-purple-500/50 text-purple-300 font-medium"
+                            : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Status / Cor */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-medium text-muted-foreground">Classificação do Lead</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto scrollbar-thin">
+                    {[
+                      { k: "all", hex: "transparent", label: "Todas as cores" },
+                      { k: "interested", hex: CONV_COLOR_PRESETS.blue.hex, label: "Interessado" },
+                      { k: "new", hex: CONV_COLOR_PRESETS.green.hex, label: "Nova" },
+                      { k: "waiting", hex: CONV_COLOR_PRESETS.amber.hex, label: "Aguardando" },
+                      { k: "urgent", hex: CONV_COLOR_PRESETS.red.hex, label: "SLA Crítico" },
+                      { k: "handoff", hex: CONV_COLOR_PRESETS.violet.hex, label: "Handoff IA" },
+                      { k: "cold", hex: CONV_COLOR_PRESETS.slate.hex, label: "Frio" },
+                    ].map(c => (
+                      <button
+                        key={c.k}
+                        onClick={() => {
+                          setColorFilter(c.k);
+                          try { localStorage.setItem("wa-color-filter", c.k); } catch {}
+                        }}
+                        className={`text-[11px] py-1 px-2 rounded border transition-colors flex items-center gap-1.5 text-left ${
+                          colorFilter === c.k
+                            ? "bg-muted border-primary/50 text-foreground font-medium"
+                            : "bg-muted/20 border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        {c.hex !== "transparent" && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.hex }} />}
+                        <span className="truncate">{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Não lidas toggle */}
+                <div className="pt-2 border-t border-border flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">Apenas não lidas</span>
+                  <button
+                    onClick={() => setOnlyUnread(v => !v)}
+                    className={`text-[10px] h-6 px-2 rounded border transition-colors ${
+                      onlyUnread
+                        ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400 font-medium"
+                        : "bg-muted/30 border-border text-muted-foreground"
+                    }`}
+                  >
+                    {onlyUnread ? "Ativo" : "Inativo"}
+                  </button>
+                </div>
+
+                {/* Mesclar duplicados */}
+                <div className="pt-2 border-t border-border">
+                  <MergeDuplicatesButton projectId={filterProject} />
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onNewSession} title="Nova conversa">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
         </div>
+
+        {/* 3 Segmented Pill Tabs */}
+        <div className="grid grid-cols-3 gap-1 p-1 bg-muted/40 rounded-lg text-xs font-medium">
+          <button
+            onClick={() => setViewTab("responder")}
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all ${
+              viewTab === "responder"
+                ? "bg-background text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+            title="Leads aguardando resposta humana nos últimos 7 dias"
+          >
+            <span>🔥 Responder</span>
+            {waitingCount > 0 && (
+              <span className="text-[10px] font-bold bg-amber-500/25 text-amber-400 border border-amber-500/40 rounded-full px-1.5 py-0.2 leading-tight">
+                {waitingCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setViewTab("todas")}
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all ${
+              viewTab === "todas"
+                ? "bg-background text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+            title="Todas as conversas"
+          >
+            <span>💬 Todas</span>
+          </button>
+          <button
+            onClick={() => setViewTab("ia")}
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all ${
+              viewTab === "ia"
+                ? "bg-background text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+            title="Conversas sob controle da IA autônoma"
+          >
+            <span>🤖 IA</span>
+            {aiCount > 0 && (
+              <span className="text-[10px] font-semibold bg-primary/20 text-primary rounded-full px-1.5 py-0.2 leading-tight">
+                {aiCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -269,6 +488,8 @@ export default function ConversationList({
             className="h-8 pl-8 text-xs"
           />
         </div>
+
+        {/* Project Selector */}
         <Select value={filterProject} onValueChange={onFilterProject}>
           <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Filtrar projeto" /></SelectTrigger>
           <SelectContent>
@@ -276,18 +497,17 @@ export default function ConversationList({
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+
+        {/* Provider chips if multi-instance */}
         {onFilterProvider && providers && providers.length > 1 && (() => {
-          // Filter chip-tabs to chips of the active project (or all if "all")
           const visibleProvs = filterProject === "all"
             ? providers
             : providers.filter(p => p.project_id === filterProject);
           if (visibleProvs.length < 2) return null;
-          // Unread/count per chip respecting current project filter
           const countFor = (provId: string | "all") => sessions.filter(s => {
             const matchProject = filterProject === "all" || s.project_id === filterProject;
             return matchProject && (provId === "all" || s.provider_id === provId);
           }).length;
-          // Activity in last 24h per provider (for cross-instance "novo" hint)
           const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
           const hasRecent = (provId: string) => sessions.some(s => {
             if (s.provider_id !== provId) return false;
@@ -299,7 +519,7 @@ export default function ConversationList({
             <div className="flex gap-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin">
               <button
                 onClick={() => onFilterProvider("all")}
-                className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors ${filterProvider === "all" ? "bg-primary/15 border-primary/40 text-primary" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
+                className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors ${filterProvider === "all" ? "bg-primary/15 border-primary/40 text-primary font-medium" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"}`}
               >
                 Todos <span className="opacity-60">({countFor("all")})</span>
               </button>
@@ -311,7 +531,7 @@ export default function ConversationList({
                   <button
                     key={p.id}
                     onClick={() => onFilterProvider(p.id)}
-                    className={`relative shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"}`}
+                    className={`relative shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground font-medium" : "text-muted-foreground hover:bg-muted/60"}`}
                     style={active ? { background: `${color.replace("hsl", "hsla").replace(")", ", 0.18)")}`, borderColor: `${color.replace("hsl", "hsla").replace(")", ", 0.55)")}` } : { background: "hsl(var(--muted) / 0.3)", borderColor: "hsl(var(--border))" }}
                     title={(providerLabel(p) || p.id) + (recent ? " — novas mensagens nas últimas 24h" : "")}
                   >
@@ -323,70 +543,9 @@ export default function ConversationList({
                   </button>
                 );
               })}
-
             </div>
           );
         })()}
-        {/* Filtro por cor/status */}
-        <div className="flex gap-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-thin">
-          {([
-            { k: "all", hex: "transparent", label: "Todas" },
-            { k: "interested", hex: CONV_COLOR_PRESETS.blue.hex, label: "Interessado" },
-            { k: "new", hex: CONV_COLOR_PRESETS.green.hex, label: "Nova" },
-            { k: "waiting", hex: CONV_COLOR_PRESETS.amber.hex, label: "Aguardando" },
-            { k: "urgent", hex: CONV_COLOR_PRESETS.red.hex, label: "SLA" },
-            { k: "handoff", hex: CONV_COLOR_PRESETS.violet.hex, label: "Handoff" },
-            { k: "cold", hex: CONV_COLOR_PRESETS.slate.hex, label: "Frio" },
-          ] as const).map(c => {
-            const active = colorFilter === c.k;
-            return (
-              <button
-                key={c.k}
-                onClick={() => { setColorFilter(c.k); try { localStorage.setItem("wa-color-filter", c.k); } catch { /* Storage preferences are optional in restricted browsers. */ } }}
-                className={`shrink-0 text-[10px] px-2 h-6 rounded-md border transition-colors flex items-center gap-1.5 ${active ? "text-foreground bg-muted/60 border-primary/40" : "text-muted-foreground bg-muted/20 border-border hover:bg-muted/50"}`}
-              >
-                {c.hex !== "transparent" && <span className="inline-block w-2 h-2 rounded-full" style={{ background: c.hex }} />}
-                {c.label}
-              </button>
-            );
-          })}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                className="shrink-0 h-6 w-6 rounded-md border border-border bg-muted/20 text-muted-foreground hover:bg-muted/50 hover:text-foreground flex items-center justify-center"
-                title="O que significa cada cor?"
-                aria-label="Guia de cores"
-              >
-                <HelpCircle className="h-3 w-3" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="bottom" align="end" className="w-72 bg-secondary/95 backdrop-blur-xl border-border leading-7">
-              <p className="text-sm font-medium mb-2">Guia de cores</p>
-              <ul className="space-y-1.5 text-xs">
-                {[
-                  { hex: CONV_COLOR_PRESETS.blue.hex, label: "Interessado", desc: "Falou em pix, valor, quer comprar" },
-                  { hex: CONV_COLOR_PRESETS.green.hex, label: "Nova", desc: "Mensagem não lida recebida" },
-                  { hex: CONV_COLOR_PRESETS.amber.hex, label: "Aguardando", desc: "Sem resposta há 30min+" },
-                  { hex: CONV_COLOR_PRESETS.red.hex, label: "SLA crítico", desc: "Sem resposta há 2h+" },
-                  { hex: CONV_COLOR_PRESETS.violet.hex, label: "Handoff", desc: "IA passou pro humano" },
-                  { hex: CONV_COLOR_PRESETS.slate.hex, label: "Frio / Silenciada", desc: "Inativa há 7 dias+ ou snoozed" },
-                ].map((c) => (
-                  <li key={c.label} className="flex items-start gap-2">
-                    <span className="mt-1 inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.hex }} />
-                    <div className="min-w-0">
-                      <p className="text-foreground font-medium">{c.label}</p>
-                      <p className="text-muted-foreground text-[11px]">{c.desc}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-[10px] text-muted-foreground mt-3 pt-2 border-t border-border">
-                Botão direito na conversa → <span className="text-foreground">Cor da conversa</span> para sobrescrever manualmente.
-              </p>
-            </PopoverContent>
-          </Popover>
-        </div>
-        <MergeDuplicatesButton projectId={filterProject} />
       </div>
 
       {/* List */}
@@ -405,19 +564,54 @@ export default function ConversationList({
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <MessageSquare className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-medium text-foreground mb-1">
-              {search ? "Nenhum resultado" : "Nenhuma conversa"}
-            </p>
-            <p className="text-xs text-muted-foreground mb-3">
-              {search ? "Tente outro termo de busca" : "Crie sua primeira sessão para começar"}
-            </p>
-            {!search && (
-              <Button size="sm" variant="outline" onClick={onNewSession}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Nova Sessão
-              </Button>
+            {search ? (
+              <>
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                  <Search className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">Nenhum resultado</p>
+                <p className="text-xs text-muted-foreground mb-3">Tente outro termo de busca</p>
+                <Button size="sm" variant="ghost" onClick={() => setSearch("")}>
+                  Limpar busca
+                </Button>
+              </>
+            ) : viewTab === "responder" ? (
+              <>
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-semibold text-foreground mb-1">Tudo em dia!</p>
+                <p className="text-xs text-muted-foreground mb-3 max-w-[220px]">
+                  Nenhum lead aguardando resposta humana no momento.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setViewTab("todas")}>
+                  Ver todas as conversas
+                </Button>
+              </>
+            ) : viewTab === "ia" ? (
+              <>
+                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
+                  <Bot className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-semibold text-foreground mb-1">Nenhuma conversa na IA</p>
+                <p className="text-xs text-muted-foreground mb-3 max-w-[220px]">
+                  As conversas tocadas pela IA autônoma aparecerão aqui.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setViewTab("todas")}>
+                  Ver todas as conversas
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                  <MessageSquare className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">Nenhuma conversa</p>
+                <p className="text-xs text-muted-foreground mb-3">Crie sua primeira sessão para começar</p>
+                <Button size="sm" variant="outline" onClick={onNewSession}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Nova Sessão
+                </Button>
+              </>
             )}
           </div>
         ) : (
@@ -608,8 +802,26 @@ export default function ConversationList({
       </ScrollArea>
 
       {/* Footer count */}
-      <div className="p-2 border-t border-border shrink-0">
-        <p className="text-[10px] text-muted-foreground text-center">{filtered.length} conversa(s)</p>
+      <div className="p-2 border-t border-border shrink-0 flex items-center justify-between px-3">
+        <p className="text-[10px] text-muted-foreground">{filtered.length} conversa(s)</p>
+        {activeFiltersCount > 0 && (
+          <button
+            onClick={() => {
+              setAssignFilter("all");
+              setSnoozeMode("hide");
+              setColorFilter("all");
+              setOnlyUnread(false);
+              try {
+                localStorage.removeItem("wa-assign-filter");
+                localStorage.removeItem("wa-snooze-mode");
+                localStorage.removeItem("wa-color-filter");
+              } catch {}
+            }}
+            className="text-[10px] text-primary hover:underline font-medium"
+          >
+            Limpar filtros ({activeFiltersCount})
+          </button>
+        )}
       </div>
     </div>
   );

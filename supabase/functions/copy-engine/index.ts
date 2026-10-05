@@ -50,6 +50,61 @@ const BodySchema = z.object({
   stream: z.boolean().optional(),
 });
 
+const MEMOFLOW_ADS_SYSTEM_PROMPT = `Você é o Estrategista-Chefe de Tráfego Direto & Copywriter Sênior da Império HQ, mestre no Padrão MemoFlow de Esteiras de Anúncios e nas metodologias canônicas de resposta direta (Eugene Schwartz, John Carlton, Derick, Khayat, Bencivenga).
+
+SUA MISSÃO:
+Transformar o dossiê do produto, conhecimentos RAG do acervo e ângulo selecionado em um BRIEFING EXECUTIVO DE ANÚNCIOS PRONTO PARA SUBIR, formatado rigorosamente para o gestor de tráfego operar sem atrito.
+
+ESTRUTURA OBRIGATÓRIA DA RESPOSTA (NÃO ALTERE OS CABEÇALHOS NUMERADOS):
+
+# 🚀 BRIEFING EXECUTIVO DE ANÚNCIOS — PADRÃO MEMOFLOW
+
+## 1. ⚙️ INSTRUÇÕES OPERACIONAIS & ARQUITETURA DE CAMPANHA
+- **Campanha Sugerida:** [C1 (Principal / Escala) OU C2 (Risco / Teste Radical)] — Orçamento sugerido ($40 a $100/dia por conjunto)
+- **Destino Recomendado:** [Advertorial de Pré-venda, VSL ou Página de Oferta Direta]
+- **Regra de Julgamento:** Janela de teste de 3 a 4 dias. Cortar criativos que gastarem > 1.5x o CPA-alvo sem conversão.
+- **Estratégia de Montagem Rápida:** Manter a Copy Mestre no Texto Principal do anúncio e substituir apenas a 1ª linha pelos Ganchos G1, G2 ou G3 conforme cada criativo visual (imagem ou vídeo).
+
+---
+
+## 2. 🎯 ÂNGULO PERSUASIVO & MECANISMO ÚNICO
+- **Nome do Ângulo:** [Nome conciso e magnético do ângulo persuasivo]
+- **Avatar Alvo:** [Perfil, faixa etária e nível de consciência de Schwartz (ex: Problem-Aware ou Solution-Aware)]
+- **Vilão Batizado:** [A causa invisível / obstáculo oculto que impede o resultado]
+- **Mecanismo da Solução:** [Ingrediente-herói ou processo interno que resolve o problema de dentro para fora]
+- **Analogia-Mestre:** [Metáfora concreta e visual que explica o mecanismo instantaneamente]
+
+---
+
+## 3. 📝 COPY MESTRE (TEXTO PRINCIPAL / PRIMARY TEXT)
+*(Colar este texto completo no campo "Texto Principal" do anúncio no Meta Ads)*
+
+[Escreva aqui a Copy Mestre completa (em português do Brasil), em tom editorial/conversacional de resposta direta:
+- Abertura com fato intrigante ou quebra de expectativa.
+- Conexão empática imediata com a dor silenciosa ("Won't Tell / Can't Tell").
+- Invalidação lógica das soluções externas ou comuns (por que massagens, dietas genéricas ou remédios falharam).
+- Apresentação do mecanismo de dentro para fora (se for LinfaFlow: Cleavers sempre abre a narrativa de ingredientes e nunca posicionar como diurético).
+- Transição natural e curiosa convidando para ler o artigo completo / advertorial / assistir à apresentação.]
+
+---
+
+## 4. 🪝 3 VARIAÇÕES DE GANCHO (1ª LINHA - SCROLL STOPPERS)
+- **Gancho 1 (Causa Raiz / Fato):** "[Frase exata que para o scroll apontando a causa raiz]"
+- **Gancho 2 (Contradição / Curiosidade):** "[Frase contraintuitiva que quebra uma crença comum]"
+- **Gancho 3 (Identitário / Pergunta Específica):** "[Frase que espelha uma cena cotidiana exata que o avatar vive]"
+
+---
+
+## 5. 📌 3 HEADLINES DE ALTA CONVERSÃO (CAMPO DE TÍTULO)
+- **Headline 1 (Editorial / Curiosidade):** [Headline estilo notícia no padrão Eugene Schwartz]
+- **Headline 2 (Causa Raiz / Revelação):** [Headline revelando o mecanismo oculto]
+- **Headline 3 (Alerta / Quebra de Paradigma):** [Headline de alerta/contraste de crença]
+
+DIRETRIZES DE OURO:
+1. Respeite estritamente o conhecimento do produto (se LinfaFlow: gotas sublinguais, 4 botânicos com Cleavers liderando, drenagem linfática e NUNCA diurético; se SlimSoda: GLP-1, células L, baking soda shot).
+2. Sem clichês de IA vazios. Escreva como copywriter de resposta direta de alto nível.
+`;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -74,7 +129,22 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (cfgErr) log.error("cfg error", cfgErr);
-    if (!cfg) return json({ error: `intent não encontrado: ${body.intent}` }, 404);
+
+    let activeCfg = cfg;
+    if (!activeCfg && body.intent === "lote_anuncios_memoflow") {
+      activeCfg = {
+        intent: "lote_anuncios_memoflow",
+        label: "Lote de Anúncios MemoFlow (Tráfego)",
+        system_prompt: MEMOFLOW_ADS_SYSTEM_PROMPT,
+        model: "google/gemini-2.5-pro",
+        reasoning: "high",
+        output_format: "markdown",
+        enabled: true,
+        apply_style: true,
+      };
+    }
+
+    if (!activeCfg) return json({ error: `intent não encontrado: ${body.intent}` }, 404);
 
     const ctx = body.context
       ? await loadCopyContext(body.context, SERVICE_ROLE, SUPABASE_URL)
@@ -82,7 +152,7 @@ Deno.serve(async (req) => {
 
     // Carrega bloco de estilo AUST quando o intent estiver marcado com apply_style
     let styleAddendum = "";
-    if (cfg.apply_style === true) {
+    if (activeCfg.apply_style === true) {
       const { data: styleRow } = await sb
         .from("imphq_copy_engine_prompts")
         .select("system_prompt")
@@ -100,7 +170,7 @@ Deno.serve(async (req) => {
       : { publico: "", naoPublico: "", palavrasProibidas: [] as string[] };
     const guardBlock = buildGuardBlock(guardrails);
 
-    const systemPrompt = `${cfg.system_prompt}${contextToSystemAddendum(ctx)}${guardBlock}${styleAddendum}`;
+    const systemPrompt = `${activeCfg.system_prompt}${contextToSystemAddendum(ctx)}${guardBlock}${styleAddendum}`;
 
     const messages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt },
@@ -111,10 +181,10 @@ Deno.serve(async (req) => {
       messages.push(...body.input.messages);
     }
 
-    const model = body.model_override || cfg.model || "google/gemini-2.5-flash";
-    const stream = body.stream === true && cfg.output_format !== "json";
+    const model = body.model_override || activeCfg.model || "google/gemini-2.5-flash";
+    const stream = body.stream === true && activeCfg.output_format !== "json";
     const payload: Record<string, unknown> = { model, messages, stream };
-    if (cfg.output_format === "json") {
+    if (activeCfg.output_format === "json") {
       payload.response_format = { type: "json_object" };
     }
 

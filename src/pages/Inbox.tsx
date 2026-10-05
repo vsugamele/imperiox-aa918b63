@@ -532,9 +532,9 @@ function InboxKpiStrip({ collapsed, onToggle }: { collapsed?: boolean; onToggle?
 type InboxTab = "fila" | "whatsapp" | "instagram" | "hotleads" | "imperius";
 
 const TABS: { value: InboxTab; label: string; icon: React.ElementType }[] = [
-  { value: "fila",      label: "Fila",        icon: Zap },
-  { value: "imperius",  label: "Sugestões IA", icon: Sparkles },
   { value: "whatsapp",  label: "WhatsApp",    icon: MessageSquare },
+  { value: "fila",      label: "Fila Rápida", icon: Zap },
+  { value: "imperius",  label: "Sugestões IA", icon: Sparkles },
   { value: "instagram", label: "Instagram",   icon: Instagram },
   { value: "hotleads",  label: "Hot Leads",   icon: Flame },
 ];
@@ -547,9 +547,7 @@ export default function Inbox() {
   const defaultTab = ((): InboxTab => {
     const p = params.get("tab") as InboxTab | null;
     if (p && TABS.some((t) => t.value === p)) return p;
-    if ((badges?.inbox ?? 0) > 0) return "whatsapp";
-    if ((badges?.leads ?? 0) > 0) return "hotleads";
-    return "fila";
+    return "whatsapp";
   })();
 
   const [active, setActive] = useState<InboxTab>(defaultTab);
@@ -574,28 +572,25 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex flex-col h-full -m-3 md:-m-6">
-      {/* Editorial header + KPI strip + tabs */}
-      <div className="bg-background/70 backdrop-blur-xl shrink-0 border-b border-border/60">
-        <div className="px-4 md:px-6 pt-4 md:pt-5 pb-3">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div>
-              <div className="kicker">Inbox · Operação</div>
-              <h1 className="section-title mt-1 text-2xl md:text-3xl">Central de Conversas</h1>
+    <div className="flex flex-col h-full -m-3 md:-m-6 overflow-hidden">
+      <Tabs value={active} onValueChange={handleChange} className="flex flex-col h-full min-h-0">
+        {/* Header bar + KPI strip + Tabs List */}
+        <div className="bg-background/80 backdrop-blur-xl shrink-0 border-b border-border/60">
+          <div className="px-4 md:px-6 pt-3 pb-2 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <h1 className="font-semibold text-lg md:text-xl text-foreground">Caixa de Entrada</h1>
+              <span className="text-xs text-muted-foreground hidden sm:inline">· Atendimento & Conversão</span>
             </div>
             <div className="hidden md:block text-[11px] text-muted-foreground tracking-editorial uppercase">
-              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+              {new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}
             </div>
           </div>
-          <div className="hairline mt-4" />
-        </div>
 
-        <div className="hidden md:block">
-          <InboxKpiStrip collapsed={!showKpiStrip} onToggle={() => setShowKpiStrip(v => !v)} />
-        </div>
+          <div className="hidden md:block">
+            <InboxKpiStrip collapsed={!showKpiStrip} onToggle={() => setShowKpiStrip(v => !v)} />
+          </div>
 
-        <Tabs value={active} onValueChange={handleChange}>
-          <div className="px-3 md:px-6 overflow-x-auto">
+          <div className="px-3 md:px-6 overflow-x-auto border-t border-border/30">
             <TabsList className="editorial-tabs w-max">
               {TABS.map(({ value, label, icon: Icon }) => (
                 <TabsTrigger key={value} value={value} className="editorial-tab shrink-0">
@@ -612,30 +607,33 @@ export default function Inbox() {
               ))}
             </TabsList>
           </div>
+        </div>
 
-          <TabsContent value="fila" className="mt-0 pt-0 h-full">
-            <FilaUnificadaTab />
-          </TabsContent>
-          <TabsContent value="imperius" className="mt-0 pt-0 h-full">
-            <Suspense fallback={<TabLoader />}>
-              <ImperiusSuggestionsTab />
-            </Suspense>
-          </TabsContent>
-          <TabsContent value="whatsapp" className="mt-0 pt-0 h-full">
+        {/* Tab contents with flex-1 min-h-0 so WhatsApp fills the height */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <TabsContent value="whatsapp" className="mt-0 pt-0 h-full overflow-hidden">
             <Suspense fallback={<TabLoader />}>
               <WhatsAppPage />
             </Suspense>
           </TabsContent>
-          <TabsContent value="instagram" className="mt-0 pt-0 h-full">
+          <TabsContent value="fila" className="mt-0 pt-0 h-full overflow-auto">
+            <FilaUnificadaTab />
+          </TabsContent>
+          <TabsContent value="imperius" className="mt-0 pt-0 h-full overflow-auto">
+            <Suspense fallback={<TabLoader />}>
+              <ImperiusSuggestionsTab />
+            </Suspense>
+          </TabsContent>
+          <TabsContent value="instagram" className="mt-0 pt-0 h-full overflow-auto">
             <Suspense fallback={<TabLoader />}>
               <InstagramPage />
             </Suspense>
           </TabsContent>
-          <TabsContent value="hotleads" className="mt-0 pt-0 h-full">
+          <TabsContent value="hotleads" className="mt-0 pt-0 h-full overflow-auto">
             <HotLeadsTab />
           </TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
     </div>
   );
 }
