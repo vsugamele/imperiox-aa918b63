@@ -1550,6 +1550,13 @@ export default function Funis() {
               <Button size="sm" variant="outline" onClick={() => setShowTemplates(true)} className="gap-1">
                 <Sparkles className="h-4 w-4" /> Templates
               </Button>
+              <Button
+                size="sm"
+                onClick={() => window.dispatchEvent(new CustomEvent("imphq:open-funnel-architect"))}
+                className="gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium shadow-sm"
+              >
+                <Sparkles className="h-4 w-4 text-emerald-200" /> Arquiteto de Funil IA
+              </Button>
               <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
             </>
           )}

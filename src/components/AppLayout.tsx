@@ -14,6 +14,9 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/mobile/MobileBottomNav";
 import { MobilePushNudge } from "@/components/mobile/MobilePushNudge";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { FunnelArchitectCopilot } from "@/components/funis/FunnelArchitectCopilot";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
 
 
 function useLiveLeadCount(): number | null {
@@ -150,6 +153,7 @@ const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
 export function AppLayout() {
   const isMobile = useIsMobile();
   const liveLeadCount = useLiveLeadCount();
+  const [architectOpen, setArchitectOpen] = useState(false);
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem(SIDEBAR_LS_KEY);
@@ -160,8 +164,12 @@ export function AppLayout() {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
   }, [open]);
 
-  // Mobile auto-redirect removido — app desktop agora responsivo no celular.
-  // Cockpit continua acessível via /mobile-cockpit se o usuário quiser.
+  // Listener global para abrir o Arquiteto de Funis de qualquer tela
+  useEffect(() => {
+    const handleOpen = () => setArchitectOpen(true);
+    window.addEventListener("imphq:open-funnel-architect", handleOpen);
+    return () => window.removeEventListener("imphq:open-funnel-architect", handleOpen);
+  }, []);
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
@@ -177,6 +185,18 @@ export function AppLayout() {
               <GlobalSearch />
             </div>
             <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+              {/* Botão Global Arquiteto de Funis IA */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setArchitectOpen(true)}
+                className="hidden lg:flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50 transition-colors shadow-xs"
+                title="Arquiteto de Funis IA (Russell Brunson & Alex Hormozi)"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Arquiteto Funil</span>
+              </Button>
+
               {/* Live indicator */}
               <div className="hidden sm:flex items-center gap-1.5 h-7 px-2.5 border border-border rounded bg-[#101215] shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
@@ -203,6 +223,12 @@ export function AppLayout() {
         </div>
         {isMobile && <MobileBottomNav />}
       </div>
+
+      {/* Global Arquiteto de Funis Copilot Sheet */}
+      <FunnelArchitectCopilot
+        open={architectOpen}
+        onOpenChange={setArchitectOpen}
+      />
     </SidebarProvider>
   );
 }

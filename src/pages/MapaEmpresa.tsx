@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, GitCommit, Loader2, RefreshCw, TableProperties } from "lucide-react";
+import { AlertTriangle, GitCommit, Loader2, RefreshCw, TableProperties, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -85,9 +85,18 @@ export default function MapaEmpresa() {
             A mesma leitura que as IAs usam: cada projeto por área, com a evidência de cada status e o que falta, em ordem de prioridade.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isFetching && "animate-spin")} /> Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => window.dispatchEvent(new CustomEvent("imphq:open-funnel-architect"))}
+            className="gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium shadow-sm"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-emerald-200" /> Arquiteto de Funil IA
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isFetching && "animate-spin")} /> Atualizar
+          </Button>
+        </div>
       </header>
 
       {/* Alternador Principal: Caminho Operacional vs Matriz de Maturidade */}

@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   MessageSquare, Users, Bot, Zap, TrendingUp, Instagram,
   PauseCircle, BarChart2, Send, Settings, Flame, Target,
-  Calendar, BookOpen, ArrowRight, Search,
+  Calendar, BookOpen, ArrowRight, Search, Sparkles,
 } from "lucide-react";
 
 interface Command {
@@ -28,6 +28,15 @@ export function CommandPalette({ onCreateWACampaign }: CommandPaletteProps) {
   const navigate = useNavigate();
 
   const commands: Command[] = [
+    {
+      id: "funnel-architect",
+      label: "Arquiteto de Funis IA",
+      description: "Conceber fluxo, o que deve ter no site e criar funil",
+      icon: <Sparkles className="h-4 w-4 text-emerald-400" />,
+      action: () => window.dispatchEvent(new CustomEvent("imphq:open-funnel-architect")),
+      category: "Funis & Estratégia",
+      badge: "✨ RAG",
+    },
     {
       id: "hot-leads",
       label: "Ver Leads Quentes",
