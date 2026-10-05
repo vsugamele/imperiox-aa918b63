@@ -45,7 +45,7 @@ export default function LeadsSidebar({
         if (count > 0) prodMap.set(prodName, count);
       });
       const globalCount = projectCounts?.byProject?.[p.id] ?? projectLeads.length;
-      if (globalCount > 0) map.set(p.id, { products: prodMap, totalLeads: globalCount });
+      map.set(p.id, { products: prodMap, totalLeads: globalCount });
     });
     return map;
   }, [projects, leads, allVendasRaw, projectCounts]);
@@ -96,56 +96,91 @@ export default function LeadsSidebar({
             Por projeto
           </p>
         )}
-        {projects.map((p) => {
-          const info = projectProductMap.get(p.id);
-          if (!info || info.totalLeads === 0) return null;
-          const isExpanded = expandedProjects.has(p.id);
-          const isSelected = projectFilter === p.id && productFilter === "all";
-          return (
-            <div key={p.id}>
-              <div className="flex items-center">
-                <button
-                  className="p-1 text-muted-foreground hover:text-gold transition-colors"
-                  onClick={(e) => { e.stopPropagation(); onToggleProject(p.id); }}
-                >
-                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                </button>
-                <button
-                  className={cn(
-                    "flex-1 text-left text-xs px-1 py-1.5 rounded transition-colors truncate flex items-center justify-between border-l-2",
-                    isSelected
-                      ? "bg-gold/10 text-gold border-gold"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/40 border-transparent",
-                  )}
-                  onClick={() => { onProjectFilter(p.id); onProductFilter("all"); }}
-                >
-                  <span className="truncate">{p.icon || "📁"} {p.name}</span>
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1 shrink-0">{info.totalLeads}</Badge>
-                </button>
-              </div>
-              {isExpanded && info.products.size > 0 && (
-                <div className="ml-5 space-y-0.5 mt-0.5 border-l border-border/40 pl-2">
-                  {Array.from(info.products.entries()).sort((a, b) => b[1] - a[1]).map(([prodName, count]) => (
-                    <button
-                      key={prodName}
-                      className={cn(
-                        "w-full text-left text-[11px] px-2 py-1 rounded transition-colors truncate flex items-center justify-between",
-                        productFilter === prodName && projectFilter === p.id
-                          ? "bg-gold/10 text-gold"
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
-                      )}
-                      onClick={() => { onProjectFilter(p.id); onProductFilter(prodName); }}
-                      title={prodName}
-                    >
-                      <span className="truncate">🏷️ {prodName}</span>
-                      <span className="text-[9px] text-muted-foreground/70 ml-1 shrink-0">{count}</span>
-                    </button>
-                  ))}
+        {/* Projetos com leads */}
+        {projects
+          .filter(p => (projectProductMap.get(p.id)?.totalLeads ?? 0) > 0)
+          .sort((a, b) => (projectProductMap.get(b.id)?.totalLeads ?? 0) - (projectProductMap.get(a.id)?.totalLeads ?? 0))
+          .map((p) => {
+            const info = projectProductMap.get(p.id)!;
+            const isExpanded = expandedProjects.has(p.id);
+            const isSelected = projectFilter === p.id && productFilter === "all";
+            return (
+              <div key={p.id}>
+                <div className="flex items-center">
+                  <button
+                    className="p-1 text-muted-foreground hover:text-gold transition-colors"
+                    onClick={(e) => { e.stopPropagation(); onToggleProject(p.id); }}
+                  >
+                    {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  </button>
+                  <button
+                    className={cn(
+                      "flex-1 text-left text-xs px-1 py-1.5 rounded transition-colors truncate flex items-center justify-between border-l-2",
+                      isSelected
+                        ? "bg-gold/10 text-gold border-gold"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/40 border-transparent",
+                    )}
+                    onClick={() => { onProjectFilter(p.id); onProductFilter("all"); }}
+                  >
+                    <span className="truncate">{p.icon || "📁"} {p.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1 shrink-0">{info.totalLeads}</Badge>
+                  </button>
                 </div>
-              )}
+                {isExpanded && info.products.size > 0 && (
+                  <div className="ml-5 space-y-0.5 mt-0.5 border-l border-border/40 pl-2">
+                    {Array.from(info.products.entries()).sort((a, b) => b[1] - a[1]).map(([prodName, count]) => (
+                      <button
+                        key={prodName}
+                        className={cn(
+                          "w-full text-left text-[11px] px-2 py-1 rounded transition-colors truncate flex items-center justify-between",
+                          productFilter === prodName && projectFilter === p.id
+                            ? "bg-gold/10 text-gold"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
+                        )}
+                        onClick={() => { onProjectFilter(p.id); onProductFilter(prodName); }}
+                        title={prodName}
+                      >
+                        <span className="truncate">🏷️ {prodName}</span>
+                        <span className="text-[9px] text-muted-foreground/70 ml-1 shrink-0">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+        {/* Projetos cadastrados que ainda não possuem leads */}
+        {(() => {
+          const zeroProjects = projects.filter(p => (projectProductMap.get(p.id)?.totalLeads ?? 0) === 0);
+          if (zeroProjects.length === 0) return null;
+          return (
+            <div className="mt-3 pt-2 border-t border-border/30">
+              <p className="text-[9px] uppercase tracking-editorial text-muted-foreground/50 mb-1 px-2">
+                Sem leads ainda ({zeroProjects.length})
+              </p>
+              {zeroProjects.map((p) => {
+                const isSelected = projectFilter === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    className={cn(
+                      "w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate flex items-center justify-between border-l-2",
+                      isSelected
+                        ? "bg-gold/10 text-gold border-gold"
+                        : "text-muted-foreground/60 hover:text-foreground hover:bg-secondary/40 border-transparent",
+                    )}
+                    onClick={() => { onProjectFilter(p.id); onProductFilter("all"); }}
+                    title={`${p.name} (0 leads)`}
+                  >
+                    <span className="truncate">{p.icon || "📁"} {p.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 ml-1 opacity-50 shrink-0">0</Badge>
+                  </button>
+                );
+              })}
             </div>
           );
-        })}
+        })()}
 
         {topTags && topTags.length > 0 && (
           <>
