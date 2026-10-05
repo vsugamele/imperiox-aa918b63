@@ -18,13 +18,13 @@ Deno.serve(async (req) => {
     const { data: rows, error } = await supabase
       .from("imphq_integration_credentials")
       .select("project_id, credentials")
-      .eq("provider", "instagram").returns<{project_id:string;credentials:{zernio_api_key?:string;zernio_account_id?:string;zernio_ad_account_id?:string}|null}[]>();
+      .eq("provider", "instagram").returns<{project_id:string;credentials:{zernio_api_key?:string;zernio_account_id?:string;zernio_ad_account_id?:string;zernio_ads_api_key?:string;zernio_ads_account_id?:string}|null}[]>();
 
     if (error) throw error;
 
     const eligible = (rows || []).filter((r) => {
       const c = r?.credentials || {};
-      return c.zernio_api_key && c.zernio_account_id && c.zernio_ad_account_id;
+      return (c.zernio_ads_api_key || c.zernio_api_key) && (c.zernio_ads_account_id || c.zernio_account_id) && c.zernio_ad_account_id;
     });
 
     console.log(`[zernio-ads-sync-all] ${eligible.length} projetos elegíveis`);
@@ -51,7 +51,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, processed: results.length, results }), { headers: jsonHeaders });
+    let accountsHealth: unknown = null;
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/zernio-ad-accounts-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
+        body: "{}",
+      });
+      const b = await resp.json().catch(() => ({}));
+      accountsHealth = { ok: resp.ok, updated: b?.updated, zernio_accounts: b?.zernio_accounts };
+    } catch (e) {
+      accountsHealth = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+
+    return new Response(JSON.stringify({ success: true, processed: results.length, results, accounts_health: accountsHealth }), { headers: jsonHeaders });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[zernio-ads-sync-all] fatal:", msg);

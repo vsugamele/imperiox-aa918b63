@@ -28,6 +28,57 @@ interface ProjectPresence {
   totalSpent: number;
 }
 
+function humanizeKey(k: string): string {
+  const s = k.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatMemoryValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "sim" : "não";
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+  if (Array.isArray(v) && v.every((x) => typeof x !== "object" || x === null)) return v.map((x) => humanizeKey(String(x))).join(", ");
+  return String(v);
+}
+
+function MemoryView({ value, depth = 0 }: { value: unknown; depth?: number }) {
+  if (value === null || typeof value !== "object") {
+    return <span className="text-foreground/80">{formatMemoryValue(value)}</span>;
+  }
+  if (Array.isArray(value)) {
+    if (value.every((x) => typeof x !== "object" || x === null)) {
+      return <span className="text-foreground/80">{formatMemoryValue(value)}</span>;
+    }
+    return (
+      <ul className="space-y-1">
+        {value.slice(-10).map((item, i) => (
+          <li key={i} className="border-l border-blue-500/20 pl-2">
+            <MemoryView value={item} depth={depth + 1} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) return <span className="text-muted-foreground/70 italic">vazio</span>;
+  return (
+    <dl className="space-y-0.5 text-[10px] leading-relaxed">
+      {entries.map(([k, v]) => {
+        const nested = v !== null && typeof v === "object" && !(Array.isArray(v) && v.every((x) => typeof x !== "object" || x === null));
+        return (
+          <div key={k} className={nested ? "space-y-0.5" : "flex gap-1.5"}>
+            <dt className="text-muted-foreground shrink-0">{humanizeKey(k)}:</dt>
+            <dd className="min-w-0 break-words">{depth > 3 ? formatMemoryValue(JSON.stringify(v)) : <MemoryView value={v} depth={depth + 1} />}</dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}
+
 export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps) {
   const [intel, setIntel] = useState<Intel | null>(null);
   const [activeFlow, setActiveFlow] = useState<ActiveFlow | null>(null);
@@ -369,9 +420,11 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
           </div>
           {intel.lead_memory ? (
             <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-2.5 max-h-36 overflow-y-auto">
-              <p className="text-muted-foreground text-[10px] leading-relaxed whitespace-pre-wrap">
-                {typeof intel.lead_memory === "string" ? intel.lead_memory : JSON.stringify(intel.lead_memory, null, 2)}
-              </p>
+              {typeof intel.lead_memory === "string" ? (
+                <p className="text-muted-foreground text-[10px] leading-relaxed whitespace-pre-wrap">{intel.lead_memory}</p>
+              ) : (
+                <MemoryView value={intel.lead_memory} />
+              )}
             </div>
           ) : (
             <p className="text-[10px] text-muted-foreground/70 italic">

@@ -18740,35 +18740,74 @@ export type Database = {
       imphq_ad_accounts: {
         Row: {
           ad_account_id: string
+          ads_ativos: number | null
+          ads_total: number | null
           bm_id: string
+          bm_nome: string | null
           created_at: string | null
           id: string
+          meta_account_status: number | null
+          meta_billing_status: string | null
+          meta_disable_reason: number | null
+          meta_funding: string | null
+          meta_unusable_reason: string | null
+          moeda: string | null
           nome: string
           notas: string | null
           plataforma: string | null
+          produto_funil: string | null
+          project_id: string | null
           status: string | null
+          trust_tier: string | null
+          ultima_checagem: string | null
           user_id: string
         }
         Insert: {
           ad_account_id: string
+          ads_ativos?: number | null
+          ads_total?: number | null
           bm_id: string
+          bm_nome?: string | null
           created_at?: string | null
           id?: string
+          meta_account_status?: number | null
+          meta_billing_status?: string | null
+          meta_disable_reason?: number | null
+          meta_funding?: string | null
+          meta_unusable_reason?: string | null
+          moeda?: string | null
           nome: string
           notas?: string | null
           plataforma?: string | null
+          produto_funil?: string | null
+          project_id?: string | null
           status?: string | null
+          trust_tier?: string | null
+          ultima_checagem?: string | null
           user_id: string
         }
         Update: {
           ad_account_id?: string
+          ads_ativos?: number | null
+          ads_total?: number | null
           bm_id?: string
+          bm_nome?: string | null
           created_at?: string | null
           id?: string
+          meta_account_status?: number | null
+          meta_billing_status?: string | null
+          meta_disable_reason?: number | null
+          meta_funding?: string | null
+          meta_unusable_reason?: string | null
+          moeda?: string | null
           nome?: string
           notas?: string | null
           plataforma?: string | null
+          produto_funil?: string | null
+          project_id?: string | null
           status?: string | null
+          trust_tier?: string | null
+          ultima_checagem?: string | null
           user_id?: string
         }
         Relationships: [

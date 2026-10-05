@@ -109,6 +109,26 @@ function getInitials(name: string | null, phone: string): string {
   return phone.slice(-2);
 }
 
+// Telefone "real" (não Linked ID / id técnico). LIDs têm 15+ dígitos ou sufixo @lid.
+function realPhone(phone: string | null | undefined, jidSuffix?: string | null): string | null {
+  if (!phone) return null;
+  if (jidSuffix === "lid" || phone.includes("@")) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 8 || digits.length > 13) return null;
+  return digits;
+}
+
+function formatPhone(digits: string): string {
+  const m = digits.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : `+${digits}`;
+}
+
+function contactDisplayName(name: string | null | undefined, phone: string | null | undefined, jidSuffix?: string | null): string {
+  if (name && name.trim() && !/^\d{8,}(@\w+(\.\w+)*)?$/.test(name.trim())) return name.trim();
+  const p = realPhone(phone, jidSuffix);
+  return p ? formatPhone(p) : "Contato sem nome";
+}
+
 // Cor estável por provider_id (hash simples → HSL)
 function providerColor(id: string | null | undefined): string {
   if (!id) return "hsl(0, 0%, 50%)";
@@ -627,6 +647,8 @@ export default function ConversationList({
               const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
               const convColor = resolveConvColor(s as ConvForColor);
               const useAccent = !isSelected && convColor.key !== "default";
+              const displayName = contactDisplayName(s.contact_name, s.phone, s.jid_suffix);
+              const phoneDigits = realPhone(s.phone, s.jid_suffix);
               return (
                 <ContextMenu key={s.id}>
                   <ContextMenuTrigger asChild>
@@ -634,7 +656,7 @@ export default function ConversationList({
                   onClick={() => onSelect(s)}
                   className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-[3px] ${
                     isSelected
-                      ? "bg-accent border-l-primary"
+                      ? "bg-secondary/80 border-l-primary"
                       : hasUnread && convColor.key === "new"
                         ? "border-l-emerald-400 bg-emerald-500/10"
                         : "border-l-transparent"
@@ -659,7 +681,7 @@ export default function ConversationList({
                         />
                       )}
                       <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
-                        {getInitials(s.contact_name, s.phone)}
+                        {displayName === "Contato sem nome" ? "?" : getInitials(displayName, s.phone)}
                       </AvatarFallback>
                     </Avatar>
                     {hasUnread && !isSelected && (
@@ -675,10 +697,10 @@ export default function ConversationList({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-foreground"}`}>
-                          {s.contact_name || s.phone}
+                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-foreground"} ${displayName === "Contato sem nome" ? "italic text-muted-foreground" : ""}`}>
+                          {displayName}
                         </span>
-                        {channel && (
+                        {channel && channel.label !== "WhatsApp" && (
                           <Badge
                             variant="outline"
                             className={`text-[9px] h-4 px-1.5 shrink-0 font-medium ${channel.cls}`}
@@ -687,27 +709,13 @@ export default function ConversationList({
                             {channel.icon} {channel.label}
                           </Badge>
                         )}
-                        {provLabel && (
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] h-4 px-1.5 shrink-0 font-medium"
-                            style={{
-                              background: `${color.replace("hsl", "hsla").replace(")", ", 0.15)")}`,
-                              borderColor: `${color.replace("hsl", "hsla").replace(")", ", 0.5)")}`,
-                              color,
-                            }}
-                          >
-                            {provLabel}
-                          </Badge>
-                        )}
                         {s.jid_suffix === "lid" && (
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] h-4 px-1.5 shrink-0 font-medium bg-amber-500/15 border-amber-500/50 text-amber-500"
+                          <span
+                            className="text-[10px] shrink-0 text-amber-500/80"
                             title="Contato com privacidade ativa (Linked ID). Resposta funciona normalmente."
                           >
-                            🔒 LID
-                          </Badge>
+                            🔒
+                          </span>
                         )}
 
                       </div>
@@ -729,15 +737,15 @@ export default function ConversationList({
                         </span>
                       </div>
                     </div>
-                    {s.contact_name && (
-                      <p className="text-[10px] text-muted-foreground/80 font-mono truncate">📞 {s.phone}</p>
+                    {phoneDigits && displayName !== formatPhone(phoneDigits) && (
+                      <p className="text-[10px] text-muted-foreground/70 font-mono truncate">{formatPhone(phoneDigits)}</p>
                     )}
                     <div className="flex items-center justify-between mt-0.5 gap-2">
                       <p className={`text-xs truncate pr-2 flex items-center gap-1 ${hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
                         {s.last_message_direction === "out" && !hasUnread && (
                           <span className="text-[10px] text-muted-foreground/70 shrink-0">↩</span>
                         )}
-                        <span className="truncate">{s.last_message || (s.contact_name ? "" : s.phone)}</span>
+                        <span className="truncate">{s.last_message || ""}</span>
                       </p>
                       {hasUnread ? (
                         <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full min-w-[20px] h-[20px] px-1.5 flex items-center justify-center shrink-0 leading-none shadow-[0_0_8px_rgba(16,185,129,0.5)]">

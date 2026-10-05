@@ -7,7 +7,8 @@ const metricsSchema = z.object({
   date_start: z.string().nullish(), date: z.string().nullish(), dateStart: z.string().nullish(), lastSyncedAt: z.string().nullish(), currency: z.string().nullish(), actions: actionSchema.nullish(),
   video_play_actions: z.array(z.object({ value: metric })).nullish(), video_thruplay_watched_actions: z.array(z.object({ value: metric })).nullish(),
 }).passthrough();
-const campaignSchema = z.object({ id: metric, name: z.string().nullish(), platformCampaignId: metric.nullish(), platform_campaign_id: metric.nullish(), currency: z.string().nullish(), effective_status: z.string().nullish(), effectiveStatus: z.string().nullish(), status: z.string().nullish() }).passthrough();
+const campaignSchema = z.object({ id: metric.nullish(), _id: metric.nullish(), name: z.string().nullish(), campaignName: z.string().nullish(), platformCampaignId: metric.nullish(), platform_campaign_id: metric.nullish(), currency: z.string().nullish(), effective_status: z.string().nullish(), effectiveStatus: z.string().nullish(), status: z.string().nullish() }).passthrough();
+const campaignKey = (c: z.infer<typeof campaignSchema>) => String(c.platformCampaignId ?? c.platform_campaign_id ?? c.id ?? c._id ?? "");
 const adSchema = z.object({
   id: metric.nullish(), _id: metric.nullish(), adId: metric.nullish(), ad_id: metric.nullish(), platformAdId: metric.nullish(), campaignId: metric.nullish(), campaign_id: metric.nullish(), adsetId: metric.nullish(), adset_id: metric.nullish(),
   campaignName: z.string().nullish(), campaign_name: z.string().nullish(), adsetName: z.string().nullish(), adset_name: z.string().nullish(), name: z.string().nullish(), adName: z.string().nullish(), thumbnail_url: z.string().nullish(), currency: z.string().nullish(),
@@ -75,8 +76,9 @@ Deno.serve(async (req) => {
       .maybeSingle();
     credsForCatch = creds;
 
-    const apiKey = creds?.credentials?.zernio_api_key;
-    const zernioAccountId = creds?.credentials?.zernio_account_id;
+    // Conta Zernio dedicada a Ads (conexão "Meta Ads") tem prioridade sobre a do Instagram.
+    const apiKey = creds?.credentials?.zernio_ads_api_key || creds?.credentials?.zernio_api_key;
+    const zernioAccountId = creds?.credentials?.zernio_ads_account_id || creds?.credentials?.zernio_account_id;
     const adAccountId = ad_account_id || creds?.credentials?.zernio_ad_account_id;
 
     if (!apiKey || !zernioAccountId) {
@@ -117,7 +119,7 @@ Deno.serve(async (req) => {
     for (const v of variants) {
       const c = await zFetch(`/ads/campaigns?${v.qs}&page=1&limit=50`, apiKey);
       await new Promise((r) => setTimeout(r, 400));
-      const a = await zFetch(`/ads?${v.qs}&page=1&limit=50`, apiKey);
+      const a = await zFetch(`/ads?${v.qs}&source=all&page=1&limit=50`, apiKey);
       await new Promise((r) => setTimeout(r, 400));
       const cCount = (c.body?.campaigns || []).length;
       const aCount = (a.body?.ads || []).length;
@@ -153,7 +155,7 @@ Deno.serve(async (req) => {
       while (true) {
         const { ok, status, body } = await zFetch(`/ads/campaigns?${qBase}&page=${page}&limit=50`, apiKey);
         if (!ok) throw new Error(`Falha ao listar campanhas no Zernio (HTTP ${status})`);
-        for (const c of (body.campaigns || [])) campaignsByZId.set(String(c.id), c);
+        for (const c of (body.campaigns || [])) { const k = campaignKey(c); if (k) campaignsByZId.set(k, c); }
         if (!debug.sample_campaign && (body.campaigns || []).length > 0) debug.sample_campaign = body.campaigns?.[0];
         const pages = body?.pagination?.pages || 1;
         if (page >= pages) break;
@@ -165,7 +167,7 @@ Deno.serve(async (req) => {
     {
       let page = 1;
       while (true) {
-        const { ok, status, body } = await zFetch(`/ads?${qBase}&page=${page}&limit=50`, apiKey);
+        const { ok, status, body } = await zFetch(`/ads?${qBase}&source=all&page=${page}&limit=50`, apiKey);
         if (!ok) throw new Error(`Falha ao listar anúncios no Zernio (HTTP ${status})`);
         ads.push(...(body.ads || []));
         if (!debug.sample_ad && (body.ads || []).length > 0) debug.sample_ad = body.ads?.[0];
@@ -211,7 +213,103 @@ Deno.serve(async (req) => {
       .lte("data_ref", dto)
       .not("ad_id", "ilike", "CAMP:%");
 
-    // 3. Para cada ad: SEMPRE tentar /insights primeiro (breakdown diário no range).
+    // Converte uma linha diária de insights (formato Graph) no registro de imphq_ads_spend.
+    type RowMeta = { campaignName: string | null; adsetName: string | null; adName: string | null; campaignId: string | null; adsetId: string | null; adIdKey: string; thumb: string | null; creativeBody: string | null; creativeTitle: string | null; effectiveStatus: string | null };
+    const insightRowToRecord = (row: z.infer<typeof metricsSchema>, meta: RowMeta): Record<string, unknown> | null => {
+      const dateRef = row?.date_start || row?.date || row?.dateStart;
+      if (!dateRef) return null;
+      const spend = parseFloat(row?.spend ?? "0");
+      const actions = row?.actions || [];
+      const compras = pickAction(actions, "purchase") + pickAction(actions, "offsite_conversion.fb_pixel_purchase");
+      return {
+        project_id,
+        plataforma: "Facebook",
+        source: "zernio",
+        campanha: meta.campaignName,
+        conjunto_anuncios: meta.adsetName,
+        anuncio: meta.adName,
+        campaign_id: meta.campaignId,
+        adset_id: meta.adsetId,
+        ad_id: meta.adIdKey,
+        data_ref: dateRef,
+        valor: spend,
+        impressoes: parseInt(row?.impressions ?? "0", 10),
+        alcance: parseInt(row?.reach ?? "0", 10),
+        cliques: parseInt(row?.clicks ?? "0", 10),
+        leads: pickAction(actions, "lead") + pickAction(actions, "offsite_conversion.fb_pixel_lead"),
+        compras,
+        init_checkout: pickAction(actions, "initiate_checkout") + pickAction(actions, "offsite_conversion.fb_pixel_initiate_checkout"),
+        add_to_cart: pickAction(actions, "add_to_cart") + pickAction(actions, "offsite_conversion.fb_pixel_add_to_cart"),
+        landing_page_views: pickAction(actions, "landing_page_view"),
+        video_3s_views: Array.isArray(row?.video_play_actions) && row.video_play_actions[0] ? parseInt(row.video_play_actions[0].value, 10) : 0,
+        video_thruplay: Array.isArray(row?.video_thruplay_watched_actions) && row.video_thruplay_watched_actions[0] ? parseInt(row.video_thruplay_watched_actions[0].value, 10) : 0,
+        link_clicks: parseInt(row?.inline_link_clicks ?? row?.linkClicks ?? "0", 10),
+        custo_por_compra: compras > 0 ? spend / compras : null,
+        ctr: parseFloat(row?.ctr ?? "0"),
+        frequencia: parseFloat(row?.frequency ?? "0"),
+        moeda: row?.currency || "BRL",
+        thumbnail_url: meta.thumb,
+        creative_body: meta.creativeBody,
+        creative_title: meta.creativeTitle,
+        effective_status: meta.effectiveStatus,
+      };
+    };
+
+    // === Path 0: insights da conta inteira (1 request paginado, nível anúncio, diário) ===
+    let accountInsightsOk = false;
+    let skippedNoIdAcct = 0;
+    {
+      const enc = encodeURIComponent;
+      const fields = "campaign_id,adset_id,ad_id,campaign_name,adset_name,ad_name,spend,impressions,reach,clicks,ctr,frequency,actions,inline_link_clicks,video_play_actions,video_thruplay_watched_actions";
+      const acctRows: z.infer<typeof metricsSchema>[] = [];
+      let after: string | null = null;
+      for (let i = 0; i < 30; i++) {
+        const path = `/ads/insights?accountId=${enc(zernioAccountId)}&objectId=${enc(adAccountId)}&level=ad&timeIncrement=1&fromDate=${dfrom}&toDate=${dto}&limit=500&fields=${fields}` + (after ? `&after=${enc(after)}` : "");
+        const res = await zFetch(path, apiKey);
+        debug.account_insights_status = res.status;
+        if (!res.ok) break;
+        accountInsightsOk = true;
+        acctRows.push(...(res.body?.data || []));
+        const paging = (res.body as { paging?: { next?: string; cursors?: { after?: string } } }).paging;
+        after = paging?.next && paging?.cursors?.after ? paging.cursors.after : null;
+        if (!after) break;
+        await new Promise((r) => setTimeout(r, 300));
+      }
+
+      if (accountInsightsOk) {
+        // Metadados do criativo (thumb/texto/status) vêm da listagem de anúncios.
+        const adMeta = new Map<string, z.infer<typeof adSchema>>();
+        for (const ad of ads) if (ad?.platformAdId) adMeta.set(String(ad.platformAdId), ad);
+        const asStr = (v: unknown) => (v === undefined || v === null || v === "" ? null : String(v));
+        // Mesma janela foi limpa acima só para linhas não-placeholder; agora regrava.
+        for (const row of acctRows) {
+          const r = row as Record<string, unknown>;
+          const adIdKey = asStr(r.ad_id);
+          if (!adIdKey) { skippedNoIdAcct++; continue; }
+          const ad = adMeta.get(adIdKey);
+          const record = insightRowToRecord(row, {
+            campaignName: asStr(r.campaign_name) ?? ad?.campaignName ?? null,
+            adsetName: asStr(r.adset_name) ?? ad?.adsetName ?? null,
+            adName: asStr(r.ad_name) ?? ad?.name ?? null,
+            campaignId: asStr(r.campaign_id),
+            adsetId: asStr(r.adset_id),
+            adIdKey,
+            thumb: ad?.creative?.thumbnailUrl ?? ad?.creative?.imageUrl ?? ad?.thumbnail_url ?? null,
+            creativeBody: ad?.creative?.body ?? null,
+            creativeTitle: ad?.creative?.title ?? null,
+            effectiveStatus: ad?.effective_status ?? ad?.effectiveStatus ?? ad?.platformStatus ?? ad?.status ?? null,
+          });
+          if (!record) continue;
+          const { error } = await supabase.from("imphq_ads_spend").insert(record);
+          if (error) errors++; else { imported++; daysImported++; }
+        }
+        adsUsingInsights = new Set(acctRows.map((r) => String((r as Record<string, unknown>).ad_id ?? ""))).size;
+        debug.account_insights_rows = acctRows.length;
+        debug.account_insights_skipped_no_id = skippedNoIdAcct;
+      }
+    }
+
+    // 3. (Legado) Para cada ad: /insights por anúncio; só roda se o Path 0 falhou.
     //    Fallback: inline metrics se /insights vier vazio mas houver spend.
     let skippedNoId = 0;
     for (const ad of ads) {
@@ -220,7 +318,8 @@ Deno.serve(async (req) => {
 
       const campaignId = ad?.campaignId ?? ad?.campaign_id ?? null;
       const adsetId = ad?.adsetId ?? ad?.adset_id ?? null;
-      const campaignName = ad?.campaignName ?? ad?.campaign_name ?? (campaignId && campaignsByZId.get(String(campaignId))?.name) ?? null;
+      const campRef = campaignId ? campaignsByZId.get(String(campaignId)) : undefined;
+      const campaignName = ad?.campaignName ?? ad?.campaign_name ?? campRef?.name ?? campRef?.campaignName ?? null;
       const adsetName = ad?.adsetName ?? ad?.adset_name ?? null;
       const adName = ad?.name ?? ad?.adName ?? null;
       const thumb = ad?.creative?.thumbnailUrl ?? ad?.creative?.thumbnail_url ?? ad?.creative?.imageUrl ?? ad?.creative?.image_url ?? ad?.thumbnail_url ?? null;
@@ -231,6 +330,7 @@ Deno.serve(async (req) => {
       const adIdKey = platformAdId ? String(platformAdId) : String(adId);
 
       if (campaignId) campaignAdCount.set(String(campaignId), (campaignAdCount.get(String(campaignId)) || 0) + 1);
+      if (accountInsightsOk) continue;
 
       // === Path A: /insights (preferido — breakdown diário) ===
       let rows: z.infer<typeof metricsSchema>[] = [];
@@ -392,7 +492,7 @@ Deno.serve(async (req) => {
         project_id,
         plataforma: "Facebook",
         source: "zernio",
-        campanha: camp?.name || null,
+        campanha: camp?.name || camp?.campaignName || null,
         conjunto_anuncios: null,
         anuncio: null,
         campaign_id: String(platformCampId),
@@ -422,10 +522,10 @@ Deno.serve(async (req) => {
       if (!error) campaignPlaceholdersUpserted++;
     }
     debug.campaigns_detected = Array.from(campaignsByZId.values()).map((c) => ({
-      id: c?.platformCampaignId || c?.id,
-      name: c?.name,
+      id: campaignKey(c),
+      name: c?.name ?? c?.campaignName,
       status: c?.effective_status ?? c?.effectiveStatus ?? c?.status ?? null,
-      ads_count: campaignAdCount.get(String(c?.id)) || 0,
+      ads_count: campaignAdCount.get(campaignKey(c)) || 0,
     }));
     console.log(`[zernio-ads-sync] imported=${imported} viaInsights=${adsUsingInsights} fallbackInline=${adsFallbackInline} days=${daysImported} campPH=${campaignPlaceholdersUpserted} insightsEmpty=${insightsEmpty} insightsFail=${insightsFailures}`);
 
