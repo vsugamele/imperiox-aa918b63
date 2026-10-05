@@ -18,6 +18,7 @@ import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
 import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { ReferenceDossierModal } from "@/components/referencias/ReferenceDossierModal";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
 const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok", "YouTube", "Instagram", "Email", "Outro"];
@@ -55,6 +56,11 @@ interface Ref {
   transcribe_status?: string | null;
   transcribe_error?: string | null;
   transcribed_at?: string | null;
+  quadros?: Array<{ seconds: number; url: string }> | null;
+  analise?: any | null;
+  duracao?: number | null;
+  lote?: string | null;
+  fonte?: string | null;
 }
 
 /** Check if a URL points to a video file */
@@ -153,6 +159,7 @@ function ReferenciasDesktop() {
   const [filterCategory, setFilterCategory] = useState(_ls.filterCategory ?? "all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
+  const [dossierRef, setDossierRef] = useState<Ref | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
   const [viewMode, setViewMode] = useState<"grid" | "list">(_ls.viewMode ?? "grid");
@@ -262,11 +269,17 @@ function ReferenciasDesktop() {
           supabase.from("imphq_referencias").update({ pasta }).eq("id", r.id).then(() => {});
         }
       }
+      const rawQuadros = Array.isArray(r.quadros) ? r.quadros : null;
       return {
         ...r,
+        quadros: rawQuadros as any,
+        analise: r.analise as any,
+        duracao: r.duracao,
+        lote: r.lote,
+        fonte: r.fonte,
         pasta,
         source: "manual" as SourceType,
-        is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url),
+        is_video: isVideoUrl(r.image_url) || isVideoUrl(r.url) || !!(rawQuadros && rawQuadros.length > 0),
       };
     });
 
@@ -777,32 +790,102 @@ function ReferenciasDesktop() {
     const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
     const catMeta = r.content_category ? CATEGORY_META[r.content_category] : null;
     const isLib = r.source === "library";
+    const hasFrames = !!(r.quadros && Array.isArray(r.quadros) && r.quadros.length > 0);
+    const hasAnatomy = !!(r.analise && (r.analise.editorial || r.analise.anatomy || r.analise.replication_prompt));
+    const isDossierItem = hasFrames || hasAnatomy;
 
     return (
       <Card
         key={r.id}
-        className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.02] cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in`}
+        className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.01] hover:border-slate-700 cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in ${
+          hasFrames ? "ring-1 ring-amber-500/20 shadow-md" : ""
+        }`}
         style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
-        onClick={() => isLib ? setLightboxUrl(r.image_url || r.url || null) : setEditing({ ...r })}
+        onClick={() => {
+          if (isDossierItem) {
+            setDossierRef(r);
+          } else if (isLib) {
+            setLightboxUrl(r.image_url || r.url || null);
+          } else {
+            setEditing({ ...r });
+          }
+        }}
       >
-        {renderThumb(r)}
+        {hasFrames ? (
+          <div className="p-2.5 bg-slate-950/80 border-b border-border/80 space-y-2">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+              {r.quadros!.slice(0, 6).map((f, idx) => (
+                <div key={idx} className="relative aspect-[9/16] rounded-md overflow-hidden border border-slate-800 bg-slate-900 group-hover:border-amber-500/40 transition-colors">
+                  <img src={f.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded bg-black/80 text-[8px] font-mono text-slate-300">
+                    {f.seconds.toFixed(1)}s
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-amber-400 font-medium px-0.5">
+              <span className="flex items-center gap-1 font-semibold">🎞️ Storyboard · {r.quadros!.length} cenas</span>
+              <span className="text-slate-400 group-hover:text-amber-300 transition-colors flex items-center gap-0.5">
+                Ver Dossiê da Copy →
+              </span>
+            </div>
+          </div>
+        ) : (
+          renderThumb(r)
+        )}
         <CardContent className="p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium text-sm line-clamp-2">{r.titulo}</h3>
-            {!isLib && (
-              <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
-                <Trash2 className="h-3 w-3 text-destructive" />
-              </Button>
-            )}
+            <h3 className="font-semibold text-sm line-clamp-2 text-slate-100 group-hover:text-amber-300 transition-colors">
+              {r.analise?.ordinal ? `#${String(r.analise.ordinal).padStart(2, "0")} · ` : ""}{r.titulo}
+            </h3>
+            <div className="flex items-center gap-1 shrink-0">
+              {isDossierItem && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-slate-400 hover:text-slate-200 transition-opacity"
+                  title="Editar dados"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditing({ ...r });
+                  }}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
+              {!isLib && (
+                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-destructive transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
+            {hasFrames && (
+              <Badge className="text-[9px] border bg-amber-500/15 text-amber-400 border-amber-500/30">
+                🎞️ {r.duracao ? `${r.duracao.toFixed(1)}s` : "Vídeo"}
+              </Badge>
+            )}
+            {r.analise?.editorial?.primaryNiche && (
+              <Badge className="text-[9px] border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                {r.analise.editorial.primaryNiche}
+              </Badge>
+            )}
+            {r.analise?.angle_family && (
+              <Badge className="text-[9px] border bg-purple-500/15 text-purple-300 border-purple-500/30">
+                {r.analise.angle_family}
+              </Badge>
+            )}
+            {r.analise?.criador && (
+              <span className="text-[10px] text-sky-400 font-medium">@{r.analise.criador}</span>
+            )}
             {isLib && (
               <Badge className="text-[9px] border bg-sky-500/15 text-sky-400 border-sky-500/30">📂 Projeto</Badge>
             )}
             {catMeta && (
               <Badge className={`text-[9px] border ${catMeta.color}`}>{catMeta.label}</Badge>
             )}
-            {!isLib && r.tipo && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
+            {!isLib && r.tipo && !hasFrames && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
             {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
             {r.pasta && <Badge variant="outline" className="text-[9px]">📁 {r.pasta}</Badge>}
             {r.produto && <Badge variant="outline" className="text-[9px]">📦 {r.produto}</Badge>}
@@ -832,12 +915,23 @@ function ReferenciasDesktop() {
     const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
     const catMeta = r.content_category ? CATEGORY_META[r.content_category] : null;
     const isLib = r.source === "library";
+    const hasFrames = !!(r.quadros && Array.isArray(r.quadros) && r.quadros.length > 0);
+    const hasAnatomy = !!(r.analise && (r.analise.editorial || r.analise.anatomy || r.analise.replication_prompt));
+    const isDossierItem = hasFrames || hasAnatomy;
 
     return (
       <div
         key={r.id}
         className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group`}
-        onClick={() => isLib ? setLightboxUrl(r.image_url || r.url || null) : setEditing({ ...r })}
+        onClick={() => {
+          if (isDossierItem) {
+            setDossierRef(r);
+          } else if (isLib) {
+            setLightboxUrl(r.image_url || r.url || null);
+          } else {
+            setEditing({ ...r });
+          }
+        }}
       >
         {r.image_url && !isVideoUrl(r.image_url) ? (
           <img src={r.image_url} alt="" className="h-10 w-14 rounded object-cover shrink-0" />
@@ -1586,6 +1680,13 @@ function ReferenciasDesktop() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dossiê Completo de Referência (Storyboard & Copy) */}
+      <ReferenceDossierModal
+        item={dossierRef}
+        open={!!dossierRef}
+        onOpenChange={(open) => !open && setDossierRef(null)}
+      />
       </div>
     </div>
   );
