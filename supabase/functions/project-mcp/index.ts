@@ -15,6 +15,7 @@ import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions, type 
 import { knowledgeGapRows, pixRowsFromSales, splitAdsActions, type KnowledgeRow, type PendingSaleRow, type RawAction } from "../_shared/approval-rows.ts";
 import { decideApproval as applyDecision, DECISIONS_BY_SOURCE, type ApprovalDecision, type ApprovalStore } from "../_shared/approval-decide.ts";
 import { AUTONOMY_LABEL, AUTONOMY_RULES, checkAutonomy, effectiveAutonomy } from "../_shared/autonomy.ts";
+import { cutAllowed, evaluateTestOrder, launchSteps, planTestOrder, type TestOrderInput, type VariantReading } from "../_shared/test-order.ts";
 import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
 import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
@@ -923,6 +924,74 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "create_test_order",
+    description: "Ordem de teste de criativos (Esteira P1): registra projeto, oferta, página, conta de anúncio e as variantes (ângulo + hipótese + arte + texto), monta UTM por variante, nomes e verba, e devolve os passos para lançar na Meta. Variantes podem vir de um lote de referências (referencias_lote): arte e ângulo saem da referência, o texto você completa. Sem confirmar=true só mostra o plano; com confirmar=true grava ('pronto' se não houver problema, senão 'rascunho'). Nada vai para a Meta por aqui.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        nome: { type: "string", description: "Nome curto do teste (ex.: 'CCP ângulos Grok')" },
+        oferta: { type: "string", description: "Produto/oferta (ex.: 'Código dos Cortes Perfeitos R$ 47')" },
+        tipo_pagina: { type: "string", enum: ["pagina_vendas", "vsl", "pdp", "captura", "quiz", "advertorial", "checkout", "whatsapp"] },
+        pagina_url: { type: "string", description: "Destino https (as UTMs são acrescentadas por variante)" },
+        checkout_url: { type: "string" },
+        ad_account_id: { type: "string", description: "Conta de anúncio (numérica, sem act_)" },
+        page_id: { type: "string", description: "Página do Facebook que assina os anúncios" },
+        pixel_id: { type: "string" },
+        verba_dia_conjunto: { type: "number", description: "Reais por dia em cada conjunto (ABO, 1 conjunto por ângulo)" },
+        payout: { type: "number", description: "Quanto entra por venda (breakeven do CPA)" },
+        cpa_alvo: { type: "number" },
+        ics_por_venda: { type: "number", description: "Checkouts iniciados por venda (padrão 8)" },
+        utm_campaign: { type: "string", description: "Opcional; padrão sai do nome + data" },
+        variantes: { type: "array", items: { type: "object" }, description: "[{ angulo, hipotese, image_url, texto, headline, cta?, referencia_id? }]" },
+        referencias_lote: { type: "string", description: "Monta as variantes a partir das referências deste lote do projeto (ignorado se 'variantes' vier)" },
+        confirmar: { type: "boolean", description: "true grava a ordem; padrão false = só o plano" },
+      },
+      required: ["project_id", "nome", "oferta", "pagina_url", "ad_account_id", "verba_dia_conjunto", "payout", "cpa_alvo"],
+    },
+  },
+  {
+    name: "get_test_order",
+    description: "Uma ordem de teste: dados, variantes (com links, ids da Meta, última leitura e veredito), passos para lançar e a última avaliação.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
+    name: "list_test_orders",
+    description: "Ordens de teste (mais recentes primeiro), com status, verba, dias no ar e resumo da última avaliação.",
+    inputSchema: { type: "object", properties: { project_id: { type: "string" }, status: { type: "string", enum: ["rascunho", "pronto", "no_ar", "encerrado", "cancelado"] } } },
+  },
+  {
+    name: "record_test_launch",
+    description: "Grava o que foi criado na Meta para uma ordem de teste: campanha e, por variante, conjunto, criativo e anúncio. Com ativado=true marca o teste como no ar (exige confirmado_por: quem do time deu o OK para ligar). corte_autorizado_por/corte_ate permitem à IA pausar sozinha as variantes que a Esteira matar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        campaign_id: { type: "string" },
+        variantes: { type: "array", items: { type: "object" }, description: "[{ ordem, adset_id, creative_id, ad_id }]" },
+        ativado: { type: "boolean" },
+        confirmado_por: { type: "string" },
+        corte_autorizado_por: { type: "string", description: "Quem autorizou o corte automático (nome do time)" },
+        corte_ate: { type: "string", description: "AAAA-MM-DD; padrão 9 dias depois de ativar" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "evaluate_test_order",
+    description: "Avalia um teste no ar pela Esteira P1 com as leituras da Meta (por variante: gasto, checkouts iniciados, compras). Soma as vendas do Império pela UTM (se o pixel perdeu a compra, o ângulo não morre), só decide pausar a partir do fim do dia 2, grava a leitura, o veredito e a rodada P1 (placar de hipóteses). Com aplicar_pausas=true marca as mortas como 'morto' e devolve os conjuntos a pausar na Meta — só se o teste tem corte autorizado ou com confirmado_por.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        leituras: { type: "array", items: { type: "object" }, description: "[{ ordem | adset_id, gasto, ic, vendas }]" },
+        aplicar_pausas: { type: "boolean" },
+        confirmado_por: { type: "string" },
+      },
+      required: ["id", "leituras"],
+    },
+  },
+  {
     name: "get_briefing",
     description: "Resumo do projeto em uma chamada: vendas, faturamento e leads de hoje, faturamento do mês, leads quentes, etapas do dia (revisar, confirmar, esperando o time, prontas para IA, atrasadas, com responsável e prazo) e a fila de aprovações do projeto.",
     inputSchema: {
@@ -1100,6 +1169,194 @@ async function decideApproval(supabase: Supabase, key: string, decision: Approva
 
   const resultado = await applyDecision({ source: src, id: itemId, metadata }, decision, store, { now, customAnswer: opts.resposta });
   return { key, titulo, resultado, autonomia: AUTONOMY_LABEL[check.level], quem: actor };
+}
+
+// ── Ordem de teste de criativos (TST1.1) ─────────────────────────────────────
+
+interface TestOrderRow {
+  id: string; project_id: string; nome: string; oferta: string; tipo_pagina: string; pagina_url: string; checkout_url: string | null;
+  ad_account_id: string; page_id: string | null; pixel_id: string | null; verba_dia_conjunto: number; payout: number; cpa_alvo: number;
+  ics_por_venda: number; utm_campaign: string; status: string; meta_campaign_id: string | null; ativado_em: string | null;
+  corte_autorizado_por: string | null; corte_ate: string | null; scale_round_id: string | null; ultima_avaliacao: unknown; created_at: string;
+}
+interface TestVariantRow {
+  id: string; order_id: string; ordem: number; angulo: string; hipotese: string | null; referencia_id: string | null; image_url: string;
+  texto: string | null; headline: string | null; cta: string; utm_content: string; link_url: string; meta_adset_id: string | null;
+  meta_creative_id: string | null; meta_ad_id: string | null; status: string; ultima_leitura: unknown; veredito: string | null;
+}
+
+const todayBrt = () => new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+const num = (v: unknown) => { const x = typeof v === "number" ? v : parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(x) ? x : 0; };
+const actorClient = (actor: string) => createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { global: { headers: { "x-imperio-actor": actor } } });
+
+async function loadTestOrder(supabase: Supabase, id: string) {
+  const [orderRes, variantsRes] = await Promise.all([
+    supabase.from("imphq_test_orders").select("*").eq("id", id).maybeSingle(),
+    supabase.from("imphq_test_variants").select("*").eq("order_id", id).order("ordem"),
+  ]);
+  if (orderRes.error) throw orderRes.error;
+  if (variantsRes.error) throw variantsRes.error;
+  if (!orderRes.data) throw new Error(`Ordem de teste '${id}' não encontrada`);
+  return { order: orderRes.data as TestOrderRow, variants: (variantsRes.data ?? []) as TestVariantRow[] };
+}
+
+async function createTestOrder(supabase: Supabase, args: Record<string, unknown>) {
+  const projectId = String(args.project_id ?? "");
+  let variantes = Array.isArray(args.variantes) ? (args.variantes as Array<Record<string, unknown>>) : [];
+  if (!variantes.length && args.referencias_lote) {
+    const { data: refs, error } = await supabase.from("imphq_referencias").select("id, titulo, image_url, tags")
+      .eq("project_id", projectId).eq("lote", String(args.referencias_lote)).order("titulo");
+    if (error) throw error;
+    variantes = (refs ?? [])
+      .filter((r) => !(r.tags ?? []).includes("angulo:duplicado") && r.image_url)
+      .map((r) => ({ angulo: ((r.tags ?? []).find((t: string) => t.startsWith("angulo:")) ?? "").replace("angulo:", "") || r.titulo, hipotese: null, image_url: r.image_url, headline: null, texto: null, referencia_id: r.id }));
+  }
+  const input: TestOrderInput = {
+    project_id: projectId, nome: String(args.nome ?? ""), oferta: String(args.oferta ?? ""), tipo_pagina: args.tipo_pagina ? String(args.tipo_pagina) : undefined,
+    pagina_url: String(args.pagina_url ?? ""), checkout_url: args.checkout_url ? String(args.checkout_url) : null,
+    ad_account_id: String(args.ad_account_id ?? "").replace(/^act_/, ""), page_id: args.page_id ? String(args.page_id) : null, pixel_id: args.pixel_id ? String(args.pixel_id) : null,
+    verba_dia_conjunto: num(args.verba_dia_conjunto), payout: num(args.payout), cpa_alvo: num(args.cpa_alvo), ics_por_venda: num(args.ics_por_venda) || undefined,
+    utm_campaign: args.utm_campaign ? String(args.utm_campaign) : null,
+    variantes: variantes.map((v) => ({
+      angulo: String(v.angulo ?? ""), hipotese: v.hipotese ? String(v.hipotese) : null, image_url: String(v.image_url ?? ""),
+      texto: v.texto ? String(v.texto) : null, headline: v.headline ? String(v.headline) : null, cta: v.cta ? String(v.cta) : null,
+      referencia_id: v.referencia_id ? String(v.referencia_id) : null, creative_asset_id: v.creative_asset_id ? String(v.creative_asset_id) : null,
+    })),
+  };
+  const plan = planTestOrder(input, todayBrt());
+  const passos = launchSteps(input, plan);
+  if (args.confirmar !== true) return { modo: "plano (nada foi gravado)", plano: plan, passos, proximo_passo: "Para gravar, chame create_test_order de novo com confirmar=true." };
+
+  const db = actorClient("ia (mcp)");
+  const { data: order, error } = await db.from("imphq_test_orders").insert({
+    project_id: input.project_id, nome: input.nome, oferta: input.oferta, tipo_pagina: input.tipo_pagina ?? "pagina_vendas",
+    pagina_url: input.pagina_url, checkout_url: input.checkout_url, ad_account_id: input.ad_account_id, page_id: input.page_id, pixel_id: input.pixel_id,
+    verba_dia_conjunto: input.verba_dia_conjunto, payout: input.payout, cpa_alvo: input.cpa_alvo, ics_por_venda: input.ics_por_venda ?? 8,
+    utm_campaign: plan.utm_campaign, status: plan.problemas.length ? "rascunho" : "pronto", created_by: "mcp",
+  }).select("id, status").single();
+  if (error) throw new Error(error.message.includes("imphq_test_orders_utm_idx") ? `Já existe teste com utm_campaign '${plan.utm_campaign}' neste projeto.` : error.message);
+  const { error: vErr } = await db.from("imphq_test_variants").insert(plan.variantes.map((v) => ({
+    order_id: order.id, ordem: v.ordem, angulo: v.angulo, hipotese: v.hipotese ?? null, referencia_id: v.referencia_id ?? null, creative_asset_id: v.creative_asset_id ?? null,
+    image_url: v.image_url, texto: v.texto ?? null, headline: v.headline ?? null, cta: v.cta, utm_content: v.utm_content, link_url: v.link_url,
+  })));
+  if (vErr) { await db.from("imphq_test_orders").delete().eq("id", order.id); throw vErr; }
+  return { success: true, id: order.id, status: order.status, plano: plan, passos };
+}
+
+async function recordTestLaunch(supabase: Supabase, args: Record<string, unknown>) {
+  const { order, variants } = await loadTestOrder(supabase, String(args.id));
+  let actor = "ia (mcp)";
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (args.ativado === true) {
+    const [overrides, team] = await Promise.all([loadAutonomyOverrides(supabase), loadTeam(supabase)]);
+    const check = checkAutonomy("teste:ativar", overrides.get("teste:ativar"), args.confirmado_por ? String(args.confirmado_por) : null, team);
+    if (!check.ok) throw new Error(check.reason);
+    actor = `${check.actor} via mcp`;
+    const ativadoEm = new Date();
+    patch.status = "no_ar";
+    patch.ativado_em = ativadoEm.toISOString();
+    if (args.corte_autorizado_por) {
+      const member = findMember(team, String(args.corte_autorizado_por));
+      if (!member) throw new Error(`corte_autorizado_por '${args.corte_autorizado_por}' não está no time`);
+      patch.corte_autorizado_por = member.name;
+      patch.corte_ate = args.corte_ate ? String(args.corte_ate) : new Date(ativadoEm.getTime() + 9 * 86400000).toISOString().slice(0, 10);
+    }
+  }
+  if (args.campaign_id) patch.meta_campaign_id = String(args.campaign_id);
+  const db = actorClient(actor);
+  const { error } = await db.from("imphq_test_orders").update(patch).eq("id", order.id);
+  if (error) throw error;
+  const updates = Array.isArray(args.variantes) ? (args.variantes as Array<Record<string, unknown>>) : [];
+  for (const u of updates) {
+    const v = variants.find((x) => x.ordem === num(u.ordem));
+    if (!v) throw new Error(`Variante de ordem ${u.ordem} não existe neste teste`);
+    const vp: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (u.adset_id) vp.meta_adset_id = String(u.adset_id);
+    if (u.creative_id) vp.meta_creative_id = String(u.creative_id);
+    if (u.ad_id) vp.meta_ad_id = String(u.ad_id);
+    const { error: e } = await db.from("imphq_test_variants").update(vp).eq("id", v.id);
+    if (e) throw e;
+  }
+  if (args.ativado === true) {
+    for (const v of variants.filter((x) => x.status === "planejado")) {
+      const { error: e } = await db.from("imphq_test_variants").update({ status: "no_ar", updated_at: new Date().toISOString() }).eq("id", v.id);
+      if (e) throw e;
+    }
+  }
+  return { success: true, id: order.id, status: patch.status ?? order.status, variantes_atualizadas: updates.length, quem: actor };
+}
+
+async function evaluateTestOrderTool(supabase: Supabase, args: Record<string, unknown>) {
+  const { order, variants } = await loadTestOrder(supabase, String(args.id));
+  const leituras = Array.isArray(args.leituras) ? (args.leituras as Array<Record<string, unknown>>) : [];
+  // Vendas aprovadas no Império com a UTM do teste, por utm_content.
+  const { data: sales, error: sErr } = await supabase.from("imphq_vendas").select("utm_content")
+    .eq("project_id", order.project_id).eq("status", "aprovado").eq("utm_campaign", order.utm_campaign).limit(2000);
+  if (sErr) throw sErr;
+  const vendasPorUtm = new Map<string, number>();
+  for (const s of sales ?? []) if (s.utm_content) vendasPorUtm.set(s.utm_content, (vendasPorUtm.get(s.utm_content) ?? 0) + 1);
+  const readings: VariantReading[] = [];
+  for (const l of leituras) {
+    const v = l.ordem !== undefined ? variants.find((x) => x.ordem === num(l.ordem)) : variants.find((x) => x.meta_adset_id && x.meta_adset_id === String(l.adset_id));
+    if (!v) throw new Error(`Leitura sem variante correspondente: ${JSON.stringify(l)}`);
+    readings.push({ ordem: v.ordem, gasto: num(l.gasto), ic: num(l.ic), vendas: num(l.vendas), vendas_imperio: vendasPorUtm.get(v.utm_content) ?? 0 });
+  }
+  const diasNoAr = order.ativado_em ? (Date.now() - Date.parse(order.ativado_em)) / 86400000 : 0;
+  const result = evaluateTestOrder(order, variants.map((v) => ({ ordem: v.ordem, angulo: v.angulo, hipotese: v.hipotese, status: v.status })), readings, diasNoAr);
+
+  let actor = "ia (mcp)";
+  let pausasAplicadas = false;
+  let corte = cutAllowed(order, todayBrt());
+  if (args.aplicar_pausas === true && result.pausar.length) {
+    if (!corte.ok && args.confirmado_por) {
+      const [overrides, team] = await Promise.all([loadAutonomyOverrides(supabase), loadTeam(supabase)]);
+      const check = checkAutonomy("teste:pausar_variante", overrides.get("teste:pausar_variante"), String(args.confirmado_por), team);
+      corte = check.ok ? { ok: true, motivo: `OK de ${check.actor}` } : { ok: false, motivo: check.reason };
+      if (check.ok) actor = `${check.actor} via mcp`;
+    } else if (corte.ok) actor = `ia (corte autorizado por ${order.corte_autorizado_por}) via mcp`;
+    pausasAplicadas = corte.ok;
+  }
+
+  const db = actorClient(actor);
+  const lidoEm = new Date().toISOString();
+  for (const a of result.avaliacoes) {
+    const v = variants.find((x) => x.ordem === a.ordem)!;
+    const r = readings.find((x) => x.ordem === a.ordem);
+    const vp: Record<string, unknown> = { veredito: `${a.rotulo}: ${a.motivo}`, updated_at: lidoEm };
+    if (r) vp.ultima_leitura = { gasto: r.gasto, ic: r.ic, vendas: r.vendas, vendas_imperio: r.vendas_imperio ?? 0, lido_em: lidoEm };
+    if (pausasAplicadas && a.decisao === "pausar") vp.status = "morto";
+    if (a.decisao === "vencedor" && v.status === "no_ar") vp.status = "vencedor";
+    const { error } = await db.from("imphq_test_variants").update(vp).eq("id", v.id);
+    if (error) throw error;
+  }
+  const resumo = { lido_em: lidoEm, dias_no_ar: Math.round(diasNoAr * 10) / 10, gasto_total: result.gasto_total, vendas_total: result.vendas_total, cpa_geral: result.cpa_geral, pausar: result.pausar, vencedores: result.vencedores };
+  const roundRow = {
+    project_id: order.project_id, fase: "p1", rodada: order.nome, params: { payout: Number(order.payout), cpa_alvo: Number(order.cpa_alvo), ics_por_venda: order.ics_por_venda },
+    data: result.rodada_p1, resultado: { placar_hipoteses: result.placar_hipoteses, investimento: result.gasto_total, vendas: result.vendas_total },
+    resumo: `Teste ${order.nome}: ${result.vendas_total} venda(s), R$ ${result.gasto_total} gastos, ${result.vencedores.length} vencedor(es), ${result.pausar.length} a pausar.`,
+    created_by: `teste:${order.id}`, updated_at: lidoEm,
+  };
+  let scaleRoundId = order.scale_round_id;
+  if (scaleRoundId) {
+    const { error } = await db.from("imphq_scale_rounds").update(roundRow).eq("id", scaleRoundId);
+    if (error) throw error;
+  } else {
+    const { data, error } = await db.from("imphq_scale_rounds").insert(roundRow).select("id").single();
+    if (error) throw error;
+    scaleRoundId = data.id;
+  }
+  const { error: oErr } = await db.from("imphq_test_orders").update({ ultima_avaliacao: resumo, scale_round_id: scaleRoundId, updated_at: lidoEm }).eq("id", order.id);
+  if (oErr) throw oErr;
+
+  const paraPausar = result.pausar.map((o) => { const v = variants.find((x) => x.ordem === o)!; return { ordem: o, angulo: v.angulo, adset_id: v.meta_adset_id }; });
+  return {
+    ...resumo,
+    avaliacoes: result.avaliacoes,
+    placar_hipoteses: result.placar_hipoteses,
+    corte: pausasAplicadas
+      ? { aplicado: true, motivo: corte.motivo, pausar_na_meta: paraPausar, instrucao: "Pause cada conjunto na Meta (ads_update_entity, status PAUSED). No Império elas já estão como 'morto'." }
+      : { aplicado: false, motivo: args.aplicar_pausas === true ? corte.motivo : "Só recomendação (aplicar_pausas não foi pedido).", recomendado_pausar: paraPausar },
+  };
 }
 
 /** Lançador (LAUNCH1.3) pelo MCP: plano por padrão; com confirmar, grava e desfaz tudo se algo falhar no meio. */
@@ -2143,6 +2400,40 @@ Deno.serve(async (req) => {
             const { error } = await supabase.from("imphq_project_access").upsert(row, { onConflict: "project_id,access_key" });
             if (error) throw error;
             const result = { success: true, acesso: ACCESS_BY_KEY.get(String(acesso))?.label, status: ACCESS_STATUS_LABEL[String(status) as keyof typeof ACCESS_STATUS_LABEL] };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "create_test_order") {
+            const result = await createTestOrder(supabase, args || {});
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_test_order") {
+            if (!args?.id) throw new Error("id é obrigatório");
+            const { order, variants } = await loadTestOrder(supabase, String(args.id));
+            const plan = { nome_campanha: `[${order.project_id}] ${order.nome} — teste de ângulos ABO`, variantes: variants.map((v) => ({ ...v, nome_conjunto: `${String(v.ordem).padStart(2, "0")} ${v.angulo}`, nome_anuncio: v.utm_content })) };
+            const result = { ordem: order, variantes: variants, passos: launchSteps({ ...order, verba_dia_conjunto: Number(order.verba_dia_conjunto) }, plan as unknown as Parameters<typeof launchSteps>[1]), dias_no_ar: order.ativado_em ? Math.round(((Date.now() - Date.parse(order.ativado_em)) / 86400000) * 10) / 10 : 0 };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "list_test_orders") {
+            let q = supabase.from("imphq_test_orders").select("id, project_id, nome, oferta, status, verba_dia_conjunto, utm_campaign, meta_campaign_id, ativado_em, corte_autorizado_por, corte_ate, ultima_avaliacao, created_at").order("created_at", { ascending: false }).limit(50);
+            if (args?.project_id) q = q.eq("project_id", String(args.project_id));
+            if (args?.status) q = q.eq("status", String(args.status));
+            const { data, error } = await q;
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ total: (data ?? []).length, testes: data ?? [] }, null, 2) }] } });
+          }
+
+          if (name === "record_test_launch") {
+            if (!args?.id) throw new Error("id é obrigatório");
+            const result = await recordTestLaunch(supabase, args);
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "evaluate_test_order") {
+            if (!args?.id || !Array.isArray(args.leituras)) throw new Error("id e leituras são obrigatórios");
+            const result = await evaluateTestOrderTool(supabase, args);
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 

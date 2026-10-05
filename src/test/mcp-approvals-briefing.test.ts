@@ -16,6 +16,7 @@ import * as launchPlan from "@shared/launch-plan";
 import * as approvalRows from "@shared/approval-rows";
 import * as autonomy from "@shared/autonomy";
 import { DECISIONS_BY_SOURCE, decideApproval as applyDecision } from "@shared/approval-decide";
+import * as testOrder from "@shared/test-order";
 import { adsSyncHealth } from "@shared/live-panel";
 import { PLAYBOOK_LIBRARY } from "@shared/playbook-library";
 import { checkMcpKey } from "@shared/mcp-auth";
@@ -44,6 +45,15 @@ function fixtures(): Record<string, Row[]> {
     imphq_wa_providers: [{ id: "w1", project_id: "p", is_active: true }],
     imphq_playbooks: PLAYBOOK_LIBRARY.map(({ steps: _steps, ...p }) => ({ ...p, ativo: true })),
     imphq_playbook_steps: PLAYBOOK_LIBRARY.flatMap((p) => p.steps.map((st) => ({ ...st, playbook_id: p.id }))),
+    imphq_test_orders: [{
+      id: "t1", project_id: "p", nome: "Teste P", oferta: "Curso", tipo_pagina: "pagina_vendas", pagina_url: "https://p.test/", ad_account_id: "1", page_id: "2", pixel_id: "3",
+      verba_dia_conjunto: 30, payout: 47, cpa_alvo: 40, ics_por_venda: 8, utm_campaign: "teste-p", status: "no_ar", meta_campaign_id: "c1",
+      ativado_em: hourAgo(72), corte_autorizado_por: "Bruno Lima", corte_ate: "2999-01-01", scale_round_id: null,
+    }],
+    imphq_test_variants: [
+      { id: "tv1", order_id: "t1", ordem: 1, angulo: "Medo", hipotese: "Medo trava", utm_content: "01-medo", meta_adset_id: "as1", status: "no_ar" },
+      { id: "tv2", order_id: "t1", ordem: 2, angulo: "Dinheiro", hipotese: "Dinheiro move", utm_content: "02-dinheiro", meta_adset_id: "as2", status: "no_ar" },
+    ],
     imphq_scale_rounds: [
       { id: "r2", project_id: "p", fase: "p1", rodada: "S42", updated_at: "2026-10-02", resultado: { placar_hipoteses: [{ hipotese: "Dor à tarde", concept: "A", resultado: "refutada" }] } },
       { id: "r1", project_id: "p", fase: "p1", rodada: "S41", updated_at: "2026-09-25", resultado: { placar_hipoteses: [{ hipotese: "dor à tarde", concept: "A", resultado: "confirmada" }, { hipotese: "Meia falhou", concept: "B", resultado: "parcial" }] } },
@@ -89,7 +99,7 @@ function runtime(opts: { failInsertOn?: string } = {}) {
   };
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, ...launchPlan, ...approvalRows, ...autonomy, DECISIONS_BY_SOURCE, applyDecision, adsSyncHealth, checkMcpKey,
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, ...launchPlan, ...approvalRows, ...autonomy, ...testOrder, DECISIONS_BY_SOURCE, applyDecision, adsSyncHealth, checkMcpKey,
     createClient: (_url: string, _key: string, options?: { global?: { headers?: Record<string, string> } }) => {
       const actor = options?.global?.headers?.["x-imperio-actor"];
       if (actor) actors.push(actor);
@@ -177,6 +187,40 @@ describe("project-mcp approvals and briefing", () => {
     expect(res.aprovacoes.total).toBe(4);
     expect(res.alertas[0]).toMatchObject({ nivel: "critico" });
     expect(res.diario).toEqual([]);
+  });
+
+  it("plans a test order without writing, then saves it with variants", async () => {
+    const args = {
+      project_id: "p", nome: "Novo teste", oferta: "Curso R$ 47", pagina_url: "https://p.test/vendas", ad_account_id: "act_1", page_id: "2", pixel_id: "3",
+      verba_dia_conjunto: 30, payout: 47, cpa_alvo: 40,
+      variantes: [{ angulo: "Medo", hipotese: "H1", image_url: "https://x/1.jpg", texto: "T1" }, { angulo: "Status", hipotese: "H2", image_url: "https://x/2.jpg", texto: "T2" }],
+    };
+    const app = runtime();
+    const plan = await app.call("create_test_order", args);
+    expect(plan.modo).toBe("plano (nada foi gravado)");
+    expect(plan.plano.verba_dia_total).toBe(60);
+    expect(app.inserts).toHaveLength(0);
+    const saved = await app.call("create_test_order", { ...args, confirmar: true });
+    expect(saved).toMatchObject({ success: true });
+    expect(app.inserts.map((i) => i.table)).toEqual(["imphq_test_orders", "imphq_test_variants"]);
+    expect(app.inserts[0].values).toMatchObject({ ad_account_id: "1", verba_dia_conjunto: 30, status: "pronto", utm_campaign: expect.stringMatching(/^novo-teste-/) });
+  });
+
+  it("evaluates a live test by the scale ladder, saves the P1 round and applies authorized cuts", async () => {
+    const app = runtime();
+    const res = await app.call("evaluate_test_order", { id: "t1", leituras: [{ adset_id: "as1", gasto: 60, ic: 0, vendas: 0 }, { ordem: 2, gasto: 60, ic: 15, vendas: 1 }], aplicar_pausas: true });
+    expect(res.pausar).toEqual([1]);
+    expect(res.vencedores).toEqual([2]);
+    expect(res.corte).toMatchObject({ aplicado: true, pausar_na_meta: [{ ordem: 1, angulo: "Medo", adset_id: "as1" }] });
+    expect(app.updates.find((u) => u.table === "imphq_test_variants" && u.id === "tv1")?.values).toMatchObject({ status: "morto" });
+    expect(app.inserts.find((i) => i.table === "imphq_scale_rounds")?.values).toMatchObject({ project_id: "p", fase: "p1" });
+    expect(app.actors).toContain("ia (corte autorizado por Bruno Lima) via mcp");
+  });
+
+  it("only turns a test on with someone's OK", async () => {
+    await expect(runtime().call("record_test_launch", { id: "t1", ativado: true })).rejects.toThrow(/confirmado_por/);
+    const res = await runtime().call("record_test_launch", { id: "t1", ativado: true, confirmado_por: "bruno", campaign_id: "c9", variantes: [{ ordem: 1, adset_id: "as9", ad_id: "ad9" }] });
+    expect(res).toMatchObject({ success: true, status: "no_ar", variantes_atualizadas: 1 });
   });
 
   it("returns saved scale rounds and the accumulated hypothesis board, latest result first", async () => {

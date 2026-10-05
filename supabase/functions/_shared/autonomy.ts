@@ -38,6 +38,10 @@ export const AUTONOMY_RULES: AutonomyRule[] = [
   // Outras ações do MCP
   { key: "step:assign", label: "Atribuir responsável e prazo", teto: "auto", padrao: "auto", motivo: "Organização interna." },
   { key: "playbook:apply", label: "Desenhar estratégia no mapa", teto: "aprovar", padrao: "aprovar", motivo: "Muda o mapa de operação de um projeto." },
+  // Ordem de teste de criativos (TST1.1)
+  { key: "teste:criar", label: "Planejar e registrar um teste de criativos", teto: "auto", padrao: "auto", motivo: "Só grava o plano no Império; nada vai para a Meta." },
+  { key: "teste:ativar", label: "Ligar um teste na Meta", teto: "aprovar", padrao: "aprovar", motivo: "Começa a gastar verba." },
+  { key: "teste:pausar_variante", label: "Pausar variante morta pela Esteira", teto: "aprovar", padrao: "aprovar", motivo: "Mexe em anúncio no ar; vale o corte autorizado no próprio teste (corte_autorizado_por)." },
 ];
 
 const ORDER: Record<AutonomyLevel, number> = { nunca: 0, aprovar: 1, auto: 2 };
