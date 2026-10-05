@@ -288,17 +288,26 @@ async function processBatch(batchId: string) {
 
 // ── Variações de um criativo vencedor (TST1.2) ──────────────────────────────
 // A peça vencedora entra como referência visual; para cada eixo da Esteira P2 a IA escreve a copy
-// e o Gemini 3 Pro Image recria a arte com o texto novo, mantendo pessoa e estilo.
+// (OpenRouter) e a Kie (Nano Banana Pro) recria a arte com o texto novo, mantendo pessoa e estilo.
+// Não usa o gateway da Lovable (decisão de 05/10: plano lite fica para o que já roda).
+
+const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+const VARIATION_TEXT_MODEL = "google/gemini-2.5-flash";
+const VARIATION_IMAGE_MODEL = "nano-banana-pro";
+const KIE_POLL_MS = 6000;
+const KIE_TIMEOUT_MS = 330_000;
 
 async function writeVariationCopy(req: VariationRequest, axis: VariationAxis, used: string[]): Promise<VariationCopy | null> {
+  if (!OPENROUTER_API_KEY) { console.error("[variations] OPENROUTER_API_KEY ausente"); return null; }
   const { system, user } = copyPrompt(req, axis, used);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: VARIATION_TEXT_MODEL,
           response_format: { type: "json_object" },
           messages: [{ role: "system", content: system }, { role: "user", content: user }],
         }),
@@ -310,6 +319,55 @@ async function writeVariationCopy(req: VariationRequest, axis: VariationAxis, us
     } catch (e) { console.error("[variations] copy ex", e); }
   }
   return null;
+}
+
+async function kieCreateImage(prompt: string, refs: string[], aspect: string): Promise<string | null> {
+  if (!KIE_API_KEY) { console.error("[variations] KIE_API_KEY ausente"); return null; }
+  try {
+    const resp = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KIE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: VARIATION_IMAGE_MODEL,
+        input: { prompt: prompt.slice(0, 9500), image_input: refs.slice(0, 8), aspect_ratio: aspect, resolution: "2K", output_format: "jpg" },
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    const taskId = data?.data?.taskId || data?.taskId;
+    if (!resp.ok || !taskId) { console.error("[variations] kie create", resp.status, JSON.stringify(data).slice(0, 300)); return null; }
+    return String(taskId);
+  } catch (e) { console.error("[variations] kie create ex", e); return null; }
+}
+
+/** Estado de uma tarefa da Kie: url pronta, falha ou ainda rodando. */
+async function kieTaskResult(taskId: string): Promise<{ state: "ok"; url: string } | { state: "fail"; error: string } | { state: "running" }> {
+  try {
+    const r = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
+      headers: { Authorization: `Bearer ${KIE_API_KEY}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    const d = data?.data ?? {};
+    const status = String(d.state || d.status || "").toLowerCase();
+    let parsed: { resultUrls?: string[] } | null = null;
+    try { parsed = d.resultJson ? JSON.parse(d.resultJson) : null; } catch { parsed = null; }
+    const url = parsed?.resultUrls?.[0] || d.resultUrls?.[0];
+    if (url && (status === "success" || status === "succeeded" || !status)) return { state: "ok", url };
+    if (status === "fail" || status === "failed") return { state: "fail", error: d.failMsg || d.error || "Kie falhou" };
+    return { state: "running" };
+  } catch { return { state: "running" }; }
+}
+
+/** Baixa a imagem da Kie (o link expira) e devolve como data URL para o upload ao Storage. */
+async function fetchAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const ct = r.headers.get("content-type") || "image/jpeg";
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return `data:${ct};base64,${btoa(bin)}`;
+  } catch { return null; }
 }
 
 async function processVariations(batchId: string) {
@@ -326,36 +384,65 @@ async function processVariations(batchId: string) {
   const baseImage = String(b.base_image_url || "");
   const formato = batch.formato || "4:5";
   const axes = planAxes(req);
+  const erros: string[] = [];
+
+  // 1. Copy de cada variação (curta, sequencial para não repetir headline).
   const used: string[] = [];
-  let gerados = 0, erros = 0, seguidas = 0;
+  const planned: Array<{ axis: VariationAxis; copy: VariationCopy; taskId: string | null }> = [];
+  let seguidas = 0;
   for (const axis of axes) {
-    // Anti-loop: 3 falhas seguidas param o lote (provedor fora, cota, conteúdo bloqueado).
-    if (seguidas >= 3) break;
+    if (seguidas >= 3) break; // anti-loop: provedor fora ou cota
     const copy = await writeVariationCopy(req, axis, used);
-    if (!copy) { erros++; seguidas++; continue; }
+    if (!copy) { erros.push(`copy ${axis}`); seguidas++; continue; }
+    seguidas = 0;
     used.push(copy.headline_arte);
-    const image = await generateImageGemini(imageInstruction(req, copy, formato), baseImage ? [baseImage] : []);
-    if (!image) { erros++; seguidas++; continue; }
-    const { data: asset, error } = await sb.from("imphq_creative_assets").insert({
-      batch_id: batchId, project_id: batch.project_id, user_id: batch.user_id, angulo: req.angulo,
-      prompt_usado: `VARIATION [${axis}]`, image_url: "pending", formato, image_provider: "lovable-gemini",
-      headline_copy: copy.headline_anuncio,
-      metadata: { tipo: "variacao", eixo: axis, copy, hipotese: req.hipotese, base_image_url: baseImage },
-    }).select("id").single();
-    if (error || !asset) { erros++; seguidas++; continue; }
-    const uploaded = await uploadBase64ToStorage(sb, image, batch.project_id, batchId, asset.id);
-    if (!uploaded) {
-      // Sem Storage, a arte não serve para anúncio: descarta em vez de gravar base64 no banco.
-      await sb.from("imphq_creative_assets").update({ reprovado: true, image_url: "upload-falhou" }).eq("id", asset.id);
-      erros++; seguidas++; continue;
-    }
-    await sb.from("imphq_creative_assets").update({ image_url: uploaded.publicUrl, storage_path: uploaded.storagePath }).eq("id", asset.id);
-    gerados++; seguidas = 0;
-    await sb.from("imphq_creative_batches").update({ total_gerado: gerados }).eq("id", batchId);
+    planned.push({ axis, copy, taskId: null });
   }
+
+  // 2. Uma tarefa na Kie por variação, todas de uma vez.
+  seguidas = 0;
+  for (const p of planned) {
+    if (seguidas >= 3) { erros.push("parou após 3 falhas seguidas na Kie"); break; }
+    p.taskId = await kieCreateImage(imageInstruction(req, p.copy, formato), baseImage ? [baseImage] : [], formato);
+    if (!p.taskId) { erros.push(`kie ${p.axis}`); seguidas++; } else seguidas = 0;
+  }
+
+  // 3. Acompanha até ficarem prontas (ou estourar o tempo) e grava no Storage.
+  let gerados = 0;
+  const pending = new Set(planned.filter((p) => p.taskId).map((p) => p.taskId as string));
+  const deadline = Date.now() + KIE_TIMEOUT_MS;
+  while (pending.size && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, KIE_POLL_MS));
+    for (const p of planned) {
+      if (!p.taskId || !pending.has(p.taskId)) continue;
+      const res = await kieTaskResult(p.taskId);
+      if (res.state === "running") continue;
+      pending.delete(p.taskId);
+      if (res.state === "fail") { erros.push(`kie ${p.axis}: ${res.error}`); continue; }
+      const dataUrl = await fetchAsDataUrl(res.url);
+      const { data: asset, error } = await sb.from("imphq_creative_assets").insert({
+        batch_id: batchId, project_id: batch.project_id, user_id: batch.user_id, angulo: req.angulo,
+        prompt_usado: `VARIATION [${p.axis}] kie:${VARIATION_IMAGE_MODEL} task:${p.taskId}`, image_url: "pending", formato,
+        image_provider: "kie", headline_copy: p.copy.headline_anuncio,
+        metadata: { tipo: "variacao", eixo: p.axis, copy: p.copy, hipotese: req.hipotese, base_image_url: baseImage, kie_task_id: p.taskId, modelo_texto: VARIATION_TEXT_MODEL },
+      }).select("id").single();
+      if (error || !asset) { erros.push(`insert ${p.axis}`); continue; }
+      const uploaded = dataUrl ? await uploadBase64ToStorage(sb, dataUrl, batch.project_id, batchId, asset.id) : null;
+      if (!uploaded) {
+        // Sem Storage a arte não serve para anúncio: descarta em vez de gravar base64 ou link que expira.
+        await sb.from("imphq_creative_assets").update({ reprovado: true, image_url: "upload-falhou" }).eq("id", asset.id);
+        erros.push(`upload ${p.axis}`);
+        continue;
+      }
+      await sb.from("imphq_creative_assets").update({ image_url: uploaded.publicUrl, storage_path: uploaded.storagePath }).eq("id", asset.id);
+      gerados++;
+      await sb.from("imphq_creative_batches").update({ total_gerado: gerados }).eq("id", batchId);
+    }
+  }
+  if (pending.size) erros.push(`${pending.size} arte(s) não ficaram prontas a tempo na Kie`);
   await sb.from("imphq_creative_batches").update({
     status: gerados === 0 ? "failed" : "completed", total_gerado: gerados,
-    error_message: erros ? `${erros} falha(s)${seguidas >= 3 ? "; parou após 3 falhas seguidas" : ""}` : null,
+    error_message: erros.length ? erros.join("; ").slice(0, 500) : null,
   }).eq("id", batchId);
 }
 
@@ -367,8 +454,9 @@ Deno.serve(async (req) => {
   if (!_auth.ok) return _auth.response;
 
   try {
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+    // Lote clássico e edição usam o gateway da Lovable; variações usam Kie + OpenRouter.
+    if (!LOVABLE_API_KEY && !(Deno.env.get("KIE_API_KEY") && Deno.env.get("OPENROUTER_API_KEY"))) {
+      return new Response(JSON.stringify({ error: "Nenhum provedor de IA configurado (LOVABLE_API_KEY ou KIE_API_KEY + OPENROUTER_API_KEY)" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

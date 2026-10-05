@@ -28,6 +28,12 @@ Pedido (05/10/2026): continuar o sistema de testes pela fábrica de criativos. D
 - [x] A função passou a aceitar a chamada interna do MCP com a chave de serviço, sempre com o `user_id` de alguém do time.
 - [x] O `deno check` ficou sem erros.
 
+### Provedores (decisão do Vinicius, 05/10: sem Lovable nas variações)
+- [x] Texto da copy: OpenRouter (`google/gemini-2.5-flash`).
+- [x] Imagem: Kie, com `nano-banana-pro` em 2K, 4:5, e a arte vencedora como referência (`image_input`).
+- [x] A fábrica cria as tarefas de todas as variações de uma vez, consulta `jobs/recordInfo` a cada 6 s (por até 5,5 min) e copia o resultado para o Storage, porque o link da Kie expira.
+- [x] O lote clássico e a edição continuam no gateway da Lovable, sem mudança.
+
 ### MCP
 - [x] `generate_creative_variations`: a base pode vir de uma variante de teste (`test_order_id` + `ordem`, que traz a arte, a copy e a hipótese) ou de uma imagem. Roda em nome de quem pediu, de dentro do time.
 - [x] `get_creative_batch`: status, artes, eixo e copy.
