@@ -106,7 +106,27 @@ function getInitials(name: string | null, phone: string): string {
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return name.slice(0, 2).toUpperCase();
   }
-  return phone.slice(-2);
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 2 ? digits.slice(-2) : "WA";
+}
+
+const AVATAR_GRADIENTS = [
+  "from-emerald-600 to-teal-800",
+  "from-blue-600 to-indigo-800",
+  "from-violet-600 to-purple-800",
+  "from-amber-600 to-orange-800",
+  "from-rose-600 to-pink-800",
+  "from-cyan-600 to-blue-800",
+  "from-fuchsia-600 to-rose-800",
+  "from-teal-600 to-emerald-800",
+];
+
+function getAvatarGradient(key: string): string {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
 }
 
 // Telefone "real" (não Linked ID / id técnico). LIDs têm 15+ dígitos ou sufixo @lid.
@@ -646,7 +666,6 @@ export default function ConversationList({
               const channel = channelChip(prov);
               const displayCount = unread > 0 ? unread : (hasUnread ? 1 : 0);
               const convColor = resolveConvColor(s as ConvForColor);
-              const useAccent = !isSelected && convColor.key !== "default";
               const displayName = contactDisplayName(s.contact_name, s.phone, s.jid_suffix);
               const phoneDigits = realPhone(s.phone, s.jid_suffix);
               return (
@@ -654,33 +673,27 @@ export default function ConversationList({
                   <ContextMenuTrigger asChild>
                 <button
                   onClick={() => onSelect(s)}
-                  className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/50 border-l-[3px] ${
+                  className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-l-[3px] border-b border-border/40 ${
                     isSelected
-                      ? "bg-secondary/80 border-l-primary"
-                      : hasUnread && convColor.key === "new"
-                        ? "border-l-emerald-400 bg-emerald-500/10"
-                        : "border-l-transparent"
+                      ? "bg-accent/80 border-l-primary"
+                      : hasUnread
+                        ? "bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08] border-l-emerald-500"
+                        : "bg-transparent hover:bg-muted/40 border-l-transparent"
                   }`}
-                  style={useAccent ? { borderLeftColor: convColor.hex, background: `${convColor.hex}10` } : undefined}
+                  style={!isSelected && convColor.hex !== "transparent" ? { borderLeftColor: convColor.hex } : undefined}
                   title={[provLabel ? `Instância: ${provLabel}` : "", convColor.label ? `Status: ${convColor.label}` : ""].filter(Boolean).join(" · ") || undefined}
                 >
                   <div className="relative shrink-0">
-                    <Avatar className={`h-10 w-10 ${hasUnread && !isSelected ? "ring-2 ring-emerald-400/70" : ""}`}>
+                    <Avatar className={`h-11 w-11 ${hasUnread && !isSelected ? "ring-2 ring-emerald-400/80" : ""}`}>
                       {s.avatar_url && (
                         <AvatarImage 
                           src={s.avatar_url} 
-                          alt={s.contact_name || s.phone} 
-                          onError={async () => {
-                            // Se der 403 (URL expirada do CDN do WhatsApp), limpa no banco.
-                            // O hook no WhatsAppPage detecta e puxa um link assinado novo e funcional!
-                            await supabase
-                              .from("imphq_wa_conversations")
-                              .update({ avatar_url: null })
-                              .eq("id", s.id);
-                          }}
+                          alt={displayName}
+                          referrerPolicy="no-referrer"
+                          className="object-cover"
                         />
                       )}
-                      <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+                      <AvatarFallback className={`text-xs font-bold text-white bg-gradient-to-br ${getAvatarGradient(s.id || displayName)}`}>
                         {displayName === "Contato sem nome" ? "?" : getInitials(displayName, s.phone)}
                       </AvatarFallback>
                     </Avatar>
@@ -689,21 +702,30 @@ export default function ConversationList({
                     )}
                     {provLabel && (
                       <span
-                        className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card"
+                        className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card shadow-xs"
                         style={{ background: color }}
+                        title={`Instância: ${provLabel}`}
                       />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-foreground"} ${displayName === "Contato sem nome" ? "italic text-muted-foreground" : ""}`}>
+                    {/* Linha 1: Nome + Status dot + Horário */}
+                    <div className="flex items-center justify-between gap-1.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {convColor.hex !== "transparent" && (
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0 shadow-xs"
+                            style={{ backgroundColor: convColor.hex }}
+                            title={convColor.label || "Status"}
+                          />
+                        )}
+                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"} ${displayName === "Contato sem nome" ? "italic text-muted-foreground" : ""}`}>
                           {displayName}
                         </span>
                         {channel && channel.label !== "WhatsApp" && (
                           <Badge
                             variant="outline"
-                            className={`text-[9px] h-4 px-1.5 shrink-0 font-medium ${channel.cls}`}
+                            className={`text-[9px] h-4 px-1 shrink-0 font-medium ${channel.cls}`}
                             title={channel.label}
                           >
                             {channel.icon} {channel.label}
@@ -717,63 +739,75 @@ export default function ConversationList({
                             🔒
                           </span>
                         )}
-
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 ml-1">
                         {(() => {
                           const w = waitingMinutes(s);
                           if (w === null) return null;
                           return (
                             <span
-                              className={`text-[9px] font-semibold px-1.5 py-0 rounded border ${slaColor(w)} leading-tight`}
+                              className={`text-[9px] font-semibold px-1 py-0 rounded border ${slaColor(w)} leading-tight`}
                               title={`Aguardando resposta há ${formatWaiting(w)}`}
                             >
                               ⏱ {formatWaiting(w)}
                             </span>
                           );
                         })()}
-                        <span className={`text-[10px] ${hasUnread ? "text-emerald-300 font-semibold" : "text-muted-foreground"}`}>
+                        <span className={`text-[11px] font-mono shrink-0 ${hasUnread ? "text-emerald-400 font-bold" : "text-muted-foreground font-medium"}`}>
                           {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
                         </span>
                       </div>
                     </div>
-                    {phoneDigits && displayName !== formatPhone(phoneDigits) && (
-                      <p className="text-[10px] text-muted-foreground/70 font-mono truncate">{formatPhone(phoneDigits)}</p>
-                    )}
-                    <div className="flex items-center justify-between mt-0.5 gap-2">
-                      <p className={`text-xs truncate pr-2 flex items-center gap-1 ${hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+
+                    {/* Linha 2: Última mensagem + Badge de contagem de msgs */}
+                    <div className="flex items-center justify-between gap-2 mt-0.5 min-w-0">
+                      <div className="flex items-center gap-1 min-w-0 flex-1">
                         {s.last_message_direction === "out" && !hasUnread && (
-                          <span className="text-[10px] text-muted-foreground/70 shrink-0">↩</span>
+                          <span className="text-[11px] text-muted-foreground/60 shrink-0 select-none">✓✓</span>
                         )}
-                        <span className="truncate">{s.last_message || ""}</span>
-                      </p>
-                      {hasUnread ? (
-                        <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full min-w-[20px] h-[20px] px-1.5 flex items-center justify-center shrink-0 leading-none shadow-[0_0_8px_rgba(16,185,129,0.5)]">
-                          {displayCount > 99 ? "99+" : displayCount}
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {s.message_count > 0 && (
-                            <Badge variant="secondary" className="text-[9px] h-4 px-1.5 group-hover:hidden">
-                              {s.message_count}
-                            </Badge>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onMarkUnread?.(s.id);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-emerald-400 hover:bg-secondary transition-all"
-                            title="Marcar como não lida"
-                          >
-                            <Mail className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
+                        <p className={`text-xs truncate ${hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                          {s.last_message || <span className="italic opacity-50">Sem mensagens</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                        {hasUnread ? (
+                          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-500 text-white font-bold text-[11px] flex items-center justify-center shrink-0 leading-none shadow-[0_0_8px_rgba(16,185,129,0.5)]">
+                            {displayCount > 99 ? "99+" : displayCount}
+                          </span>
+                        ) : (
+                          <>
+                            {s.message_count > 0 && (
+                              <span
+                                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground shrink-0 group-hover:hidden"
+                                title={`${s.message_count} mensagens no histórico`}
+                              >
+                                {s.message_count} {s.message_count === 1 ? "msg" : "msgs"}
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onMarkUnread?.(s.id);
+                              }}
+                              className="hidden group-hover:flex items-center justify-center p-0.5 rounded text-muted-foreground hover:text-emerald-400 hover:bg-muted transition-all"
+                              title="Marcar como não lida"
+                            >
+                              <Mail className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">
-                      {projectName(s.project_id)}
-                    </p>
+
+                    {/* Linha 3: Telefone formatado + Projeto */}
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 mt-0.5 min-w-0">
+                      <span className="truncate font-mono">
+                        {phoneDigits && displayName !== formatPhone(phoneDigits) ? formatPhone(phoneDigits) : ""}
+                      </span>
+                      <span className="truncate shrink-0 font-medium opacity-80 max-w-[140px]">
+                        {projectName(s.project_id)}
+                      </span>
+                    </div>
                   </div>
                 </button>
                   </ContextMenuTrigger>

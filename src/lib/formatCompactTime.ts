@@ -34,26 +34,37 @@ export function formatCompactTime(dateStr: string | Date | null | undefined): st
   return `${dd}/${mm}/${String(date.getFullYear()).slice(-2)}`;
 }
 
-// Estilo WhatsApp: HH:MM para hoje, dd/MM para dias anteriores (mesmo ano)
+// Estilo WhatsApp: HH:MM para hoje, "Ontem HH:MM" para ontem, "dd/MM HH:MM" para dias anteriores
 export function formatMessageTime(dateStr: string | Date | null | undefined): string {
   if (!dateStr) return "";
   const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   if (isNaN(date.getTime())) return "";
 
   const now = new Date();
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+
   const isToday =
     date.getDate() === now.getDate() &&
     date.getMonth() === now.getMonth() &&
     date.getFullYear() === now.getFullYear();
 
   if (isToday) {
-    const hh = String(date.getHours()).padStart(2, "0");
-    const mm = String(date.getMinutes()).padStart(2, "0");
     return `${hh}:${mm}`;
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  if (isYesterday) {
+    return `Ontem ${hh}:${mm}`;
   }
 
   const dd = String(date.getDate()).padStart(2, "0");
   const mo = String(date.getMonth() + 1).padStart(2, "0");
-  if (date.getFullYear() === now.getFullYear()) return `${dd}/${mo}`;
-  return `${dd}/${mo}/${String(date.getFullYear()).slice(-2)}`;
+  return `${dd}/${mo} ${hh}:${mm}`;
 }

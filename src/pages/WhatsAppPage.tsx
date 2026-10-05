@@ -17,7 +17,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose, Sparkles } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,6 +66,35 @@ let waRefCache: {
   providers: WaProvider[];
   templates: WaTemplate[];
 } = { ts: 0, projects: [], providers: [], templates: [] };
+
+const AVATAR_GRADIENTS = [
+  "from-emerald-600 to-teal-800",
+  "from-blue-600 to-indigo-800",
+  "from-violet-600 to-purple-800",
+  "from-amber-600 to-orange-800",
+  "from-rose-600 to-pink-800",
+  "from-cyan-600 to-blue-800",
+  "from-fuchsia-600 to-rose-800",
+  "from-teal-600 to-emerald-800",
+];
+
+function getAvatarGradient(key: string): string {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+
+function getInitials(name: string | null | undefined, phone: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  }
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 2 ? digits.slice(-2) : "WA";
+}
 
 export default function WhatsApp() {
   const [sessions, setSessions] = useState<WaSession[]>([]);
@@ -614,13 +644,19 @@ export default function WhatsApp() {
                 <div className="flex flex-col h-full">
                   {/* Chat header */}
                   <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                      {selectedSession.avatar_url ? (
-                        <img src={selectedSession.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 text-primary" />
+                    <Avatar className="h-9 w-9 shrink-0">
+                      {selectedSession.avatar_url && (
+                        <AvatarImage
+                          src={selectedSession.avatar_url}
+                          alt={selectedSession.contact_name || selectedSession.phone}
+                          referrerPolicy="no-referrer"
+                          className="object-cover"
+                        />
                       )}
-                    </div>
+                      <AvatarFallback className={`text-xs font-bold text-white bg-gradient-to-br ${getAvatarGradient(selectedSession.id)}`}>
+                        {getInitials(selectedSession.contact_name, selectedSession.phone)}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
                       <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
                       <p className="text-[11px] text-muted-foreground">
@@ -755,17 +791,58 @@ export default function WhatsApp() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12 select-none">
+                  <div className="relative mb-6">
+                    <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-500/20 via-primary/10 to-teal-500/20 flex items-center justify-center border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+                      <MessageSquare className="h-10 w-10 text-emerald-400" />
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-background flex items-center justify-center text-white text-[10px] font-bold">
+                      ✓
+                    </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-1">Selecione uma conversa</h3>
-                  <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-                    Escolha uma conversa à esquerda ou crie uma nova sessão para começar a conversar.
+                  
+                  <h3 className="text-xl font-bold text-foreground mb-1.5 tracking-tight">Imperium WhatsApp Hub</h3>
+                  <p className="text-sm text-muted-foreground mb-6 max-w-sm leading-relaxed">
+                    Selecione uma conversa ao lado para responder leads, analisar histórico e gerenciar o atendimento.
                   </p>
-                  <Button size="sm" variant="outline" onClick={() => setShowNew(true)}>
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Nova Sessão
-                  </Button>
+
+                  <div className="grid grid-cols-3 gap-3 w-full max-w-md mb-6">
+                    <div className="p-3 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm text-left">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Conversas</p>
+                      <p className="text-lg font-bold text-foreground mt-0.5">{sessions.length}</p>
+                    </div>
+                    <div className="p-3 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm text-left">
+                      <p className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Não Lidas</p>
+                      <p className="text-lg font-bold text-emerald-400 mt-0.5">
+                        {sessions.filter(s => (s.unread_count || 0) > 0).length}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm text-left">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Instâncias</p>
+                      <p className="text-lg font-bold text-foreground mt-0.5">
+                        {providers.filter(p => p.is_active).length}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Button size="sm" onClick={() => setShowNew(true)} className="gap-1.5 shadow-sm">
+                      <Plus className="h-4 w-4" /> Nova Sessão
+                    </Button>
+                    {sessions.some(s => (s.unread_count || 0) > 0) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const firstUnread = sessions.find(s => (s.unread_count || 0) > 0);
+                          if (firstUnread) setSelectedSession(firstUnread);
+                        }}
+                        className="gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Abrir 1ª Não Lida
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </ResizablePanel>
