@@ -70,8 +70,7 @@ function isVideoUrl(url?: string | null): boolean {
   return ["mp4", "webm", "mov", "avi", "mkv"].includes(ext || "");
 }
 
-const LS_KEY = "referencias.filters.v1";
-const loadLS = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; } };
+const UI_PREF_KEY = "referencias.viewMode.v2";
 
 function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (patch: Partial<Ref>) => void }) {
   const [busy, setBusy] = useState(false);
@@ -146,25 +145,28 @@ function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (pa
 }
 
 function ReferenciasDesktop() {
-  const _ls = loadLS();
   const [refs, setRefs] = useState<Ref[]>([]);
   const [projects, setProjects] = useState<Array<Pick<Tables<"imphq_projects">, "id" | "name">>>([]);
-  const [searchInput, setSearchInput] = useState(_ls.search ?? "");
-  const [search, setSearch] = useState(_ls.search ?? "");
-  const [filterTipo, setFilterTipo] = useState(_ls.filterTipo ?? "all");
-  const [filterPlat, setFilterPlat] = useState(_ls.filterPlat ?? "all");
-  const [filterProject, setFilterProject] = useState(_ls.filterProject ?? "all");
-  const [filterPasta, setFilterPasta] = useState(_ls.filterPasta ?? "all");
-  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">(_ls.filterOrigem ?? "all");
-  const [filterCategory, setFilterCategory] = useState<string>(() => {
-    return _ls.filterOrigem === "library" ? (_ls.filterCategory ?? "all") : "all";
-  });
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterTipo, setFilterTipo] = useState("all");
+  const [filterPlat, setFilterPlat] = useState("all");
+  const [filterProject, setFilterProject] = useState("all");
+  const [filterPasta, setFilterPasta] = useState("all");
+  const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
   const [dossierRef, setDossierRef] = useState<Ref | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Ref>>({ titulo: "", tipo: "criativo", tags: [] });
-  const [viewMode, setViewMode] = useState<"grid" | "list">(_ls.viewMode ?? "grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    try {
+      return (localStorage.getItem(UI_PREF_KEY) as "grid" | "list") || "grid";
+    } catch {
+      return "grid";
+    }
+  });
   const [showNewPasta, setShowNewPasta] = useState(false);
   const [newPastaName, setNewPastaName] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
@@ -227,13 +229,19 @@ function ReferenciasDesktop() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Persist filters
+  // Wipe legacy volatile filters from localStorage once
   useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-      search: searchInput, filterTipo, filterPlat, filterProject,
-      filterPasta, filterOrigem, filterCategory, viewMode,
-    }));
-  }, [searchInput, filterTipo, filterPlat, filterProject, filterPasta, filterOrigem, filterCategory, viewMode]);
+    try {
+      localStorage.removeItem("referencias.filters.v1");
+    } catch {}
+  }, []);
+
+  // Persist only UI layout preferences
+  useEffect(() => {
+    try {
+      localStorage.setItem(UI_PREF_KEY, viewMode);
+    } catch {}
+  }, [viewMode]);
 
   const hasActiveFilters = !!(search || filterTipo !== "all" || filterPlat !== "all" || filterProject !== "all" || filterPasta !== "all" || filterOrigem !== "all" || filterCategory !== "all");
   const clearFilters = () => {
@@ -241,7 +249,7 @@ function ReferenciasDesktop() {
     setFilterTipo("all"); setFilterPlat("all"); setFilterProject("all");
     setFilterPasta("all"); setFilterOrigem("all"); setFilterCategory("all");
     setCurrentFolder([]);
-    try { localStorage.removeItem(LS_KEY); } catch {}
+    try { localStorage.removeItem("referencias.filters.v1"); } catch {}
   };
 
   const load = async () => {
@@ -370,16 +378,19 @@ function ReferenciasDesktop() {
     }
   }, [refs, emptyFolders]);
 
+  // Normalize a segment for use in a path (no slashes)
+  const norm = (s?: string | null) => (s || "").replace(/\//g, "-").trim();
+
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
 
-  // Subpath relative to the project segment. The `pasta` column stores the path
-  // WITHOUT the project prefix — getVirtualPath() re-adds the project segment.
-  // currentFolder[0] is always the project name segment ("Sem Projeto" or the project's name).
-  const currentSubPath = currentFolder.length > 1 ? currentFolder.slice(1).join("/") : "";
-
-  // Normalize a segment for use in a path (no slashes)
-  const norm = (s?: string | null) => (s || "").replace(/\//g, "-").trim();
+  // Subpath to assign when creating new items in the current folder:
+  // If the first segment is a project name, the pasta column should omit it.
+  // Otherwise, the entire currentFolderPath is the pasta value.
+  const isFirstFolderProject = currentFolder.length > 0 && projects.some(p => norm(p.name) === currentFolder[0]);
+  const currentSubPath = isFirstFolderProject
+    ? currentFolder.slice(1).join("/")
+    : currentFolderPath;
 
   // Derive a virtual hierarchical path for every ref:
   //   {Projeto}/{Pasta?} ou {Pasta} ou {Tipo}
@@ -470,23 +481,6 @@ function ReferenciasDesktop() {
     : filteredRaw;
 
 
-  // Group by project for display
-  const groupedByProject = () => {
-    if (filterProject !== "all" || currentFolder.length > 0 || filterPasta !== "all") return null;
-    const groups: Record<string, Ref[]> = {};
-    const noProject: Ref[] = [];
-    for (const r of filtered) {
-      if (r.project_id) {
-        const name = r.project_name || projectName(r.project_id) || r.project_id;
-        if (!groups[name]) groups[name] = [];
-        groups[name].push(r);
-      } else {
-        noProject.push(r);
-      }
-    }
-    if (Object.keys(groups).length <= 1 && noProject.length === 0) return null;
-    return { groups, noProject };
-  };
 
   const typeCounts = TIPOS.reduce((acc, t) => {
     acc[t] = refs.filter(r => r.tipo === t).length;
@@ -988,8 +982,6 @@ function ReferenciasDesktop() {
     );
   };
 
-  const grouped = groupedByProject();
-
   // Folder card component
   const FolderCard = ({ name }: { name: string }) => {
     const fullPath = currentFolderPath ? `${currentFolderPath}/${name}` : name;
@@ -1370,19 +1362,39 @@ function ReferenciasDesktop() {
       {/* Type counters */}
       {filterOrigem !== "library" && (
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setFilterTipo("all")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+              filterTipo === "all"
+                ? "bg-primary/15 text-primary border-primary/30 font-semibold"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+            }`}
+          >
+            <span>Todos os Tipos</span>
+            <span className="text-[10px] opacity-70">({refs.length})</span>
+          </button>
           {TIPOS.map(t => {
             const style = TIPO_STYLES[t];
             const Icon = style.icon;
             const count = typeCounts[t] || 0;
+            const isSelected = filterTipo === t;
+            const isDisabled = count === 0;
             return (
               <button
                 key={t}
-                onClick={() => setFilterTipo(filterTipo === t ? "all" : t)}
+                disabled={isDisabled}
+                onClick={() => {
+                  if (isDisabled) return;
+                  setFilterTipo(isSelected ? "all" : t);
+                }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                  filterTipo === t
-                    ? `${style.badge} border-current`
+                  isDisabled
+                    ? "opacity-35 cursor-not-allowed border-border/50 text-muted-foreground"
+                    : isSelected
+                    ? `${style.badge} border-current font-semibold`
                     : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                 }`}
+                title={isDisabled ? "Nenhum item deste tipo cadastrado" : undefined}
               >
                 <Icon className="h-3 w-3" />
                 <span className="capitalize">{t.replace("_", " ")}</span>
@@ -1462,73 +1474,62 @@ function ReferenciasDesktop() {
 
       {/* Subfolder cards */}
       {filterPasta === "all" && subfolders.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-          {subfolders.map(name => (
-            <FolderCard key={name} name={name} />
-          ))}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <FolderOpen className="h-3.5 w-3.5 text-amber-400" />
+              Pastas ({subfolders.length})
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {subfolders.map(name => (
+              <FolderCard key={name} name={name} />
+            ))}
+          </div>
         </div>
       )}
 
+      {/* Section title for items */}
+      <div className="flex items-center justify-between pt-2 border-t border-border/40">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Image className="h-3.5 w-3.5 text-primary" />
+          {currentFolder.length > 0
+            ? `Itens em "${currentFolder[currentFolder.length - 1]}" (${filtered.length})`
+            : `Todas as Referências (${filtered.length})`}
+        </h3>
+      </div>
+
       {viewMode === "grid" ? (
-        grouped ? (
-          <div className="space-y-8">
-            {Object.entries(grouped.groups).sort(([a], [b]) => a.localeCompare(b)).map(([projName, items]) => (
-              <div key={projName}>
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                  <span className="text-lg">📁</span>
-                  <h2 className="font-semibold text-sm">{projName}</h2>
-                  <Badge variant="outline" className="text-[10px]">{items.length}</Badge>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {items.map((r, i) => renderCard(r, i))}
-                </div>
-              </div>
-            ))}
-            {grouped.noProject.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                  <span className="text-lg">📋</span>
-                  <h2 className="font-semibold text-sm">Sem Projeto</h2>
-                  <Badge variant="outline" className="text-[10px]">{grouped.noProject.length}</Badge>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {grouped.noProject.map((r, i) => renderCard(r, i))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((r, i) => renderCard(r, i))}
-            {filtered.length === 0 && (subfolders.length === 0 || hasActiveFilters) && (
-              <div className="col-span-full text-center py-12 space-y-2">
-                <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-                {hasActiveFilters ? (
-                  <>
-                    <p className="text-sm text-muted-foreground">
-                      Nenhuma referência com os filtros atuais.
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((r, i) => renderCard(r, i))}
+          {filtered.length === 0 && (
+            <div className="col-span-full text-center py-12 space-y-2">
+              <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
+              {hasActiveFilters ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma referência com os filtros atuais.
+                  </p>
+                  {rawInCurrentFolder > 0 && (
+                    <p className="text-xs text-muted-foreground/70">
+                      Existem {rawInCurrentFolder} {rawInCurrentFolder === 1 ? "item" : "itens"} nesta pasta sem filtros.
                     </p>
-                    {rawInCurrentFolder > 0 && (
-                      <p className="text-xs text-muted-foreground/70">
-                        Existem {rawInCurrentFolder} {rawInCurrentFolder === 1 ? "item" : "itens"} nesta pasta sem filtros.
-                      </p>
-                    )}
-                    <Button size="sm" variant="outline" onClick={clearFilters}>Limpar filtros</Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
-                    <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        )
+                  )}
+                  <Button size="sm" variant="outline" onClick={clearFilters}>Limpar filtros</Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Nenhuma referência encontrada</p>
+                  <Button size="sm" variant="outline" onClick={() => setShowNew(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira</Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-1">
           {filtered.map(r => renderListRow(r))}
-          {filtered.length === 0 && (subfolders.length === 0 || hasActiveFilters) && (
+          {filtered.length === 0 && (
             <div className="text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
               {hasActiveFilters ? (
@@ -1671,7 +1672,10 @@ function ReferenciasDesktop() {
               if (currentFolderPath) {
                 fullVPath = `${currentFolderPath}/${name}`;
                 const segs = currentFolderPath.split("/");
-                pastaForRefs = [...segs.slice(1), name].join("/");
+                const isFirstSegProject = projects.some(p => norm(p.name) === segs[0]);
+                pastaForRefs = isFirstSegProject
+                  ? [...segs.slice(1), name].join("/")
+                  : `${currentFolderPath}/${name}`;
               } else {
                 const proj = filterProject !== "all" ? projects.find(p => p.id === filterProject) : null;
                 const projSeg = proj ? norm(proj.name) : null;
