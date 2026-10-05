@@ -25,7 +25,8 @@ function openaiSizeFromFormato(formato: string): "1024x1024" | "1024x1536" | "15
 }
 
 import { ANGLE_BY_SLUG } from "../_shared/creativeAngles.ts";
-import { requireUser } from "../_shared/require-auth.ts";
+import { requireUserOrServiceRole } from "../_shared/require-auth.ts";
+import { copyPrompt, imageInstruction, parseCopy, planAxes, type VariationAxis, type VariationCopy, type VariationRequest } from "../_shared/creative-variations.ts";
 
 const ANGULO_PROMPTS: Record<string, string> = Object.fromEntries(
   Object.entries(ANGLE_BY_SLUG).map(([slug, a]) => [slug, a.visualPrompt])
@@ -284,10 +285,85 @@ async function processBatch(batchId: string) {
   }).eq("id", batchId);
 }
 
+
+// ── Variações de um criativo vencedor (TST1.2) ──────────────────────────────
+// A peça vencedora entra como referência visual; para cada eixo da Esteira P2 a IA escreve a copy
+// e o Gemini 3 Pro Image recria a arte com o texto novo, mantendo pessoa e estilo.
+
+async function writeVariationCopy(req: VariationRequest, axis: VariationAxis, used: string[]): Promise<VariationCopy | null> {
+  const { system, user } = copyPrompt(req, axis, used);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          response_format: { type: "json_object" },
+          messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        }),
+      });
+      if (!resp.ok) { console.error("[variations] copy", resp.status, (await resp.text()).slice(0, 200)); continue; }
+      const data = await resp.json();
+      const copy = parseCopy(data?.choices?.[0]?.message?.content ?? "");
+      if (copy) return copy;
+    } catch (e) { console.error("[variations] copy ex", e); }
+  }
+  return null;
+}
+
+async function processVariations(batchId: string) {
+  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: batch } = await sb.from("imphq_creative_batches").select("*").eq("id", batchId).maybeSingle();
+  if (!batch) return;
+  await sb.from("imphq_creative_batches").update({ status: "processing" }).eq("id", batchId);
+  const b = (batch.briefing || {}) as Record<string, unknown>;
+  const req: VariationRequest = {
+    angulo: String(b.angulo || ""), hipotese: (b.hipotese as string) || null, oferta: String(b.oferta || ""),
+    publico: (b.publico as string) || null, marca_topo: (b.marca_topo as string) || null, texto_base: (b.texto_base as string) || null,
+    quantidade: Number(b.quantidade) || 1, eixos: Array.isArray(b.eixos) ? (b.eixos as VariationAxis[]) : undefined,
+  };
+  const baseImage = String(b.base_image_url || "");
+  const formato = batch.formato || "4:5";
+  const axes = planAxes(req);
+  const used: string[] = [];
+  let gerados = 0, erros = 0, seguidas = 0;
+  for (const axis of axes) {
+    // Anti-loop: 3 falhas seguidas param o lote (provedor fora, cota, conteúdo bloqueado).
+    if (seguidas >= 3) break;
+    const copy = await writeVariationCopy(req, axis, used);
+    if (!copy) { erros++; seguidas++; continue; }
+    used.push(copy.headline_arte);
+    const image = await generateImageGemini(imageInstruction(req, copy, formato), baseImage ? [baseImage] : []);
+    if (!image) { erros++; seguidas++; continue; }
+    const { data: asset, error } = await sb.from("imphq_creative_assets").insert({
+      batch_id: batchId, project_id: batch.project_id, user_id: batch.user_id, angulo: req.angulo,
+      prompt_usado: `VARIATION [${axis}]`, image_url: "pending", formato, image_provider: "lovable-gemini",
+      headline_copy: copy.headline_anuncio,
+      metadata: { tipo: "variacao", eixo: axis, copy, hipotese: req.hipotese, base_image_url: baseImage },
+    }).select("id").single();
+    if (error || !asset) { erros++; seguidas++; continue; }
+    const uploaded = await uploadBase64ToStorage(sb, image, batch.project_id, batchId, asset.id);
+    if (!uploaded) {
+      // Sem Storage, a arte não serve para anúncio: descarta em vez de gravar base64 no banco.
+      await sb.from("imphq_creative_assets").update({ reprovado: true, image_url: "upload-falhou" }).eq("id", asset.id);
+      erros++; seguidas++; continue;
+    }
+    await sb.from("imphq_creative_assets").update({ image_url: uploaded.publicUrl, storage_path: uploaded.storagePath }).eq("id", asset.id);
+    gerados++; seguidas = 0;
+    await sb.from("imphq_creative_batches").update({ total_gerado: gerados }).eq("id", batchId);
+  }
+  await sb.from("imphq_creative_batches").update({
+    status: gerados === 0 ? "failed" : "completed", total_gerado: gerados,
+    error_message: erros ? `${erros} falha(s)${seguidas >= 3 ? "; parou após 3 falhas seguidas" : ""}` : null,
+  }).eq("id", batchId);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const _auth = await requireUser(req);
+  // Usuário logado ou chamada interna (project-mcp) com a chave de serviço, em nome de alguém do time.
+  const _auth = await requireUserOrServiceRole(req);
   if (!_auth.ok) return _auth.response;
 
   try {
@@ -312,13 +388,26 @@ Deno.serve(async (req) => {
       });
     }
     const sbUser = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: userData, error: uErr } = await sbUser.auth.getUser(jwt);
-    if (uErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let userId: string;
+    if (_auth.userId === "service_role") {
+      // Chamada interna: user_id precisa ser de alguém do time.
+      const asUser = typeof (bodyParsed as Record<string, unknown> | null)?.user_id === "string" ? String((bodyParsed as Record<string, unknown>).user_id) : "";
+      const { data: member } = asUser ? await sbUser.from("imphq_team_members").select("user_id").eq("user_id", asUser).maybeSingle() : { data: null };
+      if (!member?.user_id) {
+        return new Response(JSON.stringify({ error: "user_id de alguém do time é obrigatório na chamada interna" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = member.user_id;
+    } else {
+      const { data: userData, error: uErr } = await sbUser.auth.getUser(jwt);
+      if (uErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = userData.user.id;
     }
-    const userId = userData.user.id;
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     if (action === "start") {
@@ -356,6 +445,40 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ ok: true, batch_id: batch.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "variations") {
+      const body = (bodyParsed || {}) as Record<string, unknown>;
+      const projectId = String(body.project_id || "");
+      const baseImage = String(body.base_image_url || "");
+      const angulo = String(body.angulo || "").trim();
+      if (!projectId || !baseImage.startsWith("http") || !angulo || !body.oferta) {
+        return new Response(JSON.stringify({ error: "project_id, base_image_url (http), angulo e oferta são obrigatórios" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const quantidade = Math.max(1, Math.min(6, Number(body.quantidade) || 2));
+      const { data: batch, error } = await sb.from("imphq_creative_batches").insert({
+        project_id: projectId, user_id: userId,
+        nome: String(body.nome || `Variações · ${angulo}`).slice(0, 120),
+        briefing: {
+          tipo: "variacoes", angulo, hipotese: body.hipotese ?? null, oferta: body.oferta, publico: body.publico ?? null,
+          marca_topo: body.marca_topo ?? null, texto_base: body.texto_base ?? null, quantidade,
+          eixos: Array.isArray(body.eixos) ? body.eixos : null, base_image_url: baseImage,
+        },
+        referencias_urls: [baseImage], angulos: [angulo], formato: String(body.formato || "4:5"),
+        status: "pending", total_planejado: quantidade,
+      }).select("id").single();
+      if (error || !batch) {
+        return new Response(JSON.stringify({ error: error?.message || "Insert failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(processVariations(batch.id));
+      else processVariations(batch.id).catch((e) => console.error("bg variations", e));
+      return new Response(JSON.stringify({ ok: true, batch_id: batch.id, quantidade }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

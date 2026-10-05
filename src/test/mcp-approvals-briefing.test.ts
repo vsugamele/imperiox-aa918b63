@@ -217,6 +217,18 @@ describe("project-mcp approvals and briefing", () => {
     expect(app.actors).toContain("ia (corte autorizado por Bruno Lima) via mcp");
   });
 
+  it("orders creative variations from a test variant through the factory, on behalf of a team member", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, batch_id: "b1", quantidade: 2 }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const app = runtime();
+    app.db.imphq_test_variants[0] = { ...app.db.imphq_test_variants[0], image_url: "https://x/medo.jpg", texto: "Medo?" };
+    app.db.imphq_team_members[0] = { ...app.db.imphq_team_members[0], user_id: "u1" };
+    const res = await app.call("generate_creative_variations", { project_id: "p", test_order_id: "t1", ordem: 1, quantidade: 2 });
+    expect(res).toMatchObject({ success: true, batch_id: "b1", angulo: "Medo", pedido_por: "Bruno Lima" });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
+    expect(body).toMatchObject({ action: "variations", user_id: "u1", base_image_url: "https://x/medo.jpg", oferta: "Curso", texto_base: "Medo?" });
+  });
+
   it("only turns a test on with someone's OK", async () => {
     await expect(runtime().call("record_test_launch", { id: "t1", ativado: true })).rejects.toThrow(/confirmado_por/);
     const res = await runtime().call("record_test_launch", { id: "t1", ativado: true, confirmado_por: "bruno", campaign_id: "c9", variantes: [{ ordem: 1, adset_id: "as9", ad_id: "ad9" }] });

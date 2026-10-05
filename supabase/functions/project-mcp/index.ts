@@ -945,10 +945,38 @@ const MCP_TOOLS = [
         utm_campaign: { type: "string", description: "Opcional; padrão sai do nome + data" },
         variantes: { type: "array", items: { type: "object" }, description: "[{ angulo, hipotese, image_url, texto, headline, cta?, referencia_id? }]" },
         referencias_lote: { type: "string", description: "Monta as variantes a partir das referências deste lote do projeto (ignorado se 'variantes' vier)" },
+        creative_batch_id: { type: "string", description: "Monta as variantes a partir das artes prontas deste lote da fábrica (com copy)" },
         confirmar: { type: "boolean", description: "true grava a ordem; padrão false = só o plano" },
       },
       required: ["project_id", "nome", "oferta", "pagina_url", "ad_account_id", "verba_dia_conjunto", "payout", "cpa_alvo"],
     },
+  },
+  {
+    name: "generate_creative_variations",
+    description: "Fábrica de criativos: pega uma arte (ex.: o ângulo vencedor de um teste) e gera de 1 a 6 variações nos eixos da Esteira P2 (headline, avatar, gancho empilhado, fatia de público). Para cada uma a IA escreve a copy (arte + anúncio) e o Gemini 3 Pro Image recria a peça mantendo pessoa e estilo. Roda em segundo plano: devolve batch_id; acompanhe com get_creative_batch. A base pode ser uma variante de teste (test_order_id + ordem) ou uma imagem/referência.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        test_order_id: { type: "string", description: "Usa a variante deste teste como base (com 'ordem')" },
+        ordem: { type: "number" },
+        base_image_url: { type: "string", description: "Arte base (https) se não vier de um teste" },
+        angulo: { type: "string" },
+        hipotese: { type: "string" },
+        oferta: { type: "string" },
+        publico: { type: "string" },
+        marca_topo: { type: "string", description: "Texto fixo no topo da arte (ex.: 'O CÓDIGO DOS CORTES PERFEITOS')" },
+        quantidade: { type: "number", description: "1 a 6 (padrão 2)" },
+        eixos: { type: "array", items: { type: "string", enum: ["headline", "avatar", "gancho", "publico"] } },
+        pedido_por: { type: "string", description: "Nome ou e-mail de quem do time pediu (padrão: primeiro do time)" },
+      },
+      required: ["project_id"],
+    },
+  },
+  {
+    name: "get_creative_batch",
+    description: "Lote da fábrica de criativos: status, quantas artes saíram e, para cada uma, imagem, eixo, headline e texto do anúncio. Artes prontas podem virar variantes de um teste com create_test_order (creative_batch_id).",
+    inputSchema: { type: "object", properties: { batch_id: { type: "string" } }, required: ["batch_id"] },
   },
   {
     name: "get_test_order",
@@ -1203,6 +1231,19 @@ async function loadTestOrder(supabase: Supabase, id: string) {
 async function createTestOrder(supabase: Supabase, args: Record<string, unknown>) {
   const projectId = String(args.project_id ?? "");
   let variantes = Array.isArray(args.variantes) ? (args.variantes as Array<Record<string, unknown>>) : [];
+  if (!variantes.length && args.creative_batch_id) {
+    const { data: assets, error } = await supabase.from("imphq_creative_assets").select("id, angulo, image_url, headline_copy, metadata, reprovado")
+      .eq("batch_id", String(args.creative_batch_id)).order("created_at");
+    if (error) throw error;
+    variantes = (assets ?? []).filter((a) => !a.reprovado && String(a.image_url).startsWith("http")).map((a) => {
+      const meta = (a.metadata && typeof a.metadata === "object" ? a.metadata : {}) as Record<string, unknown>;
+      const copy = (meta.copy && typeof meta.copy === "object" ? meta.copy : {}) as Record<string, unknown>;
+      return {
+        angulo: `${a.angulo}${meta.eixo ? ` · ${meta.eixo}` : ""}`, hipotese: meta.hipotese ?? null, image_url: a.image_url,
+        texto: copy.texto_anuncio ?? null, headline: copy.headline_anuncio ?? a.headline_copy ?? null, creative_asset_id: a.id,
+      };
+    });
+  }
   if (!variantes.length && args.referencias_lote) {
     const { data: refs, error } = await supabase.from("imphq_referencias").select("id, titulo, image_url, tags")
       .eq("project_id", projectId).eq("lote", String(args.referencias_lote)).order("titulo");
@@ -1241,6 +1282,56 @@ async function createTestOrder(supabase: Supabase, args: Record<string, unknown>
   })));
   if (vErr) { await db.from("imphq_test_orders").delete().eq("id", order.id); throw vErr; }
   return { success: true, id: order.id, status: order.status, plano: plan, passos };
+}
+
+async function generateCreativeVariations(supabase: Supabase, args: Record<string, unknown>) {
+  const projectId = String(args.project_id ?? "");
+  let base = args.base_image_url ? String(args.base_image_url) : "";
+  let angulo = args.angulo ? String(args.angulo) : "";
+  let hipotese = args.hipotese ? String(args.hipotese) : null;
+  let oferta = args.oferta ? String(args.oferta) : "";
+  let textoBase: string | null = null;
+  if (args.test_order_id) {
+    const { order, variants } = await loadTestOrder(supabase, String(args.test_order_id));
+    const v = variants.find((x) => x.ordem === num(args.ordem));
+    if (!v) throw new Error(`Variante ${args.ordem} não existe no teste ${order.nome}`);
+    base = base || v.image_url;
+    angulo = angulo || v.angulo;
+    hipotese = hipotese ?? v.hipotese;
+    oferta = oferta || order.oferta;
+    textoBase = v.texto;
+  }
+  if (!base.startsWith("http") || !angulo || !oferta) throw new Error("Informe a base (test_order_id + ordem, ou base_image_url), o ângulo e a oferta.");
+  const team = await loadTeam(supabase);
+  const who = args.pedido_por ? findMember(team, String(args.pedido_por)) : team.find((m) => m.user_id);
+  if (!who?.user_id) throw new Error("Ninguém do time com login para registrar o lote (pedido_por).");
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/creative-factory`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    body: JSON.stringify({
+      action: "variations", user_id: who.user_id, project_id: projectId, base_image_url: base, angulo, hipotese, oferta,
+      publico: args.publico ?? null, marca_topo: args.marca_topo ?? null, texto_base: textoBase,
+      quantidade: num(args.quantidade) || 2, eixos: Array.isArray(args.eixos) ? args.eixos : null,
+    }),
+  });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok || !out?.batch_id) throw new Error(out?.error || `creative-factory respondeu ${res.status}`);
+  return { success: true, batch_id: out.batch_id, quantidade: out.quantidade, base_image_url: base, angulo, pedido_por: who.name, proximo_passo: "Acompanhe com get_creative_batch; cada arte leva de 20 a 60 s." };
+}
+
+async function getCreativeBatch(supabase: Supabase, batchId: string) {
+  const [bRes, aRes] = await Promise.all([
+    supabase.from("imphq_creative_batches").select("id, project_id, nome, status, total_planejado, total_gerado, error_message, briefing, created_at").eq("id", batchId).maybeSingle(),
+    supabase.from("imphq_creative_assets").select("id, angulo, image_url, headline_copy, metadata, reprovado, aprovado, created_at").eq("batch_id", batchId).order("created_at"),
+  ]);
+  if (bRes.error) throw bRes.error;
+  if (aRes.error) throw aRes.error;
+  if (!bRes.data) throw new Error(`Lote '${batchId}' não encontrado`);
+  const artes = (aRes.data ?? []).filter((a) => !a.reprovado && String(a.image_url).startsWith("http")).map((a) => {
+    const meta = (a.metadata && typeof a.metadata === "object" ? a.metadata : {}) as Record<string, unknown>;
+    return { asset_id: a.id, image_url: a.image_url, eixo: meta.eixo ?? null, copy: meta.copy ?? null, headline: a.headline_copy };
+  });
+  return { lote: { ...bRes.data, briefing: undefined }, artes, pronto: ["completed", "failed"].includes(String(bRes.data.status)) };
 }
 
 async function recordTestLaunch(supabase: Supabase, args: Record<string, unknown>) {
@@ -2405,6 +2496,18 @@ Deno.serve(async (req) => {
 
           if (name === "create_test_order") {
             const result = await createTestOrder(supabase, args || {});
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "generate_creative_variations") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const result = await generateCreativeVariations(supabase, args);
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_creative_batch") {
+            if (!args?.batch_id) throw new Error("batch_id é obrigatório");
+            const result = await getCreativeBatch(supabase, String(args.batch_id));
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 
