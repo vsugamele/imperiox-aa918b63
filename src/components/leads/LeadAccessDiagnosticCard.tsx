@@ -380,12 +380,12 @@ export function LeadAccessDiagnosticCard({ lead, projectName, compact = false }:
       </div>
 
       {/* Ações de Comunicação WhatsApp */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-amber-500/20">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             size="sm"
             variant="outline"
-            className="h-8 text-xs border-slate-700 bg-slate-800/90 text-slate-200 hover:bg-slate-700 gap-1.5"
+            className="h-8 text-xs border-slate-700 bg-slate-800/90 text-slate-200 hover:bg-slate-700 gap-1.5 shrink-0"
             onClick={handleCopySupportMessage}
           >
             {copiedMsg ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -394,7 +394,7 @@ export function LeadAccessDiagnosticCard({ lead, projectName, compact = false }:
 
           <Button
             size="sm"
-            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5"
+            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 shrink-0"
             onClick={handleOpenWhatsApp}
           >
             <MessageCircle className="h-3.5 w-3.5" />

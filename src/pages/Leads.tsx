@@ -910,25 +910,37 @@ function LeadsDesktop() {
 
         {/* Edit Lead Dialog - kept inline as it's deeply coupled with state */}
         <Dialog open={!!editLead} onOpenChange={() => setEditLead(null)}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
-            <DialogHeader>
-              <div className="flex items-center justify-between gap-2">
-                <DialogTitle className="text-slate-100 font-bold tracking-tight text-xl">Ficha Detalhada do Lead</DialogTitle>
+          <DialogContent className="max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-950 border-slate-800 text-slate-100 shadow-2xl backdrop-blur-xl">
+            <DialogHeader className="p-5 pb-3 border-b border-slate-800/80 bg-slate-900/60 shrink-0">
+              <div className="flex items-center justify-between gap-3 pr-6">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold text-xs shrink-0">
+                    CRM
+                  </div>
+                  <div className="min-w-0">
+                    <DialogTitle className="text-slate-100 font-bold tracking-tight text-lg leading-tight truncate">
+                      Ficha Detalhada do Lead
+                    </DialogTitle>
+                    <p className="text-[11px] text-slate-400 truncate">
+                      Histórico completo, perfil comportamental, inteligência e automações
+                    </p>
+                  </div>
+                </div>
                 {editLead && (
-                  <Button size="sm" variant="outline" className="h-8 gap-1.5 border-pink-700/50 text-pink-300 hover:bg-pink-900/30" onClick={() => setJourneyLead(editLead)}>
+                  <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1.5 border-pink-700/50 text-pink-300 hover:bg-pink-900/30 shrink-0" onClick={() => setJourneyLead(editLead)}>
                     <Activity className="h-3.5 w-3.5" /> Replay Jornada
                   </Button>
                 )}
               </div>
             </DialogHeader>
             {editLead && (
-              <div className="space-y-4">
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
                 {/* 1. Header Card - Glassmorphism, Redundancy Fix & Stats */}
                 <div className="relative p-4 rounded-xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-md overflow-hidden">
                   {/* Subtle golden background glow */}
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     {/* Left: Avatar & Info */}
                     <div className="flex items-center gap-3.5 min-w-0">
                       <Avatar className="h-12 w-12 border-2 border-slate-700 bg-slate-800 ring-2 ring-primary/20 ring-offset-2 ring-offset-slate-950 shrink-0 shadow-lg">
@@ -959,7 +971,7 @@ function LeadsDesktop() {
                     </div>
 
                     {/* Right: Key Stats / Quick Badges */}
-                    <div className="flex flex-wrap items-center gap-2 md:self-center shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-end shrink-0">
                       {/* Status Badge */}
                       <Badge className={cn("px-2.5 py-0.5 rounded-full font-medium text-[10px] uppercase tracking-wider border shrink-0",
                         editLead.status === "cliente" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
@@ -1169,13 +1181,13 @@ function LeadsDesktop() {
 
                 {/* 2. Main Dialog Tabs */}
                 <Tabs value={editTab} onValueChange={setEditTab} className="space-y-3">
-                  <TabsList className="w-full grid grid-cols-6 h-9 bg-slate-900 border border-slate-800 p-0.5 rounded-lg">
-                    <TabsTrigger value="dados" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Dados</TabsTrigger>
-                    <TabsTrigger value="qualificacao" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Qualificar</TabsTrigger>
-                    <TabsTrigger value="jornada" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Jornada ({timeline.length})</TabsTrigger>
-                    <TabsTrigger value="predicoes" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Predições</TabsTrigger>
-                    <TabsTrigger value="automacoes" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Fluxos</TabsTrigger>
-                    <TabsTrigger value="nutricao" className="text-[11px] data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400">Nutrição</TabsTrigger>
+                  <TabsList className="w-full flex items-center justify-start gap-1.5 h-10 bg-slate-900 border border-slate-800 p-1 rounded-xl overflow-x-auto">
+                    <TabsTrigger value="dados" className="text-xs px-3.5 py-1.5 data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400 font-medium rounded-lg">📋 Dados</TabsTrigger>
+                    <TabsTrigger value="qualificacao" className="text-xs px-3.5 py-1.5 data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400 font-medium rounded-lg">🎯 Qualificar</TabsTrigger>
+                    <TabsTrigger value="jornada" className="text-xs px-3.5 py-1.5 data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400 font-medium rounded-lg">🌐 Jornada ({timeline.length})</TabsTrigger>
+                    <TabsTrigger value="predicoes" className="text-xs px-3.5 py-1.5 data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400 font-medium rounded-lg">🔮 Predições</TabsTrigger>
+                    <TabsTrigger value="automacoes" className="text-xs px-3.5 py-1.5 data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400 font-medium rounded-lg">⚡ Fluxos</TabsTrigger>
+                    <TabsTrigger value="nutricao" className="text-xs px-3.5 py-1.5 data-[state=active]:bg-slate-800 data-[state=active]:text-amber-400 font-medium rounded-lg">🌱 Nutrição</TabsTrigger>
                   </TabsList>
 
                   {/* 3. DADOS TAB CONTENT */}
@@ -1534,9 +1546,16 @@ function LeadsDesktop() {
                 </Tabs>
               </div>
             )}
-            <DialogFooter className="flex justify-between border-t border-slate-800/60 pt-3">
+            <DialogFooter className="px-5 py-3 border-t border-slate-800/80 bg-slate-900/60 flex items-center justify-between shrink-0">
               <Button variant="destructive" size="sm" onClick={() => editLead && setDeleteConfirm(editLead.id)} className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"><Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir Lead</Button>
-              <Button onClick={saveEdit} className="bg-amber-500 text-slate-950 font-bold hover:bg-amber-600">Salvar Alterações</Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setEditLead(null)} className="text-slate-400 hover:text-slate-200">
+                  Fechar
+                </Button>
+                <Button onClick={saveEdit} className="bg-amber-500 text-slate-950 font-bold hover:bg-amber-400">
+                  Salvar Alterações
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

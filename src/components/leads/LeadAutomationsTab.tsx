@@ -386,12 +386,12 @@ export function LeadAutomationsTab({
         </div>
 
         {/* Toggle de Escopo */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0 self-start sm:self-auto">
+        <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 shrink-0">
           <button
             type="button"
             onClick={() => setFilterMode("scoped")}
             className={cn(
-              "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all flex items-center gap-1.5",
+              "px-3 py-1 text-[11px] font-semibold rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
               filterMode === "scoped"
                 ? "bg-amber-500 text-slate-950 shadow-sm"
                 : "text-slate-400 hover:text-slate-200"
@@ -404,7 +404,7 @@ export function LeadAutomationsTab({
             type="button"
             onClick={() => setFilterMode("all")}
             className={cn(
-              "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all flex items-center gap-1.5",
+              "px-3 py-1 text-[11px] font-semibold rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
               filterMode === "all"
                 ? "bg-slate-800 text-slate-100 shadow-sm"
                 : "text-slate-400 hover:text-slate-200"
