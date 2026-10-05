@@ -145,9 +145,22 @@ export default function WhatsApp() {
       .select("id, contact_name, phone, session, project_id, status, message_count, metadata, created_at, provider_id, last_message, updated_at, last_message_at, last_read_at, avatar_url, unread_count, last_message_direction, jid_suffix, ai_last_reply_at, ai_lock_until, ai_paused_until, assigned_to, snoozed_until, handoff_at, color_override")
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
-    setSessions(sRes.data || []);
+    const list = sRes.data || [];
+    setSessions(list);
     setLoading(false);
   }, []);
+
+  // Auto-selecionar primeira conversa ativa se nenhuma selecionada (elimina tela preta vazia)
+  useEffect(() => {
+    if (!selectedSession && sessions.length > 0) {
+      const firstUnread = sessions.find(s => (s.unread_count || 0) > 0);
+      const target = firstUnread || sessions[0];
+      if (target) {
+        setSelectedSession(target);
+        setChatTab("chat");
+      }
+    }
+  }, [sessions, selectedSession]);
 
   const loadReference = useCallback(async () => {
     const now = Date.now();
@@ -791,7 +804,7 @@ export default function WhatsApp() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12 select-none">
+                <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12 select-none bg-background/95 border-l border-border/40">
                   <div className="relative mb-6">
                     <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-500/20 via-primary/10 to-teal-500/20 flex items-center justify-center border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
                       <MessageSquare className="h-10 w-10 text-emerald-400" />

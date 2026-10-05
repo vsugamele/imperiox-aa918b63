@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Search, Plus, Mail, SlidersHorizontal, CheckCircle2, Bot } from "lucide-react";
+import { MessageSquare, Search, Plus, Mail, SlidersHorizontal, CheckCircle2, Bot, User } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,8 +72,6 @@ function slaColor(min: number): string {
   return "bg-red-500/25 text-red-300 border-red-500/50 animate-pulse";
 }
 
-
-
 interface Provider {
   id: string;
   instance_name?: string;
@@ -98,16 +96,25 @@ interface Props {
   onMarkUnread?: (id: string) => void;
 }
 
+function isPhoneLike(text: string | null | undefined): boolean {
+  if (!text) return true;
+  const clean = text.trim();
+  if (clean === "Contato sem nome") return true;
+  const alphaChars = clean.replace(/[^a-zA-ZáéíóúÁÉÍÓÚãõÃÕâêîôûÂÊÎÔÛçÇ]/g, "");
+  return alphaChars.length < 2;
+}
 
-
-function getInitials(name: string | null, phone: string): string {
-  if (name) {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
+function getCleanInitials(name: string | null | undefined): string {
+  if (!name) return "";
+  const cleaned = name.replace(/[^a-zA-ZáéíóúÁÉÍÓÚãõÃÕâêîôûÂÊÎÔÛçÇ\s]/g, "").trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
-  const digits = phone.replace(/\D/g, "");
-  return digits.length >= 2 ? digits.slice(-2) : "WA";
+  if (parts.length === 1 && parts[0].length >= 2) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return parts.length === 1 ? parts[0][0].toUpperCase() : "";
 }
 
 const AVATAR_GRADIENTS = [
@@ -673,18 +680,17 @@ export default function ConversationList({
                   <ContextMenuTrigger asChild>
                 <button
                   onClick={() => onSelect(s)}
-                  className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-l-[3px] border-b border-border/40 ${
+                  className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-b border-border/30 ${
                     isSelected
-                      ? "bg-accent/80 border-l-primary"
+                      ? "bg-accent/90 border-l-[3px] border-l-emerald-500 shadow-xs"
                       : hasUnread
-                        ? "bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08] border-l-emerald-500"
-                        : "bg-transparent hover:bg-muted/40 border-l-transparent"
+                        ? "bg-card/90 hover:bg-muted/50 border-l-[3px] border-l-emerald-400"
+                        : "bg-transparent hover:bg-muted/40 border-l-[3px] border-l-transparent"
                   }`}
-                  style={!isSelected && convColor.hex !== "transparent" ? { borderLeftColor: convColor.hex } : undefined}
                   title={[provLabel ? `Instância: ${provLabel}` : "", convColor.label ? `Status: ${convColor.label}` : ""].filter(Boolean).join(" · ") || undefined}
                 >
                   <div className="relative shrink-0">
-                    <Avatar className={`h-11 w-11 ${hasUnread && !isSelected ? "ring-2 ring-emerald-400/80" : ""}`}>
+                    <Avatar className={`h-11 w-11 ${hasUnread && !isSelected ? "ring-2 ring-emerald-500/70" : ""}`}>
                       {s.avatar_url && (
                         <AvatarImage 
                           src={s.avatar_url} 
@@ -693,12 +699,20 @@ export default function ConversationList({
                           className="object-cover"
                         />
                       )}
-                      <AvatarFallback className={`text-xs font-bold text-white bg-gradient-to-br ${getAvatarGradient(s.id || displayName)}`}>
-                        {displayName === "Contato sem nome" ? "?" : getInitials(displayName, s.phone)}
+                      <AvatarFallback className={`text-xs font-semibold text-white ${
+                        isPhoneLike(displayName)
+                          ? "bg-slate-800 text-emerald-400 border border-emerald-500/20"
+                          : `bg-gradient-to-br ${getAvatarGradient(s.id || displayName)}`
+                      }`}>
+                        {isPhoneLike(displayName) ? (
+                          <User className="h-5 w-5 text-emerald-400" />
+                        ) : (
+                          getCleanInitials(displayName)
+                        )}
                       </AvatarFallback>
                     </Avatar>
                     {hasUnread && !isSelected && (
-                      <span className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-card animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+                      <span className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-card" />
                     )}
                     {provLabel && (
                       <span
@@ -709,16 +723,9 @@ export default function ConversationList({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    {/* Linha 1: Nome + Status dot + Horário */}
+                    {/* Linha 1: Nome + Canal + Horário */}
                     <div className="flex items-center justify-between gap-1.5 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                        {convColor.hex !== "transparent" && (
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0 shadow-xs"
-                            style={{ backgroundColor: convColor.hex }}
-                            title={convColor.label || "Status"}
-                          />
-                        )}
                         <span className={`text-sm truncate ${hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"} ${displayName === "Contato sem nome" ? "italic text-muted-foreground" : ""}`}>
                           {displayName}
                         </span>
@@ -743,7 +750,7 @@ export default function ConversationList({
                       <div className="flex items-center gap-1.5 shrink-0 ml-1">
                         {(() => {
                           const w = waitingMinutes(s);
-                          if (w === null) return null;
+                          if (w === null || w < 10) return null;
                           return (
                             <span
                               className={`text-[9px] font-semibold px-1 py-0 rounded border ${slaColor(w)} leading-tight`}
@@ -753,7 +760,7 @@ export default function ConversationList({
                             </span>
                           );
                         })()}
-                        <span className={`text-[11px] font-mono shrink-0 ${hasUnread ? "text-emerald-400 font-bold" : "text-muted-foreground font-medium"}`}>
+                        <span className={`text-[11px] font-mono shrink-0 ${hasUnread ? "text-emerald-400 font-bold" : "text-muted-foreground"}`}>
                           {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
                         </span>
                       </div>

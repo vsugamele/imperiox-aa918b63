@@ -34,7 +34,7 @@ export function formatCompactTime(dateStr: string | Date | null | undefined): st
   return `${dd}/${mm}/${String(date.getFullYear()).slice(-2)}`;
 }
 
-// Estilo WhatsApp: HH:MM para hoje, "Ontem HH:MM" para ontem, "dd/MM HH:MM" para dias anteriores
+// Estilo WhatsApp: HH:MM para hoje, "Ontem" para ontem, "dd/MM" para dias anteriores no ano
 export function formatMessageTime(dateStr: string | Date | null | undefined): string {
   if (!dateStr) return "";
   const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
@@ -61,10 +61,13 @@ export function formatMessageTime(dateStr: string | Date | null | undefined): st
     date.getFullYear() === yesterday.getFullYear();
 
   if (isYesterday) {
-    return `Ontem ${hh}:${mm}`;
+    return "Ontem";
   }
 
   const dd = String(date.getDate()).padStart(2, "0");
   const mo = String(date.getMonth() + 1).padStart(2, "0");
-  return `${dd}/${mo} ${hh}:${mm}`;
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${dd}/${mo}`;
+  }
+  return `${dd}/${mo}/${String(date.getFullYear()).slice(-2)}`;
 }
