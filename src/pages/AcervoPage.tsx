@@ -35,6 +35,8 @@ import {
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/error-message";
 import { MemoFlowAdGeneratorModal } from "@/components/acervo/MemoFlowAdGeneratorModal";
+import { BookmapsViewer } from "@/components/acervo/BookmapsViewer";
+import { Map as MapIcon } from "lucide-react";
 
 interface KnowledgeRow {
   id: string;
@@ -72,7 +74,7 @@ const PROJECT_OPTIONS = [
 export default function AcervoPage() {
   const navigate = useNavigate();
   const [selectedProject, setSelectedProject] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<string>("playground");
+  const [activeTab, setActiveTab] = useState<string>("bookmaps");
 
   // MemoFlow Ad Generator Modal
   const [showMemoFlowModal, setShowMemoFlowModal] = useState(false);
@@ -471,7 +473,11 @@ export default function AcervoPage() {
 
       {/* ── ABAS PRINCIPAIS ── */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-secondary/60 border border-border p-1 w-full sm:w-auto grid grid-cols-4">
+        <TabsList className="bg-secondary/60 border border-border p-1 w-full sm:w-auto grid grid-cols-2 sm:grid-cols-5 h-auto gap-1">
+          <TabsTrigger value="bookmaps" className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 data-[state=active]:bg-slate-900">
+            <MapIcon className="h-3.5 w-3.5 text-amber-400" />
+            <span>Bookmaps & Regras</span>
+          </TabsTrigger>
           <TabsTrigger value="playground" className="flex items-center gap-1.5 text-xs">
             <Search className="h-3.5 w-3.5" />
             <span>Playground RAG</span>
@@ -482,13 +488,18 @@ export default function AcervoPage() {
           </TabsTrigger>
           <TabsTrigger value="base" className="flex items-center gap-1.5 text-xs">
             <FolderOpen className="h-3.5 w-3.5" />
-            <span>Base de Conhecimento ({knowledgeList.length})</span>
+            <span>Base ({knowledgeList.length})</span>
           </TabsTrigger>
           <TabsTrigger value="treinar" className="flex items-center gap-1.5 text-xs">
             <HelpCircle className="h-3.5 w-3.5" />
             <span>Treinar IA ({unansweredList.length})</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* ── ABA 0: BOOKMAPS & FRAMEWORKS ESTRUTURADOS ── */}
+        <TabsContent value="bookmaps" className="space-y-4">
+          <BookmapsViewer />
+        </TabsContent>
 
         {/* ── ABA 1: PLAYGROUND RAG ── */}
         <TabsContent value="playground" className="space-y-4">
