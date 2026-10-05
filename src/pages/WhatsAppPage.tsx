@@ -671,11 +671,26 @@ export default function WhatsApp() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
-                      <p className="text-[11px] text-muted-foreground">
-                        📞 {selectedSession.phone} · {projectName(selectedSession.project_id)}
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground font-medium shrink-0">
+                          {selectedSession.message_count && selectedSession.message_count > 0 ? `${selectedSession.message_count} msgs` : "1 msg"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 truncate">
+                        <span>📞 {selectedSession.phone}</span>
+                        <span>·</span>
+                        <span>{projectName(selectedSession.project_id)}</span>
+                        {selectedSession.last_message_at && (
+                          <>
+                            <span>·</span>
+                            <span className="text-foreground/80 font-medium">
+                              Última: {new Date(selectedSession.last_message_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </>
+                        )}
                         {selectedProvider && (
-                          <span className="ml-1.5 text-[10px] opacity-70">
+                          <span className="opacity-70">
                             · via {selectedProvider.display_name || (selectedProvider.provider === "evolution" ? selectedProvider.instance_name : selectedProvider.twilio_from)}
                           </span>
                         )}

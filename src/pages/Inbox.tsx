@@ -572,7 +572,7 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex flex-col h-full -m-3 md:-m-6 overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       <Tabs value={active} onValueChange={handleChange} className="flex flex-col h-full min-h-0">
         {/* Header bar + KPI strip + Tabs List */}
         <div className="bg-background/80 backdrop-blur-xl shrink-0 border-b border-border/60">

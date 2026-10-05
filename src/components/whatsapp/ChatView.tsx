@@ -153,29 +153,92 @@ function DownloadBtn({ url, filename, className }: { url: string; filename: stri
   );
 }
 
+function getResolvedMediaUrl(message: Message): string | null {
+  if (message.media_url) return message.media_url;
+  const meta = asRecord(message.metadata);
+  if (typeof meta.media_url === "string" && meta.media_url) return meta.media_url;
+  if (typeof meta.image_url === "string" && meta.image_url) return meta.image_url;
+  if (typeof meta.url === "string" && meta.url) return meta.url;
+  if (typeof meta.base64 === "string" && meta.base64) {
+    const mime = typeof meta.mimetype === "string" ? meta.mimetype : "image/jpeg";
+    return `data:${mime};base64,${meta.base64}`;
+  }
+  return null;
+}
+
+function isGenericImageCaption(text: string | null | undefined): boolean {
+  if (!text) return true;
+  const t = text.trim().toLowerCase();
+  return t === "📷 imagem" || t === "imagem" || t === "[imagem]" || t === "foto" || t === "📷 foto";
+}
+
 // Media renderers
-function MediaContent({ message }: { message: Message }) {
-  const { message_type, media_url, content } = message;
-
-  if (!media_url && message_type === "text") return null;
-  if (!media_url) return null;
-
-  const filename = extractFilename(content, media_url);
+function MediaContent({
+  message,
+  onFetchMedia,
+  isFetchingMedia,
+}: {
+  message: Message;
+  onFetchMedia?: (messageId: string) => void;
+  isFetchingMedia?: boolean;
+}) {
+  const { message_type, content } = message;
+  const media_url = getResolvedMediaUrl(message);
 
   if (message_type === "image") {
+    const filename = extractFilename(content, media_url || "imagem.jpg");
+    if (media_url) {
+      return (
+        <div className="mb-1 relative group">
+          <img
+            src={media_url}
+            alt={filename}
+            className="rounded-lg max-w-full max-h-72 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+            onClick={() => window.open(media_url, "_blank")}
+            loading="lazy"
+          />
+          <DownloadBtn url={media_url} filename={filename} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100" />
+        </div>
+      );
+    }
+
+    // Se é imagem mas ainda não tem URL baixada no banco
     return (
-      <div className="mb-1 relative group">
-        <img
-          src={media_url}
-          alt={filename}
-          className="rounded-lg max-w-full max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-          onClick={() => window.open(media_url, "_blank")}
-          loading="lazy"
-        />
-        <DownloadBtn url={media_url} filename={filename} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100" />
+      <div className="my-1 p-2.5 rounded-lg bg-black/30 border border-emerald-500/30 max-w-xs space-y-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
+          <Image className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>Foto recebida no WhatsApp</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-tight">
+          A imagem ainda não foi salva localmente. Puxe agora direto da instância.
+        </p>
+        {onFetchMedia && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onFetchMedia(message.id)}
+            disabled={isFetchingMedia}
+            className="h-7 w-full text-xs gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/40 font-medium"
+          >
+            {isFetchingMedia ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Puxando imagem...</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-3.5 w-3.5" />
+                <span>Puxar Imagem do WhatsApp</span>
+              </>
+            )}
+          </Button>
+        )}
       </div>
     );
   }
+
+  if (!media_url) return null;
+  const filename = extractFilename(content, media_url);
 
   if (message_type === "audio") {
     return (
@@ -256,6 +319,32 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const [aiConfigState, setAiConfigState] = useState<Tables<"imphq_wa_ai_config"> | null>(null);
     const [dismissedObjectionId, setDismissedObjectionId] = useState<string | null>(null);
     const [sendingVoice, setSendingVoice] = useState(false);
+    const [fetchingMediaMap, setFetchingMediaMap] = useState<Record<string, boolean>>({});
+
+    const handleFetchMedia = useCallback(async (messageId: string) => {
+      setFetchingMediaMap(prev => ({ ...prev, [messageId]: true }));
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-api", {
+          body: {
+            action: "fetch_media",
+            message_id: messageId,
+            provider_id: providerId || undefined,
+          },
+        });
+
+        if (error || !data?.success) {
+          throw new Error(data?.error || error?.message || "Não foi possível puxar a imagem do WhatsApp");
+        }
+
+        const newUrl = data.media_url;
+        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, media_url: newUrl } : m));
+        toast.success("Imagem puxada com sucesso!");
+      } catch (err: unknown) {
+        toast.error("Erro ao puxar imagem: " + errorMessage(err));
+      } finally {
+        setFetchingMediaMap(prev => ({ ...prev, [messageId]: false }));
+      }
+    }, [providerId]);
     const [showIntelPanel, setShowIntelPanel] = useState(() => {
       if (intelPanelOpen !== undefined) return intelPanelOpen;
       const saved = typeof window !== "undefined" ? localStorage.getItem("wa.intelPanelOpen") : null;
@@ -1445,7 +1534,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                             IA
                           </div>
                         )}
-                        <MediaContent message={m} />
+                        <MediaContent
+                          message={m}
+                          onFetchMedia={handleFetchMedia}
+                          isFetchingMedia={!!fetchingMediaMap[m.id]}
+                        />
 
                         {isEditing ? (
                           <div className="space-y-1.5 min-w-[220px]">
@@ -1465,7 +1558,7 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                             </div>
                           </div>
                         ) : (
-                          !(m.media_url && m.message_type === "image" && !m.content?.includes(" ")) && (
+                          (!isGenericImageCaption(m.content) || (m.message_type !== "image" && !getResolvedMediaUrl(m))) && (
                             <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
                           )
                         )}

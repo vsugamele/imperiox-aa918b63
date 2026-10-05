@@ -750,17 +750,17 @@ export default function ConversationList({
                       <div className="flex items-center gap-1.5 shrink-0 ml-1">
                         {(() => {
                           const w = waitingMinutes(s);
-                          if (w === null || w < 10) return null;
+                          if (w === null) return null;
                           return (
                             <span
-                              className={`text-[9px] font-semibold px-1 py-0 rounded border ${slaColor(w)} leading-tight`}
+                              className={`text-[9px] font-semibold px-1 py-0.2 rounded border ${slaColor(w)} leading-tight`}
                               title={`Aguardando resposta há ${formatWaiting(w)}`}
                             >
                               ⏱ {formatWaiting(w)}
                             </span>
                           );
                         })()}
-                        <span className={`text-[11px] font-mono shrink-0 ${hasUnread ? "text-emerald-400 font-bold" : "text-muted-foreground"}`}>
+                        <span className={`text-[11px] font-mono shrink-0 ${hasUnread ? "text-emerald-400 font-bold" : "text-foreground/70 font-medium"}`}>
                           {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
                         </span>
                       </div>
@@ -783,20 +783,18 @@ export default function ConversationList({
                           </span>
                         ) : (
                           <>
-                            {s.message_count > 0 && (
-                              <span
-                                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground shrink-0 group-hover:hidden"
-                                title={`${s.message_count} mensagens no histórico`}
-                              >
-                                {s.message_count} {s.message_count === 1 ? "msg" : "msgs"}
-                              </span>
-                            )}
+                            <span
+                              className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground font-medium shrink-0"
+                              title={`${s.message_count || 1} mensagens no histórico`}
+                            >
+                              {s.message_count && s.message_count > 0 ? `${s.message_count} ${s.message_count === 1 ? "msg" : "msgs"}` : "1 msg"}
+                            </span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onMarkUnread?.(s.id);
                               }}
-                              className="hidden group-hover:flex items-center justify-center p-0.5 rounded text-muted-foreground hover:text-emerald-400 hover:bg-muted transition-all"
+                              className="opacity-0 group-hover:opacity-100 flex items-center justify-center p-0.5 rounded text-muted-foreground hover:text-emerald-400 hover:bg-muted transition-all"
                               title="Marcar como não lida"
                             >
                               <Mail className="h-3.5 w-3.5" />

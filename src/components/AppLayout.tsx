@@ -151,6 +151,7 @@ function CmdKHint() {
 const MOBILE_OVERRIDE_KEY = "imphq_force_desktop";
 
 export function AppLayout() {
+  const location = useLocation();
   const isMobile = useIsMobile();
   const liveLeadCount = useLiveLeadCount();
   const [architectOpen, setArchitectOpen] = useState(false);
@@ -159,6 +160,8 @@ export function AppLayout() {
     const v = localStorage.getItem(SIDEBAR_LS_KEY);
     return v === null ? true : v === "true";
   });
+
+  const isChatRoute = location.pathname.startsWith("/inbox") || location.pathname.startsWith("/whatsapp");
 
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
@@ -215,8 +218,14 @@ export function AppLayout() {
           </header>
           {isMobile && <MobilePushNudge />}
           <main
-            className="flex-1 overflow-auto p-3 md:p-6"
-            style={{ paddingBottom: isMobile ? "calc(72px + env(safe-area-inset-bottom))" : "max(0.75rem, env(safe-area-inset-bottom))" }}
+            className={`flex-1 ${isChatRoute ? "overflow-hidden p-0" : "overflow-auto p-3 md:p-6"}`}
+            style={{
+              paddingBottom: isChatRoute
+                ? 0
+                : isMobile
+                ? "calc(72px + env(safe-area-inset-bottom))"
+                : "max(0.75rem, env(safe-area-inset-bottom))",
+            }}
           >
             <Outlet />
           </main>

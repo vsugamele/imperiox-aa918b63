@@ -720,6 +720,158 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── ACTION: fetch_media ──
+    if (action === "fetch_media") {
+      const body = await req.json();
+      const { message_id, provider_id: reqProviderId } = body;
+      if (!message_id) throw new Error("message_id is required");
+
+      const { data: msg, error: msgErr } = await supabase
+        .from("imphq_wa_messages")
+        .select("id, conversation_id, phone, direction, provider_message_id, media_url, message_type, project_id, metadata, from_me")
+        .eq("id", message_id)
+        .single();
+
+      if (msgErr || !msg) {
+        return new Response(JSON.stringify({ success: false, error: "Mensagem não encontrada" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (msg.media_url) {
+        return new Response(JSON.stringify({ success: true, media_url: msg.media_url }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if metadata already has media_url or base64
+      const meta = record(msg.metadata);
+      const metaUrl = typeof meta.media_url === "string" ? meta.media_url : typeof meta.image_url === "string" ? meta.image_url : typeof meta.url === "string" ? meta.url : null;
+      if (metaUrl) {
+        await supabase.from("imphq_wa_messages").update({ media_url: metaUrl }).eq("id", msg.id);
+        return new Response(JSON.stringify({ success: true, media_url: metaUrl }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Resolve provider
+      let providerId = reqProviderId || null;
+      if (!providerId && msg.conversation_id) {
+        const { data: conv } = await supabase
+          .from("imphq_wa_conversations")
+          .select("provider_id, project_id, phone")
+          .eq("id", msg.conversation_id)
+          .maybeSingle();
+        if (conv?.provider_id) providerId = conv.provider_id;
+      }
+
+      if (!providerId && msg.project_id) {
+        const { data: p } = await supabase
+          .from("imphq_wa_providers")
+          .select("id")
+          .eq("project_id", msg.project_id)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (p) providerId = p.id;
+      }
+
+      if (!providerId) {
+        return new Response(JSON.stringify({ success: false, error: "Provedor do WhatsApp não encontrado para esta mensagem" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const provider = await getProvider(providerId);
+      if (provider.provider !== "evolution") {
+        return new Response(JSON.stringify({ success: false, error: "Download de mídia sob demanda disponível para Evolution API" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const apiBase = provider.api_url.replace(/\/+$/, "");
+      const inst = encodeURIComponent(provider.instance_name);
+      const cleanPhone = (msg.phone || "").replace(/\D/g, "");
+      const isFromMe = msg.direction === "outgoing" || msg.from_me === true;
+
+      const mediaRes = await fetch(`${apiBase}/chat/getBase64FromMediaMessage/${inst}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: provider.api_key },
+        body: JSON.stringify({
+          message: {
+            key: {
+              id: msg.provider_message_id,
+              remoteJid: `${cleanPhone}@s.whatsapp.net`,
+              fromMe: isFromMe,
+            },
+          },
+          convertToMp4: false,
+        }),
+      });
+
+      if (!mediaRes.ok) {
+        const errText = await mediaRes.text().catch(() => "");
+        console.warn(`[fetch_media] Evolution returned ${mediaRes.status}: ${errText}`);
+        return new Response(JSON.stringify({ success: false, error: `Evolution API erro ${mediaRes.status}` }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const mediaData = await mediaRes.json();
+      const base64 = mediaData?.base64 || mediaData?.data;
+      const mimetype = mediaData?.mimetype || "image/jpeg";
+
+      if (!base64) {
+        return new Response(JSON.stringify({ success: false, error: "Mídia não retornou base64 da Evolution API" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const cleanMimetype = mimetype.split(";")[0].trim().toLowerCase();
+      const extMap: Record<string, string> = {
+        "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+        "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+        "video/mp4": "mp4", "application/pdf": "pdf",
+      };
+      const ext = extMap[cleanMimetype] || cleanMimetype.split("/")[1] || "bin";
+      const filePath = `${msg.project_id || "global"}/${msg.conversation_id}/${msg.provider_message_id || msg.id}.${ext}`;
+
+      let finalUrl = `data:${cleanMimetype};base64,${base64}`;
+
+      try {
+        const binaryStr = atob(base64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+        const { error: uploadError } = await supabase.storage
+          .from("whatsapp-media")
+          .upload(filePath, bytes, { contentType: mimetype, upsert: true });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from("whatsapp-media").getPublicUrl(filePath);
+          if (urlData?.publicUrl) finalUrl = urlData.publicUrl;
+        } else {
+          console.warn("[fetch_media] Storage upload warning:", uploadError.message);
+        }
+      } catch (storageErr) {
+        console.warn("[fetch_media] Storage upload catch:", errorMessage(storageErr));
+      }
+
+      // Update message row
+      await supabase
+        .from("imphq_wa_messages")
+        .update({ media_url: finalUrl })
+        .eq("id", msg.id);
+
+      return new Response(JSON.stringify({ success: true, media_url: finalUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── ACTION: fetch_avatars_batch ──
     if (action === "fetch_avatars_batch") {
       const body = await req.json();
