@@ -207,12 +207,16 @@ Deno.serve(async (req) => {
     if (!jwt) {
       return safeError(new Error("missing jwt"), { code: "unauthorized", context: "imperius-executor", cors: corsHeaders });
     }
-    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
-    });
-    const { data: userData, error: userErr } = await authClient.auth.getUser();
-    if (userErr || !userData?.user) {
-      return safeError(userErr || new Error("invalid jwt"), { code: "unauthorized", context: "imperius-executor", cors: corsHeaders });
+    // Chamada interna (project-mcp) com a chave de serviço: o MCP já checou a autonomia e o OK de alguém do time (IA1.1).
+    const internalCall = jwt === SUPABASE_SERVICE_ROLE_KEY;
+    if (!internalCall) {
+      const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${jwt}` } },
+      });
+      const { data: userData, error: userErr } = await authClient.auth.getUser();
+      if (userErr || !userData?.user) {
+        return safeError(userErr || new Error("invalid jwt"), { code: "unauthorized", context: "imperius-executor", cors: corsHeaders });
+      }
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

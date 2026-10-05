@@ -22,6 +22,9 @@ vi.mock("@/hooks/useTodayBoard", () => ({
   useSetStepStatus: () => ({ mutate: vi.fn(), isPending: false }),
   useSetStepAssignment: () => ({ mutate: vi.fn(), isPending: false }),
 }));
+vi.mock("@/hooks/useProjectJournal", () => ({
+  useProjectJournal: () => ({ data: { slimsoda: [{ created_at: "2026-10-05T12:00:00Z", action: "etapa_status", actor: "ia (OK de Bruno Lima) via mcp", entity_name: "Copy da VSL", details: { de: "ready_review", para: "done" } }] } }),
+}));
 vi.mock("@/hooks/useTeamMembers", () => ({
   useTeamMembers: () => ({ data: { members: [{ id: "vini", name: "Vinicius Sugamele" }, { id: "bruno", name: "Bruno" }], me: { id: "vini", name: "Vinicius Sugamele" } } }),
 }));
@@ -66,5 +69,11 @@ describe("Hoje", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Sem dono" }));
     expect(within(screen.getByRole("group", { name: "Esperando você" })).getByText("Comprar domínio")).toBeInTheDocument();
+  });
+
+  it("mostra as últimas mudanças do projeto com quem fez", () => {
+    render(<MemoryRouter><Hoje /></MemoryRouter>);
+    expect(screen.getByText("Copy da VSL: Revisar → Feito")).toBeInTheDocument();
+    expect(screen.getByText("IA · OK de Bruno")).toBeInTheDocument();
   });
 });

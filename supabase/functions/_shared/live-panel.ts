@@ -155,7 +155,7 @@ export function adsSyncHealth(row: AdsSyncHealthRow | null | undefined, now: num
   }
   const stale = !row.meta_ultimo_sync || now - Date.parse(row.meta_ultimo_sync) > STALE_HOURS * 3600000;
   const problemas: string[] = [];
-  if (row.meta_erro_codigo === "190") problemas.push(`Token da Meta expirado${row.meta_ultimo_sync ? ` (último sync ok em ${dm(row.meta_ultimo_sync)})` : ""}: gerar token novo de usuário do sistema no Business Manager.`);
+  if (row.meta_erro_codigo === "190") problemas.push(`Token da Meta expirado${row.meta_ultimo_sync ? ` (último sync ok em ${dm(row.meta_ultimo_sync)})` : ""}: o gasto vem do Zernio ou do MCP de anúncios (decisão de 05/10), não do token direto.`);
   else if (row.meta_status === "error") problemas.push(`Sync da Meta com erro: ${row.meta_erro ?? "sem detalhe"}.`);
   else if (stale) problemas.push(`Sync da Meta parado${row.meta_ultimo_sync ? ` desde ${dm(row.meta_ultimo_sync)}` : ""}.`);
   if (!problemas.length) return { estado: "ok" as const, problemas: [] };

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as maps from "@shared/project-map";
 import * as capabilities from "@shared/capabilities";
 import * as mapOrder from "@shared/map-order";
@@ -13,6 +13,9 @@ import * as todayBoard from "@shared/today-board";
 import * as scaleLadder from "@shared/scale-ladder";
 import * as launchKit from "@shared/launch-kit";
 import * as launchPlan from "@shared/launch-plan";
+import * as approvalRows from "@shared/approval-rows";
+import * as autonomy from "@shared/autonomy";
+import { DECISIONS_BY_SOURCE, decideApproval as applyDecision } from "@shared/approval-decide";
 import { adsSyncHealth } from "@shared/live-panel";
 import { PLAYBOOK_LIBRARY } from "@shared/playbook-library";
 import { checkMcpKey } from "@shared/mcp-auth";
@@ -56,12 +59,14 @@ function runtime(opts: { failInsertOn?: string } = {}) {
   const inserts: Array<{ table: string; values: Row }> = [];
   const deletes: Array<{ table: string; col: string; val: unknown }> = [];
   let seq = 0;
+  const actors: string[] = [];
   const from = (table: string) => {
     const filters: Array<(r: Row) => boolean> = [];
     let patch: Row | null = null;
     const rows = () => (db[table] ?? []).filter((r) => filters.every((f) => f(r)));
     const query = {
-      select: () => query, order: () => query, limit: () => query, or: () => query, in: () => query, not: () => query, gte: () => query, lt: () => query,
+      select: () => query, order: () => query, limit: () => query, or: () => query, not: () => query, gte: () => query, lt: () => query,
+      in: (col: string, vals: unknown[]) => { filters.push((r) => !(col in r) || vals.includes(r[col])); return query; },
       eq: (col: string, val: unknown) => {
         if (patch) { updates.push({ table, values: patch, id: val }); const target = db[table]?.find((r) => r[col] === val); if (target) Object.assign(target, patch); return Promise.resolve({ error: null }); }
         filters.push((r) => !(col in r) || r[col] === val); return query;
@@ -84,7 +89,12 @@ function runtime(opts: { failInsertOn?: string } = {}) {
   };
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, ...launchPlan, adsSyncHealth, checkMcpKey, createClient: () => ({ from }), Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, ...launchPlan, ...approvalRows, ...autonomy, DECISIONS_BY_SOURCE, applyDecision, adsSyncHealth, checkMcpKey,
+    createClient: (_url: string, _key: string, options?: { global?: { headers?: Record<string, string> } }) => {
+      const actor = options?.global?.headers?.["x-imperio-actor"];
+      if (actor) actors.push(actor);
+      return { from };
+    }, Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   const call = async (name: string, args: Row) => {
     const response = await handler!(new Request("https://local.test/project-mcp", {
@@ -95,40 +105,66 @@ function runtime(opts: { failInsertOn?: string } = {}) {
     if (envelope.error) throw new Error(envelope.error.message);
     return JSON.parse(envelope.result!.content[0].text);
   };
-  return { call, updates, db, inserts, deletes };
+  return { call, updates, db, inserts, deletes, actors };
 }
 
 describe("project-mcp approvals and briefing", () => {
-  it("lists the same queue as /aprovar, most urgent first, with what the MCP may decide", async () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("lists the same queue as /aprovar, most urgent first, with what the MCP may decide and what needs an OK", async () => {
     const res = await runtime().call("get_approvals", { project_id: "p" });
     expect(res.total).toBe(4);
     expect(res.itens.map((i: { key: string }) => i.key)).toEqual(["rascunho:d1", "etapa:rev", "acao_ia:a1", "conteudo:c1"]);
-    expect(res.itens.map((i: { decisao_pelo_mcp: string[] }) => i.decisao_pelo_mcp)).toEqual([[], ["approve", "reject"], ["reject"], ["approve", "reject"]]);
+    expect(res.itens.map((i: { decisao_pelo_mcp: string[] }) => i.decisao_pelo_mcp)).toEqual([[], ["approve", "reject"], ["approve", "reject"], ["approve", "reject"]]);
+    expect(res.itens.map((i: { precisa_ok_de_alguem: string[] }) => i.precisa_ok_de_alguem)).toEqual([[], ["approve"], ["approve"], ["approve"]]);
   });
 
-  it("approves a step in review and records the reason in the notes", async () => {
+  it("approves a step in review only with someone's OK, recording the reason and who decided", async () => {
     const app = runtime();
-    const res = await app.call("decide_approval", { key: "etapa:rev", decision: "approve", motivo: "VSL ok" });
-    expect(res.resultado).toBe("Etapa marcada como feita");
-    expect(app.updates[0].values).toMatchObject({ step_status: "done", status_changed_by: "mcp" });
+    await expect(app.call("decide_approval", { key: "etapa:rev", decision: "approve" })).rejects.toThrow(/confirmado_por/);
+    await expect(app.call("decide_approval", { key: "etapa:rev", decision: "approve", confirmado_por: "fulano" })).rejects.toThrow(/confirmado_por/);
+    expect(app.updates).toHaveLength(0);
+    const res = await app.call("decide_approval", { key: "etapa:rev", decision: "approve", motivo: "VSL ok", confirmado_por: "bruno" });
+    expect(res).toMatchObject({ resultado: "Etapa marcada como feita", quem: "ia (OK de Bruno Lima) via mcp" });
+    expect(app.updates[0].values).toMatchObject({ step_status: "done", status_changed_by: "ia (OK de Bruno Lima) via mcp" });
     expect(String(app.updates[0].values.notes)).toContain("[agent_status:done]");
     expect(String(app.updates[0].values.notes)).toContain("VSL ok");
+    expect(app.actors).toContain("ia (OK de Bruno Lima) via mcp");
   });
 
-  it("never executes an AI action nor answers a customer through the MCP", async () => {
+  it("executes an AI action only with an OK, rejects alone, and never answers a customer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
     const app = runtime();
-    await expect(app.call("decide_approval", { key: "acao_ia:a1", decision: "approve" })).rejects.toThrow(/tela \/aprovar/);
+    await expect(app.call("decide_approval", { key: "acao_ia:a1", decision: "approve" })).rejects.toThrow(/OK de alguém do time/);
     await expect(app.call("decide_approval", { key: "rascunho:d1", decision: "approve" })).rejects.toThrow(/rascunhos/);
-    expect(app.updates).toHaveLength(0);
-    const res = await app.call("decide_approval", { key: "acao_ia:a1", decision: "reject" });
-    expect(res.resultado).toBe("Ação da IA reprovada");
-    expect(app.updates[0]).toMatchObject({ table: "imphq_ai_actions", values: { status: "rejected" } });
+    expect(fetchMock).not.toHaveBeenCalled();
+    const done = await app.call("decide_approval", { key: "acao_ia:a1", decision: "approve", confirmado_por: "b@test" });
+    expect(done.resultado).toBe("Ação executada");
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/functions/v1/imperius-executor"), expect.objectContaining({ method: "POST" }));
+
+    const other = runtime();
+    const res = await other.call("decide_approval", { key: "acao_ia:a1", decision: "reject" });
+    expect(res).toMatchObject({ resultado: "Ação rejeitada", quem: "ia (mcp)" });
+    expect(other.updates[0]).toMatchObject({ table: "imphq_ai_actions", values: { status: "rejected" } });
+  });
+
+  it("never registers a pix recovery as sent through the MCP", async () => {
+    const app = runtime();
+    await expect(app.call("decide_approval", { key: "pix_travado:v9", decision: "approve", confirmado_por: "bruno" })).rejects.toThrow(/nunca/);
   });
 
   it("refuses to decide an item that is no longer waiting", async () => {
     const app = runtime();
-    await app.call("decide_approval", { key: "conteudo:c1", decision: "approve" });
+    await app.call("decide_approval", { key: "conteudo:c1", decision: "approve", confirmado_por: "bruno" });
     await expect(app.call("decide_approval", { key: "conteudo:c1", decision: "reject" })).rejects.toThrow(/não está esperando/);
+  });
+
+  it("lists the autonomy levels with the ceiling of each action", async () => {
+    const res = await runtime().call("get_autonomy", {});
+    const pix = res.acoes.find((a: { acao: string }) => a.acao === "pix_travado:approve");
+    expect(pix).toMatchObject({ nivel: "nunca", teto: "nunca" });
+    expect(res.acoes.find((a: { acao: string }) => a.acao === "step:assign")).toMatchObject({ nivel: "auto" });
   });
 
   it("returns the project briefing in one call", async () => {
@@ -139,6 +175,8 @@ describe("project-mcp approvals and briefing", () => {
     expect(res.etapas.atrasadas).toBe(1);
     expect(res.etapas.esperando_o_time[0].etapa).toBe("Gravar anúncio");
     expect(res.aprovacoes.total).toBe(4);
+    expect(res.alertas[0]).toMatchObject({ nivel: "critico" });
+    expect(res.diario).toEqual([]);
   });
 
   it("returns saved scale rounds and the accumulated hypothesis board, latest result first", async () => {

@@ -75,7 +75,7 @@ describe("saúde do sync de anúncios", () => {
   it("token expirado da Meta vira instrução, com o último dia de gasto", () => {
     const h = adsSyncHealth({ meta_configurado: true, meta_status: "error", meta_erro_codigo: "190", meta_ultimo_sync: "2026-06-26T17:30:08Z", ultimo_dia_com_gasto: "2026-07-16" }, now);
     expect(h).toEqual({ estado: "erro", problemas: [
-      "Token da Meta expirado (último sync ok em 26/06): gerar token novo de usuário do sistema no Business Manager.",
+      "Token da Meta expirado (último sync ok em 26/06): o gasto vem do Zernio ou do MCP de anúncios (decisão de 05/10), não do token direto.",
       "Último dia com gasto registrado: 16/07.",
     ] });
   });

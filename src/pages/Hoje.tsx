@@ -14,6 +14,8 @@ import type { MapGap } from "@shared/project-map";
 import { filterBoardByOwner, formatMoney, mapLink, type BoardStep, type OwnerFilter, type ProjectBoard } from "@/lib/today-board";
 import { useSetStepAssignment, useSetStepStatus, useTodayBoard } from "@/hooks/useTodayBoard";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useProjectJournal } from "@/hooks/useProjectJournal";
+import { journalActor, journalText, type JournalRow } from "@shared/journal";
 import { useCompanyMap } from "@/hooks/useCompanyMap";
 import { Stat } from "@/components/mapa/Stat";
 import { PageSkeleton } from "@/components/PageSkeleton";
@@ -59,6 +61,7 @@ export default function Hoje() {
   // Filtro salvo de alguém que saiu do time volta para "todos".
   const activeFilter: OwnerFilter = !team || ownerFilter === "todos" || ownerFilter === "sem_dono" || members.some((m) => m.id === ownerFilter) ? ownerFilter : "todos";
   const shown = useMemo(() => boards.map((b) => filterBoardByOwner(b, activeFilter)), [boards, activeFilter]);
+  const { data: journal } = useProjectJournal(boards.map((b) => b.projectId));
 
   const criticalByProject = useMemo(() => {
     const result: Record<string, MapGap[]> = {};
@@ -133,14 +136,14 @@ export default function Hoje() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {shown.map((board) => (
-          <ProjectCard key={board.projectId} board={board} critical={criticalByProject[board.projectId] ?? []} members={members} />
+          <ProjectCard key={board.projectId} board={board} critical={criticalByProject[board.projectId] ?? []} members={members} journal={journal?.[board.projectId] ?? []} />
         ))}
       </div>
     </div>
   );
 }
 
-function ProjectCard({ board, critical, members }: { board: ProjectBoard; critical: MapGap[]; members: TeamMember[] }) {
+function ProjectCard({ board, critical, members, journal }: { board: ProjectBoard; critical: MapGap[]; members: TeamMember[]; journal: JournalRow[] }) {
   const pct = board.total ? Math.round((board.done / board.total) * 100) : 0;
   const money = Object.entries(board.salesToday.byCurrency).map(([cur, v]) => formatMoney(v, cur)).join(" + ");
 
@@ -186,6 +189,7 @@ function ProjectCard({ board, critical, members }: { board: ProjectBoard; critic
       <StepGroup title="Esperando você" icon={User} steps={board.waitingYou} members={members} empty="Nada pendente com o time." />
       <StepGroup title="IA pode executar" icon={Bot} steps={board.aiReady} members={members} empty="Nenhuma etapa de IA pendente." canCopy />
       <StepGroup title="Em andamento" icon={Loader2} steps={board.inProgress} members={members} empty={null} />
+      <JournalList rows={journal} />
     </section>
   );
 }
@@ -331,5 +335,27 @@ function StepRow({ step, canCopy, members }: { step: BoardStep; canCopy?: boolea
         </DropdownMenu>
       </div>
     </motion.li>
+  );
+}
+
+function JournalList({ rows }: { rows: JournalRow[] }) {
+  if (!rows.length) return null;
+  return (
+    <details className="group rounded-md border border-border" aria-label="Últimas mudanças">
+      <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium uppercase tracking-wider text-subtle">
+        Últimas mudanças <span className="font-mono text-muted-foreground">{rows.length}</span>
+      </summary>
+      <ul className="divide-y divide-border border-t border-border">
+        {rows.slice(0, 8).map((r, i) => (
+          <li key={`${r.created_at}-${i}`} className="flex items-baseline gap-2 px-3 py-1.5 text-xs">
+            <span className="shrink-0 font-mono text-muted-foreground">
+              {r.created_at ? new Date(r.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-foreground" title={journalText(r)}>{journalText(r)}</span>
+            <span className="shrink-0 text-muted-foreground">{journalActor(r.actor)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

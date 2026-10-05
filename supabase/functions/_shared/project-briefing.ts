@@ -4,6 +4,8 @@
 import { SOURCE_LABEL, waitingFor, type ApprovalItem, type ApprovalSource } from "./approval-queue.ts";
 import { DUE_LABEL, type TeamMember } from "./map-steps.ts";
 import { mapLink, type BoardStep, type ProjectBoard } from "./today-board.ts";
+import { DECISIONS_BY_SOURCE, type ApprovalDecision } from "./approval-decide.ts";
+import { effectiveAutonomy } from "./autonomy.ts";
 
 const LIST_LIMIT = 5;
 
@@ -34,12 +36,18 @@ export function approvalCounts(items: ReadonlyArray<ApprovalItem>): Partial<Reco
 }
 
 /**
- * O que o MCP pode decidir. Aprovar ação da IA executa mudança real (anúncio, orçamento) e exige login de alguém
- * do time no imperius-executor: pelo MCP só dá para reprovar. Rascunho envia mensagem ao cliente: só na tela.
+ * O que o MCP pode decidir, pelos níveis de autonomia (_shared/autonomy.ts): tudo que não é "nunca".
+ * As de nível "aprovar" exigem confirmado_por (alguém do time) no decide_approval.
+ * Resposta para cliente envia mensagem: só na tela /rascunhos.
  */
-export function mcpDecisions(item: Pick<ApprovalItem, "source" | "inline">): Array<"approve" | "reject"> {
-  if (!item.inline || item.source === "rascunho") return [];
-  return item.source === "acao_ia" ? ["reject"] : ["approve", "reject"];
+export function mcpDecisions(item: Pick<ApprovalItem, "source" | "inline">): ApprovalDecision[] {
+  if (!item.inline) return [];
+  return DECISIONS_BY_SOURCE[item.source].filter((d) => effectiveAutonomy(`${item.source}:${d}`) !== "nunca");
+}
+
+/** Decisões que precisam do OK de alguém do time quando a IA executa. */
+export function decisionsNeedingOk(item: Pick<ApprovalItem, "source" | "inline">): ApprovalDecision[] {
+  return mcpDecisions(item).filter((d) => effectiveAutonomy(`${item.source}:${d}`) === "aprovar");
 }
 
 /** Item da fila no formato das respostas do MCP. `key` é o que decide_approval recebe. */
@@ -54,8 +62,47 @@ export function approvalLine(item: ApprovalItem, now: number = Date.now()) {
     risco: item.risk,
     impacto_brl: item.impactBrl,
     decisao_pelo_mcp: mcpDecisions(item),
+    precisa_ok_de_alguem: decisionsNeedingOk(item),
     link: item.link,
   };
+}
+
+export interface JournalEntry { created_at: string; action: string; actor: string | null; entity_name: string | null; details: unknown }
+export interface PaymentPulse { plataforma: string; ultima: string; total_90d: number }
+export interface AdsHealthSummary { estado: string; problemas: string[] }
+
+export interface BriefingAlert { nivel: "critico" | "atencao"; texto: string }
+
+const DAY_MS = 86_400_000;
+
+/** Alertas que pedem ação: prazo vencido, decisão parada, aviso de pagamento sumido, sync de anúncios com problema. */
+export function briefingAlerts(input: {
+  board: ProjectBoard | null;
+  approvals: ReadonlyArray<ApprovalItem>;
+  payments?: ReadonlyArray<PaymentPulse>;
+  ads?: AdsHealthSummary | null;
+  now?: number;
+}): BriefingAlert[] {
+  const now = input.now ?? Date.now();
+  const alerts: BriefingAlert[] = [];
+  const b = input.board;
+  if (b) {
+    const late = [...b.review, ...b.toConfirm, ...b.waitingYou, ...b.aiReady, ...b.inProgress].filter((s) => s.dueState === "atrasada");
+    if (late.length) alerts.push({ nivel: "critico", texto: `${late.length} etapa(s) com prazo vencido: ${late.slice(0, 3).map((s) => s.label).join(", ")}` });
+  }
+  const waiting = input.approvals.filter((a) => now - Date.parse(a.createdAt) > DAY_MS);
+  if (waiting.length) alerts.push({ nivel: "atencao", texto: `${waiting.length} decisão(ões) esperando há mais de 24 h na fila Aprovar` });
+  for (const p of input.payments ?? []) {
+    const days = Math.floor((now - Date.parse(p.ultima)) / DAY_MS);
+    // Fonte com ~1 aviso/dia que some 3+ dias: pode ser falta de venda ou postback desligado.
+    if (p.total_90d >= 30 && days >= 3) {
+      alerts.push({ nivel: "atencao", texto: `${p.plataforma}: nenhum aviso de pagamento há ${days} dias (média ${Math.round((p.total_90d / 90) * 10) / 10}/dia). Conferir se é falta de venda ou postback.` });
+    }
+  }
+  if (input.ads && input.ads.estado !== "ok" && input.ads.estado !== "sem_config") {
+    alerts.push({ nivel: "atencao", texto: `Anúncios: ${input.ads.problemas.join(" ")}` });
+  }
+  return alerts;
 }
 
 export function buildProjectBriefing(input: {
@@ -64,6 +111,9 @@ export function buildProjectBriefing(input: {
   approvals: ReadonlyArray<ApprovalItem>;
   team: ReadonlyArray<TeamMember>;
   numbers: BriefingNumbers;
+  journal?: ReadonlyArray<JournalEntry>;
+  payments?: ReadonlyArray<PaymentPulse>;
+  ads?: AdsHealthSummary | null;
   now?: number;
 }) {
   const { board, team } = input;
@@ -74,6 +124,7 @@ export function buildProjectBriefing(input: {
 
   return {
     projeto: input.project,
+    alertas: briefingAlerts({ board, approvals: input.approvals, payments: input.payments, ads: input.ads, now }),
     hoje: {
       vendas: board?.salesToday.count ?? 0,
       faturamento: board?.salesToday.byCurrency ?? {},
@@ -98,6 +149,8 @@ export function buildProjectBriefing(input: {
       por_origem: approvalCounts(input.approvals),
       primeiras: input.approvals.slice(0, LIST_LIMIT).map((a) => approvalLine(a, now)),
     },
+    fontes: { avisos_de_pagamento: input.payments ?? [], anuncios: input.ads ?? null },
+    diario: (input.journal ?? []).slice(0, 10).map((j) => ({ quando: j.created_at, acao: j.action, quem: j.actor, o_que: j.entity_name, detalhes: j.details })),
     observacao: board ? null : "Projeto sem mapa de operação dedicado: só números e aprovações.",
   };
 }

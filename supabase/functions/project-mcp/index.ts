@@ -11,7 +11,10 @@ import { orderSteps } from "../_shared/map-order.ts";
 import { FAMILY_LABEL, planPlaybook } from "../_shared/playbooks.ts";
 import { findProjectMap, playbookFromRows, writePlaybookPlan, type PlaybookRow, type PlaybookStepRow } from "../_shared/playbook-apply.ts";
 import { buildApprovalQueue, SOURCE_LABEL, type AiActionRow, type ApprovalItem, type ApprovalSource, type ContentRow, type DraftRow, type ReviewStepRow } from "../_shared/approval-queue.ts";
-import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions } from "../_shared/project-briefing.ts";
+import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions, type JournalEntry, type PaymentPulse } from "../_shared/project-briefing.ts";
+import { knowledgeGapRows, pixRowsFromSales, splitAdsActions, type KnowledgeRow, type PendingSaleRow, type RawAction } from "../_shared/approval-rows.ts";
+import { decideApproval as applyDecision, DECISIONS_BY_SOURCE, type ApprovalDecision, type ApprovalStore } from "../_shared/approval-decide.ts";
+import { AUTONOMY_LABEL, AUTONOMY_RULES, checkAutonomy, effectiveAutonomy } from "../_shared/autonomy.ts";
 import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
 import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
@@ -800,7 +803,7 @@ const MCP_TOOLS = [
   },
   {
     name: "get_approvals",
-    description: "Fila única 'Aprovar' (mesma da tela /aprovar): etapas para revisar, ações propostas pela IA, conteúdo pronto e respostas da IA para clientes. Mais urgente primeiro. Cada item traz a 'key' usada em decide_approval e o que o MCP pode decidir.",
+    description: "Fila única 'Aprovar' (mesma da tela /aprovar): pix travados, semáforo de anúncios, dúvidas do bot, respostas da IA para clientes, etapas para revisar, ações propostas pela IA e conteúdo pronto. Mais urgente primeiro. Cada item traz a 'key' de decide_approval, as decisões possíveis pelo MCP e quais precisam do OK de alguém do time.",
     inputSchema: {
       type: "object",
       properties: {
@@ -811,15 +814,35 @@ const MCP_TOOLS = [
   },
   {
     name: "decide_approval",
-    description: "Aprova ou reprova um item da fila 'Aprovar'. Etapa: aprovar = feita, reprovar = volta para em andamento. Conteúdo: aprovado/reprovado. Ação da IA: só reprovar (aprovar executa mudança real e é feito na tela). Resposta para cliente: só na tela /rascunhos.",
+    description: "Decide um item da fila 'Aprovar' dentro dos níveis de autonomia (veja get_autonomy). Decisões 'auto' a IA faz sozinha; as de nível 'aprovar' (executar ação, pausar/escalar anúncio, marcar pix pago, aprovar resposta do bot ou conteúdo, marcar etapa feita) só com confirmado_por = alguém do time que deu o OK nesta conversa. Nunca: registrar recuperação de pix e responder cliente (feitos na tela). Tudo vai para o diário do projeto com quem decidiu.",
     inputSchema: {
       type: "object",
       properties: {
-        key: { type: "string", description: "Chave do item vinda de get_approvals (ex.: 'etapa:<id>', 'conteudo:<id>', 'acao_ia:<id>')" },
-        decision: { type: "string", enum: ["approve", "reject"], description: "approve ou reject" },
-        motivo: { type: "string", description: "Motivo (opcional; vai para as notas da etapa)" },
+        key: { type: "string", description: "Chave do item vinda de get_approvals (ex.: 'etapa:<id>', 'acao_ia:<id>', 'pix_travado:<id>')" },
+        decision: { type: "string", enum: ["approve", "reject", "mark_paid"], description: "approve, reject ou mark_paid (só pix)" },
+        confirmado_por: { type: "string", description: "Nome ou e-mail de quem do time autorizou (obrigatório nas decisões de nível 'aprovar')" },
+        motivo: { type: "string", description: "Motivo (opcional; vai para as notas da etapa e para o diário)" },
+        resposta: { type: "string", description: "Dúvidas do bot: resposta a gravar no acervo (opcional; padrão = sugestão atual)" },
       },
       required: ["key", "decision"],
+    },
+  },
+  {
+    name: "get_autonomy",
+    description: "Níveis de autonomia da IA: o que ela faz sozinha, o que precisa do OK de alguém do time e o que nunca faz, com o motivo. Consulte antes de executar qualquer coisa que mude algo fora do sistema.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_journal",
+    description: "Diário do projeto: o que mudou e quem fez (pessoa, IA com o OK de quem, ou automação) — etapas (status, responsável, prazo), ações da IA, vendas aprovadas, estratégias aplicadas, conteúdo e respostas do bot aprovados. Mais recente primeiro.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "ID do projeto" },
+        dias: { type: "number", description: "Janela em dias (padrão 7, máx. 90)" },
+        limit: { type: "number", description: "Máximo de linhas (padrão 50, máx. 300)" },
+      },
+      required: ["project_id"],
     },
   },
   {
@@ -912,15 +935,16 @@ const MCP_TOOLS = [
   },
 ];
 
-/** Fila "Aprovar" com as mesmas consultas do hook useApprovals (tela /aprovar). */
+/** Fila "Aprovar" com as mesmas origens e regras da tela /aprovar (useApprovals), mais as etapas para revisar. */
 async function loadApprovals(supabase: Supabase, projectId?: string | null): Promise<ApprovalItem[]> {
-  const [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes] = await Promise.all([
+  const cutoff48h = new Date(Date.now() - 48 * 3600000).toISOString();
+  const [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes, salesRes, knowledgeRes] = await Promise.all([
     supabase.from("imphq_company_map_nodes")
       .select("id, map_id, label, description, linked_project_id, status_changed_at, updated_at, image_url")
       .eq("step_status", "ready_review"),
     supabase.from("imphq_ai_actions")
-      .select("id, kind, title, reason, risk_level, impact_brl, projeto_id, created_at")
-      .eq("status", "proposed").order("created_at").limit(100),
+      .select("id, kind, title, reason, risk_level, impact_brl, projeto_id, created_at, source, payload")
+      .eq("status", "proposed").order("created_at", { ascending: false }).limit(100),
     supabase.from("imphq_content_items")
       .select("id, project_id, title, hook, cover_url, media_url, batch, updated_at, created_at")
       .eq("status", "pronto").limit(100),
@@ -928,62 +952,154 @@ async function loadApprovals(supabase: Supabase, projectId?: string | null): Pro
       .select("id, project_id, contact_name, incoming_text, suggested_text, created_at")
       .eq("status", "pending").limit(100),
     supabase.from("imphq_company_maps").select("id").not("archived_at", "is", null),
+    supabase.from("imphq_vendas")
+      .select("id, lead_id, project_id, valor, produto_nome, data, nome, created_at")
+      .in("status", ["aguardando_pagamento", "pix_gerado", "pendente"]).gte("created_at", cutoff48h)
+      .order("created_at", { ascending: false }).limit(30),
+    supabase.from("imphq_wa_knowledge")
+      .select("id, project_id, pergunta, resposta, source, created_at")
+      .or("aprovada.eq.false,answered.eq.false").order("created_at", { ascending: false }).limit(30),
   ]);
   for (const res of [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes]) if (res.error) throw res.error;
   const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
+  const sales = (salesRes.data ?? []) as PendingSaleRow[];
+  const leadIds = sales.map((v) => v.lead_id).filter((v): v is string => !!v);
+  const leads: Record<string, { nome?: string | null; phone?: string | null }> = {};
+  if (leadIds.length) {
+    const { data: rows } = await supabase.from("imphq_leads").select("id, nome, phone").in("id", leadIds.slice(0, 50));
+    for (const l of rows ?? []) leads[l.id] = { nome: l.nome, phone: l.phone };
+  }
+  const { semaforo, generic } = splitAdsActions((actionsRes.data ?? []) as RawAction[]);
   const items = buildApprovalQueue({
     steps: ((stepsRes.data ?? []) as ReviewStepRow[]).filter((s) => !archived.has(s.map_id)),
-    actions: (actionsRes.data ?? []) as AiActionRow[],
+    actions: generic,
     contents: (contentsRes.data ?? []) as ContentRow[],
     drafts: (draftsRes.data ?? []) as DraftRow[],
+    pix: pixRowsFromSales(sales, leads),
+    semaforo,
+    knowledge: knowledgeGapRows((knowledgeRes.data ?? []) as KnowledgeRow[]),
   });
   return projectId ? items.filter((i) => i.projectId === projectId) : items;
 }
 
-/** Decide um item da fila com a mesma ação da tela /aprovar (useDecideApproval), nos limites de mcpDecisions. */
-async function decideApproval(supabase: Supabase, key: string, decision: "approve" | "reject", motivo?: string) {
+/** Diário do projeto (imphq_activity_log, preenchido por gatilhos): mais recente primeiro. */
+async function loadJournal(supabase: Supabase, projectId: string, days: number, limit: number): Promise<JournalEntry[]> {
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const { data, error } = await supabase.from("imphq_activity_log")
+    .select("created_at, action, actor, entity_name, details")
+    .eq("project_id", projectId).gte("created_at", since).order("created_at", { ascending: false }).limit(limit);
+  if (error) throw error;
+  return (data ?? []) as JournalEntry[];
+}
+
+/** Último aviso de pagamento por plataforma nos últimos 90 dias. */
+async function loadPaymentPulse(supabase: Supabase, projectId: string): Promise<PaymentPulse[]> {
+  const since = new Date(Date.now() - 90 * 86400000).toISOString();
+  const { data, error } = await supabase.from("imphq_webhooks").select("plataforma, created_at")
+    .eq("project_id", projectId).gte("created_at", since).order("created_at", { ascending: false }).limit(5000);
+  if (error) throw error;
+  const by = new Map<string, PaymentPulse>();
+  for (const w of data ?? []) {
+    const k = w.plataforma || "?";
+    const cur = by.get(k);
+    if (cur) cur.total_90d++;
+    else by.set(k, { plataforma: k, ultima: w.created_at, total_90d: 1 });
+  }
+  return [...by.values()];
+}
+
+/** Ajustes de autonomia gravados no banco (imphq_ai_policy, scope 'mcp'). */
+async function loadAutonomyOverrides(supabase: Supabase): Promise<Map<string, string>> {
+  const { data, error } = await supabase.from("imphq_ai_policy").select("kind, autonomy").eq("scope", "mcp").not("autonomy", "is", null);
+  if (error) console.error("imphq_ai_policy", error.message);
+  return new Map((data ?? []).map((r) => [String(r.kind), String(r.autonomy)]));
+}
+
+/**
+ * Decide um item da fila com a regra compartilhada (_shared/approval-decide.ts), dentro dos níveis de autonomia:
+ * "auto" a IA decide; "aprovar" exige confirmado_por (alguém do time, vai para o diário); "nunca" bloqueia.
+ * As escritas levam o cabeçalho x-imperio-actor, então o diário registra quem decidiu.
+ */
+async function decideApproval(supabase: Supabase, key: string, decision: ApprovalDecision, opts: { motivo?: string; confirmadoPor?: string; resposta?: string } = {}) {
   const [source, ...rest] = key.split(":");
   const itemId = rest.join(":");
   if (!itemId || !(source in SOURCE_LABEL)) throw new Error(`key inválida: '${key}'. Use a key de get_approvals.`);
-  const allowed = mcpDecisions({ source: source as ApprovalSource, inline: source !== "rascunho" });
-  if (!allowed.includes(decision)) {
-    throw new Error(source === "acao_ia"
-      ? "Aprovar ação da IA executa uma mudança real: aprove na tela /aprovar. Pelo MCP só dá para reprovar."
-      : "Resposta para cliente é decidida na tela /rascunhos.");
+  const src = source as ApprovalSource;
+  if (!DECISIONS_BY_SOURCE[src].includes(decision)) {
+    throw new Error(src === "rascunho" ? "Resposta para cliente é decidida na tela /rascunhos." : `Para ${SOURCE_LABEL[src]} use: ${DECISIONS_BY_SOURCE[src].join(", ")}.`);
   }
+  const ruleKey = `${src}:${decision}`;
+  const [overrides, team] = await Promise.all([loadAutonomyOverrides(supabase), loadTeam(supabase)]);
+  const check = checkAutonomy(ruleKey, overrides.get(ruleKey), opts.confirmadoPor, team);
+  if (!check.ok) throw new Error(check.reason);
+  const actor = check.actor === "ia" ? "ia (mcp)" : `${check.actor} via mcp`;
+  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { global: { headers: { "x-imperio-actor": actor } } });
   const now = new Date().toISOString();
+  const must = async (p: PromiseLike<{ error: unknown }>) => { const { error } = await p; if (error) throw error; };
 
-  if (source === "etapa") {
-    const { data: node, error } = await supabase.from("imphq_company_map_nodes").select("label, notes, step_status").eq("id", itemId).single();
-    if (error || !node) throw new Error(`Etapa '${itemId}' não encontrada`);
+  // O item ainda está esperando? (e o título para a resposta)
+  let titulo = "";
+  let metadata: { recoveryLevel?: number; suggestedAnswer?: string } = {};
+  if (src === "etapa") {
+    const { data: node } = await db.from("imphq_company_map_nodes").select("label, step_status").eq("id", itemId).maybeSingle();
+    if (!node) throw new Error(`Etapa '${itemId}' não encontrada`);
     if (node.step_status !== "ready_review") throw new Error(`A etapa '${node.label}' não está esperando revisão (status: ${node.step_status ?? "pending"}).`);
-    const status = decision === "approve" ? "done" : "in_progress";
-    let notes = writeAgentNotes(node.notes, { status });
-    if (motivo) notes = `${notes}\n\n${decision === "approve" ? "Aprovada" : "Reprovada"} pelo MCP: ${motivo}`;
-    const { error: upd } = await supabase.from("imphq_company_map_nodes")
-      .update({ step_status: status, status_changed_at: now, status_changed_by: "mcp", notes }).eq("id", itemId);
-    if (upd) throw upd;
-    return { key, titulo: node.label, resultado: status === "done" ? "Etapa marcada como feita" : "Etapa voltou para em andamento" };
-  }
-
-  if (source === "conteudo") {
-    const { data: item, error } = await supabase.from("imphq_content_items").select("title, status").eq("id", itemId).single();
-    if (error || !item) throw new Error(`Conteúdo '${itemId}' não encontrado`);
+    titulo = node.label;
+  } else if (src === "conteudo") {
+    const { data: item } = await db.from("imphq_content_items").select("title, status").eq("id", itemId).maybeSingle();
+    if (!item) throw new Error(`Conteúdo '${itemId}' não encontrado`);
     if (item.status !== "pronto") throw new Error(`Este conteúdo não está esperando aprovação (status: ${item.status}).`);
-    const { error: upd } = await supabase.from("imphq_content_items")
-      .update(decision === "approve" ? { status: "aprovado", approved_at: now, updated_at: now } : { status: "reprovado", updated_at: now })
-      .eq("id", itemId);
-    if (upd) throw upd;
-    return { key, titulo: item.title, resultado: decision === "approve" ? "Conteúdo aprovado" : "Conteúdo reprovado" };
+    titulo = item.title;
+  } else if (src === "acao_ia" || src === "semaforo_ads") {
+    const { data: action } = await db.from("imphq_ai_actions").select("title, status").eq("id", itemId).maybeSingle();
+    if (!action) throw new Error(`Ação '${itemId}' não encontrada`);
+    if (action.status !== "proposed") throw new Error(`Esta ação não está proposta (status: ${action.status}).`);
+    titulo = action.title;
+  } else if (src === "pix_travado") {
+    const { data: sale } = await db.from("imphq_vendas").select("produto_nome, nome, status, created_at").eq("id", itemId).maybeSingle();
+    if (!sale) throw new Error(`Venda '${itemId}' não encontrada`);
+    if (!["aguardando_pagamento", "pix_gerado", "pendente"].includes(String(sale.status))) throw new Error(`Esta venda não está com pix pendente (status: ${sale.status}).`);
+    titulo = `${sale.nome || "Cliente"} · ${sale.produto_nome || "pedido"}`;
+    const ageMin = (Date.now() - Date.parse(sale.created_at)) / 60000;
+    metadata = { recoveryLevel: ageMin < 120 ? 1 : ageMin < 1440 ? 2 : 3 };
+  } else if (src === "duvida_bot") {
+    const { data: k } = await db.from("imphq_wa_knowledge").select("pergunta, resposta, aprovada, answered").eq("id", itemId).maybeSingle();
+    if (!k) throw new Error(`Dúvida '${itemId}' não encontrada`);
+    if (k.aprovada && k.answered) throw new Error("Esta dúvida já foi decidida.");
+    if (decision === "approve" && !(opts.resposta ?? k.resposta ?? "").trim()) throw new Error("Informe a resposta para o acervo (campo resposta).");
+    titulo = k.pergunta ?? "";
+    metadata = { suggestedAnswer: k.resposta ?? undefined };
   }
 
-  // acao_ia, só reprovar
-  const { data: action, error } = await supabase.from("imphq_ai_actions").select("title, status").eq("id", itemId).single();
-  if (error || !action) throw new Error(`Ação '${itemId}' não encontrada`);
-  if (action.status !== "proposed") throw new Error(`Esta ação não está proposta (status: ${action.status}).`);
-  const { error: upd } = await supabase.from("imphq_ai_actions").update({ status: "rejected" }).eq("id", itemId);
-  if (upd) throw upd;
-  return { key, titulo: action.title, resultado: "Ação da IA reprovada" };
+  const store: ApprovalStore = {
+    async getSaleData(id) {
+      const { data } = await db.from("imphq_vendas").select("data").eq("id", id).maybeSingle();
+      return data?.data && typeof data.data === "object" && !Array.isArray(data.data) ? data.data as Record<string, unknown> : {};
+    },
+    updateSale: (id, patch) => must(db.from("imphq_vendas").update(patch).eq("id", id)),
+    updateAiAction: (id, patch) => must(db.from("imphq_ai_actions").update(patch).eq("id", id)),
+    async executeAiAction(id) {
+      // Chamada interna com a chave de serviço (o executor aceita além do login de alguém do time).
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/imperius-executor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "x-imperio-actor": actor },
+        body: JSON.stringify({ action_id: id, mode: "execute" }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || !out?.ok) throw new Error(out?.error || out?.message || `imperius-executor respondeu ${res.status}`);
+    },
+    updateKnowledge: (id, patch) => must(db.from("imphq_wa_knowledge").update(patch).eq("id", id)),
+    async setStepStatus(id, status) {
+      const { data: node } = await db.from("imphq_company_map_nodes").select("notes").eq("id", id).single();
+      let notes = writeAgentNotes(node?.notes, { status });
+      if (opts.motivo) notes = `${notes}\n\n${status === "done" ? "Aprovada" : "Devolvida"} pelo MCP (${actor}): ${opts.motivo}`;
+      await must(db.from("imphq_company_map_nodes").update({ step_status: status, status_changed_at: now, status_changed_by: actor, notes }).eq("id", id));
+    },
+    updateContent: (id, patch) => must(db.from("imphq_content_items").update(patch).eq("id", id)),
+  };
+
+  const resultado = await applyDecision({ source: src, id: itemId, metadata }, decision, store, { now, customAnswer: opts.resposta });
+  return { key, titulo, resultado, autonomia: AUTONOMY_LABEL[check.level], quem: actor };
 }
 
 /** Lançador (LAUNCH1.3) pelo MCP: plano por padrão; com confirmar, grava e desfaz tudo se algo falhar no meio. */
@@ -1104,6 +1220,11 @@ async function loadBriefing(supabase: Supabase, projectId: string) {
     loadApprovals(supabase, projectId),
   ]);
   for (const res of [nodesRes, archivedRes, salesRes, leadsRes, monthRes]) if (res.error) throw res.error;
+  const [journal, payments, adsRes] = await Promise.all([
+    loadJournal(supabase, projectId, 7, 10),
+    loadPaymentPulse(supabase, projectId),
+    supabase.from("imphq_v_ads_sync_health").select("*").eq("project_id", projectId).maybeSingle(),
+  ]);
   const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
   const [board] = buildTodayBoard({
     projects: [project],
@@ -1115,6 +1236,8 @@ async function loadBriefing(supabase: Supabase, projectId: string) {
   return buildProjectBriefing({
     project, board: board ?? null, approvals, team,
     numbers: { revenueMonth: byCurrency(monthRes.data ?? []), hotLeads: hotRes.count ?? 0 },
+    journal, payments,
+    ads: adsRes.error ? null : adsSyncHealth(adsRes.data as AdsSyncHealthRow | null),
   });
 }
 
@@ -1942,11 +2065,38 @@ Deno.serve(async (req) => {
           }
 
           if (name === "decide_approval") {
-            const { key, decision, motivo } = args || {};
-            if (!key || (decision !== "approve" && decision !== "reject")) throw new Error("key e decision ('approve' ou 'reject') são obrigatórios");
-            const result = await decideApproval(supabase, String(key), decision, motivo ? String(motivo) : undefined);
+            const { key, decision, motivo, confirmado_por, resposta } = args || {};
+            if (!key || !["approve", "reject", "mark_paid"].includes(String(decision))) throw new Error("key e decision ('approve', 'reject' ou 'mark_paid') são obrigatórios");
+            const result = await decideApproval(supabase, String(key), decision as ApprovalDecision, {
+              motivo: motivo ? String(motivo) : undefined,
+              confirmadoPor: confirmado_por ? String(confirmado_por) : undefined,
+              resposta: resposta ? String(resposta) : undefined,
+            });
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ success: true, ...result }, null, 2) }] } });
           }
+
+          if (name === "get_autonomy") {
+            const overrides = await loadAutonomyOverrides(supabase);
+            const result = {
+              niveis: AUTONOMY_LABEL,
+              regra: "auto = a IA decide; aprovar = só com confirmado_por (alguém do time que deu o OK); nunca = só na tela, por uma pessoa.",
+              acoes: AUTONOMY_RULES.map((r) => {
+                const nivel = effectiveAutonomy(r.key, overrides.get(r.key));
+                return { acao: r.key, o_que: r.label, nivel, nivel_texto: AUTONOMY_LABEL[nivel], teto: r.teto, motivo: r.motivo };
+              }),
+            };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_journal") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const dias = Math.max(1, Math.min(Number(args.dias) || 7, 90));
+            const limit = Math.max(1, Math.min(Number(args.limit) || 50, 300));
+            const rows = await loadJournal(supabase, String(args.project_id), dias, limit);
+            const result = { project_id: args.project_id, dias, total: rows.length, diario: rows.map((j) => ({ quando: j.created_at, acao: j.action, quem: j.actor, o_que: j.entity_name, detalhes: j.details })) };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
 
           if (name === "evaluate_scale") {
             const result = evaluateScale(args || {});

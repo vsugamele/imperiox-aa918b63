@@ -18660,6 +18660,9 @@ export type Database = {
       }
       imphq_activity_log: {
         Row: {
+          actor: string | null
+          project_id: string | null
+          source: string | null
           action: string
           created_at: string | null
           details: Json | null
@@ -18668,9 +18671,12 @@ export type Database = {
           entity_type: string | null
           id: string
           lead_id: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          actor?: string | null
+          project_id?: string | null
+          source?: string | null
           action: string
           created_at?: string | null
           details?: Json | null
@@ -18679,9 +18685,12 @@ export type Database = {
           entity_type?: string | null
           id?: string
           lead_id?: string | null
-          user_id: string
+          user_id: string | null
         }
         Update: {
+          actor?: string | null
+          project_id?: string | null
+          source?: string | null
           action?: string
           created_at?: string | null
           details?: Json | null
@@ -18690,7 +18699,7 @@ export type Database = {
           entity_type?: string | null
           id?: string
           lead_id?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
