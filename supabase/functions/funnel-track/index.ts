@@ -1,148 +1,20 @@
-// Edge Function pública: recebe pageviews/heartbeats do snippet de funil
-// Endpoint: POST /functions/v1/funnel-track
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const VALID_STEPS = new Set([
-  "advertorial_view",
-  "advertorial_cta_click",
-  "pdp_view",
-  "pdp_cta_click",
-  "quiz",
-  "vsl_view",
-  "vsl_pitch",
-  "vsl_cta_click",
-  "checkout",
-  "upsell1",
-  "upsell2",
-  "downsell1",
-  "downsell2",
-  "obrigado",
-  "heartbeat",
-]);
-
+import { normalizeFunnelEvent } from "../_shared/funnel-event.ts";
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
+  if (req.method !== "POST") return reply({ error: "method_not_allowed" }, 405);
   try {
-    const body = await req.json().catch(() => ({}));
-    const {
-      project_id,
-      project,
-      session_id,
-      visitor_id,
-      step,
-      event_type,
-      event_name,
-      lead_id,
-      utm_source,
-      utm_medium,
-      utm_campaign,
-      utm_content,
-      utm_term,
-      utm_id,
-      xcod,
-      creative_id,
-      fbclid,
-      referrer,
-      page_url,
-      meta,
-    } = body || {};
-
-    const normalizedProjectId = project_id || project;
-    const normalizedSessionId = session_id || visitor_id || crypto.randomUUID();
-    const rawStep = step || event_type || event_name;
-    const normalizedStep = normalizeStep(rawStep);
-
-    if (!normalizedProjectId || !normalizedStep) {
-      return new Response(JSON.stringify({ error: "invalid_payload" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const ua = req.headers.get("user-agent") || null;
-
-    // Tenta inferir creative_id a partir do xcod (formato campaign|adset|ad)
-    let inferredCreative = creative_id || null;
-    if (!inferredCreative && typeof xcod === "string") {
-      const parts = decodeURIComponent(xcod).split("|");
-      if (parts.length >= 3) inferredCreative = parts[2];
-    }
-
-    const { error } = await supabase.from("imphq_funnel_events").insert({
-      project_id: String(normalizedProjectId),
-      session_id: String(normalizedSessionId),
-      lead_id: lead_id ? String(lead_id) : null,
-      step: normalizedStep,
-      utm_source: utm_source || null,
-      utm_medium: utm_medium || null,
-      utm_campaign: utm_campaign || null,
-      utm_content: utm_content || null,
-      utm_term: utm_term || null,
-      utm_id: utm_id || null,
-      xcod: xcod || null,
-      creative_id: inferredCreative,
-      fbclid: fbclid || null,
-      referrer: referrer || null,
-      user_agent: ua,
-      page_url: page_url || null,
-      meta: meta || {},
-    });
-
-    if (error) {
-      console.error("[funnel-track] insert error", error);
-      return new Response(JSON.stringify({ error: "insert_failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("[funnel-track] error", e);
-    return new Response(JSON.stringify({ error: "server_error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+    const raw = await req.text();
+    if (new TextEncoder().encode(raw).length > 16384) return reply({ error: "payload_too_large" }, 413);
+    let row: Record<string, unknown>;
+    try { row = normalizeFunnelEvent(JSON.parse(raw)); } catch (e) { return reply({ error: e instanceof Error && /^(invalid_payload|missing_identity|invalid_event_time)$/.test(e.message) ? e.message : "invalid_payload" }, 400); }
+    row.user_agent = (req.headers.get("user-agent") || "").slice(0, 500) || null;
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data, error } = await db.rpc("imphq_ingest_funnel_event", { p_event: row, p_origin: req.headers.get("origin") });
+    if (error) { console.error("[funnel-track] ingest failed", error.code); return reply({ error: "ingest_failed" }, 503); }
+    const result = data as { ok?: boolean; error?: string };
+    return reply(result, result?.ok ? 200 : result?.error === "rate_limited" ? 429 : 400);
+  } catch { return reply({ error: "server_error" }, 503); }
 });
-
-function normalizeStep(value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const raw = value.trim();
-  if (VALID_STEPS.has(raw)) return raw;
-
-  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
-  const aliases: Record<string, string> = {
-    pageview: "vsl_view",
-    page_view: "vsl_view",
-    viewcontent: "vsl_view",
-    view_content: "vsl_view",
-    buttonclick: "vsl_cta_click",
-    button_click: "vsl_cta_click",
-    cta_click: "vsl_cta_click",
-    initiatecheckout: "checkout",
-    initiate_checkout: "checkout",
-    addtocart: "checkout",
-    add_to_cart: "checkout",
-    lead: "quiz",
-    leadcapture: "quiz",
-    lead_capture: "quiz",
-  };
-
-  const mapped = aliases[key];
-  return mapped && VALID_STEPS.has(mapped) ? mapped : null;
-}

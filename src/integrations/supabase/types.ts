@@ -18660,10 +18660,8 @@ export type Database = {
       }
       imphq_activity_log: {
         Row: {
-          actor: string | null
-          project_id: string | null
-          source: string | null
           action: string
+          actor: string | null
           created_at: string | null
           details: Json | null
           entity_id: string | null
@@ -18671,13 +18669,13 @@ export type Database = {
           entity_type: string | null
           id: string
           lead_id: string | null
+          project_id: string | null
+          source: string | null
           user_id: string | null
         }
         Insert: {
-          actor?: string | null
-          project_id?: string | null
-          source?: string | null
           action: string
+          actor?: string | null
           created_at?: string | null
           details?: Json | null
           entity_id?: string | null
@@ -18685,13 +18683,13 @@ export type Database = {
           entity_type?: string | null
           id?: string
           lead_id?: string | null
-          user_id: string | null
+          project_id?: string | null
+          source?: string | null
+          user_id?: string | null
         }
         Update: {
-          actor?: string | null
-          project_id?: string | null
-          source?: string | null
           action?: string
+          actor?: string | null
           created_at?: string | null
           details?: Json | null
           entity_id?: string | null
@@ -18699,6 +18697,8 @@ export type Database = {
           entity_type?: string | null
           id?: string
           lead_id?: string | null
+          project_id?: string | null
+          source?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -19561,7 +19561,9 @@ export type Database = {
       imphq_ai_policy: {
         Row: {
           auto_exec_threshold: number
+          autonomy: string | null
           confidence_floor: number
+          descricao: string | null
           failure_rate: number
           id: string
           killed: boolean
@@ -19575,7 +19577,9 @@ export type Database = {
         }
         Insert: {
           auto_exec_threshold?: number
+          autonomy?: string | null
           confidence_floor?: number
+          descricao?: string | null
           failure_rate?: number
           id?: string
           killed?: boolean
@@ -19589,7 +19593,9 @@ export type Database = {
         }
         Update: {
           auto_exec_threshold?: number
+          autonomy?: string | null
           confidence_floor?: number
+          descricao?: string | null
           failure_rate?: number
           id?: string
           killed?: boolean
@@ -20084,6 +20090,123 @@ export type Database = {
           nome?: string
           project_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_bookmap_nodes: {
+        Row: {
+          bookmap_id: string
+          content: string | null
+          created_at: string | null
+          formula: string | null
+          highlight: boolean | null
+          id: string
+          image_url: string | null
+          level: number
+          node_type: string
+          operational_rules: Json | null
+          parent_id: string | null
+          path: string
+          position: number | null
+          tags: string[] | null
+          title: string
+        }
+        Insert: {
+          bookmap_id: string
+          content?: string | null
+          created_at?: string | null
+          formula?: string | null
+          highlight?: boolean | null
+          id: string
+          image_url?: string | null
+          level?: number
+          node_type?: string
+          operational_rules?: Json | null
+          parent_id?: string | null
+          path: string
+          position?: number | null
+          tags?: string[] | null
+          title: string
+        }
+        Update: {
+          bookmap_id?: string
+          content?: string | null
+          created_at?: string | null
+          formula?: string | null
+          highlight?: boolean | null
+          id?: string
+          image_url?: string | null
+          level?: number
+          node_type?: string
+          operational_rules?: Json | null
+          parent_id?: string | null
+          path?: string
+          position?: number | null
+          tags?: string[] | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_bookmap_nodes_bookmap_id_fkey"
+            columns: ["bookmap_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_bookmaps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_bookmap_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_bookmap_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imphq_bookmaps: {
+        Row: {
+          author: string
+          category: string
+          color: string | null
+          cover_url: string | null
+          created_at: string | null
+          id: string
+          subtitle: string | null
+          summary: string | null
+          tags: string[] | null
+          title: string
+          total_nodes: number | null
+          tree_data: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          author: string
+          category?: string
+          color?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          id: string
+          subtitle?: string | null
+          summary?: string | null
+          tags?: string[] | null
+          title: string
+          total_nodes?: number | null
+          tree_data?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          author?: string
+          category?: string
+          color?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          id?: string
+          subtitle?: string | null
+          summary?: string | null
+          tags?: string[] | null
+          title?: string
+          total_nodes?: number | null
+          tree_data?: Json | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -23824,16 +23947,24 @@ export type Database = {
       }
       imphq_funnel_events: {
         Row: {
+          ad_id: string | null
+          adset_id: string | null
+          campaign_id: string | null
+          click_id: string | null
           created_at: string
           creative_id: string | null
+          event_at: string | null
+          event_id: string | null
           fbclid: string | null
+          first_touch: Json | null
           id: string
+          last_touch: Json | null
           lead_id: string | null
           meta: Json | null
           page_url: string | null
           project_id: string
           referrer: string | null
-          session_id: string
+          session_id: string | null
           step: string
           user_agent: string | null
           utm_campaign: string | null
@@ -23842,19 +23973,28 @@ export type Database = {
           utm_medium: string | null
           utm_source: string | null
           utm_term: string | null
+          visitor_id: string | null
           xcod: string | null
         }
         Insert: {
+          ad_id?: string | null
+          adset_id?: string | null
+          campaign_id?: string | null
+          click_id?: string | null
           created_at?: string
           creative_id?: string | null
+          event_at?: string | null
+          event_id?: string | null
           fbclid?: string | null
+          first_touch?: Json | null
           id?: string
+          last_touch?: Json | null
           lead_id?: string | null
           meta?: Json | null
           page_url?: string | null
           project_id: string
           referrer?: string | null
-          session_id: string
+          session_id?: string | null
           step: string
           user_agent?: string | null
           utm_campaign?: string | null
@@ -23863,19 +24003,28 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
+          visitor_id?: string | null
           xcod?: string | null
         }
         Update: {
+          ad_id?: string | null
+          adset_id?: string | null
+          campaign_id?: string | null
+          click_id?: string | null
           created_at?: string
           creative_id?: string | null
+          event_at?: string | null
+          event_id?: string | null
           fbclid?: string | null
+          first_touch?: Json | null
           id?: string
+          last_touch?: Json | null
           lead_id?: string | null
           meta?: Json | null
           page_url?: string | null
           project_id?: string
           referrer?: string | null
-          session_id?: string
+          session_id?: string | null
           step?: string
           user_agent?: string | null
           utm_campaign?: string | null
@@ -23884,6 +24033,7 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
+          visitor_id?: string | null
           xcod?: string | null
         }
         Relationships: []
@@ -29929,7 +30079,15 @@ export type Database = {
           utm_campaign?: string
           verba_dia_conjunto?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imphq_test_orders_scale_round_id_fkey"
+            columns: ["scale_round_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_scale_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imphq_test_variants: {
         Row: {
@@ -29945,8 +30103,8 @@ export type Database = {
           meta_ad_id: string | null
           meta_adset_id: string | null
           meta_creative_id: string | null
-          order_id: string
           ordem: number
+          order_id: string
           referencia_id: string | null
           status: string
           texto: string | null
@@ -29968,8 +30126,8 @@ export type Database = {
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_creative_id?: string | null
-          order_id: string
           ordem: number
+          order_id: string
           referencia_id?: string | null
           status?: string
           texto?: string | null
@@ -29991,8 +30149,8 @@ export type Database = {
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_creative_id?: string | null
-          order_id?: string
           ordem?: number
+          order_id?: string
           referencia_id?: string | null
           status?: string
           texto?: string | null
@@ -57031,6 +57189,79 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_tracker_sales: {
+        Row: {
+          attributed_ad_id: string | null
+          attributed_channel: string | null
+          attribution_confidence: string | null
+          attribution_method: string | null
+          click_id: string | null
+          created_at: string | null
+          currency: string | null
+          data: Json | null
+          data_venda: string | null
+          external_transaction_id: string | null
+          funil_id: string | null
+          id: string | null
+          lead_id: string | null
+          learned_at: string | null
+          meta_offline_synced_at: string | null
+          nome: string | null
+          pais: string | null
+          plataforma: string | null
+          produto_id_ext: string | null
+          produto_nome: string | null
+          project_id: string | null
+          status: string | null
+          tipo_venda: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          valor: number | null
+          valor_liquido: number | null
+          wa_source: string | null
+          wa_template: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_vendas_funil_id_fkey"
+            columns: ["funil_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_funis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_v_ads_sync_health"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "imphq_vendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vw_financas_resumo"
+            referencedColumns: ["project_id"]
+          },
+        ]
+      }
       imphq_v_ads_sync_health: {
         Row: {
           meta_configurado: boolean | null
@@ -57830,6 +58061,10 @@ export type Database = {
         Args: { p_project_id: string; p_since: string }
         Returns: number
       }
+      imphq_ingest_funnel_event: {
+        Args: { p_event: Json; p_origin?: string }
+        Returns: Json
+      }
       imphq_ingest_ig_message: {
         Args: {
           p_ai_generated?: boolean
@@ -57846,6 +58081,19 @@ export type Database = {
         Returns: Json
       }
       imphq_is_shared_host: { Args: { p_host: string }; Returns: boolean }
+      imphq_journal_actor: { Args: never; Returns: string }
+      imphq_journal_write: {
+        Args: {
+          p_action: string
+          p_details: Json
+          p_entity_id: string
+          p_entity_name: string
+          p_entity_type: string
+          p_project: string
+          p_source: string
+        }
+        Returns: undefined
+      }
       imphq_machine_room: { Args: never; Returns: Json }
       imphq_metric_page_url: { Args: { p_url: string }; Returns: string }
       imphq_page_metrics: {
@@ -57862,6 +58110,10 @@ export type Database = {
           mid: string
           participant_id: string
         }[]
+      }
+      imphq_product_revenue: {
+        Args: { p_project_id: string; p_since: string }
+        Returns: Json
       }
       imphq_project_metrics: {
         Args: { p_project_id: string; p_since: string }
@@ -57889,7 +58141,12 @@ export type Database = {
         Returns: string
       }
       imphq_system_health: { Args: never; Returns: Json }
+      imphq_tracker_report: {
+        Args: { p_project_id: string; p_since: string; p_until?: string }
+        Returns: Json
+      }
       imphq_train_lead_scoring_model: { Args: never; Returns: Json }
+      imphq_upsert_hw_sale: { Args: { p_row: Json }; Returns: Json }
       imphq_url_host: { Args: { p_url: string }; Returns: string }
       increment_ab_variant_conversion: {
         Args: { p_variant_id: string }

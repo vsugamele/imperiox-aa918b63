@@ -7,19 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { paginatedQuery } from "@/lib/paginated-query";
 import { Loader2, Radio, ShoppingBag, Sparkles } from "lucide-react";
 
-type Channel = "whatsapp" | "ads" | "organic";
-type Row = Omit<Tables<"vw_attribution_unified">, "canal_atribuido"> & { canal_atribuido: Channel };
+type Channel = "whatsapp" | "ads" | "organic" | "unknown";
+interface Row { venda_id:string; project_id:string|null; data_venda:string|null; produto_nome:string|null; tipo_venda:string|null; valor_liquido:number|null; currency:string; canal_atribuido:Channel; utm_campaign:string|null; utm_source:string|null; wa_template:string|null; wa_source:string|null; attribution_confidence:string; attribution_method:string; }
 
 const CHANNEL_LABEL: Record<Row["canal_atribuido"], { label: string; color: string }> = {
   whatsapp: { label: "WhatsApp", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   ads:      { label: "Ads",      color: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
-  organic:  { label: "Orgânico", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  organic: { label: "Orgânico", color: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
+  unknown:  { label: "Sem atribuição", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
 };
 
 export default function Atribuicao() {
   const [days, setDays] = useState("30");
+  const [currency, setCurrency] = useState("__auto__");
   const [project, setProject] = useState<string>("__all__");
 
   const { data: projects = [] } = useQuery({
@@ -30,28 +33,31 @@ export default function Atribuicao() {
     },
   });
 
-  const { data, isLoading } = useQuery({
+  const { data: rawData, isLoading, error: loadError } = useQuery({
     queryKey: ["attribution", days, project],
     queryFn: async () => {
       const since = new Date(Date.now() - Number(days) * 86400000).toISOString();
-      let q = supabase
-        .from("vw_attribution_unified")
-        .select("*")
-        .gte("data_venda", since)
-        .order("data_venda", { ascending: false })
-        .limit(500);
-      if (project !== "__all__") q = q.eq("project_id", project);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []).filter((row): row is Row =>
-        row.canal_atribuido === "whatsapp" || row.canal_atribuido === "ads" || row.canal_atribuido === "organic");
+      const rows = await paginatedQuery("Atribuição", (from,to) => {
+        let q = supabase.from("imphq_tracker_sales").select("*").gte("data_venda",since)
+          .lte("data_venda",new Date().toISOString()).in("status",["aprovado","aprovada","paga","approved","paid"])
+          .order("data_venda",{ascending:false}).order("id").range(from,to);
+        if(project!=="__all__") q=q.eq("project_id",project);
+        return q;
+      });
+      return rows.filter(r => r.utm_source !== "codex-validation" && !(r.data && typeof r.data === "object" && !Array.isArray(r.data) && r.data.validation === true))
+        .map((r):Row => ({...r,venda_id:r.id,canal_atribuido:r.attributed_channel === "whatsapp" ? "whatsapp" : r.attributed_channel === "ads" ? "ads" : r.attributed_channel === "organic" ? "organic" : "unknown",wa_template:r.wa_template,wa_source:r.wa_source}));
     },
   });
 
+  const currencies = [...new Set((rawData ?? []).map(r=>r.currency))].sort();
+  const currencyFilter = currency === "__auto__" ? (currencies.length===1 ? currencies[0] : null) : currency;
+  const selectedCurrency = currencyFilter === "UNKNOWN" ? null : currencyFilter;
+  const data = (rawData ?? []).filter(r=>currencyFilter===null || r.currency===currencyFilter);
+  const missingNet = data.filter(r=>r.valor_liquido===null).length;
   const totals = useMemo(() => {
-    const acc = { whatsapp: 0, ads: 0, organic: 0, total: 0, count: { whatsapp: 0, ads: 0, organic: 0 } as Record<string, number> };
+    const acc = { whatsapp: 0, ads: 0, organic: 0, unknown: 0, total: 0, count: { whatsapp: 0, ads: 0, organic: 0, unknown: 0 } as Record<string, number> };
     (data ?? []).forEach((r) => {
-      const v = Number(r.valor_liquido ?? r.valor ?? 0);
+      const v = Number(r.valor_liquido ?? 0);
       acc[r.canal_atribuido] += v;
       acc.total += v;
       acc.count[r.canal_atribuido]++;
@@ -67,7 +73,7 @@ export default function Atribuicao() {
           ? `WA · ${r.wa_template || r.wa_source || "direto"}`
           : r.utm_campaign || r.utm_source || "(sem utm)";
       const cur = map.get(key) ?? { key, revenue: 0, sales: 0, canal: r.canal_atribuido };
-      cur.revenue += Number(r.valor_liquido ?? r.valor ?? 0);
+      cur.revenue += Number(r.valor_liquido ?? 0);
       cur.sales++;
       map.set(key, cur);
     });
@@ -78,24 +84,24 @@ export default function Atribuicao() {
   const byStage = useMemo(() => {
     const stages = ["principal", "orderbump", "upsell", "downsell", "outros"] as const;
     type Stage = typeof stages[number];
-    const matrix: Record<Stage, { whatsapp: number; ads: number; organic: number; count: number }> = {
-      principal: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
-      orderbump: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
-      upsell: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
-      downsell: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
-      outros: { whatsapp: 0, ads: 0, organic: 0, count: 0 },
+    const matrix: Record<Stage, { whatsapp: number; ads: number; organic: number; unknown: number; count: number }> = {
+      principal: { whatsapp: 0, ads: 0, organic: 0, unknown: 0, count: 0 },
+      orderbump: { whatsapp: 0, ads: 0, organic: 0, unknown: 0, count: 0 },
+      upsell: { whatsapp: 0, ads: 0, organic: 0, unknown: 0, count: 0 },
+      downsell: { whatsapp: 0, ads: 0, organic: 0, unknown: 0, count: 0 },
+      outros: { whatsapp: 0, ads: 0, organic: 0, unknown: 0, count: 0 },
     };
     (data ?? []).forEach((r) => {
       const t = (r.tipo_venda || "").toLowerCase();
       const stage: Stage = stages.includes(t as Stage) ? (t as Stage) : "outros";
-      const v = Number(r.valor_liquido ?? r.valor ?? 0);
+      const v = Number(r.valor_liquido ?? 0);
       matrix[stage][r.canal_atribuido] += v;
       matrix[stage].count++;
     });
-    return stages.map(s => ({ stage: s, ...matrix[s], total: matrix[s].whatsapp + matrix[s].ads + matrix[s].organic }));
+    return stages.map(s => ({ stage: s, ...matrix[s], total: matrix[s].whatsapp + matrix[s].ads + matrix[s].organic + matrix[s].unknown }));
   }, [data]);
 
-  const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmt = (n:number, rowCurrency?:string) => rowCurrency === "UNKNOWN" || !rowCurrency && (!selectedCurrency || missingNet>0) ? "Indisponível" : (rowCurrency || selectedCurrency) + " " + n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 
   return (
     <div className="p-6 space-y-6">
@@ -103,10 +109,11 @@ export default function Atribuicao() {
         <div>
           <h1 className="text-3xl font-cormorant text-foreground">Atribuição Cross-Channel</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            De onde veio cada venda — WhatsApp, Ads ou Orgânico.
+            De onde veio cada venda — WhatsApp, Ads ou Sem atribuição.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Select value={currency} onValueChange={setCurrency}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__auto__">Moedas separadas</SelectItem>{currencies.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
           <Select value={project} onValueChange={setProject}>
             <SelectTrigger className="w-56"><SelectValue placeholder="Projeto" /></SelectTrigger>
             <SelectContent>
@@ -127,16 +134,16 @@ export default function Atribuicao() {
         </div>
       </div>
 
-      {isLoading ? (
+      {loadError ? <p role="alert" className="text-destructive">Atribuição indisponível. Não foi possível consultar as vendas.</p> : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1,2,3].map(i => <Skeleton key={i} className="h-32" />)}
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ChannelCard icon={<Radio className="size-4" />} label="WhatsApp" value={totals.whatsapp} count={totals.count.whatsapp} total={totals.total} color="emerald" />
-            <ChannelCard icon={<ShoppingBag className="size-4" />} label="Ads (pago)" value={totals.ads} count={totals.count.ads} total={totals.total} color="sky" />
-            <ChannelCard icon={<Sparkles className="size-4" />} label="Orgânico" value={totals.organic} count={totals.count.organic} total={totals.total} color="amber" />
+            <ChannelCard icon={<Radio className="size-4" />} label="WhatsApp" value={totals.whatsapp} count={totals.count.whatsapp} total={totals.total} currency={selectedCurrency} incomplete={missingNet>0} color="emerald" />
+            <ChannelCard icon={<ShoppingBag className="size-4" />} label="Ads (pago)" value={totals.ads} count={totals.count.ads} total={totals.total} currency={selectedCurrency} incomplete={missingNet>0} color="sky" />
+            <ChannelCard icon={<Sparkles className="size-4" />} label="Sem atribuição" value={totals.unknown} count={totals.count.unknown} total={totals.total} currency={selectedCurrency} incomplete={missingNet>0} color="amber" />
           </div>
 
           <Card>
@@ -149,7 +156,8 @@ export default function Atribuicao() {
                     <TableHead className="text-right">Vendas</TableHead>
                     <TableHead className="text-right text-emerald-300">WhatsApp</TableHead>
                     <TableHead className="text-right text-sky-300">Ads</TableHead>
-                    <TableHead className="text-right text-amber-300">Orgânico</TableHead>
+                    <TableHead className="text-right text-violet-300">Orgânico</TableHead>
+                    <TableHead className="text-right text-amber-300">Sem atribuição</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -161,11 +169,12 @@ export default function Atribuicao() {
                       <TableCell className="text-right">{fmt(s.whatsapp)}</TableCell>
                       <TableCell className="text-right">{fmt(s.ads)}</TableCell>
                       <TableCell className="text-right">{fmt(s.organic)}</TableCell>
+                      <TableCell className="text-right">{fmt(s.unknown)}</TableCell>
                       <TableCell className="text-right font-semibold">{fmt(s.total)}</TableCell>
                     </TableRow>
                   ))}
                   {byStage.every(s => s.count === 0) && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem vendas no período.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Sem vendas no período.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -215,6 +224,7 @@ export default function Atribuicao() {
                     <TableHead>Produto</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Canal</TableHead>
+                    <TableHead>Confiança / método</TableHead>
                     <TableHead>Detalhe</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                   </TableRow>
@@ -230,12 +240,13 @@ export default function Atribuicao() {
                           {CHANNEL_LABEL[r.canal_atribuido].label}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-xs">{r.attribution_confidence === "confirmed" ? "Confirmada" : r.attribution_confidence === "inferred" ? "Inferida" : "Desconhecida"} · {r.attribution_method}</TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[280px] truncate">
                         {r.canal_atribuido === "whatsapp"
                           ? (r.wa_template || r.wa_source || "—")
                           : (r.utm_campaign || r.utm_source || "—")}
                       </TableCell>
-                      <TableCell className="text-right">{fmt(Number(r.valor_liquido ?? r.valor ?? 0))}</TableCell>
+                      <TableCell className="text-right">{r.valor_liquido === null ? "Indisponível" : fmt(Number(r.valor_liquido),r.currency)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -248,7 +259,7 @@ export default function Atribuicao() {
   );
 }
 
-function ChannelCard({ icon, label, value, count, total, color }: { icon: React.ReactNode; label: string; value: number; count: number; total: number; color: string }) {
+function ChannelCard({ icon, label, value, count, total, color, currency, incomplete }: { icon: React.ReactNode; label: string; value: number; count: number; total: number; color: string; currency:string|null; incomplete:boolean }) {
   const pct = total > 0 ? (value / total) * 100 : 0;
   return (
     <Card>
@@ -257,11 +268,11 @@ function ChannelCard({ icon, label, value, count, total, color }: { icon: React.
           {icon}{label}
         </div>
         <div className="mt-2 text-2xl font-cormorant text-foreground">
-          {value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          {!currency || incomplete ? "Indisponível" : currency + " " + value.toLocaleString("pt-BR", {minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
         <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
           <span>{count} vendas</span>
-          <span className={`text-${color}-400`}>{pct.toFixed(1)}%</span>
+          <span className={`text-${color}-400`}>{currency && !incomplete ? pct.toFixed(1) + "%" : "—"}</span>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-secondary/40 overflow-hidden">
           <div className={`h-full bg-${color}-500/70`} style={{ width: `${pct}%` }} />

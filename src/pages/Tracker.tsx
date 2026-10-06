@@ -1,6 +1,8 @@
 import { record } from "@/lib/funis-data";
 import type { Tables } from "@/integrations/supabase/types";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { TrackerEvidence } from "@/components/tracker/TrackerEvidence";
+import { paginatedQuery } from "@/lib/paginated-query";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
@@ -34,7 +36,7 @@ interface AdsSpendRow {
   conjunto_anuncios: string; anuncio: string; data_ref: string;
   valor: number; impressoes: number; cliques: number; leads: number;
   compras: number; custo_por_compra: number | null; ctr: number;
-  cpm: number; frequencia: number; alcance: number;
+  cpm: number; frequencia: number; alcance: number; moeda?:string|null;
   hook_rate: number | null; hold_rate: number | null; stop_rate: number;
   checkouts_iniciados: number; cpck: number;
 }
@@ -123,34 +125,54 @@ export default function Tracker() {
   const [realisticScale, setRealisticScale] = useState<boolean>(true);
 
   const dateRange = useMemo(() => getDateRange(datePeriod), [datePeriod]);
+  const reportRange = useMemo(() => ({
+    since: new Date(dateRange.from + "T00:00:00-03:00").toISOString(),
+    until: new Date(new Date(dateRange.to + "T00:00:00-03:00").getTime() + 86400000).toISOString(),
+  }), [dateRange]);
+  const loadSequence = useRef(0);
+  const [loadState, setLoadState] = useState({ period: "", loading: true, error: null as string | null });
+  const legacyLoading = loadState.period !== datePeriod || loadState.loading;
+  const legacyError = loadState.period === datePeriod ? loadState.error : null;
 
   const load = useCallback(async () => {
-    const [lRes, adsRes, vRes, pRes, leadsRes, cRes] = await Promise.all([
-      supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }),
-      supabase.from("imphq_vendas").select("*").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
-      supabase.from("imphq_projects").select("id, name").order("name"),
-      supabase.from("imphq_leads").select("data, score, criado_em").gte("criado_em", dateRange.from + "T00:00:00").lte("criado_em", dateRange.to + "T23:59:59"),
-      supabase.from("imphq_clicks").select("id, link_id, convertido, lead_id, created_at").gte("created_at", dateRange.from + "T00:00:00").lte("created_at", dateRange.to + "T23:59:59"),
-    ]);
-    const clicksData = cRes.data || [];
-    setClicks(clicksData);
-    const enriched = (lRes.data || []).map((l) => ({
-      ...l, clickCount: clicksData.filter((c) => c.link_id === l.id).length,
-    }));
-    setLinks(enriched);
-    setAdsSpend((adsRes.data || []));
-    setVendas(vRes.data || []);
-    setProjects(pRes.data || []);
-    setLeads((leadsRes.data || []).map(lead => { const source = record(record(lead.data).utms).utm_source || record(lead.data).utm_source; return { ...lead, utm_source: typeof source === "string" ? source : undefined }; }));
-    // Extract unique product names
-    const prods = [...new Set((vRes.data || []).map((v) => v.produto_nome as string).filter(Boolean))].sort();
-    setAllProducts(prods);
-    const saved = localStorage.getItem("imphq_kpi_targets");
-    if (saved) setTargets(JSON.parse(saved));
-  }, [dateRange]);
+    const sequence = ++loadSequence.current;
+    setLoadState({ period: datePeriod, loading: true, error: null });
+    try {
+      const [linksData, adsData, vendasData, projectsData, leadsData, clicksData] = await Promise.all([
+        paginatedQuery("Links", (from, to) => supabase.from("imphq_tracking_links").select("*").order("created_at", { ascending: false }).order("id").range(from, to)),
+        paginatedQuery("Mídia", (from, to) => supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }).order("id").range(from, to)),
+        paginatedQuery("Vendas", (from, to) => supabase.from("imphq_vendas").select("*").gte("data_venda", reportRange.since).lt("data_venda", reportRange.until).order("id").range(from, to)),
+        paginatedQuery("Projetos", (from, to) => supabase.from("imphq_projects").select("id, name").order("name").order("id").range(from, to)),
+        paginatedQuery("Leads", (from, to) => supabase.from("imphq_leads").select("data, score, criado_em").gte("criado_em", reportRange.since).lt("criado_em", reportRange.until).order("id").range(from, to)),
+        paginatedQuery("Cliques", (from, to) => supabase.from("imphq_clicks").select("id, link_id, convertido, lead_id, created_at").gte("created_at", reportRange.since).lt("created_at", reportRange.until).order("id").range(from, to)),
+      ]);
+      if (sequence !== loadSequence.current) return;
+      setClicks(clicksData);
+      const enriched = linksData.map((l) => ({
+        ...l, clickCount: clicksData.filter((c) => c.link_id === l.id).length,
+      }));
+      setLinks(enriched);
+      setAdsSpend(adsData);
+      setVendas(vendasData);
+      setProjects(projectsData);
+      setLeads(leadsData.map(lead => { const source = record(record(lead.data).utms).utm_source || record(lead.data).utm_source; return { ...lead, utm_source: typeof source === "string" ? source : undefined }; }));
+      // Extract unique product names
+      const prods = [...new Set(vendasData.map((v) => v.produto_nome).filter(Boolean))].sort();
+      setAllProducts(prods);
+      const saved = localStorage.getItem("imphq_kpi_targets");
+      if (saved) setTargets(JSON.parse(saved));
+      setLoadState({ period: datePeriod, loading: false, error: null });
+    } catch (error) {
+      if (sequence !== loadSequence.current) return;
+      setLoadState({ period: datePeriod, loading: false,
+        error: error instanceof Error ? error.message : "Falha ao carregar fontes do tracker" });
+    }
+  }, [dateRange, datePeriod, reportRange]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]);
 
   const saveTargets = () => {
     localStorage.setItem("imphq_kpi_targets", JSON.stringify(targets));
@@ -174,6 +196,9 @@ export default function Tracker() {
       if (l.utm_content) url.searchParams.set("utm_content", l.utm_content);
       if (l.utm_term) url.searchParams.set("utm_term", l.utm_term);
       if (l.id) url.searchParams.set("imp_link_id", l.id);
+      if (l.plataforma === "Meta Ads") {
+        for (const [key,value] of Object.entries({ campaign_id:"{{campaign.id}}",adset_id:"{{adset.id}}",ad_id:"{{ad.id}}",xcod:"{{campaign.id}}|{{adset.id}}|{{ad.id}}|{{placement}}" })) if (!url.searchParams.has(key)) url.searchParams.set(key,value);
+      }
       return url.toString();
     } catch (e) {
       const params = new URLSearchParams();
@@ -229,11 +254,15 @@ export default function Tracker() {
     return true;
   });
   const filteredVendas = vendas.filter(v => {
+    if (!["aprovado","aprovada","paga","approved","paid"].includes((v.status || "").toLowerCase())) return false;
+    if (v.utm_source === "codex-validation" || record(v.data).validation === true) return false;
     if (filterProject !== "all" && v.project_id !== filterProject) return false;
     if (filterProduct !== "all" && v.produto_nome !== filterProduct) return false;
     return true;
   });
 
+  const financeCompatible = filteredVendas.every(v=>record(v.data).moeda === "BRL" && v.valor_liquido !== null) && filteredAds.every(a=>a.moeda === "BRL");
+  // Legacy BRL displays are gated; the server report above is authoritative by currency.
   // KPIs from imphq_ads_spend (real ads data)
   const totalGasto = filteredAds.reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
   const totalClicks = filteredAds.reduce((s, a) => s + (parseInt(String(a.cliques)) || 0), 0);
@@ -241,7 +270,7 @@ export default function Tracker() {
   const totalAlcance = filteredAds.reduce((s, a) => s + (parseInt(String(a.alcance)) || 0), 0);
   const totalComprasAds = filteredAds.reduce((s, a) => s + (parseInt(String(a.compras)) || 0), 0);
   const totalVendasCount = filteredVendas.length;
-  const totalReceita = filteredVendas.reduce((s: number, v) => s + (Number(v.valor) || 0), 0);
+  const totalReceita = filteredVendas.reduce((s: number, v) => s + (Number(v.valor_liquido) || 0), 0);
 
   const roas = totalGasto > 0 ? totalReceita / totalGasto : 0;
   const cpa = totalVendasCount > 0 ? totalGasto / totalVendasCount : 0;
@@ -302,218 +331,10 @@ export default function Tracker() {
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
 
   const trackingScript = `<script>
-(function(){
-  var SB_URL = "${supabaseUrl}";
-  var SB_KEY = "${supabaseKey}";
-  
-  // Persistent visitor ID
-  var visitorId = localStorage.getItem("imp_visitor_id");
-  if(!visitorId){ visitorId = crypto.randomUUID(); localStorage.setItem("imp_visitor_id", visitorId); }
-  
-  // Session ID (resets after 30min inactivity)
-  var sessionId = sessionStorage.getItem("imp_session_id");
-  var lastActivity = parseInt(sessionStorage.getItem("imp_last_activity") || "0");
-  var now = Date.now();
-  if(!sessionId || (now - lastActivity) > 1800000){
-    sessionId = crypto.randomUUID();
-    sessionStorage.setItem("imp_session_id", sessionId);
-  }
-  sessionStorage.setItem("imp_last_activity", String(now));
-  
-  // Capture UTM params
-  var params = new URLSearchParams(window.location.search);
-  var utms = {};
-  ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){
-    var v = params.get(k);
-    if(v){ utms[k] = v; localStorage.setItem("imp_"+k, v); }
-    else { var s = localStorage.getItem("imp_"+k); if(s) utms[k] = s; }
-  });
-  
-  // Capture link_id & click_id
-  var linkId = params.get("imp_link_id") || localStorage.getItem("imp_link_id") || null;
-  if(params.get("imp_link_id")){ localStorage.setItem("imp_link_id", params.get("imp_link_id")); }
-  
-  var clickId = params.get("imp_click_id") || params.get("sck") || localStorage.getItem("imp_click_id");
-  if(!clickId){
-    clickId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "c_" + Math.random().toString(36).substr(2,9) + Date.now().toString(36);
-  }
-  localStorage.setItem("imp_click_id", clickId);
+window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? "SEU_PROJECT_ID" : filterProject, pageType: "vsl", trackingEndpoint: "https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/funnel-track", ctaSelector: "a.buylink" }).replace(/</g, "\\u003c")};
+</script>
+<script src="https://imperiox.vercel.app/funnel.js" defer></script>`;
 
-  // Store landing page
-  if(!localStorage.getItem("imp_landing")) localStorage.setItem("imp_landing", window.location.href);
-  
-  // Helper: generate event_id for deduplication
-  function genEventId(){ return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "e_" + Math.random().toString(36).substr(2,9) + Date.now().toString(36); }
-  
-  // Helper: post to Supabase
-  function sbPost(table, data){
-    return fetch(SB_URL + "/rest/v1/" + table, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SB_KEY,
-        "Authorization": "Bearer " + SB_KEY,
-        "Prefer": "return=minimal"
-      },
-      body: JSON.stringify(data)
-    }).catch(function(){});
-  }
-  
-  // Register click (if UTMs or linkId present)
-  if(Object.keys(utms).length > 0 || linkId){
-    sbPost("imphq_clicks", {
-      id: clickId,
-      link_id: linkId,
-      utm_source: utms.utm_source || null,
-      utm_medium: utms.utm_medium || null,
-      utm_campaign: utms.utm_campaign || null,
-      utm_content: utms.utm_content || null,
-      utm_term: utms.utm_term || null,
-      referer: document.referrer || null,
-      ua: navigator.userAgent
-    });
-  }
-  
-  // Track event function
-  function trackEvent(eventName, eventData, eventId){
-    var eid = eventId || genEventId();
-    // Fire fbq if available
-    if(window.fbq){
-      try { window.fbq("trackCustom", eventName, eventData || {}, { eventID: eid }); } catch(e){}
-    }
-    return sbPost("imphq_events", {
-      id: eid,
-      visitor_id: visitorId,
-      session_id: sessionId,
-      event_name: eventName,
-      event_data: eventData || {},
-      page_url: window.location.href,
-      referrer: document.referrer || null,
-      utm_source: utms.utm_source || null,
-      utm_medium: utms.utm_medium || null,
-      utm_campaign: utms.utm_campaign || null,
-      utm_content: utms.utm_content || null,
-      utm_term: utms.utm_term || null,
-      user_agent: navigator.userAgent
-    });
-  }
-
-  // Decorate checkout links so no sales are orphaned
-  function decorateCheckoutLinks(){
-    var checkoutDomains = [
-      "kiwify.com.br", "ticto.app", "ticto.com.br", "hotmart.com", "eduzz.com",
-      "greenn.com.br", "braip.com", "perfectpay.com.br", "monetizze.com.br",
-      "whop.com", "checkout."
-    ];
-    var links = document.querySelectorAll("a[href]");
-    for(var i=0; i<links.length; i++){
-      var a = links[i];
-      var href = a.getAttribute("href");
-      if(!href || href.indexOf("#") === 0 || href.indexOf("javascript:") === 0) continue;
-      var isCheckout = false;
-      for(var d=0; d<checkoutDomains.length; d++){
-        if(href.indexOf(checkoutDomains[d]) !== -1){
-          isCheckout = true;
-          break;
-        }
-      }
-      if(isCheckout){
-        try {
-          var url = new URL(href, window.location.origin);
-          ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){
-            if(utms[k] && !url.searchParams.get(k)) url.searchParams.set(k, utms[k]);
-          });
-          if(clickId && !url.searchParams.get("imp_click_id")) url.searchParams.set("imp_click_id", clickId);
-          if(clickId && !url.searchParams.get("sck")) url.searchParams.set("sck", clickId);
-          if(utms.utm_source && !url.searchParams.get("src")) url.searchParams.set("src", utms.utm_source);
-          if(clickId && !url.searchParams.get("xcod")) url.searchParams.set("xcod", clickId);
-          a.href = url.toString();
-        } catch(e){}
-      }
-    }
-  }
-
-  if(document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", decorateCheckoutLinks);
-  } else {
-    decorateCheckoutLinks();
-  }
-  setTimeout(decorateCheckoutLinks, 1500);
-  setTimeout(decorateCheckoutLinks, 4000);
-
-  // Auto-telemetry for VSL video tags
-  function initVslTracking(){
-    var videos = document.querySelectorAll("video");
-    videos.forEach(function(v){
-      if(v._impTracked) return;
-      v._impTracked = true;
-      var milestones = { 25: false, 50: false, 75: false, 90: false };
-      v.addEventListener("play", function(){
-        trackEvent("VSL_Play", { currentTime: v.currentTime, duration: v.duration });
-      }, { once: true });
-      v.addEventListener("timeupdate", function(){
-        if(!v.duration) return;
-        var pct = Math.floor((v.currentTime / v.duration) * 100);
-        [25, 50, 75, 90].forEach(function(m){
-          if(pct >= m && !milestones[m]){
-            milestones[m] = true;
-            trackEvent("VSL_" + m + "pct", { currentTime: v.currentTime, duration: v.duration });
-          }
-        });
-      });
-    });
-  }
-  setTimeout(initVslTracking, 2000);
-  
-  // Load Facebook Pixel dynamically
-  var pixelId = document.querySelector('meta[name="imp-pixel-id"]');
-  if(pixelId){ pixelId = pixelId.getAttribute("content"); }
-  if(pixelId){
-    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
-    n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
-    document,"script","https://connect.facebook.net/en_US/fbevents.js");
-    fbq("init", pixelId);
-    fbq("track", "PageView", {}, { eventID: genEventId() });
-  }
-  
-  // Auto-track PageView
-  trackEvent("PageView", { title: document.title });
-  
-  // Expose helpers
-  window.imptrack = {
-    getUtms: function(){ return utms; },
-    getVisitorId: function(){ return visitorId; },
-    getSessionId: function(){ return sessionId; },
-    getClickId: function(){ return clickId; },
-    decorateCheckoutLinks: decorateCheckoutLinks,
-    trackEvent: trackEvent,
-    trackViewContent: function(data){
-      var eid = genEventId();
-      if(window.fbq) fbq("track", "ViewContent", data || {}, { eventID: eid });
-      return trackEvent("ViewContent", data, eid);
-    },
-    trackAddToCart: function(data){
-      var eid = genEventId();
-      if(window.fbq) fbq("track", "AddToCart", data || {}, { eventID: eid });
-      return trackEvent("AddToCart", data, eid);
-    },
-    trackLead: function(data){
-      var eid = genEventId();
-      if(window.fbq) fbq("track", "Lead", { email: data.email }, { eventID: eid });
-      trackEvent("LeadCapture", { email: data.email, nome: data.nome }, eid);
-      return sbPost("imphq_leads", Object.assign({
-        id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "l_" + Math.random().toString(36).substr(2,9),
-        plataforma: utms.utm_source || null,
-        data: { utms: utms, landing: localStorage.getItem("imp_landing"), visitor_id: visitorId, click_id: clickId }
-      }, data));
-    }
-  };
-})();
-</script>`;
-
-  // ── SIMULADOR DE ESCALA DE TRÁFEGO LÓGICA ──
   const utmSourcesList = useMemo(() => {
     const sources = new Set<string>();
     adsSpend.forEach(a => {
@@ -692,7 +513,15 @@ export default function Tracker() {
         <span className="text-[10px] text-muted-foreground ml-auto"><Calendar className="h-3 w-3 inline mr-1" />{dateRange.from} → {dateRange.to}</span>
       </div>
 
-      <Tabs defaultValue="dashboard" className="space-y-4">
+      <TrackerEvidence projectId={filterProject === "all" ? null : filterProject}
+        since={reportRange.since} until={reportRange.until} projects={projects} />
+
+      {legacyLoading && <p role="status" className="text-sm text-muted-foreground">Carregando fontes do tracker…</p>}
+      {legacyError && <div role="alert" className="space-y-2 text-sm text-destructive">
+        <p>Fontes do tracker indisponíveis: {legacyError}</p>
+        <Button size="sm" variant="outline" onClick={() => void load()}>Tentar carregar fontes novamente</Button>
+      </div>}
+      {!legacyLoading && !legacyError && <Tabs defaultValue="dashboard" className="space-y-4">
         <TabsList>
           <TabsTrigger value="dashboard"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Dashboard</TabsTrigger>
           <TabsTrigger value="links"><MousePointerClick className="h-3.5 w-3.5 mr-1" /> Links UTM</TabsTrigger>
@@ -700,6 +529,7 @@ export default function Tracker() {
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
+          {!financeCompatible ? <p className="text-sm text-muted-foreground">Os KPIs monetários em BRL exigem valores conhecidos na mesma moeda. Consulte a receita separada por moeda no relatório acima.</p> : <>
           {/* Top-level metrics */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
@@ -983,6 +813,7 @@ export default function Tracker() {
               </CardContent>
             </Card>
           )}
+          </> }
         </TabsContent>
 
         <TabsContent value="links" className="space-y-4">
@@ -1052,6 +883,7 @@ export default function Tracker() {
         </TabsContent>
 
         <TabsContent value="simulator" className="space-y-6">
+          {!financeCompatible ? <p className="text-sm text-muted-foreground">Simulação indisponível: receita ou moeda não confirmadas.</p> : <>
           <Card className="border-border/50 bg-card/60 backdrop-blur-md">
             <CardContent className="p-6">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1226,8 +1058,9 @@ export default function Tracker() {
               </div>
             </CardContent>
           </Card>
+          </> }
         </TabsContent>
-      </Tabs>
+      </Tabs>}
 
       {/* New Link Dialog */}
       <Dialog open={showNew} onOpenChange={setShowNew}>
@@ -1420,7 +1253,7 @@ export default function Tracker() {
             </DialogTitle>
           </DialogHeader>
           
-          {selectedFunnelLink && (() => {
+          {!legacyLoading && !legacyError && selectedFunnelLink && (() => {
             const linkClicks = clicks.filter(c => c.link_id === selectedFunnelLink.id);
             const numClicks = linkClicks.length;
             
