@@ -28,6 +28,9 @@
   if (transfer && safeId(qs.get('imp_sid'))) state.session_id = qs.get('imp_sid');
   var transferredClick = transfer && safeId(qs.get('imp_click_id'));
   var campaignChanged = Object.keys(incoming).length && JSON.stringify(incoming) !== JSON.stringify(state.last_touch && state.last_touch.params || {});
+  var incomingLink = safeId(qs.get('imp_link_id'));
+  if (incomingLink) state.link_id = incomingLink;
+  else if (campaignChanged) state.link_id = null;
   if (transferredClick) state.click_id = transferredClick;
   else if (!state.click_id || campaignChanged) state.click_id = id();
   if (campaignChanged || !state.last_touch) state.last_touch = { params: incoming, at: new Date(now).toISOString(), landing: cleanUrl(location.href) };
@@ -50,6 +53,7 @@
     u.searchParams.set('imp_project', project); u.searchParams.set('imp_vid', state.visitor_id);
     u.searchParams.set('imp_sid', state.session_id); u.searchParams.set('imp_click_id', state.click_id);
     if (!u.searchParams.has('click_id')) u.searchParams.set('click_id',state.click_id);
+    if (state.link_id) u.searchParams.set('imp_link_id',state.link_id);
     u.searchParams.set('imp_t', String(Date.now())); u.searchParams.set('imp_ft', JSON.stringify(state.first_touch));
     return u.href;
   }
@@ -81,7 +85,7 @@
     var eid = id();
     var attrs = state.last_touch.params || {};
     var payload = Object.assign({}, attrs, { project_id:project, session_id:state.session_id, visitor_id:state.visitor_id, click_id:state.click_id, event_id:eid, event_at:new Date().toISOString(), step:step, page_url:cleanUrl(location.href), referrer:cleanUrl(document.referrer), first_touch:state.first_touch, last_touch:state.last_touch,
-      meta:Object.assign({offer_id:config.offerId || null,player_id:config.playerId || null,page_type:pageType,tracker_version:'TRK1.1',validation:attrs.utm_source === 'codex-validation'},extra || {}) });
+      meta:Object.assign({offer_id:config.offerId || null,player_id:config.playerId || null,link_id:state.link_id || null,page_type:pageType,tracker_version:'TRK1.1',validation:attrs.utm_source === 'codex-validation'},extra || {}) });
     var queue = read('queue', []);
     if (queue.length >= 100) { var h = queue.findIndex(function (e) { return e.payload.step === 'heartbeat'; }); if (h >= 0) queue.splice(h,1); else { console.warn('Imperio tracker: queue full'); return null; } }
     queue.push({payload:payload,time:Date.now(),attempts:0,next:0}); save('queue', queue); drain();

@@ -31,6 +31,19 @@ begin
  -- Genuine matching click is scoped to project and time, excluding heartbeat/QA.
  perform imphq_ingest_funnel_event(ev||jsonb_build_object('event_id',gen_random_uuid(),'meta',jsonb_build_object('tracker_version','TRK1.1','validation',false)),'https://leaftide-powder-vsl.vercel.app');
  if (select attribution_confidence from imphq_tracker_sales where id=sale_id)<>'confirmed' then raise exception 'matching click not confirmed'; end if;
+ -- Registered links retain one click per journey, with no cross-project or QA contamination.
+ insert into imphq_tracking_links(id,nome,project_id,destino) values(prefix||'_link',prefix,'leaftide','https://leaftide-powder-vsl.vercel.app/');
+ ev:=ev||jsonb_build_object('meta',jsonb_build_object('tracker_version','TRK1.1','validation',false,'link_id',prefix||'_link'));
+ perform imphq_ingest_funnel_event(ev||jsonb_build_object('event_id',gen_random_uuid()),'https://leaftide-powder-vsl.vercel.app');
+ perform imphq_ingest_funnel_event(ev||jsonb_build_object('event_id',gen_random_uuid()),'https://leaftide-powder-vsl.vercel.app');
+ if (select count(*) from imphq_clicks where id=cid and link_id=prefix||'_link' and project_id='leaftide')<>1 then raise exception 'legacy link not deduplicated'; end if;
+ perform imphq_ingest_funnel_event(ev||jsonb_build_object('event_id',gen_random_uuid(),'click_id',prefix||'_qa','meta',jsonb_build_object('tracker_version','TRK1.1','validation',true,'link_id',prefix||'_link')),'https://leaftide-powder-vsl.vercel.app');
+ if exists(select 1 from imphq_clicks where id=prefix||'_qa') then raise exception 'QA inflated legacy clicks'; end if;
+ perform imphq_ingest_funnel_event(ev||jsonb_build_object('event_id',gen_random_uuid(),'project_id','memoflow','click_id',prefix||'_cross'),'https://memoflow-vsl.vercel.app');
+ if exists(select 1 from imphq_clicks where id=prefix||'_cross') then raise exception 'link crossed projects'; end if;
+ insert into imphq_tracking_links(id,nome,destino) values(prefix||'_global',prefix,'https://leaftide-powder-vsl.vercel.app/');
+ perform imphq_ingest_funnel_event(ev||jsonb_build_object('event_id',gen_random_uuid(),'click_id',prefix||'_global_click','meta',jsonb_build_object('tracker_version','TRK1.1','link_id',prefix||'_global')),'https://leaftide-powder-vsl.vercel.app');
+ if not exists(select 1 from imphq_clicks where id=prefix||'_global_click' and project_id='leaftide') then raise exception 'unassigned link lost'; end if;
 end $$;
 rollback;
 select 'TRK1.1 SQL assertions passed; fixtures rolled back' result;

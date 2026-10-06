@@ -17,6 +17,14 @@ function setup(query = "", options: { storage?: Record<string,string>; failStora
 }
 afterEach(()=>{for(const d of instances.splice(0))d.window.close();vi.clearAllTimers();vi.useRealTimers();});
 describe("browser journey and delivery",()=>{
+  it("preserves registered-link identity without attaching an old link to a new campaign",()=>{
+    const one=setup("?imp_link_id=link-1&utm_source=facebook");
+    expect(new URL(one.api.decorate("https://checkout.test/pay")).searchParams.get("imp_link_id")).toBe("link-1");
+    expect(JSON.parse(String(vi.mocked(one.fetch).mock.calls[0][1]?.body)).meta.link_id).toBe("link-1");
+    const storage:Record<string,string>={}; for(let i=0;i<one.w.localStorage.length;i++){const k=one.w.localStorage.key(i)!;storage[k]=one.w.localStorage.getItem(k)!;}
+    const two=setup("?utm_source=google",{storage});
+    expect(new URL(two.api.decorate("https://checkout.test/pay")).searchParams.get("imp_link_id")).toBeNull();
+  });
   it("preserves affiliate identity and carries click/session across domains",()=>{
     const {api}=setup("?utm_source=codex-validation&affid=attacker&hid=wrong&email=private");
     const dest=new URL(api.decorate("https://checkout.test/pay?hid=original&affid=owner&package=6"));

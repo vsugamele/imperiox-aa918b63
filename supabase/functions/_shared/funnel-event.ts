@@ -11,7 +11,7 @@ function touch(v: unknown): Record<string, unknown> {
 }
 function metadata(v: unknown): Record<string, unknown> {
   const source = record(v); const out: Record<string, unknown> = {};
-  for (const k of ["offer_id", "player_id", "tracker_version", "validation", "qa_source", "page_type", "destination_host", "pitch_evidence", "position_seconds", "duration_seconds", "pitch_configured", "retention_configured", "player_api"]) {
+  for (const k of ["offer_id", "player_id", "link_id", "tracker_version", "validation", "qa_source", "page_type", "destination_host", "pitch_evidence", "position_seconds", "duration_seconds", "pitch_configured", "retention_configured", "player_api"]) {
     if (typeof source[k] === "string") out[k] = text(source[k]);
     else if (typeof source[k] === "boolean" || typeof source[k] === "number") out[k] = source[k];
   }

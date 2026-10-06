@@ -26,6 +26,8 @@ public/funnel.js; src/components/tracker/TrackerEvidence.tsx; src/pages/Tracker.
 
 Migração aplicada e assertions SQL passadas com rollback; sem fixtures financeiras persistidas. Coletor v378: 400 para inválido, 200/duplicate:false e 200/duplicate:true para o mesmo event_id. Webhook v594 publicado. H&W: rota de todas ofertas corrigida, removendo project=lipo inexistente; token e escopos mantidos. Piloto Leaftide commit 9fe792c em produção: uma sessão, um clique, vsl_view/vsl_instrumented com player correto; checkout conserva hid/affid/pacote. Todos esses eventos são QA e excluídos do relatório. Gates completos: 802 testes; 64 testes focados após ajustes; lint 0 erros/8 avisos; typecheck/build passaram. A execução global inicial teve um timeout por concorrência, resolvido com maxWorkers=2 sem mudar timeout/assertions.
 
+Compatibilidade posterior: imp_link_id transportado em meta e destino, resetado em nova campanha. Ponte transacional entre entradas e imphq_clicks mantém links registrados e globais, valida projeto/ativo, deduplica pelo click_id e exclui QA. Migrações 20261006101658_tracker_legacy_click_bridge.sql e 20261006101836_tracker_unassigned_links.sql aplicadas; assertions repetidas com rollback, incluindo deduplicação/link global/QA/projeto incorreto. Coletor atualizado v379; 11 testes contrato/navegador passados; lint 0 erros/8 avisos. Quatro pacotes de oferta: 73 testes Node, sintaxe/diff aprovados, mesmo script canônico, configurações preservadas.
+
 ## Limites
 
 Sem compra de teste, cobrança, disparos WhatsApp ou mudança de BM. Validação identificada e excluída dos relatórios. Não inferir históricos sem evidência. API Vturb oficial: https://smartplayer.vturb.com/en/api/ e https://smartplayer.vturb.com/en/events/.
