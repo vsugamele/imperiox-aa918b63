@@ -1,0 +1,149 @@
+{
+  "estado": "completa_no_escopo",
+  "escopo": "MemoFlow · 4 native ads de aquisição, entrega-clique, US, braço derick:native-ads",
+  "modo": "dtc",
+  "fontes": [
+    {
+      "id": "hw-brief",
+      "referencia": "Brief de afiliado H&W MemoFlow (HTML local)",
+      "uso": "produto, mecanismo, avatares, VOC, objeções, 12 long text ads"
+    },
+    {
+      "id": "adv01",
+      "referencia": "https://memoflow-advertorial-adv01.vercel.app/",
+      "uso": "continuidade do CTA"
+    },
+    {
+      "id": "eleanor",
+      "referencia": "https://memoflow-advertorial-eleanor.vercel.app/",
+      "uso": "continuidade do CTA"
+    }
+  ],
+  "pendencias": [
+    "Repertório DTC do app indisponível: moldes da tag memória não lidos",
+    "Galeria DTC indisponível: peça salva só localmente",
+    "Revisar alegações de saúde contra as políticas da Meta antes de subir"
+  ],
+  "pecas": [
+    {
+      "id": "DK-01",
+      "texto": "In March of 2022, a neurologist in Columbus told me I had \"mild cognitive impairment.\" Early stage. He said it the way you'd read a weather report.\n\nI'm 67 now. Turns out my brain was never impaired.\n\nIt was locked out.\n\nI taught high school chemistry for 31 years. Balanced equations in my head faster than the kids could punch them into a calculator. My wife called me the family encyclopedia. Not as a joke.\n\nThen the small words started going. \"Spatula.\" \"Mailbox.\" My granddaughter's middle name.\n\nI'd stand in the garage holding a screwdriver with no idea what I went out there to fix.\n\nSo I did what you're supposed to do.\n\n$1,140 on a brain-training app and the tablet to run it. Fish oil. Ginkgo. A $64 \"memory formula\" from the pharmacy endcap. Two years of Aricept, $2,316 in co-pays alone. A second opinion in Cleveland, two hours each way, where a very kind doctor told me the same thing in nicer words.\n\nI don't blame either of them. They had fifteen minutes and a textbook that says memory fades with age. Nobody gets paid to ask what's in your well water.\n\nThe night it got real was a Thursday. 9:42 PM.\n\nI was helping my grandson with his chemistry homework. Chemistry. And I couldn't remember what Cd stood for on the periodic table.\n\nI'd known that table for 48 years.\n\nHe said, \"It's okay, Grandpa,\" and went to ask his mom. He hasn't asked me since.\n\nTwo weeks later I told that story to Walt at church. Walt ran the lab at the county water plant for 26 years. He didn't laugh.\n\n\"You still on that well out on Route 9?\"\n\n\"Since '88.\"\n\nHe pulled a napkin over and wrote two things. Cd. 48.\n\n\"Cadmium. Atomic number 48. Old pipes, fertilizer runoff, half the wells in this county. Your body's got no way to get rid of it, Ray. It just keeps it. For decades.\"\n\nThen he said the thing I haven't stopped thinking about.\n\n\"Your brain runs on sugar. Insulin is the key that lets it in. That stuff doesn't touch the key. It rusts the lock.\"\n\nThe rusted lock.\n\nWe had a deadbolt on the back porch that seized up after twenty Ohio winters. Key still fit perfectly. Wouldn't turn. I spent a whole Saturday jiggling it before I figured out the key was never the problem.\n\nThat's why the app did nothing. You can't train a brain through a rusted lock.\n\nThat's why the fish oil did nothing. More fuel piling up outside a door that won't open.\n\nThat's why two years of Aricept did nothing for the words. It was never built to touch the lock.\n\nI won't pretend I understood all of it that night. I didn't. But Walt sent me an article before I even got home. It was written by a researcher who once told someone in his own family it was \"just age,\" and who found the two things it takes to get a rusted lock turning again.\n\nOne of them was already in my pantry.\n\nThe other one I'd never heard of.\n\nIf somebody told you \"it's just age,\" read this before you believe them.\n\n👇 Read the full article here\n\nP.S. Last Sunday my grandson asked me what Cd stands for. I think it was a test. I didn't have to look.",
+      "idioma": "en-US",
+      "decisoes": {
+        "regime": "entrega_clique",
+        "distancia": "leitor = doente",
+        "voz": "paciente leigo, 67, professor de química",
+        "familia_gancho": "G6 · Diagnóstico revogado",
+        "vilao": "the rusted lock",
+        "analogia": "ferrolho da varanda travado",
+        "esqueleto": "diagnóstico revogado → inventário → Cd esquecido → mentor (água) → batismo → fracassos pagos → artigo → CTA leitura → P.S. Cd"
+      },
+      "matriz": [
+        {
+          "destino": "ADV01",
+          "utm_content": "dk-01-lock"
+        }
+      ],
+      "medicoes": {
+        "caracteres": 3008
+      }
+    },
+    {
+      "id": "DK-02",
+      "texto": "Last Wednesday I found a yellow sticky note in the freezer. Folded in half. Soft from the frost, stuck to a bag of peas.\n\nIt was my husband's handwriting. Shaky, all capitals, the way he writes now.\n\n\"LINDA'S BIRTHDAY. 14TH. DON'T FORGET.\"\n\nI'm Linda. My birthday was three weeks ago.\n\nHe did forget. I'd told myself it didn't matter. Then I stood there with the freezer door open, holding a note he wrote so he wouldn't hurt me, hidden where I'd never find it, and I cried until the fridge started beeping.\n\nWe've been married 46 years. Frank was the one who remembered everything. Our anniversary. The kids' shoe sizes. The name of every waitress at the diner on 4th Street.\n\nNow he asks me what day it is four, five times before lunch. Last spring he got lost driving home from the hardware store he's been going to since 1983.\n\nI took the car keys. I hid them in my purse like a criminal.\n\nI'm not proud of the next part.\n\nFor two years I told him to try harder. Write it down, Frank. Pay attention, Frank. I bought a $39 whiteboard for the kitchen. Puzzle books. Fish oil, ginkgo, the $72 bottle from the TV ad. His doctor put him on Aricept, then added Namenda. I kept a chart.\n\nHis memory got worse anyway. On all of it.\n\nI'm not angry at his doctor. She's a good woman with a waiting room full of people just like us and about twelve minutes for each one. What else was she supposed to say?\n\nBut nobody tells you what it does to the one who stays.\n\nI sleep in two-hour pieces. At 3:10 one morning last month I found him at the front door in his robe with the keys in his hand. He'd found my purse.\n\nI stopped going to the church potluck. Our friends stopped calling. Not mean. Just gone.\n\nIn August our daughter took me to tour a memory care place. Nice carpet. Fish tank in the lobby. $7,850 a month. I sat in the car afterward and couldn't turn the key.\n\nIt was my hairdresser, of all people, who changed it.\n\nDenise has cut my hair for 19 years. Her mother went through this. I told her about the note in the freezer and she stopped cutting.\n\n\"Has anybody ever tested Frank for metals?\"\n\nI didn't know what she meant.\n\n\"Mom's neurologist never did either. It was a nurse at her kidney doctor's who asked. Cadmium. It builds up in you for decades. Water, food, the cigarette smoke from forty years ago. Your body can't flush it on its own. It settles in and blocks the fuel.\"\n\nThen she said, \"You know how your kettle gets that white crust on the bottom? You never see it happen. You just notice one day it takes forever to boil.\"\n\nThe Scale. That's what I call it now.\n\nForty-some years of it settling in Frank's head, one day at a time, and not one test we ever paid for was looking for it.\n\nThat's why the whiteboard didn't work. That's why the puzzles didn't work. You can't scrub a kettle by boiling more water in it.\n\nDenise texted me an article that night. A woman wrote it. She took care of her mother for six years, then caught herself checking her own memory. It explains what she found about the Scale, and what she does about it now.\n\nI read it at the kitchen table at 1 AM with Frank asleep down the hall. Then I read it again.\n\nIf you're the one in your house who keeps the sticky notes, read it before you tour anywhere.\n\n👇 The article is here\n\nP.S. The note is on our fridge now. Not as a reminder. Last Tuesday Frank asked me if I'd had a nice birthday. It's the first thing he's asked me about me in a year.",
+      "idioma": "en-US",
+      "decisoes": {
+        "regime": "entrega_clique",
+        "distancia": "comprador ≠ doente",
+        "voz": "cuidadora (esposa)",
+        "familia_gancho": "G3 · Cena-objeto",
+        "vilao": "the Scale",
+        "analogia": "crosta da chaleira",
+        "esqueleto": "bilhete no freezer → culpa → inventário → 3h10/custo social → mentora (cabeleireira) → batismo → artigo → CTA → bilhete no P.S."
+      },
+      "matriz": [
+        {
+          "destino": "Eleanor",
+          "utm_content": "dk-02-scale"
+        }
+      ],
+      "medicoes": {
+        "caracteres": 3435
+      }
+    },
+    {
+      "id": "DK-03",
+      "texto": "My mother took Aricept every morning for seven years.\n\nShe died last November in a memory care unit outside Tulsa. She didn't know my name.\n\nSeven years of \"managing it.\" That's what everybody called it. Managing.\n\nShe died of exactly the thing they were managing.\n\nI'm 58. I'm writing this because of what happened in my kitchen two weeks ago.\n\nI put the milk in the pantry. Found it at dinner, warm. Laughed it off.\n\nThen I did it again the next morning.\n\nI stood there holding that carton and I saw her. Same hands. Same little laugh to cover it.\n\nYou don't forget watching it happen to your mother. The first year was names. Then the stove left on. Then the afternoon she called me from a gas station in Broken Arrow, crying, because she couldn't remember which way was home.\n\nSeven years of pills, about $2,500 a year. Seven years of crosswords, because the pamphlet said to keep her mind busy. Seven years of fish oil I bought in bulk at Costco. And at the end, $6,900 a month for a room with her name on a laminated sign by the door.\n\nNone of it slowed it down. Not for one month.\n\nHer doctors weren't bad people. I want to be clear about that. They prescribed what they were taught to prescribe, and a whole industry has been built around one theory about plaque. Nobody makes a living asking a different question.\n\nThe night after the funeral I couldn't sleep. At 4:15 AM I was sitting in her recliner, which still smelled like her, reading the side of her pill bottle like it was going to apologize.\n\nMy sister-in-law Carol was the one who finally said it out loud. Carol has been a diabetes nurse educator for 22 years. She's not a brain person. That's probably why she saw it.\n\n\"When you told me about your mom's last two years, it sounded like my patients' feet,\" she said.\n\nI asked what that meant.\n\n\"Plenty of sugar in the blood. It just can't get into the cells. The cells starve while they're sitting in fuel.\"\n\nShe said something, often a heavy metal called cadmium that builds up over decades, damages the doors that let that fuel into the brain. The brain starves in the middle of a full pantry.\n\nFull-pantry starvation. I said it out loud in the car three times on the way home.\n\nYou know when you turn on the garden hose and barely anything comes out the end? Pressure's fine at the spigot. Somewhere back by the tomatoes, there's a kink.\n\nMy mother spent seven years having the spigot turned up.\n\nNobody ever looked for the kink.\n\nThat's why the pills didn't touch it. That's why the crosswords didn't touch it. You can't fix a kinked hose by turning the water up harder.\n\nCarol sent me an article the next week. A woman wrote it. She cared for her mother for six years, then started catching herself checking her own memory, which is exactly where I am. It lays out what she learned, and what she does now so she doesn't become the story she already knows by heart.\n\nI'm done managing.\n\nIf there's a parent's pill bottle in a drawer somewhere in your house, read this first.\n\n👇 Full article here",
+      "idioma": "en-US",
+      "decisoes": {
+        "regime": "entrega_clique",
+        "distancia": "ex-cuidador e futuro doente",
+        "voz": "filho de 58 (próximo)",
+        "familia_gancho": "G4 · Morte pela solução padrão",
+        "vilao": "full-pantry starvation",
+        "analogia": "mangueira dobrada",
+        "esqueleto": "Aricept/óbito → refrão managing → leite na despensa → 7 anos com preço → 4h15 → mentora (diabetes) → batismo → artigo → CTA"
+      },
+      "matriz": [
+        {
+          "destino": "Eleanor",
+          "utm_content": "dk-03-starvation"
+        }
+      ],
+      "medicoes": {
+        "caracteres": 3019
+      }
+    },
+    {
+      "id": "DK-04",
+      "texto": "Please STOP doing the morning crossword to \"keep your brain sharp.\"\n\nI know that sounds insane. I told families to do exactly that for 23 years as a neurology nurse. I handed out the pamphlets myself.\n\nBut every time you sit down with that $8.99 puzzle book and your second cup of coffee, you're asking a brain that's running on half power to work harder.\n\nIt can't. Not because you're not trying.\n\nBecause the lights are dimming.\n\nI'm 64 and retired now. I spent most of my career on a neuro floor in Phoenix. I watched hundreds of families do everything right. Crosswords. Sudoku. Fish oil. Walking. The apps.\n\nI watched almost all of them lose anyway.\n\nIncluding my own aunt. Aunt Dot did the crossword in pen every single day until she was 79. In pen. She died not recognizing my mother, her own sister.\n\nI told her to keep doing the puzzles. That's the part I have to live with.\n\nHere is what I wish I had known back then, and what almost nobody on my floor was ever trained to look at.\n\nThe brain doesn't run on effort. It runs on glucose. Insulin is what lets that fuel into the neurons.\n\nWhen the receptors that take that fuel in get damaged, the brain doesn't break all at once. It browns out. One hallway, then another. Names first. Then words. Then the way home.\n\nI call it the brownout, because that is exactly what it looks like from the outside.\n\nIf you've ever lived through a summer brownout, you know the feeling. The lights don't go off. They just sag. The fridge hums lower. The fan slows down. Nothing is broken. There just isn't enough power getting in.\n\nAnd here's the thing about a brownout: flipping the switches harder doesn't help.\n\nThat is what a crossword is. Flipping the switch harder.\n\nThat is what the brain games are. And the fish oil is buying brighter bulbs for a house with a power problem.\n\nWhy didn't anyone on my floor look at this? Because nothing in a neuro workup measures how much fuel is actually getting in. We measured everything except the power.\n\nI'm not going to give you a lecture in a Facebook post. And I won't tell you this is a cure. I don't make those promises anymore.\n\nBut there is an article that explains it better than I can. It was written by a researcher who once told his own family it was \"just age.\" It walks through why the usual advice never reaches the brownout, and the two-part routine he put together after he understood it.\n\nDo one thing first. Tomorrow morning, skip the puzzle. Just notice what time the fog actually lifts. Write it down.\n\nThen read this.\n\nRead the full article below.",
+      "idioma": "en-US",
+      "decisoes": {
+        "regime": "entrega_clique",
+        "distancia": "leitor = doente",
+        "voz": "especialista confessional (enfermeira neuro)",
+        "familia_gancho": "G8 · Ordem de PARAR",
+        "vilao": "the brownout",
+        "analogia": "casa em queda de tensão",
+        "esqueleto": "ordem → concessão → falha com a tia → aula direta → batismo → interruptor mais forte → subpromessa → gesto gratuito → CTA"
+      },
+      "matriz": [
+        {
+          "destino": "ADV01",
+          "utm_content": "dk-04-brownout"
+        }
+      ],
+      "medicoes": {
+        "caracteres": 2559
+      }
+    }
+  ],
+  "controle_metodo": [
+    {
+      "criterio": "Documento-mãe lido inteiro nesta execução",
+      "estado": "atendido",
+      "evidencia": "escrita-long-form-native-ads.md lido inteiro"
+    },
+    {
+      "criterio": "Regras DTC lidas",
+      "estado": "atendido",
+      "evidencia": "regras-dtc.md lido"
+    },
+    {
+      "criterio": "Repertório DTC por tag",
+      "estado": "pendente",
+      "evidencia": "capacidade ausente fora do app; lacuna declarada"
+    },
+    {
+      "criterio": "Checklist Parte VIII + lista negra",
+      "estado": "atendido",
+      "evidencia": "tabela do relatório do portão"
+    },
+    {
+      "criterio": "Parte V compra",
+      "estado": "nao_aplicavel",
+      "evidencia": "regime entrega-clique"
+    }
+  ],
+  "nota_unica_validar_recast": "Personagens, nomes, idades, cidades, datas, valores, cenas, credencial de enfermeira e resultados nos P.S. são inventados. Cádmio, receptores de insulina e teoria das placas vêm do brief H&W, sem verificação independente."
+}
