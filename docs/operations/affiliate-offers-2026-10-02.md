@@ -1,5 +1,24 @@
 # Catálogo de ofertas DTC — AFF1.1
 
+## Tracker TRK1.1 — publicação de 06/10/2026
+
+Jornada com IDs de visitante/sessão/clique/evento, primeiro e último contato, fila limitada, confirmação e deduplicação publicada nas quatro páginas próprias. Configurações de player, GA4, afiliado e pacote preservadas. Piloto Leaftide conferido antes da expansão. Scripts públicos HTTP 200 e SHA256 canônico `084aba28fedb577d53ac4f028cb9ef57bd64dadbda7d6f916af1cd87f07e0b7e`.
+
+| Oferta | Commit publicado | Conferência |
+|---|---|---|
+| Leaftide | `e3fb5f7` | Entrada/instrumentação recebidas; identidade e afiliado no checkout preservados |
+| CardioFlush H&W | `dda5cbb` | Entrada/instrumentação com LEAD5 recebidas; checkout preservado; projeto antigo não substituído |
+| MemoFlow | `2845925` | Entrada/instrumentação recebidas; checkout preservado |
+| SlimSoda Powder | `eca1711` | ADV1 → VSL mantém a mesma jornada; PDP/link checkout preservam identidade e afiliado |
+
+[Tracker](https://imperiox.vercel.app/tracker) e [Atribuição](https://imperiox.vercel.app/atribuicao) usam receita líquida, moeda de origem e confiança da atribuição. Ausência de medição/receita/currency não autoriza ROAS fictício. Coletor v379, webhook-pagamento v594 e três migrações aplicadas. H&W: webhook de todas ofertas agora usa a rota sem `project=lipo`; token e escopos preservados. Payload incompleto fica pendente para reconciliação, sem venda inventada. Testes identificados como QA e excluídos dos relatórios.
+
+Dez nós existentes do mapa e quatro cadastros de sites atualizados com versões e limites. [PR #2](https://github.com/vsugamele/imperiox-aa918b63/pull/2) aberta; produção publicada por @devops. CI types-drift depende da credencial Supabase ausente no GitHub; nenhuma alteração de secrets/proteções realizada. [Handoff](../sessions/2026-10/2026-10-06-tracker-trk11.md) registra evidências e pendências.
+
+Purchase/CAPI e uma venda real atribuída continuam sem comprovação desta versão. Instalação Dtc-Clear/Cardio e identificação/rename do parasita para MemoFlow permanecem pendentes; as decisões anteriores abaixo continuam válidas. Nenhuma compra, campanha ou disparo executado.
+
+## Histórico AFF1.1
+
 Atualizado em 03/10/2026, America/Sao_Paulo. Histórico de 02/10 preservado abaixo.
 
 ## Decisão atual — reutilizar datasets existentes, 03/10

@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { ReferenceDossierModal, type Analise } from "@/components/referencias/ReferenceDossierModal";
 
@@ -444,8 +444,8 @@ function ReferenciasDesktop() {
       setShowBatchMove(false);
       clearSelection();
       load();
-    } catch (e: any) {
-      toast.error("Erro ao mover: " + (e.message || "Erro desconhecido"));
+    } catch (e) {
+      toast.error("Erro ao mover: " + (e instanceof Error && e.message ? e.message : "Erro desconhecido"));
     } finally {
       setBatchBusy(false);
     }
@@ -464,8 +464,8 @@ function ReferenciasDesktop() {
       toast.success(`${count} referências excluídas com sucesso!`);
       clearSelection();
       load();
-    } catch (e: any) {
-      toast.error("Erro ao excluir: " + (e.message || "Erro desconhecido"));
+    } catch (e) {
+      toast.error("Erro ao excluir: " + (e instanceof Error && e.message ? e.message : "Erro desconhecido"));
     }
   };
 

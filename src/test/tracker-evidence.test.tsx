@@ -298,6 +298,44 @@ describe("complete-or-error range pagination", () => {
 
 describe("TRK1.1 legacy Tracker load boundaries", () => {
   const sources = ["imphq_tracking_links", "imphq_ads_spend", "imphq_vendas", "imphq_projects", "imphq_leads", "imphq_clicks"];
+  it("does not assign performance targets to ratios with a zero denominator", async () => {
+    mocks.range.mockImplementation(async (source: string, from: number): Promise<PageReply> => ({
+      data: source === "imphq_ads_spend" && from === 0 ? [{ id: "ad", project_id: "project-1", moeda: "BRL", valor: 0, cliques: 0, impressoes: 0, campanha: "Campanha", data_ref: "2026-10-01" }] : [], error: null,
+    }));
+    render(<Tracker />);
+    await screen.findByText("Total Gasto");
+    const dashboard = screen.getByRole("tabpanel", { name: "Dashboard" });
+    expect(within(dashboard).getAllByText("Indisponível")).toHaveLength(8);
+    expect(within(dashboard).queryByText("On target")).not.toBeInTheDocument();
+    expect(within(dashboard).queryByText("Off target")).not.toBeInTheDocument();
+    expect(within(dashboard).queryByText("Alerta de Performance")).not.toBeInTheDocument();
+  });
+
+  it("uses approved net revenue in source, product and campaign breakdowns", async () => {
+    mocks.range.mockImplementation(async (source: string, from: number): Promise<PageReply> => ({
+      data: from > 0 ? [] : source === "imphq_ads_spend" ? [{ id: "ad", project_id: "project-1", moeda: "BRL", valor: 20, cliques: 10, impressoes: 100, campanha: "Campanha", data_ref: "2026-10-01" }]
+        : source === "imphq_vendas" ? [{ id: "sale", project_id: "project-1", status: "aprovado", valor: 100, valor_liquido: 60, data: { moeda: "BRL" }, data_venda: since, created_at: since, produto_nome: "Produto A", utm_source: "fb", utm_campaign: "Campanha", tipo_venda: "principal" }] : [], error: null,
+    }));
+    render(<Tracker />);
+    await screen.findByText("Total Gasto");
+    const dashboard = screen.getByRole("tabpanel", { name: "Dashboard" });
+    for (const name of [/^fb 1/, /^Produto A 1/, /^Campanha 1/]) {
+      expect(within(dashboard).getByRole("row", { name })).toHaveTextContent("R$ 60.00");
+    }
+    expect(within(dashboard).queryByText("R$ 100.00")).not.toBeInTheDocument();
+  });
+
+  it("documents the published tracker API without promising automatic Purchase or CAPI", async () => {
+    render(<Tracker />);
+    fireEvent.click(screen.getByRole("button", { name: "Script" }));
+    const dialog = await screen.findByRole("dialog", { name: /Script de Tracking \(TRK1.1\)/ });
+    expect(within(dialog).getByText("imperioTracker.getIdentity()")).toBeInTheDocument();
+    expect(within(dialog).getByText("imperioTracker.getDiagnostics()")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/imptrack\./)).not.toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Purchase/CAPI depende da integração");
+    expect(dialog).toHaveTextContent("não significa venda, criação de lead ou envio de CAPI");
+  });
+
   it.each(sources)("shows failure from %s instead of a zero dashboard and preserves link creation", async table => {
     mocks.range.mockImplementation(async (source: string): Promise<PageReply> => source === table
       ? { data: null, error: { message: `${table} failed` } } : { data: [], error: null });
@@ -339,10 +377,13 @@ describe("TRK1.1 legacy Tracker load boundaries", () => {
     expect(screen.queryByText("Total Gasto")).not.toBeInTheDocument();
     mocks.range.mockResolvedValue({ data: [], error: null });
     fireEvent.click(screen.getByRole("button", { name: "7D" }));
-    await screen.findByText("Total Gasto");
+    await screen.findByText("Sem dados de mídia no período e filtros selecionados.");
     await act(async () => old.resolve({ data: null, error: { message: "old failure" } }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByText("Total Gasto")).toBeInTheDocument();
+    expect(screen.getByText("Sem dados de mídia no período e filtros selecionados.")).toBeInTheDocument();
+    expect(screen.queryByText("Total Gasto")).not.toBeInTheDocument();
+    expect(screen.queryByText("Alerta de Performance")).not.toBeInTheDocument();
+    expect(screen.queryByText(/ROAS/)).not.toBeInTheDocument();
     const reportArgs = mocks.rpc.mock.calls[mocks.rpc.mock.calls.length - 1][1];
     expect(new Date(reportArgs.p_since).toISOString()).toBe(reportArgs.p_since);
     expect(new Date(reportArgs.p_until).toISOString()).toBe(reportArgs.p_until);
@@ -358,12 +399,27 @@ describe("TRK1.1 legacy Tracker load boundaries", () => {
 
   it("uses BRT day bounds with the following midnight as the exclusive upper bound", async () => {
     render(<Tracker />);
-    await screen.findByText("Total Gasto");
+    await screen.findByText("Sem dados de mídia no período e filtros selecionados.");
     fireEvent.click(screen.getByRole("button", { name: "Ontem" }));
-    await screen.findByText("Total Gasto");
+    await screen.findByText("Sem dados de mídia no período e filtros selecionados.");
     const args = mocks.rpc.mock.calls[mocks.rpc.mock.calls.length - 1][1];
     expect(Date.parse(args.p_until) - Date.parse(args.p_since)).toBe(86400000);
     expect(args.p_since).toMatch(/T03:00:00\.000Z$/);
     expect(args.p_until).toMatch(/T03:00:00\.000Z$/);
+    expect(screen.queryByText("Total Gasto")).not.toBeInTheDocument();
+    expect(screen.queryByText("Alerta de Performance")).not.toBeInTheDocument();
+    expect(screen.queryByText(/ROAS/)).not.toBeInTheDocument();
+
+    const reportCalls = mocks.rpc.mock.calls.length;
+    const sourceCalls = mocks.range.mock.calls.length;
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Simulador de Escala" }), { button: 0, ctrlKey: false });
+    expect(await screen.findByRole("heading", { name: /Parâmetros de Escala/ })).toBeInTheDocument();
+    const simulator = screen.getByRole("tabpanel", { name: "Simulador de Escala" });
+    const investment = within(simulator).getByRole("spinbutton");
+    expect(investment).toBeEnabled();
+    fireEvent.change(investment, { target: { value: "7500" } });
+    expect(investment).toHaveValue(7500);
+    expect(mocks.rpc).toHaveBeenCalledTimes(reportCalls);
+    expect(mocks.range).toHaveBeenCalledTimes(sourceCalls);
   });
 });

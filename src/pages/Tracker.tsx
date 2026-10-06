@@ -107,7 +107,7 @@ export default function Tracker() {
   const [adsSpend, setAdsSpend] = useState<AdsSpendRow[]>([]);
   const [vendas, setVendas] = useState<Tables<"imphq_vendas">[]>([]);
   const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">,"id"|"name">[]>([]);
-  const [leads, setLeads] = useState<(Pick<Tables<"imphq_leads">,"score"|"criado_em"> & { utm_source?: string })[]>([]);
+  const [leads, setLeads] = useState<(Pick<Tables<"imphq_leads">,"score"|"criado_em"|"project_id"> & { utm_source?: string })[]>([]);
   const [clicks, setClicks] = useState<Pick<Tables<"imphq_clicks">,"id"|"link_id"|"convertido"|"lead_id"|"created_at">[]>([]);
   const [selectedFunnelLink, setSelectedFunnelLink] = useState<TrackingLink | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -143,7 +143,7 @@ export default function Tracker() {
         paginatedQuery("Mídia", (from, to) => supabase.from("imphq_ads_spend").select("*").gte("data_ref", dateRange.from).lte("data_ref", dateRange.to).order("data_ref", { ascending: false }).order("id").range(from, to)),
         paginatedQuery("Vendas", (from, to) => supabase.from("imphq_vendas").select("*").gte("data_venda", reportRange.since).lt("data_venda", reportRange.until).order("id").range(from, to)),
         paginatedQuery("Projetos", (from, to) => supabase.from("imphq_projects").select("id, name").order("name").order("id").range(from, to)),
-        paginatedQuery("Leads", (from, to) => supabase.from("imphq_leads").select("data, score, criado_em").gte("criado_em", reportRange.since).lt("criado_em", reportRange.until).order("id").range(from, to)),
+        paginatedQuery("Leads", (from, to) => supabase.from("imphq_leads").select("data, score, criado_em, project_id").gte("criado_em", reportRange.since).lt("criado_em", reportRange.until).order("id").range(from, to)),
         paginatedQuery("Cliques", (from, to) => supabase.from("imphq_clicks").select("id, link_id, convertido, lead_id, created_at").gte("created_at", reportRange.since).lt("created_at", reportRange.until).order("id").range(from, to)),
       ]);
       if (sequence !== loadSequence.current) return;
@@ -245,21 +245,21 @@ export default function Tracker() {
     if (filterProject !== "all" && l.project_id !== filterProject) return false;
     return true;
   });
-  const filteredAds = adsSpend.filter(a => {
+  const filteredAds = useMemo(() => adsSpend.filter(a => {
     if (filterProject !== "all" && a.project_id !== filterProject) return false;
     if (filterPlataforma !== "all") {
       const plat = filterPlataforma === "Meta Ads" ? "Facebook" : filterPlataforma;
       if (a.plataforma !== plat) return false;
     }
     return true;
-  });
-  const filteredVendas = vendas.filter(v => {
+  }), [adsSpend, filterProject, filterPlataforma]);
+  const filteredVendas = useMemo(() => vendas.filter(v => {
     if (!["aprovado","aprovada","paga","approved","paid"].includes((v.status || "").toLowerCase())) return false;
     if (v.utm_source === "codex-validation" || record(v.data).validation === true) return false;
     if (filterProject !== "all" && v.project_id !== filterProject) return false;
     if (filterProduct !== "all" && v.produto_nome !== filterProduct) return false;
     return true;
-  });
+  }), [vendas, filterProject, filterProduct]);
 
   const financeCompatible = filteredVendas.every(v=>record(v.data).moeda === "BRL" && v.valor_liquido !== null) && filteredAds.every(a=>a.moeda === "BRL");
   // Legacy BRL displays are gated; the server report above is authoritative by currency.
@@ -292,9 +292,9 @@ export default function Tracker() {
     dailyMap.set(d, prev);
   });
   filteredVendas.forEach(v => {
-    const d = v.created_at ? toLocalDateStr(new Date(v.created_at)) : "";
+    const d = v.data_venda ? toLocalDateStr(new Date(v.data_venda)) : "";
     const prev = dailyMap.get(d) || { gasto: 0, receita: 0, clicks: 0 };
-    prev.receita += Number(v.valor) || 0;
+    prev.receita += Number(v.valor_liquido) || 0;
     dailyMap.set(d, prev);
   });
   const dailyChart = Array.from(dailyMap.entries()).map(([date, v]) => ({ date, ...v })).sort((a, b) => a.date.localeCompare(b.date));
@@ -320,10 +320,10 @@ export default function Tracker() {
     if (target === 0) return "neutral";
     return higherIsBetter ? (real >= target ? "good" : "bad") : (real <= target ? "good" : "bad");
   };
-  const roasStatus = getStatus(roas, targets.roas_target, true);
-  const cpaStatus = getStatus(cpa, targets.cpa_target, false);
-  const ctrStatus = getStatus(ctr, targets.ctr_target, true);
-  const cpmStatus = getStatus(cpm, targets.cpm_target, false);
+  const roasStatus = totalGasto > 0 ? getStatus(roas, targets.roas_target, true) : "neutral";
+  const cpaStatus = totalVendasCount > 0 ? getStatus(cpa, targets.cpa_target, false) : "neutral";
+  const ctrStatus = totalImpressoes > 0 ? getStatus(ctr, targets.ctr_target, true) : "neutral";
+  const cpmStatus = totalImpressoes > 0 ? getStatus(cpm, targets.cpm_target, false) : "neutral";
 
   const projectName = (id?: string) => projects.find(p => p.id === id)?.name || "—";
 
@@ -379,17 +379,17 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
     const activeUtm = selectedUtm || utmSourcesList[0] || "FB";
     const platformName = utmToPlatform(activeUtm);
 
-    const historicalSpend = adsSpend
+    const historicalSpend = filteredAds
       .filter(a => a.plataforma === platformName || (platformName === "Facebook" && a.plataforma === "Meta Ads"))
       .reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
     const baseBudget = Math.max(historicalSpend, 1000);
 
-    const leadsListForUtm = leads.filter(l => l.utm_source === activeUtm || (activeUtm === "FB" && (l.utm_source === "facebook" || l.utm_source === "Meta Ads" || l.utm_source === "FB")));
+    const leadsListForUtm = leads.filter(l => (filterProject === "all" || l.project_id === filterProject)).filter(l => l.utm_source === activeUtm || (activeUtm === "FB" && (l.utm_source === "facebook" || l.utm_source === "Meta Ads" || l.utm_source === "FB")));
     const historicalLeadsCount = leadsListForUtm.length;
 
-    const salesListForUtm = vendas.filter(v => v.utm_source === activeUtm || (activeUtm === "FB" && (v.utm_source === "facebook" || v.utm_source === "Meta Ads" || v.utm_source === "FB")));
+    const salesListForUtm = filteredVendas.filter(v => v.utm_source === activeUtm || (activeUtm === "FB" && (v.utm_source === "facebook" || v.utm_source === "Meta Ads" || v.utm_source === "FB")));
     const historicalSalesCount = salesListForUtm.length;
-    const historicalRevenue = salesListForUtm.reduce((s, v) => s + (Number(v.valor) || 0), 0);
+    const historicalRevenue = salesListForUtm.reduce((s, v) => s + (Number(v.valor_liquido) || 0), 0);
 
     const baseCpl = historicalLeadsCount > 0 ? historicalSpend / historicalLeadsCount : 6.00;
     const baseCr = historicalLeadsCount > 0 ? historicalSalesCount / historicalLeadsCount : 0.025;
@@ -453,7 +453,7 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
       projectedProfit,
       chartData
     };
-  }, [selectedUtm, utmSourcesList, adsSpend, vendas, leads, additionalInvestment, realisticScale]);
+  }, [selectedUtm, utmSourcesList, filteredAds, filteredVendas, leads, filterProject, additionalInvestment, realisticScale]);
 
   return (
     <div className="space-y-6">
@@ -529,7 +529,7 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
-          {!financeCompatible ? <p className="text-sm text-muted-foreground">Os KPIs monetários em BRL exigem valores conhecidos na mesma moeda. Consulte a receita separada por moeda no relatório acima.</p> : <>
+          {filteredAds.length === 0 ? <p className="text-sm text-muted-foreground">Sem dados de mídia no período e filtros selecionados.</p> : !financeCompatible ? <p className="text-sm text-muted-foreground">Os KPIs monetários em BRL exigem valores conhecidos na mesma moeda. Consulte a receita separada por moeda no relatório acima.</p> : <>
           {/* Top-level metrics */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <KPICard icon={<DollarSign className="h-3 w-3" />} label="Total Gasto" value={`R$ ${totalGasto.toFixed(2)}`} />
@@ -566,16 +566,16 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
 
           {/* KPI targets row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KPICardTarget label="ROAS" value={roas.toFixed(2)} suffix="x" target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`} status={roasStatus} />
-            <KPICardTarget label="CPA" value={`R$ ${cpa.toFixed(2)}`} target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`} status={cpaStatus} />
-            <KPICardTarget label="CTR" value={`${ctr.toFixed(2)}%`} target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`} status={ctrStatus} />
-            <KPICardTarget label="CPM" value={`R$ ${cpm.toFixed(2)}`} target={targets.cpm_target} targetLabel={`Meta: R$ ${targets.cpm_target}`} status={cpmStatus} />
+            <KPICardTarget label="ROAS" value={totalGasto > 0 ? roas.toFixed(2) : "Indisponível"} suffix={totalGasto > 0 ? "x" : ""} target={targets.roas_target} targetLabel={`Meta: ${targets.roas_target}x`} status={roasStatus} />
+            <KPICardTarget label="CPA" value={totalVendasCount > 0 ? `R$ ${cpa.toFixed(2)}` : "Indisponível"} target={targets.cpa_target} targetLabel={`Meta: R$ ${targets.cpa_target}`} status={cpaStatus} />
+            <KPICardTarget label="CTR" value={totalImpressoes > 0 ? `${ctr.toFixed(2)}%` : "Indisponível"} target={targets.ctr_target} targetLabel={`Meta: ${targets.ctr_target}%`} status={ctrStatus} />
+            <KPICardTarget label="CPM" value={totalImpressoes > 0 ? `R$ ${cpm.toFixed(2)}` : "Indisponível"} target={targets.cpm_target} targetLabel={`Meta: R$ ${targets.cpm_target}`} status={cpmStatus} />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KPICard icon={<Target className="h-3 w-3" />} label="CPC" value={`R$ ${cpl.toFixed(2)}`} />
-            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={`${cvr.toFixed(2)}%`} />
-            <KPICard icon={<DollarSign className="h-3 w-3" />} label="LTV" value={`R$ ${ltv.toFixed(2)}`} />
-            <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={`R$ ${cac.toFixed(2)}`} />
+            <KPICard icon={<Target className="h-3 w-3" />} label="CPC" value={totalClicks > 0 ? `R$ ${cpl.toFixed(2)}` : "Indisponível"} />
+            <KPICard icon={<TrendingUp className="h-3 w-3" />} label="CVR" value={totalClicks > 0 ? `${cvr.toFixed(2)}%` : "Indisponível"} />
+            <KPICard icon={<DollarSign className="h-3 w-3" />} label="LTV" value={totalVendasCount > 0 ? `R$ ${ltv.toFixed(2)}` : "Indisponível"} />
+            <KPICard icon={<DollarSign className="h-3 w-3" />} label="CAC" value={totalVendasCount > 0 ? `R$ ${cac.toFixed(2)}` : "Indisponível"} />
           </div>
 
           {/* UTM Source Attribution */}
@@ -585,7 +585,7 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
               const src = v.utm_source || "Direto / Desconhecido";
               const prev = sourceMap.get(src) || { cnt: 0, receita: 0 };
               prev.cnt += 1;
-              prev.receita += Number(v.valor) || 0;
+              prev.receita += Number(v.valor_liquido) || 0;
               sourceMap.set(src, prev);
             });
             const sources = Array.from(sourceMap.entries()).map(([source, d]) => ({ source, ...d })).sort((a, b) => b.receita - a.receita);
@@ -635,7 +635,7 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
               const prod = v.produto_nome || "Sem produto";
               const prev = prodMap.get(prod) || { cnt: 0, receita: 0 };
               prev.cnt += 1;
-              prev.receita += Number(v.valor) || 0;
+              prev.receita += Number(v.valor_liquido) || 0;
               prodMap.set(prod, prev);
             });
             const prods = Array.from(prodMap.entries()).map(([produto, d]) => ({ produto, ...d })).sort((a, b) => b.receita - a.receita);
@@ -687,7 +687,7 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
               const name = raw.split("|")[0].trim() || raw;
               const prev = campMap.get(name) || { cnt: 0, receita: 0 };
               prev.cnt += 1;
-              prev.receita += Number(v.valor) || 0;
+              prev.receita += Number(v.valor_liquido) || 0;
               campMap.set(name, prev);
             });
             const camps = Array.from(campMap.entries()).map(([campanha, d]) => ({ campanha, ...d })).sort((a, b) => b.receita - a.receita).slice(0, 10);
@@ -1181,7 +1181,7 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
       {/* Script Dialog */}
       <Dialog open={showScript} onOpenChange={setShowScript}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>📦 Script de Tracking (imptrack)</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>📦 Script de Tracking (TRK1.1)</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Cole este script no <code className="text-primary">&lt;head&gt;</code> da sua landing page para capturar UTMs e registrar clicks automaticamente.
@@ -1201,42 +1201,23 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
               </Button>
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-medium text-primary">Funções disponíveis:</p>
+              <p className="text-xs font-medium text-primary">Funções do tracker TRK1.1:</p>
               <div className="bg-secondary rounded p-3 space-y-2 text-xs font-mono text-muted-foreground">
-                <p><span className="text-primary">imptrack.getUtms()</span> → retorna objeto com UTMs capturados</p>
-                <p><span className="text-primary">imptrack.getVisitorId()</span> → retorna ID persistente do visitante</p>
-                <p><span className="text-primary">imptrack.getSessionId()</span> → retorna ID da sessão atual</p>
-                <p><span className="text-primary">imptrack.getClickId()</span> → retorna ID único do clique para checkout</p>
-                <p><span className="text-primary">imptrack.decorateCheckoutLinks()</span> → auto-decora botões de checkout (Kiwify, Ticto, Hotmart, Whop, etc)</p>
-                <p><span className="text-primary">imptrack.trackLead({"{"} nome, email, phone {"}"})</span> → registra lead + CAPI Lead</p>
-                <p><span className="text-primary">imptrack.trackEvent("NomeEvento", {"{"} dados {"}"})</span> → registra evento customizado</p>
-                <p><span className="text-primary">imptrack.trackViewContent({"{"} content_name {"}"})</span> → ViewContent + fbq</p>
-                <p><span className="text-primary">imptrack.trackAddToCart({"{"} value, currency {"}"})</span> → AddToCart + fbq</p>
+                <p><span className="text-primary">imperioTracker.getIdentity()</span> → IDs de visitante, sessão e clique</p>
+                <p><span className="text-primary">imperioTracker.getTouches()</span> → primeiro e último contato</p>
+                <p><span className="text-primary">imperioTracker.decorate(url)</span> → destino com identidade e UTMs</p>
+                <p><span className="text-primary">imperioTracker.track("quiz")</span> → registra a etapa real do formulário na fila e retorna seu event_id</p>
+                <p><span className="text-primary">imperioTracker.getDiagnostics()</span> → eventos pendentes e falhos</p>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">⚡ PageView e VSL Telemetry são registrados automaticamente. Botões de checkout (Kiwify, Ticto, Hotmart, Whop) recebem UTMs e clickId sem perder atribuição.</p>
-              
-              {/* Facebook Integration Explanation */}
-              <div className="mt-4 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 space-y-2">
-                <p className="text-xs font-medium text-blue-400">📘 Integração com Facebook (Pixel + CAPI)</p>
-                <div className="space-y-1.5 text-[11px] text-muted-foreground">
-                  <p>• <strong className="text-foreground">Pixel (cliente)</strong>: Ativado automaticamente quando a meta tag <code className="text-primary">&lt;meta name="imp-pixel-id" content="SEU_PIXEL_ID"&gt;</code> está na página. Dispara PageView e todos os eventos padrão (Lead, ViewContent, AddToCart).</p>
-                  <p>• <strong className="text-foreground">CAPI (servidor)</strong>: Enviado automaticamente pelo webhook de pagamento (<code className="text-primary">webhook-pagamento</code>). Não precisa de nada extra no front-end. Envia Purchase, Lead e InitiateCheckout com dados hashados (SHA-256).</p>
-                  <p>• <strong className="text-foreground">Deduplicação</strong>: Ambos usam o mesmo <code className="text-primary">event_id</code> (UUID). O Facebook identifica eventos duplicados e conta apenas uma vez.</p>
-                  <p>• <strong className="text-foreground">Configuração</strong>: Vá em <span className="text-primary">Projeto → Analytics → Facebook Pixel & CAPI</span> e preencha o Pixel ID e o Access Token. Cada projeto tem sua configuração isolada.</p>
-                </div>
+              <p className="text-xs text-muted-foreground">Configure pageType como vsl, advertorial ou pdp. Para medir o pitch, preencha playerId e pitchSeconds na configuração da página. Informe gaMeasurementId e pixelId somente quando as integrações correspondentes estiverem configuradas.</p>
+              <div className="p-3 rounded-lg border border-border space-y-2 text-xs text-muted-foreground">
+                <p>Os botões selecionados recebem UTMs e click_id preservando os parâmetros do afiliado e do pacote. Clique no botão e início do checkout não comprovam uma compra.</p>
+                <p>Pixel: a configuração pixelId envia PageView com o event_id da entrada. Purchase/CAPI depende da integração do projeto e do provedor; valide o recebimento real no Gerenciador de Eventos antes de considerar a conversão confirmada.</p>
+                <p>A fila confirma o recebimento no Império. O retorno de track identifica o evento; não significa venda, criação de lead ou envio de CAPI.</p>
               </div>
-
-              <p className="text-xs text-muted-foreground mt-2">
-                <span className="font-medium">Exemplo de uso no formulário:</span>
-              </p>
+              <p className="text-xs font-medium">Exemplo para um formulário já existente:</p>
               <div className="bg-secondary rounded p-3 text-xs font-mono text-muted-foreground">
-                {`document.querySelector("form").addEventListener("submit", function(e) {\n  e.preventDefault();\n  imptrack.trackLead({\n    nome: document.getElementById("nome").value,\n    email: document.getElementById("email").value\n  }).then(function() { window.location = "/obrigado"; });\n});`}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                <span className="font-medium">Exemplo de evento customizado:</span>
-              </p>
-              <div className="bg-secondary rounded p-3 text-xs font-mono text-muted-foreground">
-                {`imptrack.trackEvent("ButtonClick", { button: "comprar", page: "/oferta" });\nimptrack.trackEvent("VideoPlay", { video_id: "vsl-principal", percent: 50 });`}
+                {'document.querySelector("form")?.addEventListener("submit", function() { window.imperioTracker.track("quiz"); });'}
               </div>
             </div>
           </div>
@@ -1265,18 +1246,19 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
             const linkVendas = vendas.filter(v => clickIds.has(v.click_id) || (v.lead_id && leadIds.has(v.lead_id)));
             
             const numCheckouts = linkVendas.length;
-            const linkSalesAprovadas = linkVendas.filter(v => v.status === 'aprovado');
+            const linkSalesAprovadas = linkVendas.filter(v => ["aprovado", "aprovada", "paga", "approved", "paid"].includes((v.status || "").toLowerCase()));
             const numSales = linkSalesAprovadas.length;
             
-            const faturamento = linkSalesAprovadas.reduce((s, v) => s + (Number(v.valor) || 0), 0);
+            const faturamento = linkSalesAprovadas.reduce((s, v) => s + (Number(v.valor_liquido) || 0), 0);
             const aov = numSales > 0 ? faturamento / numSales : 0;
             
-            const linkSpend = adsSpend
-              .filter(a => selectedFunnelLink.utm_campaign && (a.campanha === selectedFunnelLink.utm_campaign || a.campanha?.includes(selectedFunnelLink.utm_campaign)))
-              .reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
+            const linkAds = adsSpend.filter(a => selectedFunnelLink.project_id && a.project_id === selectedFunnelLink.project_id && selectedFunnelLink.utm_campaign && a.campanha === selectedFunnelLink.utm_campaign);
+            const linkSpend = linkAds.reduce((s, a) => s + (parseFloat(String(a.valor)) || 0), 0);
+            const linkFinancialKnown = linkSalesAprovadas.every(v => record(v.data).moeda === "BRL" && v.valor_liquido !== null);
+            const linkMediaKnown = linkAds.length > 0 && linkAds.every(a => a.moeda === "BRL");
               
-            const roi = linkSpend > 0 ? ((faturamento - linkSpend) / linkSpend) * 100 : null;
-            const roas = linkSpend > 0 ? faturamento / linkSpend : null;
+            const roi = linkFinancialKnown && linkMediaKnown && linkSpend > 0 ? ((faturamento - linkSpend) / linkSpend) * 100 : null;
+            const roas = linkFinancialKnown && linkMediaKnown && linkSpend > 0 ? faturamento / linkSpend : null;
             
             const clickToLeadRate = numClicks > 0 ? (numLeads / numClicks) * 100 : 0;
             const leadToCheckoutRate = numLeads > 0 ? (numCheckouts / numLeads) * 100 : 0;
@@ -1287,16 +1269,16 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg bg-secondary/35 border border-border">
-                    <span className="text-xs text-muted-foreground block">Faturamento Gerado</span>
-                    <span className="text-xl font-bold font-mono text-emerald-400">R$ {faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    <span className="text-xs text-muted-foreground block">Receita Líquida</span>
+                    <span className="text-xl font-bold font-mono text-emerald-400">{linkFinancialKnown ? `R$ ${faturamento.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "Indisponível"}</span>
                   </div>
                   <div className="p-4 rounded-lg bg-secondary/35 border border-border">
                     <span className="text-xs text-muted-foreground block">Ticket Médio (AOV)</span>
-                    <span className="text-xl font-bold font-mono text-foreground">R$ {aov.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    <span className="text-xl font-bold font-mono text-foreground">{linkFinancialKnown && numSales > 0 ? `R$ ${aov.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "Indisponível"}</span>
                   </div>
                 </div>
 
-                {linkSpend > 0 && (
+                {linkMediaKnown && linkSpend > 0 && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 rounded-lg bg-secondary/35 border border-border">
                       <span className="text-xs text-muted-foreground block">Investimento (Campanha)</span>
@@ -1332,12 +1314,12 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
                   />
                   
                   <FunnelStage 
-                    label="3. Checkouts Iniciados" 
+                    label="3. Registros de pedido"
                     value={numCheckouts} 
                     pct={numClicks > 0 ? (numCheckouts / numClicks) * 100 : 0} 
                     subPct={leadToCheckoutRate}
                     colorClass="bg-amber-500" 
-                    desc={`${leadToCheckoutRate.toFixed(1)}% de conversão (Lead → Checkout)`} 
+                    desc={`${leadToCheckoutRate.toFixed(1)}% (Lead → Registro de pedido); início do checkout não medido nesta fonte`}
                   />
                   
                   <FunnelStage 
@@ -1346,7 +1328,7 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
                     pct={overallConversion} 
                     subPct={checkoutToSaleRate}
                     colorClass="bg-emerald-500" 
-                    desc={`${checkoutToSaleRate.toFixed(1)}% de conversão (Checkout → Venda) · Global: ${overallConversion.toFixed(1)}%`} 
+                    desc={`${checkoutToSaleRate.toFixed(1)}% (Registro de pedido → Item pago) · Global: ${overallConversion.toFixed(1)}%`}
                   />
                 </div>
               </div>
