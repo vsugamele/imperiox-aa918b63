@@ -2,6 +2,7 @@ declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { acquireIgReply, validIgLease, releaseIgReply } from "../_shared/ig-reply-lease.ts";
 import { jpPrepareAccessReply, jpBuildInstructionsBlock, jpLookupLead, jpBuildContextBlock } from "../_shared/crmBridgeJP.ts";
 import { jpLoadServiceState, jpRecordSupportAction, jpSupportActionFromReply } from "../_shared/jp-service-store.ts";
+import { pickVerifiedPurchase, type SaleForGrant, type VerifiedPurchase } from "../_shared/jp-verified-grant.ts";
 import { jpServiceContext, type JPSupportAction } from "../_shared/jp-service-policy.ts";
 import { productContext, jpConversationRules, guardJPReply, dedupeHistory, recentJPHistory, jpWelcomeMessage, permanentJPRules } from "../_shared/conversation-policy.ts";
 // Instagram webhook receiver — Meta envia POST com mensagens, comentários, menções
@@ -796,7 +797,29 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                     if (account.project_id === "jp_freitas") {
                       // Drafts must not execute support actions or mint login tokens.
                       if (!aiConfig.draft_mode) {
-                        const prepared = await jpPrepareAccessReply(aiReply, leadEmail, inboundContext, content || "", jpServiceState.support_status === "awaiting_confirmation");
+                        // IA2.2 no Instagram: compra aprovada no Império pelo e-mail informado libera o acesso e entra em "A IA fez".
+                        const convInfo = conv as { id: string; participant_name?: string | null; participant_username?: string | null };
+                        const jpGrant = {
+                          findPurchase: async (email: string, activeIds: string[]) => {
+                            const { data: leads } = await supa.from("imphq_leads").select("id").eq("project_id", account.project_id).eq("email", email).limit(20);
+                            const leadIds = (leads || []).map((l: { id: string }) => l.id);
+                            if (!leadIds.length) return null;
+                            const { data: sales } = await supa.from("imphq_vendas").select("id, produto_nome, status, data_venda, created_at")
+                              .eq("project_id", account.project_id).in("lead_id", leadIds).order("created_at", { ascending: false }).limit(20);
+                            return pickVerifiedPurchase((sales || []) as SaleForGrant[], activeIds);
+                          },
+                          onGranted: async (purchase: VerifiedPurchase, email: string) => {
+                            const now = new Date().toISOString();
+                            await supa.from("imphq_ai_actions").insert({
+                              kind: "grantAccess", risk_level: "low", status: "executed", confidence: 0.95, auto_executed: true, executed_at: now,
+                              title: `Liberei o acesso de ${convInfo.participant_name || convInfo.participant_username || email} ao ${purchase.programa} (Instagram)`,
+                              reason: `Pediu ajuda com o acesso no direct; compra aprovada em ${purchase.data_venda.slice(0, 10)} e o programa não estava liberado.`,
+                              payload: { email, venda_id: purchase.venda_id, program_id: purchase.program_id, ig_conversation_id: convInfo.id },
+                              projeto_id: account.project_id, source: "ig-access-grant",
+                            });
+                          },
+                        };
+                        const prepared = await jpPrepareAccessReply(aiReply, leadEmail, inboundContext, content || "", jpServiceState.support_status === "awaiting_confirmation", jpGrant);
                         jpSupportAction = jpSupportActionFromReply(prepared.text, prepared.needsHandoff);
                         aiReply = prepared.text;
                         if (prepared.needsHandoff) {

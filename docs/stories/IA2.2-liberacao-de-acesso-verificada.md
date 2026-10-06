@@ -12,9 +12,12 @@ Vinicius: "precisa ajustar área de membro pra liberar o usuário, porque ele co
 - [x] Quem já tem acesso total (plano) não recebe liberação redundante.
 - [x] Cada liberação vira ação `grantAccess` executada (source `wa-access-grant`) e aparece em "A IA fez" para revisão.
 
+- [x] Instagram (direct): mesma liberação, localizando a compra pelo e-mail informado (o Instagram não dá telefone); ação `grantAccess` com source `ig-access-grant`.
+
 ## File List
 - supabase/functions/_shared/jp-verified-grant.ts
 - supabase/functions/_shared/crmBridgeJP.ts
 - supabase/functions/wa-ai-reply/index.ts
+- supabase/functions/instagram-webhook/index.ts
 - supabase/functions/_shared/ai-feed.ts
 - src/test/jp-verified-grant.test.ts
