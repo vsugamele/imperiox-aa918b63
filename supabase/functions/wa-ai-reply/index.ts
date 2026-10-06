@@ -17,6 +17,7 @@ import {
   jpLogEvent,
 } from "../_shared/crmBridgeJP.ts";
 import { extractAndPersistLeadData } from "../_shared/leadDataExtractor.ts";
+import { phoneTail, pickVerifiedPurchase, type SaleForGrant } from "../_shared/jp-verified-grant.ts";
 import { BUYING_RE, EMOTIONAL_RE, cachedAudioUrl, decideVoice, inQuotaCooldown, isQuotaError, voiceTextHash, type VoiceLogEntry, type VoiceLogStatus, type VoiceTrigger } from "../_shared/voice-policy.ts";
 
 
@@ -2124,7 +2125,30 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
       if (isJPProject(project_id)) {
         const incomingContext = [message, ...(history || []).filter(m => m.direction === "incoming").slice(0, 2).map(m => m.content || "")].join("\n");
-        const prepared = await jpPrepareAccessReply(finalAiReply, jpEffectiveEmail, incomingContext, message, jpServiceState.support_status === "awaiting_confirmation");
+        // IA2.2: compra aprovada no Império (pelo e-mail ou pelo telefone da conversa) libera o acesso sozinha e entra no feed "A IA fez".
+        const jpGrant = {
+          findPurchase: async (email: string, activeIds: string[]) => {
+            const tail = phoneTail(phone);
+            const leadFilter = [`email.eq.${email.replace(/[,()]/g, "")}`, tail ? `phone.ilike.%${tail}%` : ""].filter(Boolean).join(",");
+            const { data: leads } = await supabase.from("imphq_leads").select("id").eq("project_id", project_id).or(leadFilter).limit(20);
+            const leadIds = (leads || []).map((l: { id: string }) => l.id);
+            if (!leadIds.length) return null;
+            const { data: sales } = await supabase.from("imphq_vendas").select("id, produto_nome, status, data_venda, created_at")
+              .eq("project_id", project_id).in("lead_id", leadIds).order("created_at", { ascending: false }).limit(20);
+            return pickVerifiedPurchase((sales || []) as SaleForGrant[], activeIds);
+          },
+          onGranted: async (purchase: { venda_id: string; programa: string; program_id: string; data_venda: string }, email: string) => {
+            const now = new Date().toISOString();
+            await supabase.from("imphq_ai_actions").insert({
+              kind: "grantAccess", risk_level: "low", status: "executed", confidence: 0.95, auto_executed: true, executed_at: now,
+              title: `Liberei o acesso de ${push_name || email} ao ${purchase.programa}`,
+              reason: `Pediu ajuda com o acesso no WhatsApp; compra aprovada em ${purchase.data_venda.slice(0, 10)} e o programa não estava liberado.`,
+              payload: { email, venda_id: purchase.venda_id, program_id: purchase.program_id, conversation_id },
+              projeto_id: project_id, source: "wa-access-grant",
+            });
+          },
+        };
+        const prepared = await jpPrepareAccessReply(finalAiReply, jpEffectiveEmail, incomingContext, message, jpServiceState.support_status === "awaiting_confirmation", jpGrant);
         jpSupportAction = jpSupportActionFromReply(prepared.text, prepared.needsHandoff);
         finalAiReply = guardJPReply(prepared.text, d, project_id, [...(history || [])].reverse().map(m => m.content || "").join("\n") + "\n" + message);
         if (prepared.needsHandoff) {

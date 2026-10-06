@@ -1,4 +1,5 @@
 import { record, text as stringValue, errorText } from "./value.ts";
+import { activeProgramIds, grantedReply, type VerifiedPurchase } from "./jp-verified-grant.ts";
 import { jpAccessStatus, verifiedMagicLink } from "./conversation-policy.ts";
 declare const Deno: { env: { get(name: string): string | undefined } };
 // CRM Bridge JP Freitas — escopo isolado para project_id === 'jp_freitas'.
@@ -208,8 +209,17 @@ export async function jpProcessTags(reply: string, fallbackEmail = ""): Promise<
   return out.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/**
+ * Liberação verificada (IA2.2): quem chama informa como achar a compra aprovada no Império e o que registrar depois.
+ * Sem isso, o comportamento é o anterior (sem acesso confirmado → equipe).
+ */
+export interface JPVerifiedGrant {
+  findPurchase: (email: string, activeProgramIds: string[]) => Promise<VerifiedPurchase | null>;
+  onGranted: (purchase: VerifiedPurchase, email: string) => Promise<void>;
+}
+
 /** Never announce account recovery until the CRM has verified access and issued a real token. */
-export async function jpPrepareAccessReply(reply: string, email: string, incomingContext: string, currentMessage = incomingContext, previousLinkSent = false): Promise<{ text: string; needsHandoff: boolean }> {
+export async function jpPrepareAccessReply(reply: string, email: string, incomingContext: string, currentMessage = incomingContext, previousLinkSent = false, grant?: JPVerifiedGrant): Promise<{ text: string; needsHandoff: boolean }> {
   const accessPattern = /acess|login|senha|entrar.{0,30}(curso|aula|plataforma)|aulas.{0,30}(bloque|nao|não)/i;
   const continuation = /@|não (deu|funcion|entrou)|nao (deu|funcion|entrou)|continua|ainda (não|nao)|^sim[.!\s]*$/i.test(currentMessage);
   const accessIntent = accessPattern.test(currentMessage) || (continuation && accessPattern.test(incomingContext));
@@ -220,6 +230,18 @@ export async function jpPrepareAccessReply(reply: string, email: string, incomin
     if (accessIntent) {
       const lookup = await jpLookupLead(email);
       const status = jpAccessStatus(lookup);
+      // Comprou e ficou travado: venda aprovada no Império para um programa que não está ativo → libera e manda o link.
+      const purchase = grant && lookup && record(lookup).ok === true ? await grant.findPurchase(email, activeProgramIds(status.programs)) : null;
+      if (purchase && grant) {
+        const granted = await jpGrantAccess(email, [purchase.program_id]);
+        if (!granted || record(granted).ok === false) throw new Error("JP_GRANT_FAILED");
+        const after = jpAccessStatus(await jpLookupLead(email));
+        if (!activeProgramIds(after.programs).includes(purchase.program_id) && !after.hasAccess) throw new Error("JP_GRANT_NOT_CONFIRMED");
+        const link = verifiedMagicLink(await jpIssueMagicLink(email, `/programs/${purchase.program_id}`, true));
+        if (!link) throw new Error("JP_MAGIC_LINK_FAILED");
+        await grant.onGranted(purchase, email).catch((e) => console.warn("[crmBridgeJP] grant log failed:", errorText(e)));
+        return { text: grantedReply(purchase.programa, link), needsHandoff: false };
+      }
       if (!status.hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
       let redirectPath = "/home";
       const ent = status.programs[0] ? record(status.programs[0]) : null;

@@ -35,6 +35,12 @@ const clip = (s: string | null | undefined, n: number) => {
 };
 const PAID = new Set(["aprovado", "approved", "paid", "pago", "completed"]);
 
+/** Texto do que a IA fez, por tipo de ação automática. */
+const ACTION_DONE: Record<string, string> = {
+  grantAccess: "Conferi a compra aprovada, liberei o acesso na área de membros e mandei o link de entrada no WhatsApp.",
+  pauseAd: "Pausei o anúncio.",
+};
+
 /** Última mensagem do lead antes da resposta da IA, na mesma conversa. */
 function leadBefore(ai: WaMessageRow, incoming: ReadonlyArray<WaMessageRow>): WaMessageRow | null {
   let best: WaMessageRow | null = null;
@@ -109,7 +115,7 @@ export function buildAiFeed(input: FeedInput): FeedItem[] {
     items.push({
       kind: "acao_auto", id: a.id, project_id: a.projeto_id, at: a.created_at,
       titulo: a.title ?? a.kind, contexto: a.reason ? clip(a.reason, 280) : null,
-      feito: `Executei sozinha (${a.kind}).`, resultado: a.status === "failed" ? "Falhou" : null,
+      feito: ACTION_DONE[a.kind] ?? `Executei sozinha (${a.kind}).`, resultado: a.status === "failed" ? "Falhou" : null,
       feedback: withFb("acao_auto", a.id),
     });
   }
