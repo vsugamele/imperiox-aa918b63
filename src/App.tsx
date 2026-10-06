@@ -36,6 +36,7 @@ const MapaEmpresa = lazyWithRetry(() => import("./pages/MapaEmpresa"));
 const Hoje = lazyWithRetry(() => import("./pages/Hoje"));
 const Estrategias = lazyWithRetry(() => import("./pages/Estrategias"));
 const Aprovar = lazyWithRetry(() => import("./pages/Aprovar"));
+const Testes = lazyWithRetry(() => import("./pages/Testes"));
 const CinnaShieldX1 = lazyWithRetry(() => import("@/pages/CinnaShieldNative"));
 const OpenFlow = lazyWithRetry(() => import("./pages/OpenFlow"));
 const AgentesIA = lazyWithRetry(() => import("./pages/AgentesIA"));
@@ -155,6 +156,7 @@ const App = () => (
                 <Route path="hoje" element={<Hoje />} />
                 <Route path="estrategias" element={<Estrategias />} />
                 <Route path="aprovar" element={<Aprovar />} />
+                <Route path="testes" element={<Testes />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="mapa" element={<MapaEmpresa />} />
                 <Route path="saude" element={<SaudeSistema />} />

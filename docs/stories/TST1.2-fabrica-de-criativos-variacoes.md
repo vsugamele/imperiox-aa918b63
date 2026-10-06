@@ -45,7 +45,7 @@ Pedido (05/10/2026): continuar o sistema de testes pela fábrica de criativos. D
 
 ## Pendente
 - [ ] **Validar com uma arte real.** A chamada de dentro do banco levou 401 porque a chave guardada nas configurações do banco não é a mesma que a função espera. Não há chave atual no cofre, então o primeiro lote precisa vir do MCP (com a chave) ou de um botão na tela.
-- [ ] Botão "Gerar variações" na tela de testes ou de referências, com o login de quem usa.
+- [x] Botão "Gerar variações" na tela `/testes` (menu "Testes"), com o login de quem usa. A tela mostra cada teste com as variantes, a leitura e o veredito; os lotes de variações aparecem embaixo e se atualizam sozinhos enquanto geram.
 - [ ] Observação de operação: `app.settings.service_role_key`, usado pelo `run_cron_job`, difere da chave das funções. Os logs não mostram rotinas falhando, mas vale alinhar.
 
 ## File List
@@ -54,3 +54,9 @@ Pedido (05/10/2026): continuar o sistema de testes pela fábrica de criativos. D
 - supabase/functions/project-mcp/index.ts
 - src/test/creative-variations.test.ts
 - src/test/mcp-approvals-briefing.test.ts
+- src/pages/Testes.tsx
+- src/hooks/useTestOrders.ts
+- src/test/testes-page.test.tsx
+- src/integrations/supabase/types.ts
+- src/App.tsx
+- src/components/AppSidebar.tsx

@@ -29838,6 +29838,179 @@ export type Database = {
           },
         ]
       }
+      imphq_test_orders: {
+        Row: {
+          ad_account_id: string
+          ativado_em: string | null
+          checkout_url: string | null
+          corte_ate: string | null
+          corte_autorizado_por: string | null
+          cpa_alvo: number
+          created_at: string
+          created_by: string | null
+          encerrado_at: string | null
+          ics_por_venda: number
+          id: string
+          meta_campaign_id: string | null
+          nome: string
+          notas: string | null
+          oferta: string
+          page_id: string | null
+          pagina_url: string
+          payout: number
+          pixel_id: string | null
+          plataforma: string
+          project_id: string
+          scale_round_id: string | null
+          status: string
+          tipo_pagina: string
+          ultima_avaliacao: Json | null
+          updated_at: string
+          utm_campaign: string
+          verba_dia_conjunto: number
+        }
+        Insert: {
+          ad_account_id: string
+          ativado_em?: string | null
+          checkout_url?: string | null
+          corte_ate?: string | null
+          corte_autorizado_por?: string | null
+          cpa_alvo: number
+          created_at?: string
+          created_by?: string | null
+          encerrado_at?: string | null
+          ics_por_venda?: number
+          id?: string
+          meta_campaign_id?: string | null
+          nome: string
+          notas?: string | null
+          oferta: string
+          page_id?: string | null
+          pagina_url: string
+          payout: number
+          pixel_id?: string | null
+          plataforma?: string
+          project_id: string
+          scale_round_id?: string | null
+          status?: string
+          tipo_pagina?: string
+          ultima_avaliacao?: Json | null
+          updated_at?: string
+          utm_campaign: string
+          verba_dia_conjunto: number
+        }
+        Update: {
+          ad_account_id?: string
+          ativado_em?: string | null
+          checkout_url?: string | null
+          corte_ate?: string | null
+          corte_autorizado_por?: string | null
+          cpa_alvo?: number
+          created_at?: string
+          created_by?: string | null
+          encerrado_at?: string | null
+          ics_por_venda?: number
+          id?: string
+          meta_campaign_id?: string | null
+          nome?: string
+          notas?: string | null
+          oferta?: string
+          page_id?: string | null
+          pagina_url?: string
+          payout?: number
+          pixel_id?: string | null
+          plataforma?: string
+          project_id?: string
+          scale_round_id?: string | null
+          status?: string
+          tipo_pagina?: string
+          ultima_avaliacao?: Json | null
+          updated_at?: string
+          utm_campaign?: string
+          verba_dia_conjunto?: number
+        }
+        Relationships: []
+      }
+      imphq_test_variants: {
+        Row: {
+          angulo: string
+          created_at: string
+          creative_asset_id: string | null
+          cta: string
+          headline: string | null
+          hipotese: string | null
+          id: string
+          image_url: string
+          link_url: string
+          meta_ad_id: string | null
+          meta_adset_id: string | null
+          meta_creative_id: string | null
+          order_id: string
+          ordem: number
+          referencia_id: string | null
+          status: string
+          texto: string | null
+          ultima_leitura: Json | null
+          updated_at: string
+          utm_content: string
+          veredito: string | null
+        }
+        Insert: {
+          angulo: string
+          created_at?: string
+          creative_asset_id?: string | null
+          cta?: string
+          headline?: string | null
+          hipotese?: string | null
+          id?: string
+          image_url: string
+          link_url: string
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_creative_id?: string | null
+          order_id: string
+          ordem: number
+          referencia_id?: string | null
+          status?: string
+          texto?: string | null
+          ultima_leitura?: Json | null
+          updated_at?: string
+          utm_content: string
+          veredito?: string | null
+        }
+        Update: {
+          angulo?: string
+          created_at?: string
+          creative_asset_id?: string | null
+          cta?: string
+          headline?: string | null
+          hipotese?: string | null
+          id?: string
+          image_url?: string
+          link_url?: string
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_creative_id?: string | null
+          order_id?: string
+          ordem?: number
+          referencia_id?: string | null
+          status?: string
+          texto?: string | null
+          ultima_leitura?: Json | null
+          updated_at?: string
+          utm_content?: string
+          veredito?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imphq_test_variants_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_test_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imphq_tools_vault: {
         Row: {
           category: string | null
