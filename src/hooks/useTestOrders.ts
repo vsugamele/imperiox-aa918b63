@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { VariationAxis } from "@shared/creative-variations";
+import { lastSync, liveReadings, type LiveReading, type LiveVariant, type SaleRow, type SpendRow } from "@shared/test-live";
 
 export type TestOrder = Tables<"imphq_test_orders"> & { variantes: Tables<"imphq_test_variants">[] };
 
@@ -18,6 +19,35 @@ export function useTestOrders() {
       if (oRes.error) throw oRes.error;
       if (vRes.error) throw vRes.error;
       return (oRes.data ?? []).map((o) => ({ ...o, variantes: (vRes.data ?? []).filter((v) => v.order_id === o.id) }));
+    },
+  });
+}
+
+export interface TestLive { readings: LiveReading[]; sync: string | null }
+
+/** Leitura ao vivo de cada teste: gasto por anúncio do Zernio + vendas reais pela UTM. Atualiza a cada minuto. */
+export function useTestLive(orders: TestOrder[]) {
+  const ids = orders.map((o) => o.id).join(",");
+  return useQuery({
+    queryKey: ["test-live", ids],
+    enabled: orders.length > 0,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<Record<string, TestLive>> => {
+      const adIds = orders.flatMap((o) => o.variantes.map((v) => v.meta_ad_id)).filter((x): x is string => Boolean(x));
+      const campaigns = orders.map((o) => o.utm_campaign);
+      const [sRes, vRes] = await Promise.all([
+        adIds.length
+          ? supabase.from("imphq_ads_spend").select("ad_id, spend, init_checkout, link_clicks, impressoes, purchases, effective_status, created_at, date").in("ad_id", adIds)
+          : Promise.resolve({ data: [], error: null }),
+        supabase.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido").in("utm_campaign", campaigns),
+      ]);
+      if (sRes.error) throw sRes.error;
+      if (vRes.error) throw vRes.error;
+      return Object.fromEntries(orders.map((o) => {
+        const since = String(o.ativado_em ?? o.created_at).slice(0, 10);
+        const spend = ((sRes.data ?? []) as Array<SpendRow & { date: string | null }>).filter((r) => String(r.date ?? "") >= since);
+        return [o.id, { readings: liveReadings(o, o.variantes as LiveVariant[], spend, (vRes.data ?? []) as SaleRow[]), sync: lastSync(spend) }];
+      }));
     },
   });
 }

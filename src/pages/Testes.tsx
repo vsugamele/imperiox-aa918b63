@@ -11,7 +11,8 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { AXIS_ORDER, VARIATION_AXES, type VariationAxis } from "@shared/creative-variations";
-import { useGenerateVariations, useTestOrders, useVariationBatches, type TestOrder, type VariationBatch } from "@/hooks/useTestOrders";
+import { useGenerateVariations, useTestLive, useTestOrders, useVariationBatches, type TestLive, type TestOrder, type VariationBatch } from "@/hooks/useTestOrders";
+import { LIVE_LABEL, liveEvaluation, liveLabel, type LiveOrder, type LiveVariant } from "@shared/test-live";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Variant = Tables<"imphq_test_variants">;
@@ -25,12 +26,12 @@ const VARIANT_TONE: Record<string, string> = {
   planejado: "border-dashed border-border text-muted-foreground",
 };
 
-const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {});
 const brl = (n: unknown) => `R$ ${Number(n ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 export default function Testes() {
   const { data: orders = [], isLoading, error } = useTestOrders();
   const { data: batches = [] } = useVariationBatches();
+  const { data: live = {} } = useTestLive(orders);
   const [target, setTarget] = useState<{ order: TestOrder; variant: Variant } | null>(null);
 
   return (
@@ -54,7 +55,7 @@ export default function Testes() {
         <p className="py-10 text-center text-sm text-muted-foreground">Nenhum teste ainda. Peça ao Claude: "monta um teste com estes criativos".</p>
       )}
 
-      {orders.map((o) => <OrderCard key={o.id} order={o} onVariations={(variant) => setTarget({ order: o, variant })} />)}
+      {orders.map((o) => <OrderCard key={o.id} order={o} live={live[o.id]} onVariations={(variant) => setTarget({ order: o, variant })} />)}
 
       <BatchesSection batches={batches} />
 
@@ -63,9 +64,17 @@ export default function Testes() {
   );
 }
 
-function OrderCard({ order, onVariations }: { order: TestOrder; onVariations: (v: Variant) => void }) {
-  const aval = obj(order.ultima_avaliacao);
+const LABEL_TONE: Record<string, string> = { vendendo: "font-semibold text-success", ic_barato: "text-success", pausar: "text-destructive", aguardando: "text-muted-foreground", parado: "text-muted-foreground" };
+
+function OrderCard({ order, live, onVariations }: { order: TestOrder; live?: TestLive; onVariations: (v: Variant) => void }) {
   const dias = order.ativado_em ? Math.max(0, (Date.now() - Date.parse(order.ativado_em)) / 86_400_000) : 0;
+  const readings = live?.readings ?? [];
+  const byOrdem = new Map(readings.map((r) => [r.ordem, r]));
+  const ev = readings.length ? liveEvaluation(order as LiveOrder, order.variantes as LiveVariant[], readings, new Date()) : null;
+  const evByOrdem = new Map((ev?.avaliacoes ?? []).map((a) => [a.ordem, a]));
+  const gasto = readings.reduce((s, r) => s + r.gasto, 0);
+  const vendas = readings.reduce((s, r) => s + r.vendas, 0);
+  const liquido = readings.reduce((s, r) => s + r.receita_liquida, 0);
   return (
     <section className="space-y-3 rounded-lg border border-border bg-card p-4" aria-label={`Teste ${order.nome}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -77,17 +86,19 @@ function OrderCard({ order, onVariations }: { order: TestOrder; onVariations: (v
             {order.corte_autorizado_por ? ` · corte autorizado por ${order.corte_autorizado_por} até ${order.corte_ate}` : ""}
           </p>
         </div>
-        {aval.lido_em ? (
-          <div className="text-right text-xs text-muted-foreground">
-            <div className="font-mono text-sm text-foreground">{brl(aval.gasto_total)} · {String(aval.vendas_total ?? 0)} venda(s)</div>
-            <div>CPA {aval.cpa_geral ? brl(aval.cpa_geral) : "—"} · lido em {new Date(String(aval.lido_em)).toLocaleString("pt-BR")}</div>
+        {readings.length ? (
+          <div className="text-right text-xs text-muted-foreground" aria-label="Resultado ao vivo">
+            <div className="font-mono text-sm text-foreground">{brl(gasto)} · {vendas} venda(s) · CPA {vendas ? brl(gasto / vendas) : "—"}</div>
+            <div>Líquido {brl(liquido)} · saldo <span className={liquido - gasto >= 0 ? "text-success" : "text-destructive"}>{brl(liquido - gasto)}</span></div>
+            <div>Gasto do Zernio até {live?.sync ? new Date(live.sync).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"} · vendas ao vivo</div>
           </div>
         ) : <span className="text-xs text-muted-foreground">Sem leitura ainda</span>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {order.variantes.map((v) => {
-          const l = obj(v.ultima_leitura);
+          const r = byOrdem.get(v.ordem);
+          const a = evByOrdem.get(v.ordem);
           return (
             <motion.div key={v.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               className={cn("flex flex-col overflow-hidden rounded-md border bg-background", v.status === "vencedor" ? "border-success/50" : "border-border")}>
@@ -100,9 +111,13 @@ function OrderCard({ order, onVariations }: { order: TestOrder; onVariations: (v
                   </span>
                 </div>
                 {v.hipotese && <p className="text-[11px] text-muted-foreground">Hipótese: {v.hipotese}</p>}
-                {l.lido_em ? (
-                  <p className="font-mono text-[11px] text-muted-foreground">{brl(l.gasto)} · {String(l.ic ?? 0)} IC · {Math.max(Number(l.vendas ?? 0), Number(l.vendas_imperio ?? 0))} venda(s)</p>
+                {r ? (
+                  <div className="font-mono text-[11px] text-muted-foreground">
+                    <div>{brl(r.gasto)} · {r.ic} IC · <span className={r.vendas ? "font-semibold text-success" : ""}>{r.vendas} venda(s)</span></div>
+                    <div>CTR {r.ctr ?? "—"}% · CPA {r.cpa ? brl(r.cpa) : "—"}{r.status_meta && r.status_meta !== "ACTIVE" ? " · pausado na Meta" : ""}</div>
+                  </div>
                 ) : null}
+                {a && (() => { const lb = liveLabel(a.decisao, r?.vendas ?? 0); return <p className={cn("text-[11px]", LABEL_TONE[lb])} title={`${a.rotulo}. ${a.motivo}`}>Esteira: {LIVE_LABEL[lb].icon} {LIVE_LABEL[lb].texto}</p>; })()}
                 {v.veredito && <p className="line-clamp-2 text-[11px] text-foreground" title={v.veredito}>{v.veredito}</p>}
                 <Button size="sm" variant="outline" className="mt-auto h-7" onClick={() => onVariations(v)}>
                   <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Gerar variações

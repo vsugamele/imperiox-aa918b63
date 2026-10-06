@@ -10,11 +10,11 @@ vi.mock("@/hooks/useTestOrders", () => ({
     isLoading: false, error: null,
     data: [{
       id: "o1", project_id: "jp_freitas", nome: "[JP][CCP] Teste de ângulos", oferta: "Código dos Cortes Perfeitos", status: "no_ar",
-      verba_dia_conjunto: 30, ativado_em: "2026-10-05T12:00:00Z", corte_autorizado_por: "Vinicius", corte_ate: "2026-10-14",
+      verba_dia_conjunto: 30, ativado_em: "2026-10-05T12:00:00Z", payout: 23.5, cpa_alvo: 60, ics_por_venda: 4, utm_campaign: "ccp-teste-angulos-0510", corte_autorizado_por: "Vinicius", corte_ate: "2026-10-14",
       ultima_avaliacao: null,
       variantes: [{
         id: "v1", order_id: "o1", ordem: 1, angulo: "Medo de cortar cachos", hipotese: "Medo trava a compra", status: "no_ar",
-        image_url: "https://x/1.jpg", texto: "Texto base", ultima_leitura: { lido_em: "2026-10-05", gasto: 12, ic: 1, vendas: 0 }, veredito: null,
+        image_url: "https://x/1.jpg", utm_content: "01-medo", meta_ad_id: "ad1", texto: "Texto base", ultima_leitura: { lido_em: "2026-10-05", gasto: 12, ic: 1, vendas: 0 }, veredito: null,
       }],
     }],
   }),
@@ -26,6 +26,9 @@ vi.mock("@/hooks/useTestOrders", () => ({
     }],
   }),
   useGenerateVariations: () => ({ mutate, isPending: false }),
+  useTestLive: () => ({
+    data: { o1: { sync: "2026-10-06T12:20:00Z", readings: [{ ordem: 1, gasto: 11.5, ic: 4, cliques: 10, impressoes: 400, ctr: 2.5, compras_pixel: 4, vendas: 1, receita_liquida: 23.5, cpa: 11.5, status_meta: "ACTIVE" }] } },
+  }),
 }));
 
 describe("Testes", () => {
@@ -34,6 +37,9 @@ describe("Testes", () => {
 
     expect(screen.getByRole("heading", { name: "[JP][CCP] Teste de ângulos" })).toBeInTheDocument();
     expect(screen.getByText("01 · Medo de cortar cachos")).toBeInTheDocument();
+    expect(screen.getByLabelText("Resultado ao vivo")).toHaveTextContent("R$ 11,5 · 1 venda(s) · CPA R$ 11,5");
+    expect(screen.getByText(/CTR 2.5% · CPA R\$ 11,5/)).toBeInTheDocument();
+    expect(screen.getByText(/^Esteira:/)).toBeInTheDocument();
     expect(screen.getByText("Novo texto")).toBeInTheDocument();
     expect(screen.getByText(/Gerando · 1\/2/)).toBeInTheDocument();
 
