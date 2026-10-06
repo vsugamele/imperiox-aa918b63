@@ -21,6 +21,8 @@ import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
 import { launchPreview, planLaunch, writeLaunch } from "../_shared/launch-plan.ts";
 import { adsSyncHealth, type AdsSyncHealthRow } from "../_shared/live-panel.ts";
+import { liveReadings, type LiveOrder, type LiveVariant, type SaleRow, type SpendRow } from "../_shared/test-live.ts";
+import { methodScoreboard, normalizeMetodo, type ScoreBy, type ScoreInput } from "../_shared/method-scoreboard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -984,6 +986,44 @@ const MCP_TOOLS = [
     inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   },
   {
+    name: "get_copy_library",
+    description: "Biblioteca de copy do Império (@renanmsap): 78 ângulos, 24 objeções, 34 provas, 10 tipos de mecanismo e o processo de uso, nas camadas problema/solução/produto/oferta. Use antes de escrever ou variar anúncio: escolha o ângulo (id, ex. angulo-22), a objeção a quebrar e a prova que quebra. Sem filtros devolve a lista curta (id, nome, categoria); com ids ou completo=true devolve explicação, exemplo, como usar e prompt.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        biblioteca: { type: "string", enum: ["angulo", "objecao", "prova", "mecanismo", "processo"] },
+        categoria: { type: "string", enum: ["problema", "solucao", "produto", "oferta", "generico", "angulo", "objecao", "prova", "mecanismo"] },
+        busca: { type: "string", description: "Trecho do nome ou da explicação" },
+        ids: { type: "array", items: { type: "string" } },
+        completo: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "tag_test_variants",
+    description: "Etiqueta variantes de um teste com o método que escreveu a copy (ex.: derick:native-ads, imperio:variacoes, grok:minerado, h&w:controle, humano) e o ângulo da biblioteca (copy_lib_id, ex. angulo-22). Só grava metadados no Império; é o que alimenta o placar por método e por ângulo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        order_id: { type: "string" },
+        variantes: { type: "array", items: { type: "object" }, description: "[{ ordem, metodo?, copy_lib_id? }]" },
+      },
+      required: ["order_id", "variantes"],
+    },
+  },
+  {
+    name: "get_method_scoreboard",
+    description: "Placar dos testes de criativos agrupado por método, por ângulo da biblioteca ou por categoria (problema/solução/produto/oferta): anúncios, quantos venderam, gasto (Zernio), IC, vendas reais (UTM), CPA, líquido e saldo. Responde 'qual jeito de escrever e qual tipo de ângulo vende neste projeto'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        por: { type: "string", enum: ["metodo", "angulo", "categoria"] },
+        order_id: { type: "string", description: "Só um teste" },
+      },
+    },
+  },
+  {
     name: "list_test_orders",
     description: "Ordens de teste (mais recentes primeiro), com status, verba, dias no ar e resumo da última avaliação.",
     inputSchema: { type: "object", properties: { project_id: { type: "string" }, status: { type: "string", enum: ["rascunho", "pronto", "no_ar", "encerrado", "cancelado"] } } },
@@ -1216,6 +1256,38 @@ interface TestVariantRow {
 const todayBrt = () => new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
 const num = (v: unknown) => { const x = typeof v === "number" ? v : parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(x) ? x : 0; };
 const actorClient = (actor: string) => createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { global: { headers: { "x-imperio-actor": actor } } });
+
+/** Placar por método/ângulo/categoria a partir das leituras ao vivo (Zernio + vendas por UTM) de todos os testes do recorte. */
+async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unknown>) {
+  const por = (["metodo", "angulo", "categoria"].includes(String(args.por)) ? String(args.por) : "metodo") as ScoreBy;
+  let q = supabase.from("imphq_test_orders").select("*").neq("status", "cancelado");
+  if (args.project_id) q = q.eq("project_id", String(args.project_id));
+  if (args.order_id) q = q.eq("id", String(args.order_id));
+  const { data: orders, error } = await q;
+  if (error) throw error;
+  if (!orders?.length) return { por, testes: 0, placar: [] };
+  const ids = orders.map((o: { id: string }) => o.id);
+  const { data: variants, error: vErr } = await supabase.from("imphq_test_variants").select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, metodo, copy_lib_id").in("order_id", ids);
+  if (vErr) throw vErr;
+  const adIds = (variants ?? []).map((v: { meta_ad_id: string | null }) => v.meta_ad_id).filter(Boolean) as string[];
+  const [{ data: spend }, { data: sales }, { data: lib }] = await Promise.all([
+    adIds.length ? supabase.from("imphq_ads_spend").select("ad_id, spend, init_checkout, link_clicks, impressoes, purchases, effective_status, created_at, date").in("ad_id", adIds) : Promise.resolve({ data: [] }),
+    supabase.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido").in("utm_campaign", orders.map((o: { utm_campaign: string }) => o.utm_campaign)),
+    supabase.from("imphq_copy_library").select("id, nome, categoria, numero").eq("biblioteca", "angulo"),
+  ]);
+  const rows: ScoreInput[] = [];
+  for (const o of orders) {
+    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { metodo: string | null; copy_lib_id: string | null }>;
+    const since = String(o.ativado_em ?? o.created_at).slice(0, 10);
+    const sp = ((spend ?? []) as Array<SpendRow & { date: string | null }>).filter((r) => String(r.date ?? "") >= since);
+    const readings = liveReadings(o as LiveOrder, vs, sp, (sales ?? []) as SaleRow[]);
+    for (const r of readings) {
+      const v = vs.find((x) => x.ordem === r.ordem);
+      rows.push({ metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida });
+    }
+  }
+  return { por, testes: orders.length, anuncios: rows.length, placar: methodScoreboard(rows, por, (lib ?? []) as Array<{ id: string; nome: string; categoria: string; numero: number }>) };
+}
 
 async function loadTestOrder(supabase: Supabase, id: string) {
   const [orderRes, variantsRes] = await Promise.all([
@@ -2516,6 +2588,47 @@ Deno.serve(async (req) => {
             const { order, variants } = await loadTestOrder(supabase, String(args.id));
             const plan = { nome_campanha: `[${order.project_id}] ${order.nome} — teste de ângulos ABO`, variantes: variants.map((v) => ({ ...v, nome_conjunto: `${String(v.ordem).padStart(2, "0")} ${v.angulo}`, nome_anuncio: v.utm_content })) };
             const result = { ordem: order, variantes: variants, passos: launchSteps({ ...order, verba_dia_conjunto: Number(order.verba_dia_conjunto) }, plan as unknown as Parameters<typeof launchSteps>[1]), dias_no_ar: order.ativado_em ? Math.round(((Date.now() - Date.parse(order.ativado_em)) / 86400000) * 10) / 10 : 0 };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_copy_library") {
+            const full = args?.completo === true || (Array.isArray(args?.ids) && args.ids.length > 0);
+            let q = supabase.from("imphq_copy_library").select(full ? "*" : "id, biblioteca, numero, categoria, nome").order("ordem");
+            if (args?.biblioteca) q = q.eq("biblioteca", String(args.biblioteca));
+            if (args?.categoria) q = q.eq("categoria", String(args.categoria));
+            if (Array.isArray(args?.ids) && args.ids.length) q = q.in("id", args.ids.map(String));
+            if (args?.busca) {
+              const b = String(args.busca).replace(/[%,()]/g, " ").trim();
+              if (b) q = q.or(`nome.ilike.%${b}%,explicacao.ilike.%${b}%`);
+            }
+            const { data, error } = await q;
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ total: (data ?? []).length, fonte: "@renanmsap (uso interno)", itens: data ?? [] }, null, 2) }] } });
+          }
+
+          if (name === "tag_test_variants") {
+            if (!args?.order_id || !Array.isArray(args.variantes)) throw new Error("order_id e variantes são obrigatórios");
+            const libIds = args.variantes.map((v: { copy_lib_id?: string }) => v.copy_lib_id).filter(Boolean).map(String);
+            if (libIds.length) {
+              const { data: found } = await supabase.from("imphq_copy_library").select("id").in("id", libIds);
+              const missing = libIds.filter((x: string) => !(found ?? []).some((f: { id: string }) => f.id === x));
+              if (missing.length) throw new Error(`Ângulo(s) fora da biblioteca: ${missing.join(", ")}. Consulte get_copy_library.`);
+            }
+            const updated: Array<Record<string, unknown>> = [];
+            for (const v of args.variantes as Array<{ ordem: number; metodo?: string; copy_lib_id?: string }>) {
+              const patch: Record<string, unknown> = {};
+              if (v.metodo !== undefined) patch.metodo = normalizeMetodo(v.metodo);
+              if (v.copy_lib_id !== undefined) patch.copy_lib_id = v.copy_lib_id || null;
+              if (!Object.keys(patch).length) continue;
+              const { data, error } = await supabase.from("imphq_test_variants").update(patch).eq("order_id", String(args.order_id)).eq("ordem", Number(v.ordem)).select("ordem, angulo, metodo, copy_lib_id");
+              if (error) throw error;
+              updated.push(...(data ?? []));
+            }
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ atualizadas: updated.length, variantes: updated }, null, 2) }] } });
+          }
+
+          if (name === "get_method_scoreboard") {
+            const result = await loadMethodScoreboard(supabase, (args ?? {}) as Record<string, unknown>);
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 

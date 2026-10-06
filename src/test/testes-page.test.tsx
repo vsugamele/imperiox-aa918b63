@@ -5,6 +5,10 @@ import Testes from "@/pages/Testes";
 
 const mutate = vi.fn();
 
+vi.mock("@/hooks/useCopyLibrary", () => ({
+  useCopyLibrary: () => ({ data: [{ id: "angulo-2", nome: "Medo / Consequência futura", categoria: "problema", numero: 2, biblioteca: "angulo" }] }),
+}));
+
 vi.mock("@/hooks/useTestOrders", () => ({
   useTestOrders: () => ({
     isLoading: false, error: null,
@@ -14,7 +18,7 @@ vi.mock("@/hooks/useTestOrders", () => ({
       ultima_avaliacao: null,
       variantes: [{
         id: "v1", order_id: "o1", ordem: 1, angulo: "Medo de cortar cachos", hipotese: "Medo trava a compra", status: "no_ar",
-        image_url: "https://x/1.jpg", utm_content: "01-medo", meta_ad_id: "ad1", texto: "Texto base", ultima_leitura: { lido_em: "2026-10-05", gasto: 12, ic: 1, vendas: 0 }, veredito: null,
+        image_url: "https://x/1.jpg", utm_content: "01-medo", meta_ad_id: "ad1", metodo: "grok:minerado", copy_lib_id: "angulo-2", texto: "Texto base", ultima_leitura: { lido_em: "2026-10-05", gasto: 12, ic: 1, vendas: 0 }, veredito: null,
       }],
     }],
   }),
@@ -40,6 +44,11 @@ describe("Testes", () => {
     expect(screen.getByLabelText("Resultado ao vivo")).toHaveTextContent("R$ 11,5 · 1 venda(s) · CPA R$ 11,5");
     expect(screen.getByText(/CTR 2.5% · CPA R\$ 11,5/)).toBeInTheDocument();
     expect(screen.getByText(/^Esteira:/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Etiquetas")).toHaveTextContent("grok:minerado2 · Medo / Consequência futura");
+    const placar = screen.getByRole("region", { name: "Placar por método e ângulo" });
+    expect(placar).toHaveTextContent("grok:minerado");
+    fireEvent.click(screen.getByRole("tab", { name: "Camada" }));
+    expect(placar).toHaveTextContent("Problema");
     expect(screen.getByText("Novo texto")).toBeInTheDocument();
     expect(screen.getByText(/Gerando · 1\/2/)).toBeInTheDocument();
 

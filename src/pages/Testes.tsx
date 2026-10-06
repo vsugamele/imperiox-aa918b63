@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, ClipboardCopy, FlaskConical, Loader2, Sparkles, Trophy, XCircle } from "lucide-react";
+import { AlertTriangle, BarChart3, ClipboardCopy, FlaskConical, Loader2, Sparkles, Tag, Trophy, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +13,8 @@ import { errorMessage } from "@/lib/error-message";
 import { AXIS_ORDER, VARIATION_AXES, type VariationAxis } from "@shared/creative-variations";
 import { useGenerateVariations, useTestLive, useTestOrders, useVariationBatches, type TestLive, type TestOrder, type VariationBatch } from "@/hooks/useTestOrders";
 import { LIVE_LABEL, liveEvaluation, liveLabel, type LiveOrder, type LiveVariant } from "@shared/test-live";
+import { methodScoreboard, type ScoreBy, type ScoreInput } from "@shared/method-scoreboard";
+import { useCopyLibrary } from "@/hooks/useCopyLibrary";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Variant = Tables<"imphq_test_variants">;
@@ -32,6 +34,8 @@ export default function Testes() {
   const { data: orders = [], isLoading, error } = useTestOrders();
   const { data: batches = [] } = useVariationBatches();
   const { data: live = {} } = useTestLive(orders);
+  const { data: library = [] } = useCopyLibrary();
+  const libName = (id: string | null) => (id ? library.find((l) => l.id === id) : undefined);
   const [target, setTarget] = useState<{ order: TestOrder; variant: Variant } | null>(null);
 
   return (
@@ -55,7 +59,9 @@ export default function Testes() {
         <p className="py-10 text-center text-sm text-muted-foreground">Nenhum teste ainda. Peça ao Claude: "monta um teste com estes criativos".</p>
       )}
 
-      {orders.map((o) => <OrderCard key={o.id} order={o} live={live[o.id]} onVariations={(variant) => setTarget({ order: o, variant })} />)}
+      {orders.map((o) => <OrderCard key={o.id} order={o} live={live[o.id]} libName={libName} onVariations={(variant) => setTarget({ order: o, variant })} />)}
+
+      <Scoreboard orders={orders} live={live} library={library} />
 
       <BatchesSection batches={batches} />
 
@@ -66,7 +72,7 @@ export default function Testes() {
 
 const LABEL_TONE: Record<string, string> = { vendendo: "font-semibold text-success", ic_barato: "text-success", pausar: "text-destructive", aguardando: "text-muted-foreground", parado: "text-muted-foreground" };
 
-function OrderCard({ order, live, onVariations }: { order: TestOrder; live?: TestLive; onVariations: (v: Variant) => void }) {
+function OrderCard({ order, live, libName, onVariations }: { order: TestOrder; live?: TestLive; libName: (id: string | null) => { numero: number; nome: string } | undefined; onVariations: (v: Variant) => void }) {
   const dias = order.ativado_em ? Math.max(0, (Date.now() - Date.parse(order.ativado_em)) / 86_400_000) : 0;
   const readings = live?.readings ?? [];
   const byOrdem = new Map(readings.map((r) => [r.ordem, r]));
@@ -111,6 +117,13 @@ function OrderCard({ order, live, onVariations }: { order: TestOrder; live?: Tes
                   </span>
                 </div>
                 {v.hipotese && <p className="text-[11px] text-muted-foreground">Hipótese: {v.hipotese}</p>}
+                {(v.metodo || v.copy_lib_id) && (
+                  <p className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground" aria-label="Etiquetas">
+                    <Tag className="h-3 w-3" />
+                    {v.metodo && <span className="rounded border border-border px-1">{v.metodo}</span>}
+                    {v.copy_lib_id && <span className="rounded border border-border px-1" title={v.copy_lib_id}>{libName(v.copy_lib_id) ? `${libName(v.copy_lib_id)?.numero} · ${libName(v.copy_lib_id)?.nome}` : v.copy_lib_id}</span>}
+                  </p>
+                )}
                 {r ? (
                   <div className="font-mono text-[11px] text-muted-foreground">
                     <div>{brl(r.gasto)} · {r.ic} IC · <span className={r.vendas ? "font-semibold text-success" : ""}>{r.vendas} venda(s)</span></div>
@@ -237,6 +250,57 @@ function BatchesSection({ batches }: { batches: VariationBatch[] }) {
           );
         })}
       </AnimatePresence>
+    </section>
+  );
+}
+
+const POR_LABEL: Record<ScoreBy, string> = { metodo: "Método", angulo: "Ângulo", categoria: "Camada" };
+const brlScore = (n: number) => `R$ ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Placar de todos os testes: qual método de escrita, qual ângulo da biblioteca e qual camada vendem. */
+function Scoreboard({ orders, live, library }: { orders: TestOrder[]; live: Record<string, TestLive>; library: Array<{ id: string; nome: string; categoria: string; numero: number }> }) {
+  const [por, setPor] = useState<ScoreBy>("metodo");
+  const rows = useMemo<ScoreInput[]>(() => orders.flatMap((o) => (live[o.id]?.readings ?? []).map((r) => {
+    const v = o.variantes.find((x) => x.ordem === r.ordem);
+    return { metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida };
+  })), [orders, live]);
+  const placar = useMemo(() => methodScoreboard(rows, por, library), [rows, por, library]);
+  if (!rows.length) return null;
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-card p-4" aria-label="Placar por método e ângulo">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground"><BarChart3 className="h-4 w-4" /> Placar</h2>
+        <div className="inline-flex rounded-md border border-border p-0.5" role="tablist" aria-label="Agrupar por">
+          {(Object.keys(POR_LABEL) as ScoreBy[]).map((k) => (
+            <button key={k} role="tab" aria-selected={por === k} onClick={() => setPor(k)}
+              className={cn("rounded px-2.5 py-0.5 text-xs font-medium", por === k ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
+              {POR_LABEL[k]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-[11px] uppercase text-muted-foreground">
+            <tr><th className="py-1 pr-3 font-medium">{POR_LABEL[por]}</th><th className="px-2 font-medium">Anúncios</th><th className="px-2 font-medium">Venderam</th><th className="px-2 font-medium">Gasto</th><th className="px-2 font-medium">IC</th><th className="px-2 font-medium">Vendas</th><th className="px-2 font-medium">CPA</th><th className="px-2 font-medium">Saldo</th></tr>
+          </thead>
+          <tbody className="font-mono text-xs">
+            {placar.map((l) => (
+              <tr key={l.chave} className={cn("border-t border-border", l.chave === "sem_etiqueta" && "text-muted-foreground")}>
+                <td className="py-1.5 pr-3 font-sans text-sm text-foreground">{l.rotulo}</td>
+                <td className="px-2">{l.anuncios}</td>
+                <td className="px-2">{l.com_venda} ({Math.round(l.taxa_com_venda * 100)}%)</td>
+                <td className="px-2">{brlScore(l.gasto)}</td>
+                <td className="px-2">{l.ic}</td>
+                <td className={cn("px-2", l.vendas > 0 && "font-semibold text-success")}>{l.vendas}</td>
+                <td className="px-2">{l.cpa ? brlScore(l.cpa) : "—"}</td>
+                <td className={cn("px-2", l.saldo >= 0 ? "text-success" : "text-destructive")}>{brlScore(l.saldo)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-muted-foreground">Etiquete as variantes pelo chat ("etiqueta o teste com método e ângulo"): sem etiqueta o anúncio cai em "Sem etiqueta" e não ensina nada.</p>
     </section>
   );
 }

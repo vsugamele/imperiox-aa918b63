@@ -22168,6 +22168,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_copy_library: {
+        Row: {
+          biblioteca: string
+          categoria: string
+          como_usar: string | null
+          created_at: string
+          exemplo: string | null
+          explicacao: string | null
+          extra: Json
+          fonte: string
+          id: string
+          nome: string
+          numero: number
+          ordem: number
+          prompt: string | null
+        }
+        Insert: {
+          biblioteca: string
+          categoria: string
+          como_usar?: string | null
+          created_at?: string
+          exemplo?: string | null
+          explicacao?: string | null
+          extra?: Json
+          fonte?: string
+          id: string
+          nome: string
+          numero?: number
+          ordem?: number
+          prompt?: string | null
+        }
+        Update: {
+          biblioteca?: string
+          categoria?: string
+          como_usar?: string | null
+          created_at?: string
+          exemplo?: string | null
+          explicacao?: string | null
+          extra?: Json
+          fonte?: string
+          id?: string
+          nome?: string
+          numero?: number
+          ordem?: number
+          prompt?: string | null
+        }
+        Relationships: []
+      }
       imphq_copy_sync_bindings: {
         Row: {
           auto_apply: boolean
@@ -30091,6 +30139,7 @@ export type Database = {
       }
       imphq_test_variants: {
         Row: {
+          copy_lib_id: string | null
           angulo: string
           created_at: string
           creative_asset_id: string | null
@@ -30100,6 +30149,7 @@ export type Database = {
           id: string
           image_url: string
           link_url: string
+          metodo: string | null
           meta_ad_id: string | null
           meta_adset_id: string | null
           meta_creative_id: string | null
@@ -30114,6 +30164,7 @@ export type Database = {
           veredito: string | null
         }
         Insert: {
+          copy_lib_id?: string | null
           angulo: string
           created_at?: string
           creative_asset_id?: string | null
@@ -30123,6 +30174,7 @@ export type Database = {
           id?: string
           image_url: string
           link_url: string
+          metodo?: string | null
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_creative_id?: string | null
@@ -30137,6 +30189,7 @@ export type Database = {
           veredito?: string | null
         }
         Update: {
+          copy_lib_id?: string | null
           angulo?: string
           created_at?: string
           creative_asset_id?: string | null
@@ -30146,6 +30199,7 @@ export type Database = {
           id?: string
           image_url?: string
           link_url?: string
+          metodo?: string | null
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_creative_id?: string | null
