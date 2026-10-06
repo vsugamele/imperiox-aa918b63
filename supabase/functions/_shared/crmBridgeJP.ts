@@ -93,6 +93,12 @@ export async function jpLogEvent(email: string, event_type: string, metadata: Re
   return callBridge("log_event", { email, event_type, metadata });
 }
 
+/** Cria a conta na área de membros se ainda não existir (idempotente: devolve a existente). */
+export async function jpCreateAccount(email: string, name?: string | null, source = "wa-access-grant") {
+  if (!email) return null;
+  return callBridge("create_account", { email, name: name ?? undefined, source });
+}
+
 export async function jpGrantAccess(email: string, program_ids?: string[], expires_at?: string) {
   if (!email) return null;
   const payload: Record<string, unknown> = { email };
@@ -231,9 +237,15 @@ export async function jpPrepareAccessReply(reply: string, email: string, incomin
       const lookup = await jpLookupLead(email);
       const status = jpAccessStatus(lookup);
       // Comprou e ficou travado: venda aprovada no Império para um programa que não está ativo → libera e manda o link.
-      const purchase = grant && lookup && record(lookup).ok === true ? await grant.findPurchase(email, activeProgramIds(status.programs)) : null;
+      // Acesso total (plano/"all") não lista programas: aí não há nada a liberar.
+      const ids = activeProgramIds(status.programs);
+      const mayGrant = !status.hasAccess || ids.length > 0;
+      const purchase = grant && mayGrant && lookup && record(lookup).ok === true ? await grant.findPurchase(email, ids) : null;
       if (purchase && grant) {
-        const granted = await jpGrantAccess(email, [purchase.program_id]);
+        // Quem comprou e travou muitas vezes nem tem conta: cria antes (idempotente) e só então libera o programa da compra.
+        const account = await jpCreateAccount(email);
+        if (!account || record(account).ok === false) throw new Error("JP_ACCOUNT_FAILED");
+        const granted = await callBridge("grant_access", { email, program_ids: [purchase.program_id], source_ref: purchase.venda_id });
         if (!granted || record(granted).ok === false) throw new Error("JP_GRANT_FAILED");
         const after = jpAccessStatus(await jpLookupLead(email));
         if (!activeProgramIds(after.programs).includes(purchase.program_id) && !after.hasAccess) throw new Error("JP_GRANT_NOT_CONFIRMED");

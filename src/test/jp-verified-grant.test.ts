@@ -32,7 +32,8 @@ describe("liberação verificada no atendimento", () => {
 
   it("comprou e ficou travado: libera o programa da compra, confere e manda o link do curso", async () => {
     const fetch = vi.fn()
-      .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [] }))
+      .mockResolvedValueOnce(json({ ok: true, exists: false, entitlements: [] }))
+      .mockResolvedValueOnce(json({ ok: true, user_id: "u1", created: true }))
       .mockResolvedValueOnce(json({ ok: true }))
       .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [{ is_active: true, program_id: CCP }] }))
       .mockResolvedValueOnce(json({ magic_link: link }));
@@ -43,8 +44,9 @@ describe("liberação verificada no atendimento", () => {
     expect(result).toMatchObject({ needsHandoff: false });
     expect(result.text).toContain("liberei seu acesso");
     expect(result.text).toContain(link);
-    expect(JSON.parse(fetch.mock.calls[1][1].body)).toMatchObject({ action: "grant_access", email, program_ids: [CCP] });
-    expect(JSON.parse(fetch.mock.calls[3][1].body).redirect_path).toBe(`/programs/${CCP}`);
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toMatchObject({ action: "create_account", email });
+    expect(JSON.parse(fetch.mock.calls[2][1].body)).toMatchObject({ action: "grant_access", email, program_ids: [CCP], source_ref: "v1" });
+    expect(JSON.parse(fetch.mock.calls[4][1].body).redirect_path).toBe(`/programs/${CCP}`);
     expect(onGranted).toHaveBeenCalledWith(expect.objectContaining({ venda_id: "v1" }), email);
   });
 
@@ -59,6 +61,7 @@ describe("liberação verificada no atendimento", () => {
   it("se a liberação não aparecer no cadastro, não anuncia acesso", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [] }))
+      .mockResolvedValueOnce(json({ ok: true, created: false }))
       .mockResolvedValueOnce(json({ ok: true }))
       .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [] })));
     const onGranted = vi.fn();
