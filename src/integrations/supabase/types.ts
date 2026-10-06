@@ -28202,6 +28202,12 @@ export type Database = {
       }
       imphq_referencias: {
         Row: {
+          copy_lib_alt: Json | null
+          copy_lib_at: string | null
+          copy_lib_camada: string | null
+          copy_lib_conf: number | null
+          copy_lib_id: string | null
+          copy_lib_status: string | null
           analise: Json | null
           created_at: string | null
           duracao: number | null
@@ -28230,6 +28236,12 @@ export type Database = {
           video_ref: Json | null
         }
         Insert: {
+          copy_lib_alt?: Json | null
+          copy_lib_at?: string | null
+          copy_lib_camada?: string | null
+          copy_lib_conf?: number | null
+          copy_lib_id?: string | null
+          copy_lib_status?: string | null
           analise?: Json | null
           created_at?: string | null
           duracao?: number | null
@@ -28258,6 +28270,12 @@ export type Database = {
           video_ref?: Json | null
         }
         Update: {
+          copy_lib_alt?: Json | null
+          copy_lib_at?: string | null
+          copy_lib_camada?: string | null
+          copy_lib_conf?: number | null
+          copy_lib_id?: string | null
+          copy_lib_status?: string | null
           analise?: Json | null
           created_at?: string | null
           duracao?: number | null

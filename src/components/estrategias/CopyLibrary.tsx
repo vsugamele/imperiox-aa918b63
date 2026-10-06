@@ -7,6 +7,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { CATEGORIA_LABEL } from "@shared/method-scoreboard";
+import { MarketAngles } from "@/components/estrategias/MarketAngles";
 import { useCopyLibrary, type CopyLibraryItem } from "@/hooks/useCopyLibrary";
 
 const BIBLIOTECAS = [
@@ -15,6 +16,7 @@ const BIBLIOTECAS = [
   { id: "prova", label: "Provas" },
   { id: "mecanismo", label: "Mecanismos" },
   { id: "processo", label: "Como usar" },
+  { id: "mercado", label: "No mercado" },
 ] as const;
 
 type BibliotecaId = (typeof BIBLIOTECAS)[number]["id"];
@@ -71,7 +73,7 @@ export function CopyLibrary() {
             <button key={b.id} role="tab" aria-selected={biblioteca === b.id} onClick={() => { setBiblioteca(b.id); setCategoria("todas"); setOpen(null); }}
               className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 biblioteca === b.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
-              {b.label} <span className="text-muted-foreground">{data.filter((i) => i.biblioteca === b.id).length}</span>
+              {b.label} {b.id !== "mercado" && <span className="text-muted-foreground">{data.filter((i) => i.biblioteca === b.id).length}</span>}
             </button>
           ))}
         </div>
@@ -81,7 +83,9 @@ export function CopyLibrary() {
         </div>
       </div>
 
-      {categorias.length > 1 && (
+      {biblioteca === "mercado" && <MarketAngles library={data} />}
+
+      {biblioteca !== "mercado" && categorias.length > 1 && (
         <div className="flex flex-wrap gap-1.5" aria-label="Camadas">
           {["todas", ...categorias].map((c) => (
             <button key={c} onClick={() => setCategoria(c)} aria-pressed={categoria === c}
@@ -98,7 +102,7 @@ export function CopyLibrary() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {errorMessage(error)}
         </div>
       )}
-      {!isLoading && !error && itens.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nada encontrado.</p>}
+      {biblioteca !== "mercado" && !isLoading && !error && itens.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nada encontrado.</p>}
 
       <div className="grid gap-2 md:grid-cols-2">
         {itens.map((item) => (

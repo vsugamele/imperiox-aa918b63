@@ -20,8 +20,13 @@ Vinicius trouxe as bibliotecas do @renanmsap (ângulos, objeções, provas, meca
 - [x] Piloto CCP (10 variantes): 6 firmes, 4 batem com a etiqueta do Claude e 2 são alternativas defensáveis; as 4 discordâncias restantes vieram como dúvida. US$ 0,0018.
 - [x] Piloto referências (20): 11 firmes, 9 dúvidas. US$ 0,0039 (~4,6 mil tokens por item).
 
+## CPY1.3 — Ângulo nas referências (06/10)
+- [x] `imphq_referencias` ganha copy_lib_id/status/conf/camada/alt/at; `jev-classify` modo auto (cron `jev-classify-auto` a cada 6h, :50): referências novas + variantes sem etiqueta dos testes ativos, máx. 30 por rodada.
+- [x] Variante só recebe etiqueta firme e nunca sobrescreve; referência grava firme e dúvida (dúvida vai para revisão).
+- [x] Backfill: 106 referências com transcrição → 56 firmes, 50 dúvidas, ~US$ 0,02.
+- [x] Estratégias → Biblioteca de copy → "No mercado": camadas, ângulos mais usados (clique lista as referências) e fila de dúvidas com o palpite do Jev e as alternativas para decidir em um clique.
+
 ## Próximos passos
-- Gravar o ângulo nas referências (firme automático, dúvida para revisão) e filtrar Referências por ângulo.
 - Objeções dos comentários e do WhatsApp com o Jev.
 - Arsenal de objeções e provas por projeto.
 
@@ -40,3 +45,6 @@ Vinicius trouxe as bibliotecas do @renanmsap (ângulos, objeções, provas, meca
 - supabase/functions/_shared/angle-classifier.ts
 - supabase/functions/jev-classify/index.ts
 - src/test/angle-classifier.test.ts
+- supabase/migrations/20261006_imphq_referencias_copy_angle.sql
+- src/components/estrategias/MarketAngles.tsx
+- src/test/market-angles.test.tsx

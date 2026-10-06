@@ -99,3 +99,28 @@ export function methodScoreboard(rows: ReadonlyArray<ScoreInput>, by: ScoreBy, l
     || (a.cpa ?? Infinity) - (b.cpa ?? Infinity)
     || a.gasto - b.gasto);
 }
+
+export interface MarketRef { copy_lib_id: string | null; copy_lib_status: string | null; copy_lib_camada?: string | null }
+
+/**
+ * O que o mercado está rodando: ângulos das referências classificadas. Só contam as decisões firmes ou revisadas por
+ * alguém do time; as dúvidas ficam de fora até serem revisadas.
+ */
+export function marketSummary(refs: ReadonlyArray<MarketRef>, library: ReadonlyArray<LibraryRef> = []) {
+  const lib = new Map(library.map((l) => [l.id, l]));
+  const valid = refs.filter((r) => r.copy_lib_id && (r.copy_lib_status === "firme" || r.copy_lib_status === "revisado"));
+  const porAngulo = new Map<string, number>();
+  const porCamada = new Map<string, number>();
+  for (const r of valid) {
+    const id = r.copy_lib_id as string;
+    porAngulo.set(id, (porAngulo.get(id) ?? 0) + 1);
+    const cam = lib.get(id)?.categoria ?? "generico";
+    porCamada.set(cam, (porCamada.get(cam) ?? 0) + 1);
+  }
+  return {
+    classificadas: valid.length,
+    duvidas: refs.filter((r) => r.copy_lib_status === "duvida").length,
+    angulos: [...porAngulo.entries()].map(([id, n]) => ({ id, n, rotulo: labelOf(id, "angulo", lib) })).sort((a, b) => b.n - a.n),
+    camadas: [...porCamada.entries()].map(([id, n]) => ({ id, n, rotulo: CATEGORIA_LABEL[id] ?? id })).sort((a, b) => b.n - a.n),
+  };
+}

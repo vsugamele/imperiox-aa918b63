@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { methodScoreboard, normalizeMetodo, SEM_ETIQUETA, type ScoreInput } from "@shared/method-scoreboard";
+import { marketSummary, methodScoreboard, normalizeMetodo, SEM_ETIQUETA, type ScoreInput } from "@shared/method-scoreboard";
 
 const library = [
   { id: "angulo-1", nome: "Dor / Agitação (PAS)", categoria: "problema", numero: 1 },
@@ -32,5 +32,20 @@ describe("placar por método e ângulo", () => {
     expect(porAngulo[0]).toMatchObject({ chave: "angulo-1", rotulo: "1 · Dor / Agitação (PAS)", vendas: 2 });
     const porCategoria = methodScoreboard(rows, "categoria", library);
     expect(porCategoria.map((l) => [l.rotulo, l.vendas])).toEqual([["Problema", 3], ["Oferta", 0], ["Sem etiqueta", 3]]);
+  });
+});
+
+describe("o que o mercado está rodando", () => {
+  it("conta só firmes e revisadas, por ângulo e por camada", () => {
+    const resumo = marketSummary([
+      { copy_lib_id: "angulo-1", copy_lib_status: "firme" },
+      { copy_lib_id: "angulo-1", copy_lib_status: "revisado" },
+      { copy_lib_id: "angulo-62", copy_lib_status: "firme" },
+      { copy_lib_id: "angulo-2", copy_lib_status: "duvida" },
+      { copy_lib_id: null, copy_lib_status: "sem_angulo" },
+    ], library);
+    expect(resumo).toMatchObject({ classificadas: 3, duvidas: 1 });
+    expect(resumo.angulos[0]).toMatchObject({ id: "angulo-1", n: 2, rotulo: "1 · Dor / Agitação (PAS)" });
+    expect(resumo.camadas).toEqual([{ id: "problema", n: 2, rotulo: "Problema" }, { id: "oferta", n: 1, rotulo: "Oferta" }]);
   });
 });
