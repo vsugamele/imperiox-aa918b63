@@ -14,8 +14,15 @@ Vinicius trouxe as bibliotecas do @renanmsap (ângulos, objeções, provas, meca
 - [x] MCP: `get_copy_library`, `tag_test_variants`, `get_method_scoreboard`.
 - [x] Teste do CCP etiquetado (método `grok:minerado`, ângulos 2, 72, 51, 13, 22, 23, 73, 40, 26, 12 — classificação do Claude, ajustável).
 
+## CPY1.2 — Jev (piloto, 06/10)
+- [x] `TYPESAFE_API_KEY` salva pelo Vinicius como segredo do Supabase.
+- [x] `_shared/angle-classifier.ts` (pergunta Choice com os 78 ângulos + "nenhum", e a camada) e função `jev-classify` (modo variants/references, dry-run por padrão, máx. 30 itens, para após 3 falhas; gravar só preenche etiqueta vazia com decisão firme).
+- [x] Piloto CCP (10 variantes): 6 firmes, 4 batem com a etiqueta do Claude e 2 são alternativas defensáveis; as 4 discordâncias restantes vieram como dúvida. US$ 0,0018.
+- [x] Piloto referências (20): 11 firmes, 9 dúvidas. US$ 0,0039 (~4,6 mil tokens por item).
+
 ## Próximos passos
-- Jev (TypeSafe) para classificar referências, anúncios e comentários nos ângulos e objeções da biblioteca, quando a chave estiver salva como `TYPESAFE_API_KEY`.
+- Gravar o ângulo nas referências (firme automático, dúvida para revisão) e filtrar Referências por ângulo.
+- Objeções dos comentários e do WhatsApp com o Jev.
 - Arsenal de objeções e provas por projeto.
 
 ## File List
@@ -30,3 +37,6 @@ Vinicius trouxe as bibliotecas do @renanmsap (ângulos, objeções, provas, meca
 - src/test/method-scoreboard.test.ts
 - src/test/copy-library.test.tsx
 - src/test/testes-page.test.tsx
+- supabase/functions/_shared/angle-classifier.ts
+- supabase/functions/jev-classify/index.ts
+- src/test/angle-classifier.test.ts
