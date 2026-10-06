@@ -2,9 +2,31 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Loader2, Play, Copy, Check, Sparkles, Video } from "lucide-react";
+import { ExternalLink, Loader2, Play, Copy, Check, Sparkles, Video, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+async function downloadMedia(url: string, filename?: string) {
+  try {
+    toast.info("Iniciando download do vídeo...");
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Falha no download");
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    const ext = url.split("?")[0].split(".").pop() || "mp4";
+    const cleanTitle = (filename || "referencia").replace(/[^a-zA-Z0-9_\-\u00C0-\u017F ]/g, "_").slice(0, 50);
+    a.download = `${cleanTitle}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    toast.success("Download concluído!");
+  } catch {
+    window.open(url, "_blank");
+  }
+}
 
 export interface Frame {
   seconds: number;
@@ -199,16 +221,28 @@ export function ReferenceDossierModal({
               </DialogTitle>
             </div>
 
-            {isHttp(item.url) && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs border-slate-800 text-slate-300 hover:text-white shrink-0"
-                onClick={() => window.open(item.url!, "_blank")}
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> Ver Post Original
-              </Button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {item.url && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs border-slate-800 text-slate-300 hover:text-white"
+                  onClick={() => downloadMedia(item.url!, item.titulo)}
+                >
+                  <Download className="h-3.5 w-3.5" /> Baixar Vídeo
+                </Button>
+              )}
+              {isHttp(item.url) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs border-slate-800 text-slate-300 hover:text-white"
+                  onClick={() => window.open(item.url!, "_blank")}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Ver Post Original
+                </Button>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
