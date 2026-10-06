@@ -2,7 +2,7 @@ import type { Json, Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { LucideIcon } from "lucide-react";
 import { jsonFields, jsonText } from "@/lib/json-fields";
 import { errorMessage } from "@/lib/error-message";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,9 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2 } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 import { ReferenceDossierModal } from "@/components/referencias/ReferenceDossierModal";
 
@@ -71,6 +72,139 @@ function isVideoUrl(url?: string | null): boolean {
 }
 
 const UI_PREF_KEY = "referencias.viewMode.v2";
+
+/** 1-click direct download helper for video/image */
+async function downloadMedia(url: string, filename?: string) {
+  try {
+    toast.info("Iniciando download...");
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Falha no download");
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    const ext = url.split("?")[0].split(".").pop() || "mp4";
+    const cleanTitle = (filename || "referencia").replace(/[^a-zA-Z0-9_\-\u00C0-\u017F ]/g, "_").slice(0, 50);
+    a.download = `${cleanTitle}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    toast.success("Download concluído!");
+  } catch {
+    window.open(url, "_blank");
+  }
+}
+
+function ModelarRoteiroModal({ refItem, open, onOpenChange }: { refItem: Ref | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [produto, setProduto] = useState("LinfaFlow");
+  const [formato, setFormato] = useState("Comment-to-DM (Reels/TikTok)");
+  const [copied, setCopied] = useState(false);
+
+  if (!refItem) return null;
+
+  const hookText = refItem.analise?.editorial?.topic || refItem.titulo;
+  const transcriptSnippet = refItem.transcricao || (refItem.analise?.transcript ? refItem.analise.transcript.map(t => t.text).join(" ") : "");
+  const anatomyBlocks = refItem.analise?.anatomy?.blocks?.map(b => `- ${b.label}: ${b.purpose}`).join("\n") || "";
+
+  const generatedPrompt = `Você é um Copywriter e Diretor Criativo de Direct Response.
+Modele a estrutura deste criativo vencedor de referência para o nosso produto: ${produto}.
+
+FORMATO DESEJADO: ${formato}
+
+DADOS DA REFERÊNCIA VENCEDORA:
+Título: ${refItem.titulo}
+Nicho Original: ${refItem.analise?.editorial?.primaryNiche || "Saúde / Bem-estar"}
+Ângulo: ${refItem.analise?.angle_family || "Não especificado"}
+Gancho/Ideia: ${hookText}
+${anatomyBlocks ? `\nEstrutura dos Blocos Persuasivos:\n${anatomyBlocks}\n` : ""}
+${transcriptSnippet ? `\nTranscrição de Referência:\n"${transcriptSnippet.slice(0, 1000)}..."\n` : ""}
+
+SUA TAREFA:
+1. Extraia o mecanismo psicológico exato (Por que esse gancho funcionou nos primeiros 3 segundos?).
+2. Crie 3 variações de GANCHO (0-3s) adaptadas para ${produto} mantendo o mesmo gatilho de curiosidade/quebra de padrão.
+3. Escreva o Roteiro Completo Cena a Cena (Gancho, Vilão Oculto, Revelação da Solução, CTA direto).
+4. Garanta linguagem natural e falada, zero clichês de IA.`;
+
+  const copyPrompt = () => {
+    navigator.clipboard.writeText(generatedPrompt);
+    setCopied(true);
+    toast.success("Prompt de modelagem copiado para a área de transferência!");
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-amber-400" /> Modelar Roteiro com IA
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border text-xs space-y-1">
+            <p className="font-semibold text-foreground">Referência Selecionada:</p>
+            <p className="text-muted-foreground">{refItem.titulo}</p>
+            {refItem.analise?.editorial?.primaryNiche && (
+              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                {refItem.analise.editorial.primaryNiche}
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Produto de Destino</Label>
+              <Select value={produto} onValueChange={setProduto}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LinfaFlow">LinfaFlow (Drenagem Linfática)</SelectItem>
+                  <SelectItem value="Slim Soda">Slim Soda (Emagrecimento / Saciedade)</SelectItem>
+                  <SelectItem value="Vovó Mei">Vovó Mei (Receita Antiga / Metabolismo)</SelectItem>
+                  <SelectItem value="CardioFlush">CardioFlush (Pressão / Circulação)</SelectItem>
+                  <SelectItem value="Personalizado">Outro Produto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Formato de Saída</Label>
+              <Select value={formato} onValueChange={setFormato}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Comment-to-DM (Reels/TikTok)">Comment-to-DM (Reels/TikTok)</SelectItem>
+                  <SelectItem value="UGC Talking Head (Anúncio Pago)">UGC Talking Head (Anúncio Pago)</SelectItem>
+                  <SelectItem value="Mini VSL / Storytelling">Mini VSL / Storytelling</SelectItem>
+                  <SelectItem value="Estático / Carrossel Nativo">Estático / Carrossel Nativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <Label className="text-xs font-semibold">Prompt Estratégico Gerado</Label>
+              <Button size="sm" variant="outline" onClick={copyPrompt} className="h-7 text-xs gap-1.5 border-amber-500/30 text-amber-300">
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied ? "Copiado!" : "Copiar Prompt"}
+              </Button>
+            </div>
+            <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 max-h-56 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+              {generatedPrompt}
+            </pre>
+          </div>
+        </div>
+        <DialogFooter className="flex items-center justify-between sm:justify-between">
+          <p className="text-[11px] text-muted-foreground">
+            Cole no ChatGPT, Claude ou no gerador de roteiros para produzir o anúncio.
+          </p>
+          <Button onClick={copyPrompt} className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold gap-1.5 text-xs">
+            <Sparkles className="h-3.5 w-3.5" /> Copiar e Criar Roteiro
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (patch: Partial<Ref>) => void }) {
   const [busy, setBusy] = useState(false);
@@ -155,6 +289,13 @@ function ReferenciasDesktop() {
   const [filterPasta, setFilterPasta] = useState("all");
   const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState<number>(48);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBatchMove, setShowBatchMove] = useState(false);
+  const [batchTargetPasta, setBatchTargetPasta] = useState("");
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [modelarRef, setModelarRef] = useState<Ref | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<Ref | null>(null);
   const [dossierRef, setDossierRef] = useState<Ref | null>(null);
@@ -181,6 +322,22 @@ function ReferenciasDesktop() {
     } catch { return new Set(); }
   });
   const [emptyFolders, setEmptyFolders] = useState<string[]>([]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(visibleItems.map(r => r.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
 
   const loadEmptyFolders = async () => {
     const { data } = await supabase.from("imphq_referencias_pastas").select("path");
@@ -243,13 +400,90 @@ function ReferenciasDesktop() {
     } catch {}
   }, [viewMode]);
 
-  const hasActiveFilters = !!(search || filterTipo !== "all" || filterPlat !== "all" || filterProject !== "all" || filterPasta !== "all" || filterOrigem !== "all" || filterCategory !== "all");
+  // Reset pagination when any filter changes
+  useEffect(() => {
+    setVisibleCount(48);
+  }, [search, filterTipo, filterPlat, filterProject, filterPasta, filterOrigem, filterCategory, currentFolder, selectedTag]);
+
+  const hasActiveFilters = !!(
+    search ||
+    filterTipo !== "all" ||
+    filterPlat !== "all" ||
+    filterProject !== "all" ||
+    filterPasta !== "all" ||
+    filterOrigem !== "all" ||
+    filterCategory !== "all" ||
+    selectedTag !== null
+  );
+
   const clearFilters = () => {
     setSearchInput(""); setSearch("");
     setFilterTipo("all"); setFilterPlat("all"); setFilterProject("all");
     setFilterPasta("all"); setFilterOrigem("all"); setFilterCategory("all");
+    setSelectedTag(null);
     setCurrentFolder([]);
+    setSelectedIds(new Set());
+    setVisibleCount(48);
     try { localStorage.removeItem("referencias.filters.v1"); } catch {}
+  };
+
+  const handleBatchMove = async () => {
+    if (!batchTargetPasta.trim()) {
+      toast.error("Selecione ou digite uma pasta de destino");
+      return;
+    }
+    setBatchBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from("imphq_referencias")
+        .update({ pasta: batchTargetPasta.trim() })
+        .in("id", ids);
+      if (error) throw error;
+      toast.success(`${ids.length} referências movidas para "${batchTargetPasta.trim()}"!`);
+      setShowBatchMove(false);
+      clearSelection();
+      load();
+    } catch (e: any) {
+      toast.error("Erro ao mover: " + (e.message || "Erro desconhecido"));
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    const count = selectedIds.size;
+    if (!window.confirm(`Tem certeza que deseja excluir as ${count} referências selecionadas?`)) return;
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from("imphq_referencias")
+        .delete()
+        .in("id", ids);
+      if (error) throw error;
+      toast.success(`${count} referências excluídas com sucesso!`);
+      clearSelection();
+      load();
+    } catch (e: any) {
+      toast.error("Erro ao excluir: " + (e.message || "Erro desconhecido"));
+    }
+  };
+
+  const handleBatchDownload = () => {
+    const toDownload = refs.filter(r => selectedIds.has(r.id) && (r.image_url || r.url));
+    if (toDownload.length === 0) {
+      toast.error("Nenhuma mídia encontrada nas referências selecionadas.");
+      return;
+    }
+    toast.info(`Iniciando download de ${toDownload.length} arquivos...`);
+    toDownload.forEach((item, index) => {
+      const url = item.image_url || item.url;
+      if (url) {
+        setTimeout(() => {
+          downloadMedia(url, item.titulo);
+        }, index * 400);
+      }
+    });
   };
 
   const load = async () => {
@@ -454,8 +688,29 @@ function ReferenciasDesktop() {
     const mpr = filterProject === "all" || r.project_id === filterProject;
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || (r.source === "library" && r.content_category === filterCategory);
-    return ms && mt && mp && mpr && mo && mc;
+    const mtag = !selectedTag || (r.tags?.includes(selectedTag) ?? false) || r.analise?.editorial?.primaryNiche === selectedTag;
+    return ms && mt && mp && mpr && mo && mc && mtag;
   };
+
+  // Extract top frequent tags for visual tag strip
+  const popularTags = useMemo(() => {
+    const counts: Record<string, number> = {};
+    refs.forEach(r => {
+      (r.tags || []).forEach(t => {
+        if (!t || t.trim().length <= 1) return;
+        const normTag = t.trim();
+        counts[normTag] = (counts[normTag] || 0) + 1;
+      });
+      if (r.analise?.editorial?.primaryNiche) {
+        const n = r.analise.editorial.primaryNiche.trim();
+        counts[n] = (counts[n] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 16)
+      .map(([tag, count]) => ({ tag, count }));
+  }, [refs]);
 
   const filteredRaw = refsWithPath.filter(r => {
     if (!matchesNonFolder(r)) return false;
@@ -479,6 +734,9 @@ function ReferenciasDesktop() {
   const filtered = filterOrigem === "ads"
     ? [...filteredRaw].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     : filteredRaw;
+
+  // Pagination slice (batch loading of 48 items)
+  const visibleItems = filtered.slice(0, visibleCount);
 
 
 
@@ -704,6 +962,17 @@ function ReferenciasDesktop() {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
+          {/* Download button */}
+          <button
+            className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10 shadow-md backdrop-blur-sm"
+            title="Baixar imagem"
+            onClick={(e) => {
+              e.stopPropagation();
+              downloadMedia(r.image_url!, r.titulo);
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
           {r.url ? (
             <a
               href={r.url}
@@ -725,7 +994,7 @@ function ReferenciasDesktop() {
           )}
           {isLib && (
             <button
-              className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+              className="absolute top-1.5 right-8 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 z-10"
               title="Salvar como Referência"
               onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
             >
@@ -749,6 +1018,17 @@ function ReferenciasDesktop() {
             onMouseOver={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
             onMouseOut={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
           />
+          {/* Download button */}
+          <button
+            className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10 shadow-md backdrop-blur-sm"
+            title="Baixar vídeo"
+            onClick={(e) => {
+              e.stopPropagation();
+              downloadMedia(videoSrc!, r.titulo);
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="bg-black/50 rounded-full p-2">
               <Play className="h-5 w-5 text-white fill-white" />
@@ -756,7 +1036,7 @@ function ReferenciasDesktop() {
           </div>
           {isLib && (
             <button
-              className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+              className="absolute top-1.5 right-8 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 z-10"
               title="Salvar como Referência"
               onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
             >
@@ -801,9 +1081,9 @@ function ReferenciasDesktop() {
     return (
       <Card
         key={r.id}
-        className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.01] hover:border-slate-700 cursor-pointer transition-all duration-200 group overflow-hidden animate-fade-in ${
+        className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.01] hover:border-slate-700 cursor-pointer transition-all duration-200 group overflow-hidden relative animate-fade-in ${
           hasFrames ? "ring-1 ring-amber-500/20 shadow-md" : ""
-        }`}
+        } ${selectedIds.has(r.id) ? "ring-2 ring-primary border-primary shadow-lg" : ""}`}
         style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
         onClick={() => {
           if (isDossierItem) {
@@ -815,8 +1095,30 @@ function ReferenciasDesktop() {
           }
         }}
       >
+        {/* Selection checkbox */}
+        <div
+          className={`absolute top-2 left-2 z-20 transition-opacity ${
+            selectedIds.has(r.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelect(r.id);
+          }}
+        >
+          <div className={`p-1 rounded-md backdrop-blur shadow border transition-all ${
+            selectedIds.has(r.id)
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-black/70 hover:bg-black/90 text-white border-white/20"
+          }`}>
+            <Checkbox
+              checked={selectedIds.has(r.id)}
+              className="h-3.5 w-3.5 pointer-events-none data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+          </div>
+        </div>
+
         {hasFrames ? (
-          <div className="p-2.5 bg-slate-950/80 border-b border-border/80 space-y-2">
+          <div className="p-2.5 bg-slate-950/80 border-b border-border/80 space-y-2 relative">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
               {r.quadros!.slice(0, 6).map((f, idx) => (
                 <div key={idx} className="relative aspect-[9/16] rounded-md overflow-hidden border border-slate-800 bg-slate-900 group-hover:border-amber-500/40 transition-colors">
@@ -829,9 +1131,23 @@ function ReferenciasDesktop() {
             </div>
             <div className="flex items-center justify-between text-[10px] text-amber-400 font-medium px-0.5">
               <span className="flex items-center gap-1 font-semibold">🎞️ Storyboard · {r.quadros!.length} cenas</span>
-              <span className="text-slate-400 group-hover:text-amber-300 transition-colors flex items-center gap-0.5">
-                Ver Dossiê da Copy →
-              </span>
+              <div className="flex items-center gap-2">
+                {(r.url || r.image_url) && (
+                  <button
+                    className="p-1 rounded bg-black/60 hover:bg-black/90 text-slate-300 hover:text-white transition-colors"
+                    title="Baixar vídeo completo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadMedia(r.url || r.image_url!, r.titulo);
+                    }}
+                  >
+                    <Download className="h-3 w-3" />
+                  </button>
+                )}
+                <span className="text-slate-400 group-hover:text-amber-300 transition-colors flex items-center gap-0.5">
+                  Ver Dossiê da Copy →
+                </span>
+              </div>
             </div>
           </div>
         ) : (
@@ -905,11 +1221,40 @@ function ReferenciasDesktop() {
           )}
           {r.project_id && <p className="text-[10px] text-muted-foreground">📁 {r.project_name || projectName(r.project_id)}</p>}
           {r.notas && <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>}
-          {r.url && !isLib && (
-            <a href={r.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
-              <ExternalLink className="h-2.5 w-2.5" /> Abrir link
-            </a>
-          )}
+
+          {/* Card action footer */}
+          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px]">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-amber-950/30 gap-1 rounded-md font-medium"
+              onClick={(e) => {
+                e.stopPropagation();
+                setModelarRef(r);
+              }}
+            >
+              <Sparkles className="h-3 w-3" /> Modelar Roteiro
+            </Button>
+            <div className="flex items-center gap-1.5">
+              {(r.image_url || r.url) && (
+                <button
+                  className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition"
+                  title="Baixar mídia"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadMedia(r.image_url || r.url!, r.titulo);
+                  }}
+                >
+                  <Download className="h-3 w-3" />
+                </button>
+              )}
+              {r.url && !isLib && (
+                <a href={r.url} target="_blank" rel="noopener" className="text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  <ExternalLink className="h-2.5 w-2.5" /> Abrir link
+                </a>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
@@ -926,7 +1271,9 @@ function ReferenciasDesktop() {
     return (
       <div
         key={r.id}
-        className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group`}
+        className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group ${
+          selectedIds.has(r.id) ? "bg-primary/5 border-primary" : ""
+        }`}
         onClick={() => {
           if (isDossierItem) {
             setDossierRef(r);
@@ -937,6 +1284,18 @@ function ReferenciasDesktop() {
           }
         }}
       >
+        <div
+          className="shrink-0 p-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelect(r.id);
+          }}
+        >
+          <Checkbox
+            checked={selectedIds.has(r.id)}
+            className="h-4 w-4 data-[state=checked]:bg-primary"
+          />
+        </div>
         {r.image_url && !isVideoUrl(r.image_url) ? (
           <img src={r.image_url} alt="" className="h-10 w-14 rounded object-cover shrink-0" />
         ) : r.is_video ? (
@@ -967,6 +1326,31 @@ function ReferenciasDesktop() {
               <span key={t} className="text-[8px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
             ))}
           </div>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-amber-950/30 gap-1 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            setModelarRef(r);
+          }}
+        >
+          <Sparkles className="h-3 w-3" /> Modelar
+        </Button>
+        {(r.image_url || r.url) && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-foreground transition-opacity"
+            title="Baixar mídia"
+            onClick={(e) => {
+              e.stopPropagation();
+              downloadMedia(r.image_url || r.url!, r.titulo);
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </Button>
         )}
         {isLib && (
           <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" title="Salvar como Referência" onClick={e => { e.stopPropagation(); saveAsRef(r); }}>
@@ -1405,6 +1789,35 @@ function ReferenciasDesktop() {
         </div>
       )}
 
+      {/* Popular visual tags strip */}
+      {popularTags.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none no-scrollbar text-xs">
+          <span className="text-[11px] font-medium text-muted-foreground shrink-0 flex items-center gap-1 mr-1">
+            Tags:
+          </span>
+          {selectedTag && (
+            <button
+              onClick={() => setSelectedTag(null)}
+              className="px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/40 text-[11px] font-medium shrink-0 flex items-center gap-1 hover:bg-primary/30 transition-colors"
+            >
+              #{selectedTag} <X className="h-3 w-3" />
+            </button>
+          )}
+          {popularTags.map(({ tag, count }) => {
+            if (selectedTag === tag) return null;
+            return (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(tag)}
+                className="px-2.5 py-0.5 rounded-full border border-border bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary text-[11px] font-medium shrink-0 transition-colors"
+              >
+                #{tag} <span className="text-[9px] opacity-60">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex items-center gap-3 flex-wrap sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 py-2 -mx-1 px-1 border-b border-border/40">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1491,17 +1904,43 @@ function ReferenciasDesktop() {
 
       {/* Section title for items */}
       <div className="flex items-center justify-between pt-2 border-t border-border/40">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <Image className="h-3.5 w-3.5 text-primary" />
-          {currentFolder.length > 0
-            ? `Itens em "${currentFolder[currentFolder.length - 1]}" (${filtered.length})`
-            : `Todas as Referências (${filtered.length})`}
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Image className="h-3.5 w-3.5 text-primary" />
+            {currentFolder.length > 0
+              ? `Itens em "${currentFolder[currentFolder.length - 1]}" (${filtered.length})`
+              : `Todas as Referências (${filtered.length})`}
+          </h3>
+          {filtered.length > visibleCount && (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">
+              Exibindo {visibleItems.length} de {filtered.length}
+            </Badge>
+          )}
+        </div>
+        {filtered.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+            onClick={() => {
+              if (selectedIds.size === visibleItems.length && visibleItems.length > 0) {
+                clearSelection();
+              } else {
+                selectAllVisible();
+              }
+            }}
+          >
+            <CheckSquare className="h-3.5 w-3.5 text-primary" />
+            {selectedIds.size === visibleItems.length && visibleItems.length > 0
+              ? "Desmarcar todos"
+              : `Selecionar visíveis (${visibleItems.length})`}
+          </Button>
+        )}
       </div>
 
       {viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((r, i) => renderCard(r, i))}
+          {visibleItems.map((r, i) => renderCard(r, i))}
           {filtered.length === 0 && (
             <div className="col-span-full text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
@@ -1528,7 +1967,7 @@ function ReferenciasDesktop() {
         </div>
       ) : (
         <div className="space-y-1">
-          {filtered.map(r => renderListRow(r))}
+          {visibleItems.map(r => renderListRow(r))}
           {filtered.length === 0 && (
             <div className="text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
@@ -1552,6 +1991,37 @@ function ReferenciasDesktop() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Pagination / Load more bar */}
+      {filtered.length > visibleCount && (
+        <div className="flex flex-col items-center justify-center gap-2 pt-6 pb-12">
+          <p className="text-xs text-muted-foreground">
+            Exibindo <span className="font-semibold text-foreground">{visibleItems.length}</span> de <span className="font-semibold text-foreground">{filtered.length}</span> referências
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setVisibleCount(c => c + 48)}
+              className="px-6 h-9 text-xs gap-2 border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 font-medium"
+            >
+              Carregar mais 48 referências
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setVisibleCount(filtered.length)}
+              className="text-xs text-muted-foreground hover:text-foreground h-9"
+            >
+              Mostrar todas ({filtered.length})
+            </Button>
+          </div>
+        </div>
+      )}
+      {filtered.length > 0 && filtered.length <= visibleCount && (
+        <div className="text-center py-6 text-xs text-muted-foreground/60 border-t border-border/20 mt-4">
+          Todas as {filtered.length} referências exibidas
         </div>
       )}
 
@@ -1699,6 +2169,107 @@ function ReferenciasDesktop() {
         item={dossierRef}
         open={!!dossierRef}
         onOpenChange={(open) => !open && setDossierRef(null)}
+      />
+
+      {/* Floating Batch Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-slate-700 shadow-2xl rounded-2xl px-5 py-3 flex items-center gap-3 backdrop-blur-md animate-in slide-in-from-bottom-4 duration-200">
+          <Badge variant="outline" className="bg-primary/20 text-primary border-primary/40 font-mono text-xs">
+            {selectedIds.size} {selectedIds.size === 1 ? "selecionado" : "selecionados"}
+          </Badge>
+
+          <span className="h-4 w-px bg-slate-700" />
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs gap-1.5 border-amber-500/30 text-amber-300 hover:bg-amber-950/40"
+            onClick={() => setShowBatchMove(true)}
+          >
+            <FolderInput className="h-3.5 w-3.5" /> Mover para Pasta
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs gap-1.5 border-sky-500/30 text-sky-300 hover:bg-sky-950/40"
+            onClick={handleBatchDownload}
+          >
+            <Download className="h-3.5 w-3.5" /> Baixar Todos
+          </Button>
+
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-8 text-xs gap-1.5"
+            onClick={handleBatchDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Excluir
+          </Button>
+
+          <span className="h-4 w-px bg-slate-700" />
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-full"
+            onClick={clearSelection}
+            title="Limpar seleção"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Batch Move Dialog */}
+      <Dialog open={showBatchMove} onOpenChange={setShowBatchMove}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderInput className="h-5 w-5 text-amber-400" /> Mover {selectedIds.size} referências
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs">Escolha a pasta de destino</Label>
+              <Select value={batchTargetPasta} onValueChange={setBatchTargetPasta}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Selecione uma pasta existente" /></SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {allPastas.map(p => (
+                    <SelectItem key={p} value={p}>📁 {p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Ou digite uma nova pasta</Label>
+              <Input
+                value={batchTargetPasta}
+                onChange={e => setBatchTargetPasta(e.target.value)}
+                placeholder="Ex: Nova Pasta ou Bariátrica/Vídeos"
+                className="text-xs"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBatchMove(false)}>Cancelar</Button>
+            <Button
+              disabled={!batchTargetPasta.trim() || batchBusy}
+              onClick={handleBatchMove}
+              className="gap-1.5"
+            >
+              {batchBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Mover itens
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modelar Roteiro Modal */}
+      <ModelarRoteiroModal
+        refItem={modelarRef}
+        open={!!modelarRef}
+        onOpenChange={(open) => { if (!open) setModelarRef(null); }}
       />
       </div>
     </div>
