@@ -46,6 +46,10 @@ vi.mock("@/hooks/useApprovals", () => ({
   useApprovals: () => ({ data: fullQueue, isLoading: false, error: null }),
   useDecideApproval: () => ({ mutate, isPending: false }),
 }));
+vi.mock("@/hooks/useAiFeed", () => ({
+  useAiFeed: () => ({ data: [], isLoading: false, error: null }),
+  useAiFeedback: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock("@/hooks/usePlaybooks", () => ({
   useProjectsAndMaps: () => ({ data: { projects: [{ id: "slimsoda", name: "SlimSoda" }, { id: "jp_freitas", name: "JP Freitas" }], maps: [] } }),
 }));
@@ -69,6 +73,9 @@ describe("fila Aprovar", () => {
 
   it("mostra a fila e decide semáforo, pix e dúvida do bot no próprio card", async () => {
     render(<MemoryRouter><Aprovar /></MemoryRouter>);
+    // Abre em "A IA fez"; a fila de decisão fica em "Precisa de você".
+    expect(screen.getByRole("heading", { name: "A IA fez" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Precisa de você/ }));
     expect(screen.getByRole("tab", { name: /Tudo 8/ })).toBeInTheDocument();
 
     // Semáforo card

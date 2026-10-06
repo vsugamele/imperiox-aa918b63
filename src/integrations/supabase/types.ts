@@ -19516,6 +19516,42 @@ export type Database = {
           },
         ]
       }
+      imphq_ai_feedback: {
+        Row: {
+          actor: string | null
+          correcao: string | null
+          created_at: string
+          id: string
+          item_id: string
+          item_kind: string
+          project_id: string | null
+          user_id: string | null
+          verdict: string
+        }
+        Insert: {
+          actor?: string | null
+          correcao?: string | null
+          created_at?: string
+          id?: string
+          item_id: string
+          item_kind: string
+          project_id?: string | null
+          user_id?: string | null
+          verdict: string
+        }
+        Update: {
+          actor?: string | null
+          correcao?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_kind?: string
+          project_id?: string | null
+          user_id?: string | null
+          verdict?: string
+        }
+        Relationships: []
+      }
       imphq_ai_jobs: {
         Row: {
           action: string
@@ -32130,6 +32166,8 @@ export type Database = {
       }
       imphq_wa_knowledge: {
         Row: {
+          triado_em: string | null
+          triagem: Json | null
           answered: boolean
           aprovada: boolean
           conversation_id: string | null
@@ -32146,6 +32184,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          triado_em?: string | null
+          triagem?: Json | null
           answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null
@@ -32162,6 +32202,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          triado_em?: string | null
+          triagem?: Json | null
           answered?: boolean
           aprovada?: boolean
           conversation_id?: string | null

@@ -29,6 +29,7 @@ import { SOURCE_LABEL, waitingFor, type ApprovalItem, type ApprovalSource } from
 import { useApprovals, useDecideApproval, type ApprovalDecision } from "@/hooks/useApprovals";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { AiDidFeed } from "@/components/aprovar/AiDidFeed";
 
 const SOURCES: ApprovalSource[] = [
   "pix_travado",
@@ -86,6 +87,7 @@ export default function Aprovar() {
   const { data: items = [], isLoading, error } = useApprovals();
   const { data: targets } = useProjectsAndMaps();
   const [source, setSource] = useState<ApprovalSource | "todas">("todas");
+  const [view, setView] = useState<"ia" | "decidir">("ia");
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -100,12 +102,25 @@ export default function Aprovar() {
     <div className="space-y-6">
       <header>
         <div className="kicker">Decisões Comerciais & IA</div>
-        <h1 className="section-title mt-1 text-2xl md:text-3xl">Fila Única de Decisão</h1>
+        <h1 className="section-title mt-1 text-2xl md:text-3xl">{view === "ia" ? "A IA fez" : "Precisa de você"}</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Central executiva para intervenções diretas de faturamento: semáforo de anúncios para cortar desperdício ou escalar, recuperação de Pix travados em 1-clique e aprovação de dúvidas do bot para alimentar a base de conhecimento.
+          {view === "ia"
+            ? "A IA resolve sozinha e conta o que fez. Você revisa depois, só quando quiser."
+            : "Só o que a IA não pode fazer sozinha: gasto em anúncio, disparo em massa, Pix que a automação não conseguiu tratar e etapas para revisar."}
         </p>
+        <div className="mt-3 inline-flex rounded-md border border-border p-0.5" role="tablist" aria-label="Visão">
+          <button role="tab" aria-selected={view === "ia"} onClick={() => setView("ia")}
+            className={cn("rounded px-3 py-1 text-xs font-medium", view === "ia" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>A IA fez</button>
+          <button role="tab" aria-selected={view === "decidir"} onClick={() => setView("decidir")}
+            className={cn("rounded px-3 py-1 text-xs font-medium", view === "decidir" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
+            Precisa de você <span className="ml-1 font-mono font-semibold">{items.length}</span>
+          </button>
+        </div>
       </header>
 
+      {view === "ia" && <AiDidFeed projectName={projectName} />}
+
+      {view === "decidir" && (<>
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Origem">
         {(["todas", ...SOURCES] as const).map((s) => {
           const n = s === "todas" ? items.length : counts[s] ?? 0;
@@ -162,6 +177,7 @@ export default function Aprovar() {
           ))}
         </AnimatePresence>
       </ul>
+      </>)}
     </div>
   );
 }
