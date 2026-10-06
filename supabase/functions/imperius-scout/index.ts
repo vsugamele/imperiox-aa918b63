@@ -55,8 +55,27 @@ async function scoutProject(supabase: ReturnType<typeof makeClient>, projeto: Pr
     .gte("updated_at", since2h)
     .limit(20);
 
+  // Quem já comprou ou já recebeu mensagem nas últimas 24h não é "lead sem toque" (06/10: 6 de 7 propostas eram compradores).
+  const leadIds = (hotLeads || []).map((l) => l.id);
+  const { data: buyers } = leadIds.length
+    ? await supabase.from("imphq_vendas").select("lead_id").eq("project_id", projetoId).in("lead_id", leadIds).in("status", ["aprovado", "approved", "paid", "pago", "completed"])
+    : { data: [] as Array<{ lead_id: string }> };
+  const boughtIds = new Set((buyers || []).map((b) => String(b.lead_id)));
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const touchedRecently = async (phone: string) => {
+    const tail = String(phone).replace(/\D/g, "").slice(-8);
+    if (tail.length < 8) return false;
+    const { data: convs } = await supabase.from("imphq_wa_conversations").select("id").eq("project_id", projetoId).ilike("phone", `%${tail}%`).limit(3);
+    const ids = (convs || []).map((c) => c.id);
+    if (!ids.length) return false;
+    const { count } = await supabase.from("imphq_wa_messages").select("id", { count: "exact", head: true }).in("conversation_id", ids).neq("direction", "incoming").gte("created_at", since24h);
+    return (count ?? 0) > 0;
+  };
+
   for (const lead of hotLeads || []) {
     if (!lead.phone) continue;
+    if (boughtIds.has(String(lead.id))) continue;
+    if (await touchedRecently(lead.phone)) continue;
     out.push({
       kind: "notify",
       risk_level: "low",
@@ -94,8 +113,13 @@ async function scoutProject(supabase: ReturnType<typeof makeClient>, projeto: Pr
     r.conversions += Number(a.compras || 0);
   }
 
+  // Anúncios de teste de criativos são julgados pela Esteira (TST1.x) com corte autorizado por pessoa: o scout não mexe neles.
+  const { data: testAds } = await supabase.from("imphq_test_variants").select("meta_ad_id, meta_adset_id").not("meta_ad_id", "is", null);
+  const inTest = new Set((testAds || []).flatMap((t) => [t.meta_ad_id, t.meta_adset_id]).filter(Boolean).map(String));
+
   const metaCpa = metaCpaOf(projeto);
   for (const r of agg.values()) {
+    if (inTest.has(String(r.entity_id))) continue;
     const ctr = r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0;
     const cpa = r.conversions > 0 ? r.spend / r.conversions : 9999;
     if (r.clicks >= 50 && cpa > metaCpa * 1.5) {

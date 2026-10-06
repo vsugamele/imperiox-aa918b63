@@ -12,8 +12,14 @@ Vinicius: "aprovar isso o tempo todo me deixa maluco, pode aprovar tudo e faz al
 - [x] Backfill: 511 itens → 10 aprovados, 408 descartados, 93 em dúvida; as 93 decididas pelo Claude com autorização do Vinicius (14 aprovadas com reutilizável ≥0,6 e pessoal <0,45; 79 descartadas). Custo ~US$ 0,008.
 - [x] Fila e badge só mostram item com resposta para aprovar e ainda não decidido; mensagens de lead sem resposta deixam de aparecer como "dúvida".
 
+## Fila sem retrabalho (06/10)
+- [x] Os 6 follow-ups "hot lead sem toque" eram de quem já tinha comprado o CCP (5 já com 3–5 mensagens em 3 dias): recusados com o motivo. `imperius-scout` agora pula compradores e leads que receberam mensagem nas últimas 24h.
+- [x] `imperius-scout` não pausa anúncio que está em teste de criativos (a Esteira e o corte autorizado decidem).
+- [x] Pix travado só vai para a fila quando a régua automática não está cuidando (sem resposta automática ou último envio falhou): `autoRecoveryActive`.
+
 ## Pendente
-- 7 "Ações da IA" (6 follow-ups de hot lead e uma sequência de reativação para 2.321 leads) mandam mensagem a clientes: aguardam OK explícito.
+- Sequência de reativação para 2.321 leads: aguarda OK explícito (sugestão: piloto pequeno).
+- Modo "a IA resolve e conta depois" (respondi assim, fiz assim, faria diferente?) e liberação de acesso na área de membros pelo bot.
 
 ## File List
 - supabase/functions/_shared/knowledge-triage.ts
@@ -23,3 +29,6 @@ Vinicius: "aprovar isso o tempo todo me deixa maluco, pode aprovar tudo e faz al
 - src/hooks/useApprovals.ts
 - src/hooks/useSidebarBadges.ts
 - supabase/functions/project-mcp/index.ts
+- supabase/functions/imperius-scout/index.ts
+- supabase/functions/_shared/approval-rows.ts
+- src/test/approval-rows-pix.test.ts

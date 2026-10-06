@@ -22,12 +22,24 @@ export function buildPixRecoveryMessage(name: string | null | undefined, product
 
 export interface PendingSaleRow { id: string; lead_id: string | null; project_id: string | null; valor: number | null; produto_nome: string | null; data: unknown; nome: string | null; created_at: string }
 
+/**
+ * A régua automática já está cuidando deste Pix? (hot-lead-responder respondeu ou algum nível da recuperação foi enviado
+ * e o último envio não falhou). Nesse caso o card não vai para a fila: a pessoa só vê o que a automação não resolveu.
+ */
+export function autoRecoveryActive(data: unknown): boolean {
+  const d = obj(data);
+  const last = obj(d.recovery_last);
+  if (last.ok === false) return false;
+  const levels = Array.isArray(d.recovery_sent_levels) ? d.recovery_sent_levels : [];
+  return d.hot_lead_responder_ok === true || levels.length > 0;
+}
+
 export function pixRowsFromSales(
   sales: ReadonlyArray<PendingSaleRow>,
   leads: Readonly<Record<string, { nome?: string | null; phone?: string | null }>>,
   now: number = Date.now(),
 ): PixRow[] {
-  return sales.map((v) => {
+  return sales.filter((v) => !autoRecoveryActive(v.data)).map((v) => {
     const lead = v.lead_id ? leads[v.lead_id] : undefined;
     const data = obj(v.data);
     const customerName = v.nome || lead?.nome || str(data.nome) || "Cliente";
