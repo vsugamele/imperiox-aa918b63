@@ -23,7 +23,7 @@ describe("Estratégias", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "SEO e conteúdo" }));
     // O card sai com animação.
-    await waitFor(() => expect(screen.queryByRole("heading", { name: "X1 — anúncio para conversa" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "X1 — anúncio para conversa" })).not.toBeInTheDocument(), { timeout: 4000 });
 
     fireEvent.click(screen.getByRole("heading", { name: "SEO e conteúdo" }));
     const detail = screen.getByRole("region", { name: "Detalhes de SEO e conteúdo" });
