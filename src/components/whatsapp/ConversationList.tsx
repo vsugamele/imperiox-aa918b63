@@ -369,7 +369,7 @@ export default function ConversationList({
                         onClick={() => {
                           const val = item.k as "all" | "mine" | "unassigned";
                           setAssignFilter(val);
-                          try { localStorage.setItem("wa-assign-filter", val); } catch {}
+                          try { localStorage.setItem("wa-assign-filter", val); } catch { /* Persistência opcional; mantém o filtro em memória. */ }
                         }}
                         className={`text-[11px] py-1 px-2 rounded border transition-colors ${
                           assignFilter === item.k
@@ -402,7 +402,7 @@ export default function ConversationList({
                         onClick={() => {
                           const val = item.k as "hide" | "show" | "only";
                           setSnoozeMode(val);
-                          try { localStorage.setItem("wa-snooze-mode", val); } catch {}
+                          try { localStorage.setItem("wa-snooze-mode", val); } catch { /* Persistência opcional; mantém o filtro em memória. */ }
                         }}
                         className={`text-[11px] py-1 px-2 rounded border transition-colors ${
                           snoozeMode === item.k
@@ -435,7 +435,7 @@ export default function ConversationList({
                         key={c.k}
                         onClick={() => {
                           setColorFilter(c.k);
-                          try { localStorage.setItem("wa-color-filter", c.k); } catch {}
+                          try { localStorage.setItem("wa-color-filter", c.k); } catch { /* Persistência opcional; mantém o filtro em memória. */ }
                         }}
                         className={`text-[11px] py-1 px-2 rounded border transition-colors flex items-center gap-1.5 text-left ${
                           colorFilter === c.k
@@ -862,7 +862,7 @@ export default function ConversationList({
                 localStorage.removeItem("wa-assign-filter");
                 localStorage.removeItem("wa-snooze-mode");
                 localStorage.removeItem("wa-color-filter");
-              } catch {}
+              } catch { /* Limpeza local opcional; filtros já redefinidos em memória. */ }
             }}
             className="text-[10px] text-primary hover:underline font-medium"
           >

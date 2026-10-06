@@ -408,14 +408,14 @@ function InnerMap({
       if (sub === "caminho" || sub === "mapa") return sub;
       const saved = localStorage.getItem("funis:company-map-view");
       if (saved === "caminho" || saved === "mapa") return saved;
-    } catch {}
+    } catch { /* Preferência local opcional; mantém a visualização padrão. */ }
     return "caminho";
   });
   const handleSetView = useCallback((v: "mapa" | "caminho") => {
     setView(v);
     try {
       localStorage.setItem("funis:company-map-view", v);
-    } catch {}
+    } catch { /* Persistência opcional; mantém a visualização em memória. */ }
   }, []);
   const [paletteQuery, setPaletteQuery] = useState("");
   const paletteGroups = useMemo(() => {

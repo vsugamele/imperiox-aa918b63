@@ -163,7 +163,7 @@ export function parseMemoFlowAdBatch(content: string): MemoFlowParsedBatch {
     if (tipoMatch) result.campanha.tipo = tipoMatch[1].replace(/[*_]/g, "").trim();
 
     const destMatch = operText.match(/Destino Recomendado[^*:]*[:*]+\s*([^\n]+)/i);
-    if (destMatch) result.campanha.destino = destMatch[1].replace(/[*_\[\]]/g, "").trim();
+    if (destMatch) result.campanha.destino = destMatch[1].replace(/[*_[\]]/g, "").trim();
 
     const cpaMatch = operText.match(/Regra de Julgamento[^*:]*[:*]+\s*([^\n]+)/i);
     if (cpaMatch) result.campanha.regraCpa = cpaMatch[1].replace(/[*_]/g, "").trim();
@@ -192,7 +192,7 @@ export function parseMemoFlowAdBatch(content: string): MemoFlowParsedBatch {
   // 3. Extrair Copy Mestre
   const copyMatch = content.match(/##\s*3\.[^\n]*\n([\s\S]*?)(?=##\s*4\.)/i);
   if (copyMatch) {
-    let copyText = copyMatch[1]
+    const copyText = copyMatch[1]
       .replace(/\*\(Colar este texto[^\n]*\)\*/gi, "")
       .replace(/---\s*$/g, "")
       .trim();

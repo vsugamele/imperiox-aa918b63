@@ -1,4 +1,20 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+
+// Tipagem local de leitura para tabelas ainda ausentes dos types gerados.
+type BookmapSchema = {
+  public: {
+    Tables: Record<"imphq_bookmap_nodes" | "imphq_bookmaps", {
+      Row: Record<string, unknown>;
+      Insert: never;
+      Update: never;
+      Relationships: [];
+    }>;
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+  };
+};
+const bookmapClient = supabase as unknown as SupabaseClient<BookmapSchema>;
 
 export interface BookmapNode {
   id: string;
@@ -50,8 +66,8 @@ export async function searchBookmapNodes(params: {
 }): Promise<BookmapNode[]> {
   const { query, bookmapId, onlyHighlights, onlyWithImages, limit = 40 } = params;
 
-  let q = supabase
-    .from("imphq_bookmap_nodes" as any)
+  let q = bookmapClient
+    .from("imphq_bookmap_nodes")
     .select("*")
     .order("position", { ascending: true })
     .limit(limit);
@@ -86,8 +102,8 @@ export async function searchBookmapNodes(params: {
  * Lista todos os bookmaps disponíveis
  */
 export async function listBookmaps(): Promise<BookmapSummary[]> {
-  const { data, error } = await supabase
-    .from("imphq_bookmaps" as any)
+  const { data, error } = await bookmapClient
+    .from("imphq_bookmaps")
     .select("id, title, author, subtitle, cover_url, category, color, tags, summary, total_nodes, created_at, updated_at")
     .order("title");
 
@@ -103,8 +119,8 @@ export async function listBookmaps(): Promise<BookmapSummary[]> {
  * Busca um bookmap completo com a árvore hierárquica
  */
 export async function getBookmapWithTree(id: string): Promise<BookmapSummary | null> {
-  const { data, error } = await supabase
-    .from("imphq_bookmaps" as any)
+  const { data, error } = await bookmapClient
+    .from("imphq_bookmaps")
     .select("*")
     .eq("id", id)
     .maybeSingle();

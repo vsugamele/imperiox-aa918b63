@@ -19,7 +19,7 @@ import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
 import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare } from "lucide-react";
 import { toast } from "sonner";
-import { ReferenceDossierModal } from "@/components/referencias/ReferenceDossierModal";
+import { ReferenceDossierModal, type Analise } from "@/components/referencias/ReferenceDossierModal";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
 const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok", "YouTube", "Instagram", "Email", "Outro"];
@@ -58,7 +58,7 @@ interface Ref {
   transcribe_error?: string | null;
   transcribed_at?: string | null;
   quadros?: Array<{ seconds: number; url: string }> | null;
-  analise?: any | null;
+  analise?: Analise | null;
   duracao?: number | null;
   lote?: string | null;
   fonte?: string | null;
@@ -390,14 +390,14 @@ function ReferenciasDesktop() {
   useEffect(() => {
     try {
       localStorage.removeItem("referencias.filters.v1");
-    } catch {}
+    } catch { /* Limpeza local opcional; os filtros atuais continuam em memória. */ }
   }, []);
 
   // Persist only UI layout preferences
   useEffect(() => {
     try {
       localStorage.setItem(UI_PREF_KEY, viewMode);
-    } catch {}
+    } catch { /* Persistência opcional; mantém o layout em memória. */ }
   }, [viewMode]);
 
   // Reset pagination when any filter changes
@@ -424,7 +424,7 @@ function ReferenciasDesktop() {
     setCurrentFolder([]);
     setSelectedIds(new Set());
     setVisibleCount(48);
-    try { localStorage.removeItem("referencias.filters.v1"); } catch {}
+    try { localStorage.removeItem("referencias.filters.v1"); } catch { /* Limpeza local opcional; filtros já redefinidos em memória. */ }
   };
 
   const handleBatchMove = async () => {
@@ -518,8 +518,8 @@ function ReferenciasDesktop() {
       const rawQuadros = Array.isArray(r.quadros) ? r.quadros : null;
       return {
         ...r,
-        quadros: rawQuadros as any,
-        analise: r.analise as any,
+        quadros: rawQuadros as unknown as Ref["quadros"],
+        analise: r.analise as unknown as Ref["analise"],
         duracao: r.duracao,
         lote: r.lote,
         fonte: r.fonte,

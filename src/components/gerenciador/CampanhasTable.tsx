@@ -103,7 +103,7 @@ export function normalizeTag(str: string | null | undefined): string {
   try {
     s = decodeURIComponent(s);
   } catch (_) { /* ignore */ }
-  return s.replace(/[\+_\-\[\]\(\)\/]+/g, " ").replace(/\s+/g, " ").trim();
+  return s.replace(/[+_\-[\]()/]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 export function cleanSlug(str: string | null | undefined): string {
