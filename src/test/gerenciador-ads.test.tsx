@@ -107,7 +107,7 @@ describe("Matching de Vendas nos Criativos (UTM e Agregação)", () => {
       },
     ];
 
-    const result = buildRows(ads as any, vendas as any, "bruto");
+    const result = buildRows(ads, vendas, "bruto");
 
     // Verifica que o anúncio ad_01 recebeu as 2 vendas e R$ 394 de receita
     const adsUnderAdset = result.adsByAdset.get("adset_1") || [];

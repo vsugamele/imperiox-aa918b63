@@ -490,7 +490,7 @@ export function FunnelArchitectCopilot({
               upsell: blueprint.upsell,
               reguaWhatsApp: blueprint.reguaWhatsApp,
             },
-          } as any,
+          },
         },
       ]);
 
@@ -506,15 +506,15 @@ export function FunnelArchitectCopilot({
           project_id: projId,
           title: item.titulo,
           category: item.categoria,
-          priority: item.priority,
+          priority: item.prioridade,
           status: "todo",
           flow_blueprint_id: funnelId,
           auto_generated: true,
           source: "Arquiteto de Funis IA",
-          metadata: { funnel_name: blueprint.nome } as any,
+          metadata: { funnel_name: blueprint.nome },
         }));
 
-        await supabase.from("imphq_funnel_checklist").insert(checklistRows as any);
+        await supabase.from("imphq_funnel_checklist").insert(checklistRows);
       }
 
       // Atualiza mensagem com o ID criado

@@ -334,7 +334,7 @@ export default function SalaMaquinas() {
       const next = Array.from(new Set([...prev, key]));
       try {
         localStorage.setItem(STORAGE_SILENCED_KEY, JSON.stringify(next));
-      } catch {}
+      } catch { /* Persistência opcional; mantém os alertas silenciados em memória. */ }
       toast.info("Alerta silenciado");
       return next;
     });
@@ -345,7 +345,7 @@ export default function SalaMaquinas() {
       const next = prev.filter((k) => k !== key);
       try {
         localStorage.setItem(STORAGE_SILENCED_KEY, JSON.stringify(next));
-      } catch {}
+      } catch { /* Persistência opcional; mantém os alertas reativados em memória. */ }
       toast.success("Alerta reativado");
       return next;
     });
@@ -355,7 +355,7 @@ export default function SalaMaquinas() {
     setSilencedKeys([]);
     try {
       localStorage.removeItem(STORAGE_SILENCED_KEY);
-    } catch {}
+    } catch { /* Limpeza local opcional; alertas já reativados em memória. */ }
     toast.success("Todos os alertas foram reativados");
   };
 

@@ -37,7 +37,7 @@ export async function loadCopyContext(
     out.rag_snippets = typeof r === "string"
       ? r
       : Array.isArray(r)
-      ? r.map((item: any) => typeof item === "string" ? item : `[Q]: ${item.pergunta}\n[A]: ${item.resposta}`).join("\n\n")
+      ? r.map((item: unknown) => typeof item === "string" ? item : `[Q]: ${record(item).pergunta}\n[A]: ${record(item).resposta}`).join("\n\n")
       : undefined;
   }
 
