@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pushNotifyByPref, resolveProjectRecipients } from "../_shared/push-notify.ts";
 import { isHwPayload, parseHwPayload } from "../_shared/hw-order.ts";
+import { resolveSaleJourney } from "../_shared/sale-attribution.ts";
 
 import { z } from "https://esm.sh/zod@3.25.76";
 
@@ -1009,6 +1010,7 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
               phone: phone || null,
               produto_nome: produto || null,
               valor: valor || undefined,
+              data_venda: data_compra || null,
             });
             if (matchedAttr) {
               console.log("[webhook-pagamento] WA attribution matched:", matchedAttr, "→ venda:", vendaInsert.id);
@@ -1863,57 +1865,46 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
 
 // H&W (checkout cc.<marca>.com / SPARK): caminho próprio e enxuto — registra aviso e venda com UTM e anúncio.
 // Não passa pelo fluxo geral (CAPI, notificações, recuperação), que foi feito para Ticto/Hotmart/Kiwify.
-async function processHwWebhook(input: unknown, projectIdInit: string | null) {
+async function processHwWebhook(input: unknown, projectIdInit: string | null): Promise<Response> {
   const supabase = makeClient();
+  let webhookId: string | null = null;
+  let resolvedProject: string | null = projectIdInit;
   try {
-    const { data: projects } = await supabase.from("imphq_projects").select("id, name");
+    const { data: projects, error: projectError } = await supabase.from("imphq_projects").select("id, name");
+    if (projectError) throw projectError;
     const parsed = parseHwPayload(input, projects || [], projectIdInit);
     const projectId = parsed.sales[0]?.projectId ?? projectIdInit;
-
-    await supabase.from("imphq_webhooks").insert({
-      project_id: projectId,
-      plataforma: "H&W",
-      evento: parsed.evento,
-      payload: record(input),
-      processado: true,
-    });
-
+    resolvedProject = projectId;
+    const { data: logged, error: logError } = await supabase.from("imphq_webhooks").insert({
+      project_id: projectId, plataforma: "H&W", evento: parsed.evento, payload: record(input), processado: false,
+    }).select("id").single();
+    if (logError) throw logError;
+    webhookId = logged.id;
+    // Short postbacks have no reliable product/commission. Preserve for reconciliation, never invent a sale.
+    if (!parsed.sales.length) return new Response(JSON.stringify({ok:true,received:true,requires_reconciliation:true}), {headers:{...corsHeaders,"Content-Type":"application/json"}});
     for (const sale of parsed.sales) {
+      const journey = await resolveSaleJourney(supabase,sale.projectId,sale.clickId,sale.dataVenda);
       const row = {
-        project_id: sale.projectId,
-        produto_nome: sale.produto,
-        produto_id_ext: sale.sku,
-        valor: sale.valor,
-        valor_liquido: sale.valorLiquido,
-        plataforma: "H&W",
-        status: sale.status,
-        data_venda: sale.dataVenda,
-        tipo_venda: sale.tipoVenda,
-        external_transaction_id: sale.externalId,
-        nome: sale.nome,
-        click_id: sale.clickId,
-        utm_source: sale.utms.source,
-        utm_medium: sale.utms.medium,
-        utm_campaign: sale.utms.campaign,
-        utm_content: sale.utms.content,
-        utm_term: sale.utms.term,
-        // comissao_produtor alimenta o gatilho trg_imphq_vendas_calc_valor_liquido (convenção do Império).
-        data: { fonte: "H&W", moeda: sale.moeda, pedido: sale.orderNumber, evento: parsed.evento, comissao_produtor: sale.valorLiquido, atribuicao: sale.atribuicao },
+        project_id:sale.projectId, produto_nome:sale.produto, produto_id_ext:sale.sku,
+        valor:sale.valor, valor_liquido:sale.valorLiquido, plataforma:"H&W", status:sale.status,
+        data_venda:sale.dataVenda, tipo_venda:sale.tipoVenda, external_transaction_id:sale.externalId,
+        nome:sale.nome, click_id:sale.clickId, utm_source:sale.utms.source, utm_medium:sale.utms.medium,
+        utm_campaign:sale.utms.campaign, utm_content:sale.utms.content, utm_term:sale.utms.term,
+        data:{fonte:"H&W",moeda:sale.moeda,pedido:sale.orderNumber,evento:parsed.evento,
+          comissao_produtor:sale.valorLiquido,atribuicao:sale.atribuicao,tracker:journey,
+          provider_event_at:record(input).createdAt || sale.dataVenda},
       };
-      // Mesmo pedido chega várias vezes (PENDING → PAID): atualiza em vez de duplicar.
-      const { data: existing } = await supabase
-        .from("imphq_vendas")
-        .select("id")
-        .eq("plataforma", "H&W")
-        .eq("external_transaction_id", sale.externalId)
-        .maybeSingle();
-      const { error } = existing
-        ? await supabase.from("imphq_vendas").update(row).eq("id", existing.id)
-        : await supabase.from("imphq_vendas").insert({ id: crypto.randomUUID(), ...row });
-      if (error) console.error("[webhook-pagamento][H&W] erro ao gravar venda", sale.externalId, error.message);
+      const { error } = await supabase.rpc("imphq_upsert_hw_sale",{p_row:row});
+      if (error) throw error;
     }
+    const { error } = await supabase.from("imphq_webhooks").update({processado:true}).eq("id",webhookId);
+    if (error) throw error;
+    return new Response(JSON.stringify({ok:true,processed:true}),{headers:{...corsHeaders,"Content-Type":"application/json"}});
   } catch (err) {
-    console.error("[webhook-pagamento][H&W] erro:", errorMessage(err));
+    // Return failure so the provider can retry; persist evidence independently of the successful-sale journal.
+    await supabase.from("imphq_webhook_errors").insert({webhook_id:webhookId,plataforma:"H&W",evento:record(input).event || null,erro:errorMessage(err),payload:record(input),project_id:resolvedProject});
+    console.error("[webhook-pagamento][H&W] processing failed");
+    return new Response(JSON.stringify({ok:false,error:"processing_failed"}),{status:503,headers:{...corsHeaders,"Content-Type":"application/json"}});
   }
 }
 
@@ -1934,7 +1925,8 @@ Deno.serve(async (req) => {
       body = await req.json();
     }
     // dispara em background (não bloqueia o response)
-    EdgeRuntime.waitUntil(isHwPayload(body) ? processHwWebhook(body, projectIdInit) : processWebhook(req, body, projectIdInit));
+    if (isHwPayload(body)) return await processHwWebhook(body, projectIdInit);
+    EdgeRuntime.waitUntil(processWebhook(req, body, projectIdInit));
     return new Response(
       JSON.stringify({ ok: true, queued: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

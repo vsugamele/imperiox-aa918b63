@@ -7,10 +7,11 @@ import { DollarSign, Radio, TrendingUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FunnelRevenueData, ProductRevenue } from "@/hooks/useFunnelRevenue";
 
-function fmt(v: number) {
-  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1000) return `R$ ${(v / 1000).toFixed(1)}k`;
-  return `R$ ${v.toFixed(0)}`;
+function fmt(v: number | null, currency: string | null) {
+  if (v === null || currency === null || currency === "UNKNOWN") return "Indisponível";
+  if (v >= 1_000_000) return `${currency} ${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1000) return `${currency} ${(v / 1000).toFixed(1)}k`;
+  return `${currency} ${v.toFixed(0)}`;
 }
 
 interface OverlayProps {
@@ -31,16 +32,18 @@ export function RevenueOverlayBar({ revenue, days, onDaysChange, liveCount, onCl
 
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-muted-foreground">Receita</span>
-        <span className="text-sm font-bold text-emerald-300">{revenue.loading ? "…" : fmt(revenue.total)}</span>
+        <span className="text-sm font-bold text-emerald-300">{revenue.loading ? "…" : fmt(revenue.total, revenue.currency)}</span>
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-muted-foreground">Vendas</span>
-        <span className="text-sm font-bold text-foreground">{revenue.loading ? "…" : revenue.vendas}</span>
+        <span className="text-sm font-bold text-foreground">{revenue.loading ? "…" : revenue.error ? "Indisponível" : revenue.vendas}</span>
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-muted-foreground">Ticket</span>
-        <span className="text-sm font-bold text-foreground">{revenue.loading ? "…" : fmt(revenue.ticket)}</span>
+        <span className="text-sm font-bold text-foreground">{revenue.loading ? "…" : fmt(revenue.ticket, revenue.currency)}</span>
       </div>
+
+      {revenue.error && <span role="alert" className="text-xs text-destructive">Receita indisponível: {revenue.error}</span>}
 
       {liveCount > 0 && (
         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/40">
@@ -68,7 +71,7 @@ export function RevenueOverlayBar({ revenue, days, onDaysChange, liveCount, onCl
 
 export function NodeRevenueBadge({ data }: { data: ProductRevenue | null }) {
   if (!data || data.vendas === 0) return null;
-  const tier = data.receita >= 10000 ? "high" : data.receita >= 1000 ? "mid" : "low";
+  const tier = data.receita !== null && data.receita >= 10000 ? "high" : data.receita !== null && data.receita >= 1000 ? "mid" : "low";
   const colorClass =
     tier === "high" ? "bg-emerald-500/20 text-emerald-200 border-emerald-500/50"
     : tier === "mid" ? "bg-sky-500/20 text-sky-200 border-sky-500/50"
@@ -76,7 +79,7 @@ export function NodeRevenueBadge({ data }: { data: ProductRevenue | null }) {
   return (
     <div className="mt-1.5">
       <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border", colorClass)}>
-        <TrendingUp className="h-2.5 w-2.5" /> {fmt(data.receita)} · {data.vendas}v
+        <TrendingUp className="h-2.5 w-2.5" /> {fmt(data.receita, data.currency)} · {data.vendas}v
       </span>
     </div>
   );

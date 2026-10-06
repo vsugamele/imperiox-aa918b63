@@ -30,6 +30,23 @@ const orderPaid = {
 };
 
 describe("H&W webhook", () => {
+  it("does not invent an order identity or default an omitted currency", () => {
+    const order: Record<string, unknown> = structuredClone(orderPaid.data.order);
+    delete order.currency;
+    expect(parseHwPayload({ ...orderPaid, data: { order } }, projects).sales[0].moeda).toBe("UNKNOWN");
+    delete order.id; delete order.orderNumber;
+    expect(parseHwPayload({ ...orderPaid, data: { order } }, projects).sales).toEqual([]);
+  });
+  it("keeps missing commission unknown and prioritizes our click over fbclid", () => {
+    const cloned = structuredClone(orderPaid);
+    const body: Record<string, unknown> = cloned.data.order.products[0].affiliateCommission;
+    body.commissionValue = undefined;
+    const utm: Record<string, unknown> = cloned.data.order.utm;
+    utm.imp_click_id = "journey-click";
+    const sale = parseHwPayload(cloned, projects).sales[0];
+    expect(sale.valorLiquido).toBeNull(); expect(sale.clickId).toBe("journey-click");
+    expect(sale.atribuicao.imp_click_id).toBe("journey-click");
+  });
   it("recognizes H&W orders and postbacks, but not Hotmart", () => {
     expect(isHwPayload(orderPaid)).toBe(true);
     expect(isHwPayload({ event: "SUBSCRIPTION_CANCELED", click_id: "x", payout: 10 })).toBe(true);

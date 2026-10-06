@@ -14,7 +14,7 @@ export interface HwSale {
   status: VendaStatus;
   tipoVenda: "principal" | "upsell" | "orderbump";
   valor: number;            // preço pago pelo cliente, na moeda original (a H&W manda em centavos)
-  valorLiquido: number;     // comissão que o afiliado recebe (CPA) por este item
+  valorLiquido: number | null; // comissão explicitamente informada; ausência não é zero
   moeda: string;
   dataVenda: string | null;
   nome: string | null;
@@ -86,7 +86,7 @@ export function projectForProduct(produto: string, projects: ReadonlyArray<{ id:
 
 const ATTRIBUTION_KEYS = [
   "fbclid", "ad_id", "ad_name", "adname", "adset", "adset_name", "campaign_id", "campaign_name",
-  "placement", "site_source_name", "affid", "subid", "sub1", "sub2", "sub3", "sub4", "sub5", "hid", "utm_id",
+  "placement", "site_source_name", "affid", "subid", "sub1", "sub2", "sub3", "sub4", "sub5", "hid", "utm_id", "xcod", "imp_click_id", "click_id", "imp_vid", "imp_sid",
 ];
 
 export function parseHwPayload(
@@ -104,8 +104,9 @@ export function parseHwPayload(
   }
 
   const orderNumber = str(order.orderNumber) ?? str(order.id) ?? "";
+  if (!orderNumber) return { evento, kind: "pedido", sales: [] };
   const status = STATUS_BY_EVENT[evento] ?? STATUS_BY_ORDER[(str(order.status) ?? "").toUpperCase()] ?? "pendente";
-  const moeda = (str(order.currency) ?? "USD").toUpperCase();
+  const moeda = (str(order.currency) ?? "UNKNOWN").toUpperCase();
   const utm = rec(order.utm);
   const atribuicao: Record<string, string> = {};
   for (const k of ATTRIBUTION_KEYS) {
@@ -132,7 +133,8 @@ export function parseHwPayload(
     // Visão de afiliado: subtotal/unitPrice = preço pago pelo cliente; commissionValue = CPA recebido.
     // `total` do item é um saldo com desconto (pode ser negativo) e não serve como preço.
     const priceCents = products.length ? num(prod.subtotal ?? num(prod.unitPrice) * (num(prod.quantity) || 1)) : num(values.totalGross);
-    const commissionCents = products.length ? num(commission.commissionValue ?? commission.valueNet) : num(values.totalNet);
+    const rawCommission = products.length ? commission.commissionValue ?? commission.valueNet : values.totalNet;
+    const commissionCents = rawCommission !== null && rawCommission !== undefined && rawCommission !== "" && Number.isFinite(Number(rawCommission)) ? Number(rawCommission) : null;
     const tipoVenda = prod.isUpsell === true ? "upsell" : list.length > 1 && commissionCents === 0 ? "orderbump" : "principal";
     return {
       externalId: `${orderNumber}:${sku ?? index}`,
@@ -142,7 +144,7 @@ export function parseHwPayload(
       status,
       tipoVenda,
       valor: Math.round(priceCents) / 100,
-      valorLiquido: Math.round(commissionCents) / 100,
+      valorLiquido: commissionCents === null ? null : Math.round(commissionCents) / 100,
       moeda,
       dataVenda: str(order.paidAt) ?? str(order.createdAt) ?? str(body.createdAt),
       nome: str(rec(order.customer).name),
@@ -151,7 +153,7 @@ export function parseHwPayload(
         source: str(utm.utm_source), medium: str(utm.utm_medium), campaign: str(utm.utm_campaign),
         content: str(utm.utm_content), term: str(utm.utm_term),
       },
-      clickId: str(utm.fbclid) ?? str(utm.click_id) ?? str(body.click_id),
+      clickId: str(utm.imp_click_id) ?? str(utm.click_id) ?? str(body.click_id) ?? str(utm.fbclid),
       atribuicao,
     };
   });

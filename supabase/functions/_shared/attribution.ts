@@ -100,12 +100,13 @@ export async function attributeOutgoing(
   const link = detectCheckoutLink(text);
   if (!link) return { text, attribution_id: null, link_url: null };
 
-  const attrId = generateAttributionId();
+  const existing = new URL(link);
+  const attrId = existing.searchParams.get("attr") || existing.searchParams.get("xc") || generateAttributionId();
   const newLink = injectAttributionParam(link, attrId);
   const newText = text.replace(link, newLink);
 
   try {
-    await supabase.from("imphq_wa_attribution").insert({
+    const { error } = await supabase.from("imphq_wa_attribution").upsert({
       attribution_id: attrId,
       project_id: ctx.project_id,
       conversation_id: ctx.conversation_id || null,
@@ -117,9 +118,11 @@ export async function attributeOutgoing(
       campaign_id: ctx.campaign_id || null,
       produto_nome: ctx.produto_nome || null,
       metadata: ctx.metadata || {},
-    });
+    }, { onConflict: "attribution_id", ignoreDuplicates: true });
+    if (error) throw error;
   } catch (e: unknown) {
     console.warn(`[attribution] insert failed: ${errorText(e)}`);
+    return { text, attribution_id: null, link_url: link };
   }
 
   return { text: newText, attribution_id: attrId, link_url: newLink };
@@ -127,7 +130,7 @@ export async function attributeOutgoing(
 
 /**
  * Liga uma venda a um attribution_id quando o webhook de pagamento dispara.
- * Match prioritário: por click_id explícito → por phone+produto (fallback).
+ * Match prioritário: clique explícito; inferência por telefone+produto nos 7 dias anteriores à venda.
  */
 export async function linkSaleToAttribution(
   supabase: SupabaseClient,
@@ -139,46 +142,66 @@ export async function linkSaleToAttribution(
     phone?: string | null;
     produto_nome?: string | null;
     valor?: number;
+    data_venda?: string | null;
   }
 ): Promise<string | null> {
-  let attrRow: { id: string; attribution_id: string; sent_at: string } | null = null;
+  let attrRow: { id: string; attribution_id: string; sent_at: string; metadata: unknown } | null = null;
+  let method = "click_id";
+  const paidAt = opts.data_venda && Number.isFinite(Date.parse(opts.data_venda)) ? new Date(opts.data_venda) : new Date();
 
   if (opts.click_id) {
-    const { data } = await supabase
+    const matches = await Promise.all((["click_id", "attribution_id"] as const).map(column => supabase
       .from("imphq_wa_attribution")
-      .select("id, attribution_id, sent_at")
-      .or(`click_id.eq.${opts.click_id},attribution_id.eq.${opts.click_id}`)
+      .select("id, attribution_id, sent_at, metadata")
+      .eq(column, opts.click_id)
       .eq("project_id", opts.project_id)
+      .gte("sent_at", new Date(paidAt.getTime() - 30 * 86400000).toISOString())
+      .lte("sent_at", new Date(paidAt.getTime() + 300000).toISOString())
       .order("sent_at", { ascending: false })
       .limit(1)
-      .maybeSingle();
-    attrRow = data;
+      .maybeSingle()));
+    // Preserve the former OR query's newest-match ordering across both exact IDs.
+    for (const { data, error } of matches) {
+      if (error) throw error;
+      if (data && (!attrRow || Date.parse(data.sent_at) > Date.parse(attrRow.sent_at))) attrRow = data;
+    }
   }
 
-  if (!attrRow && opts.phone) {
-    const { data } = await supabase
+  if (!attrRow && opts.phone && opts.produto_nome) {
+    const { data, error } = await supabase
       .from("imphq_wa_attribution")
-      .select("id, attribution_id, sent_at")
+      .select("id, attribution_id, sent_at, metadata")
       .eq("project_id", opts.project_id)
       .eq("phone", opts.phone)
+      .eq("produto_nome", opts.produto_nome)
+      .gte("sent_at", new Date(paidAt.getTime() - 7 * 86400000).toISOString())
+      .lte("sent_at", paidAt.toISOString())
       .is("venda_id", null)
       .order("sent_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (error) throw error;
     attrRow = data;
+    method = "phone_product_7d";
   }
 
   if (!attrRow) return null;
 
-  await supabase
+  const { error } = await supabase
     .from("imphq_wa_attribution")
     .update({
       venda_id: opts.venda_id,
       venda_status: opts.venda_status,
       matched_at: new Date().toISOString(),
       click_id: opts.click_id || attrRow.attribution_id,
+      metadata: { ...record(attrRow.metadata), match_method: method, match_confidence: method === "click_id" ? "confirmed" : "inferred" },
     })
     .eq("id", attrRow.id);
+  if (error) throw error;
+  if (method === "click_id" && opts.click_id) {
+    const { error: saleError } = await supabase.from("imphq_vendas").update({ click_id: opts.click_id }).eq("id", opts.venda_id).eq("project_id", opts.project_id);
+    if (saleError) throw saleError;
+  }
 
   return attrRow.attribution_id;
 }
