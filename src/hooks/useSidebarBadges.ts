@@ -35,7 +35,9 @@ async function fetchBadges(): Promise<SidebarBadges> {
         .from("imphq_wa_knowledge")
         .select("id", { count: "exact", head: true })
         .eq("answered", false)
-        .eq("aprovada", false),
+        .eq("aprovada", false)
+        .not("resposta", "is", null)
+        .neq("resposta", ""),
       supabase.from("imphq_content_items").select("id", { count: "exact", head: true }).eq("status", "pronto"),
       supabase.from("imphq_wa_ai_drafts").select("id", { count: "exact", head: true }).eq("status", "pending"),
     ]);

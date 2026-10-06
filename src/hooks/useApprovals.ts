@@ -29,7 +29,8 @@ async function loadApprovals(): Promise<ApprovalItem[]> {
       .limit(30),
     supabase.from("imphq_wa_knowledge")
       .select("id, project_id, pergunta, resposta, source, created_at")
-      .or("aprovada.eq.false,answered.eq.false")
+      // Só o que tem resposta para aprovar e ainda não foi decidido (o Jev decide o resto: KB1.1).
+      .eq("aprovada", false).eq("answered", false).not("resposta", "is", null).neq("resposta", "")
       .order("created_at", { ascending: false })
       .limit(30),
   ]);

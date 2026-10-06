@@ -1095,7 +1095,7 @@ async function loadApprovals(supabase: Supabase, projectId?: string | null): Pro
       .order("created_at", { ascending: false }).limit(30),
     supabase.from("imphq_wa_knowledge")
       .select("id, project_id, pergunta, resposta, source, created_at")
-      .or("aprovada.eq.false,answered.eq.false").order("created_at", { ascending: false }).limit(30),
+      .eq("aprovada", false).eq("answered", false).not("resposta", "is", null).neq("resposta", "").order("created_at", { ascending: false }).limit(30),
   ]);
   for (const res of [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes]) if (res.error) throw res.error;
   const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
