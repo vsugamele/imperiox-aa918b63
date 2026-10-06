@@ -4,6 +4,7 @@
 // Variante recebe só etiqueta firme e nunca sobrescreve; referência grava firme e dúvida (dúvida vai para revisão).
 // Anti-loop: no máximo 30 itens por chamada e para após 3 falhas seguidas da API.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { triageRequest, triageVerdict } from "../_shared/knowledge-triage.ts";
 import { angleRequest, parseAngleAnswer, type AngleLibraryItem, type AngleSubject, type AngleVerdict } from "../_shared/angle-classifier.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -62,12 +63,52 @@ async function referenceItems(sb: Sb, opts: { project_id?: string; pendentes: bo
   }));
 }
 
+/** Triagem do acervo do bot (KB1.1): respostas humanas e rascunhos ainda não aprovados, uma vez cada. */
+async function runKnowledgeTriage(sb: Sb, limit: number, gravar: boolean) {
+  const { data, error } = await sb.from("imphq_wa_knowledge").select("id, project_id, pergunta, resposta, source")
+    .eq("aprovada", false).is("triado_em", null).in("source", ["human_reply", "ai_draft"]).not("resposta", "is", null)
+    .order("created_at", { ascending: false }).limit(limit);
+  if (error) throw error;
+  const rows = (data ?? []) as Array<{ id: string; project_id: string | null; pergunta: string | null; resposta: string | null; source: string }>;
+  const { data: projects } = await sb.from("imphq_projects").select("id, name");
+  const produto = (pid: string | null) => (projects ?? []).find((p: { id: string }) => p.id === pid)?.name ?? pid ?? "produto";
+  const out: Array<Record<string, unknown>> = [];
+  let tokens = 0;
+  let falhas = 0;
+  for (let i = 0; i < rows.length; i += 5) {
+    if (falhas >= 3) { out.push({ erro: "parou após 3 falhas seguidas da API" }); break; }
+    const chunk = rows.slice(i, i + 5);
+    const settled = await Promise.allSettled(chunk.map(async (k) => {
+      // Dado pessoal ou conversa curta nem vai para o modelo.
+      const pre = triageVerdict(k, null);
+      if (pre.decisao === "descartar" && pre.motivo !== "O Jev ficou em dúvida.") return { k, v: pre, t: 0 };
+      const resp = await askJev(triageRequest(k, produto(k.project_id)));
+      return { k, v: triageVerdict(k, resp as Parameters<typeof triageVerdict>[1]), t: Number(resp.usage?.input_tokens ?? 0) };
+    }));
+    for (const r of settled) {
+      if (r.status === "rejected") { falhas++; out.push({ erro: String(r.reason).slice(0, 200) }); continue; }
+      falhas = 0;
+      tokens += r.value.t;
+      const { k, v } = r.value;
+      out.push({ id: k.id, pergunta: String(k.pergunta ?? "").slice(0, 80), decisao: v.decisao, reutilizavel: v.reutilizavel, dado_pessoal: v.dado_pessoal, motivo: v.motivo });
+      if (!gravar) continue;
+      const now = new Date().toISOString();
+      const patch: Record<string, unknown> = { triado_em: now, triagem: v, updated_at: now };
+      if (v.decisao === "aprovar") Object.assign(patch, { aprovada: true, answered: true });
+      if (v.decisao === "descartar") Object.assign(patch, { aprovada: false, answered: true });
+      await sb.from("imphq_wa_knowledge").update(patch).eq("id", k.id).eq("aprovada", false);
+    }
+  }
+  const conta = (d: string) => out.filter((o) => o.decisao === d).length;
+  return { itens: out.length, aprovadas: conta("aprovar"), descartadas: conta("descartar"), para_revisar: conta("revisar"), tokens, results: out };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     if (!TYPESAFE_API_KEY) return json({ error: "TYPESAFE_API_KEY ausente" }, 500);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const modo = ["references", "variants", "auto"].includes(body?.modo) ? String(body.modo) : "variants";
+    const modo = ["references", "variants", "auto", "knowledge"].includes(body?.modo) ? String(body.modo) : "variants";
     // "auto" (cron) sempre grava; nos outros modos só com gravar=true.
     const gravar = modo === "auto" || body?.gravar === true;
     const limit = Math.min(MAX_ITEMS, Math.max(1, Number(body?.limit) || (modo === "auto" ? MAX_ITEMS : 10)));
@@ -76,6 +117,11 @@ Deno.serve(async (req) => {
     const { data: lib, error: libErr } = await sb.from("imphq_copy_library").select("id, numero, nome, categoria, explicacao").eq("biblioteca", "angulo").order("ordem");
     if (libErr) throw libErr;
     const library = (lib ?? []) as AngleLibraryItem[];
+
+    if (modo === "knowledge") {
+      const kb = await runKnowledgeTriage(sb, limit, gravar);
+      return json({ ok: true, modo, ...kb, custo_usd: Math.round(kb.tokens * 0.042e-6 * 1e6) / 1e6 });
+    }
 
     let items: Item[] = [];
     if (modo === "variants") {
@@ -129,7 +175,9 @@ Deno.serve(async (req) => {
         }
       }
     }
-    return json({ ok: true, modo, itens: results.length, gravados, tokens, custo_usd: Math.round(tokens * 0.042e-6 * 1e6) / 1e6, results });
+    const acervo = modo === "auto" ? await runKnowledgeTriage(sb, MAX_ITEMS, true) : null;
+    const totalTokens = tokens + (acervo?.tokens ?? 0);
+    return json({ ok: true, modo, itens: results.length, gravados, tokens: totalTokens, custo_usd: Math.round(totalTokens * 0.042e-6 * 1e6) / 1e6, results, acervo: acervo && { ...acervo, results: undefined } });
   } catch (e) {
     console.error("[jev-classify]", e);
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
