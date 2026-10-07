@@ -2,7 +2,8 @@
 // Esteira de Escala (CPA alvo e payout do projeto). TS puro: a function traffic-agent busca os dados e executa.
 //
 // Autonomia (Vinicius, 07/10): pausa SOZINHO só prejuízo claro — anúncio ativo com gasto ≥ 3× o CPA alvo e nenhuma
-// venda — e avisa. Pausa com venda, ou gasto entre 2× e 3× sem venda, vira proposta (OK no grupo). Escalar é sempre
+// venda — e avisa. Gasto entre 2× e 3× sem venda, ou CPA acima do payout (com 2+ vendas, ou 1 venda e gasto ≥ 3×),
+// vira proposta (OK no grupo); CPA acima do payout com 1 venda só fica em observação. Escalar é sempre
 // recomendação (o orçamento é do conjunto/campanha e o sync não traz o orçamento). Também ranqueia os ofensores e
 // sugere alternativas (duplicar e gerar variações do vencedor, ou ângulos novos quando ninguém está na meta).
 
@@ -72,10 +73,15 @@ export function adStats(rows: ReadonlyArray<AdDayRow>, sales: ReadonlyArray<AdSa
   return out.sort((a, b) => b.gasto - a.gasto);
 }
 
-/** Vendas reais (sem bump) da campanha que não casaram com nenhum anúncio: aparecem no relatório, não somem. */
+/**
+ * Vendas reais (sem bump) com UTM de anúncio ("07-publico") que não casaram com nenhum anúncio: aparecem no relatório,
+ * não somem. UTM orgânica (link_in_bio, "Não Informado") não entra.
+ */
 export function unattributedSales(stats: ReadonlyArray<AdStats>, sales: ReadonlyArray<AdSale>): number {
-  const real = sales.filter((s) => PAID.has((s.status ?? "").toLowerCase()) && !/bump/i.test(s.tipo_venda ?? ""));
-  return Math.max(0, real.length - stats.reduce((sum, a) => sum + a.vendas, 0));
+  return sales
+    .filter((s) => PAID.has((s.status ?? "").toLowerCase()) && !/bump/i.test(s.tipo_venda ?? ""))
+    .map((s) => contentKey(s.utm_content))
+    .filter((k) => /^\d{1,3}-/.test(k) && !stats.some((a) => adMatchesContent(a.nome, k))).length;
 }
 
 export type TrafficAction = "pausar_auto" | "pausar" | "escalar" | "observar" | "manter";
@@ -101,12 +107,15 @@ export function trafficPlan(stats: ReadonlyArray<AdStats>, p: ScaleParams, curre
       decisoes.push({ ...base, acao: "pausar_auto", motivo: `${money(s.gasto)} em 7 dias e nenhuma venda (≥ 3× o CPA alvo de ${money(p.cpaAlvo)})` });
     } else if (s.vendas === 0 && s.gasto >= 2 * p.cpaAlvo) {
       decisoes.push({ ...base, acao: "pausar", motivo: `${money(s.gasto)} em 7 dias e nenhuma venda (≥ 2× o CPA alvo)` });
-    } else if (zona === "prejuizo" && s.gasto >= 2 * p.cpaAlvo) {
+    } else if (zona === "prejuizo" && (s.vendas >= 2 || s.gasto >= 3 * p.cpaAlvo)) {
+      // Uma venda só não é prova: CPA acima do payout com 1 venda vira proposta só depois de 3× o CPA alvo.
       decisoes.push({ ...base, acao: "pausar", motivo: `CPA ${money(cpa)} (${ZONE_LABEL[zona]}) acima do payout ${money(p.payout)} em ${s.vendas} venda(s)` });
     } else if (zona === "escala" && s.vendas >= 3) {
       decisoes.push({ ...base, acao: "escalar", motivo: `CPA ${money(cpa)} (${ZONE_LABEL[zona]}) com ${s.vendas} vendas: subir ~20% o orçamento do conjunto (uma mexida por dia)` });
     } else if (zona === "magra") {
       decisoes.push({ ...base, acao: "observar", motivo: `CPA ${money(cpa)} (${ZONE_LABEL[zona]}): só vale com volume` });
+    } else if (zona === "prejuizo") {
+      decisoes.push({ ...base, acao: "observar", motivo: `CPA ${money(cpa)} (${ZONE_LABEL[zona]}) com 1 venda só: decide ao chegar em ${money(3 * p.cpaAlvo)} gastos` });
     } else {
       decisoes.push({ ...base, acao: "manter", motivo: s.vendas ? `CPA ${money(cpa)} (${ZONE_LABEL[zona]})` : `${money(s.gasto)} gastos, ainda abaixo de 2× o CPA alvo` });
     }
