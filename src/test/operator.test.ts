@@ -83,12 +83,17 @@ describe("operador diário: rodada", () => {
 
 describe("operador: respostas no grupo", () => {
   it("entende ok/sim/não/pago com um ou vários números", () => {
-    expect(parseOperatorCommand("ok 1")).toEqual({ decisao: "approve", numeros: [1] });
-    expect(parseOperatorCommand("Sim 2")).toEqual({ decisao: "approve", numeros: [2] });
-    expect(parseOperatorCommand("ok 1, 3 e 5.")).toEqual({ decisao: "approve", numeros: [1, 3, 5] });
-    expect(parseOperatorCommand("não 2")).toEqual({ decisao: "reject", numeros: [2] });
-    expect(parseOperatorCommand("nao 2 2")).toEqual({ decisao: "reject", numeros: [2] });
-    expect(parseOperatorCommand("pago 4")).toEqual({ decisao: "mark_paid", numeros: [4] });
+    expect(parseOperatorCommand("ok 1")).toEqual({ decisao: "approve", numeros: [1], resposta: null });
+    expect(parseOperatorCommand("Sim 2")).toEqual({ decisao: "approve", numeros: [2], resposta: null });
+    expect(parseOperatorCommand("ok 1, 3 e 5.")).toEqual({ decisao: "approve", numeros: [1, 3, 5], resposta: null });
+    expect(parseOperatorCommand("não 2")).toEqual({ decisao: "reject", numeros: [2], resposta: null });
+    expect(parseOperatorCommand("nao 2 2")).toEqual({ decisao: "reject", numeros: [2], resposta: null });
+    expect(parseOperatorCommand("pago 4")).toEqual({ decisao: "mark_paid", numeros: [4], resposta: null });
+  });
+
+  it("aceita a resposta da dúvida do bot depois dos dois-pontos, mantendo o texto", () => {
+    expect(parseOperatorCommand("ok 2: O acesso chega no E-mail em até 10 min.")).toEqual({ decisao: "approve", numeros: [2], resposta: "O acesso chega no E-mail em até 10 min." });
+    expect(parseOperatorCommand("não 2: texto")).toBeNull();
   });
 
   it("ignora conversa normal do grupo", () => {
@@ -97,7 +102,7 @@ describe("operador: respostas no grupo", () => {
 
   it("liga os números à última rodada e aponta os que não existem", () => {
     const r = planOperatorRound([jp], opts);
-    const res = resolveOperatorCommand({ decisao: "approve", numeros: [2, 9] }, r.itens);
+    const res = resolveOperatorCommand({ decisao: "approve", numeros: [2, 9], resposta: null }, r.itens);
     expect(res.decisoes).toEqual([{ n: 2, key: "duvida_bot:d1", texto: "Dúvidas do bot: Qual o prazo de acesso? — espera 5 h", decisao: "approve" }]);
     expect(res.desconhecidos).toEqual([9]);
   });

@@ -139,7 +139,7 @@ export function planOperatorRound(projects: ReadonlyArray<OperatorProject>, opts
 // ── Respostas no grupo (OPR1.2) ──────────────────────────────────────────────
 
 export type OperatorDecision = "approve" | "reject" | "mark_paid";
-export interface OperatorCommand { decisao: OperatorDecision; numeros: number[] }
+export interface OperatorCommand { decisao: OperatorDecision; numeros: number[]; /** Texto depois de ":" (resposta de dúvida do bot), só com um número. */ resposta: string | null }
 
 const VERBS: Array<[RegExp, OperatorDecision]> = [
   [/^(ok|sim|aprova(r|do)?|pode)$/, "approve"],
@@ -148,17 +148,25 @@ const VERBS: Array<[RegExp, OperatorDecision]> = [
 ];
 
 /**
- * Lê uma mensagem do grupo como comando do operador: "ok 1", "ok 1 3", "sim 2", "não 2", "pago 4", "ok 1, 3 e 5".
- * Só a mensagem inteira no formato verbo + números vale; qualquer outra conversa do grupo devolve null.
+ * Lê uma mensagem do grupo como comando do operador: "ok 1", "ok 1 3", "sim 2", "não 2", "pago 4", "ok 1, 3 e 5",
+ * e "ok 2: texto" (resposta para dúvida do bot, mantendo a caixa original do texto).
+ * Só a mensagem inteira nesses formatos vale; qualquer outra conversa do grupo devolve null.
  */
 export function parseOperatorCommand(text: string | null | undefined): OperatorCommand | null {
-  const t = (text ?? "").trim().toLowerCase().replace(/[.!]+$/, "");
+  const raw = (text ?? "").trim();
+  const withAnswer = /^([a-zà-úA-ZÀ-Ú]+)\s+(\d{1,2})\s*:\s*(\S[\s\S]*)$/.exec(raw);
+  if (withAnswer) {
+    const verb = VERBS.find(([re]) => re.test(withAnswer[1].toLowerCase()));
+    if (!verb || verb[1] !== "approve") return null;
+    return { decisao: "approve", numeros: [Number(withAnswer[2])], resposta: withAnswer[3].trim() };
+  }
+  const t = raw.toLowerCase().replace(/[.!]+$/, "");
   const m = /^([a-zà-ú]+)\s+([\d\s,e]+)$/.exec(t);
   if (!m) return null;
   const verb = VERBS.find(([re]) => re.test(m[1]));
   if (!verb) return null;
   const numeros = [...new Set((m[2].match(/\d+/g) ?? []).map(Number).filter((n) => n > 0 && n < 100))];
-  return numeros.length ? { decisao: verb[1], numeros } : null;
+  return numeros.length ? { decisao: verb[1], numeros, resposta: null } : null;
 }
 
 /** Itens numerados da última rodada que o comando aponta; número sem item volta em `desconhecidos`. */

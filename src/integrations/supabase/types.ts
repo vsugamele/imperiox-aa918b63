@@ -30206,6 +30206,7 @@ export type Database = {
           name: string
           role: string | null
           user_id: string | null
+          whatsapp_ids: string[]
         }
         Insert: {
           avatar_url?: string | null
@@ -30217,6 +30218,7 @@ export type Database = {
           name: string
           role?: string | null
           user_id?: string | null
+          whatsapp_ids?: string[]
         }
         Update: {
           avatar_url?: string | null
@@ -30228,6 +30230,7 @@ export type Database = {
           name?: string
           role?: string | null
           user_id?: string | null
+          whatsapp_ids?: string[]
         }
         Relationships: [
           {

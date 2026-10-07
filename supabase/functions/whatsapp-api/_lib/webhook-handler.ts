@@ -6,6 +6,10 @@
 import { sendMetaCloud, sendTwilio } from "./senders.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { errorText } from "../../_shared/value.ts";
+import { parseOperatorCommand } from "../../_shared/operator.ts";
+
+/** Grupo de comando do time (Imperio X): respostas "ok 1" aqui viram decisão do operador (OPR1.2). */
+const IMPERIO_X_JID = "120363409438175766@g.us";
 declare const EdgeRuntime: { waitUntil(task: Promise<unknown>): void } | undefined;
 interface Conversation { id: string; message_count: number | null; contact_name?: string | null }
 
@@ -435,12 +439,26 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
         provider_message_id: providerMsgId,
         status: isFromMe ? "sent" : "received",
         sent_by: isFromMe ? "human" : "lead",
+        // Em grupo, guarda quem escreveu (número e/ou @lid): o operador reconhece o time por aqui (OPR1.2).
+        metadata: jidSuffix.includes("g.us")
+          ? { participant: key?.participant ?? body?.data?.participant ?? null, participant_alt: key?.participantAlt ?? key?.participantPn ?? null, push_name: pushName || null }
+          : null,
       }).select("id").maybeSingle();
 
       if (msgError) {
         console.error("[webhook] DB save error:", msgError.message);
       } else {
         console.log(`[webhook] Saved ${messageType} from ${phone} (conv=${conv.id}) media=${!!mediaUrl}`);
+      }
+
+      // Comando do operador no grupo Imperio X ("ok 1", "não 2"...): repassa sem esperar; o resto segue igual.
+      if (!isFromMe && rawJid === IMPERIO_X_JID && parseOperatorCommand(content)) {
+        supabase.functions.invoke("operator-decide", {
+          body: {
+            text: content, provider_message_id: providerMsgId, push_name: pushName || null,
+            participant: key?.participant ?? body?.data?.participant ?? null, participant_alt: key?.participantAlt ?? key?.participantPn ?? null,
+          },
+        }).catch((e: unknown) => console.warn("[webhook] operator-decide invoke skip:", errorText(e)));
       }
 
       if (isFromMe) {
