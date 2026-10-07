@@ -4,7 +4,7 @@
 // dry_run=true: calcula tudo e devolve os textos sem gravar nem enviar.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { liveAlerts, type LiveAlertKind, type LiveSnapshotLite } from "../_shared/live-panel.ts";
-import { liveProjects, loadProjectLivePanel, snapshotRow } from "../_shared/live-panel-load.ts";
+import { liveProjects, loadProjectLivePanel, snapshotRow, type LiveDb } from "../_shared/live-panel-load.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -25,7 +25,8 @@ Deno.serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
     const now = new Date();
 
-    const projects = (await liveProjects(sb, now)).filter((p) => !onlyProject || p.id === onlyProject);
+    const db = sb as unknown as LiveDb;
+    const projects = (await liveProjects(db, now)).filter((p) => !onlyProject || p.id === onlyProject);
     const { data: provider } = await sb.from("imphq_wa_providers").select("api_url, api_key, instance_name").eq("is_active", true)
       .order("last_seen_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
 
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
     for (const project of projects) {
       try {
         const [panel, prevRes, sentRes] = await Promise.all([
-          loadProjectLivePanel(sb, project.id, now),
+          loadProjectLivePanel(db, project.id, now),
           sb.from("imphq_live_snapshots").select("zona, vendas, cpa, taken_at").eq("project_id", project.id)
             .eq("dia", new Date(now.getTime() - 3 * 3600000).toISOString().slice(0, 10)).order("taken_at", { ascending: false }).limit(1).maybeSingle(),
           sb.from("imphq_activity_log").select("details, created_at").eq("action", "live_alert").eq("project_id", project.id)

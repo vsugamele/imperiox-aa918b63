@@ -1,8 +1,25 @@
 // Carrega o painel ao vivo de um projeto com o cliente do servidor (service role): mesmas fontes e regra da tela
 // (src/hooks/useLivePanel.ts). Usado pela rotina live-snapshot (a cada 15 min) e pelo project-mcp (get_live_panel).
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { adsSyncHealth, buildLivePanel, dayFraction, type AdRow, type AdsSyncHealthRow, type LivePanel, type SaleRow } from "./live-panel.ts";
 import { paramsFrom } from "./scale-ladder.ts";
+
+type Result = { data: unknown; count?: number | null; error: unknown };
+/**
+ * O mínimo do cliente Supabase que este carregador usa. Tipo estrutural (em vez do import por URL do Deno) para
+ * o arquivo compilar também no front, onde os testes do MCP o importam. Quem chama passa `cliente as unknown as LiveDb`.
+ */
+export interface LiveQuery extends PromiseLike<Result> {
+  select(columns: string, options?: { count?: "exact"; head?: boolean }): LiveQuery;
+  eq(column: string, value: unknown): LiveQuery;
+  gt(column: string, value: unknown): LiveQuery;
+  gte(column: string, value: unknown): LiveQuery;
+  not(column: string, operator: string, value: unknown): LiveQuery;
+  or(filters: string): LiveQuery;
+  order(column: string, options?: { ascending?: boolean }): LiveQuery;
+  limit(count: number): LiveQuery;
+  maybeSingle(): PromiseLike<Result>;
+}
+export interface LiveDb { from(table: string): LiveQuery }
 
 /** Dia de Brasília (UTC-3): data AAAA-MM-DD e início em ISO. */
 export function brtDay(now: Date = new Date()) {
@@ -10,7 +27,7 @@ export function brtDay(now: Date = new Date()) {
   return { day, start: `${day}T03:00:00.000Z` };
 }
 
-export async function loadProjectLivePanel(sb: SupabaseClient, projectId: string, now: Date = new Date()): Promise<LivePanel> {
+export async function loadProjectLivePanel(sb: LiveDb, projectId: string, now: Date = new Date()): Promise<LivePanel> {
   const { day, start } = brtDay(now);
   const month = new Date(now.getTime() - 30 * 86400000).toISOString();
   const count = (event: string) => sb.from("imphq_events").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("event_name", event).gte("created_at", start);
@@ -24,7 +41,8 @@ export async function loadProjectLivePanel(sb: SupabaseClient, projectId: string
     sb.from("imphq_v_ads_sync_health").select("*").eq("project_id", projectId).maybeSingle(),
   ]);
   for (const res of [pv, ic, salesRes, adsRes, webhookRes, paramsRes]) if (res.error) throw res.error;
-  const params = paramsRes.data?.[0] ? paramsFrom(paramsRes.data[0].params) : null;
+  const first = (paramsRes.data as Array<{ params: unknown }> | null)?.[0];
+  const params = first ? paramsFrom(first.params) : null;
   return buildLivePanel({
     trackerEvents: { PageView: pv.count ?? 0, InitiateCheckout: ic.count ?? 0 },
     sales: (salesRes.data ?? []) as SaleRow[],
@@ -47,7 +65,7 @@ export function snapshotRow(projectId: string, panel: LivePanel, now: Date = new
 }
 
 /** Projeto entra na leitura quando tem fonte viva: venda no checkout (30 d), gasto (7 d) ou tracker (7 d). */
-export async function liveProjects(sb: SupabaseClient, now: Date = new Date()): Promise<Array<{ id: string; name: string }>> {
+export async function liveProjects(sb: LiveDb, now: Date = new Date()): Promise<Array<{ id: string; name: string }>> {
   const week = new Date(now.getTime() - 7 * 86400000);
   const month = new Date(now.getTime() - 30 * 86400000).toISOString();
   const [projects, sales, ads, events] = await Promise.all([
@@ -57,6 +75,7 @@ export async function liveProjects(sb: SupabaseClient, now: Date = new Date()): 
     sb.from("imphq_events").select("project_id").gte("created_at", week.toISOString()).not("project_id", "is", null).limit(10000),
   ]);
   for (const res of [projects, sales, ads, events]) if (res.error) throw res.error;
-  const active = new Set([...(sales.data ?? []), ...(ads.data ?? []), ...(events.data ?? [])].map((r) => String(r.project_id)));
+  const ids = (res: Result) => ((res.data ?? []) as Array<{ project_id: unknown }>).map((r) => String(r.project_id));
+  const active = new Set([...ids(sales), ...ids(ads), ...ids(events)]);
   return ((projects.data ?? []) as Array<{ id: string; name: string }>).filter((p) => active.has(p.id));
 }

@@ -21,7 +21,7 @@ import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
 import { launchPreview, planLaunch, writeLaunch } from "../_shared/launch-plan.ts";
 import { adsSyncHealth, liveDelta, type AdsSyncHealthRow, type LivePanel } from "../_shared/live-panel.ts";
-import { brtDay, loadProjectLivePanel } from "../_shared/live-panel-load.ts";
+import { brtDay, loadProjectLivePanel, type LiveDb } from "../_shared/live-panel-load.ts";
 import { liveReadings, type LiveOrder, type LiveVariant, type SaleRow, type SpendRow } from "../_shared/test-live.ts";
 import { methodScoreboard, normalizeMetodo, type ScoreBy, type ScoreInput } from "../_shared/method-scoreboard.ts";
 import { normalizeVariants, pageKey, slugify, splitReport, type PageMetricValues } from "../_shared/page-split.ts";
@@ -2809,7 +2809,7 @@ Deno.serve(async (req) => {
             if (!args?.project_id) throw new Error("project_id é obrigatório");
             const projectId = String(args.project_id);
             const [panel, snaps] = await Promise.all([
-              loadProjectLivePanel(supabase, projectId),
+              loadProjectLivePanel(supabase as unknown as LiveDb, projectId),
               supabase.from("imphq_live_snapshots").select("taken_at, gasto, faturamento, vendas, cpa, zona, painel")
                 .eq("project_id", projectId).eq("dia", brtDay().day).order("taken_at", { ascending: true }).limit(200),
             ]);
