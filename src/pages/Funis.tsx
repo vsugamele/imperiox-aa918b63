@@ -138,7 +138,7 @@ export default function Funis() {
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
-  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa" | "jornada" | "painel">("hub");
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa" | "jornada" | "painel">("painel");
   const [searchParams] = useSearchParams();
   const [showEcosystem, setShowEcosystem] = useState(false);
   const [aiOrganizing, setAiOrganizing] = useState(false);

@@ -48,6 +48,8 @@ import { MapNodeCard } from "@/components/funis/MapNodeCard";
 import { orderSteps } from "@shared/map-order";
 import { localDate } from "@shared/map-steps";
 import { MapPathView, type PathRole } from "@/components/funis/MapPathView";
+import { MapOutlineView } from "@/components/funis/MapOutlineView";
+import { isKnowledgeMap } from "@/lib/map-outline";
 import { useMapPathMetrics } from "@/hooks/useMapPathMetrics";
 import { nodeMetricSnapshot } from "@/lib/map-stage-metrics";
 import { StepPrints } from "@/components/funis/StepPrints";
@@ -1373,7 +1375,9 @@ function InnerMap({
   }, [focusNodeId, rawNodes, setCenter]);
 
   const pathProjectIds = useMemo(() => [...new Set(rawNodes.flatMap((n) => n.linked_project_id ? [n.linked_project_id] : []))], [rawNodes]);
-  const pathMetrics = useMapPathMetrics(pathProjectIds, view === "caminho");
+  // Resumo de livro / mapa mental (MAP3.1): a primeira visão vira lista por seção em vez do Caminho de funil.
+  const knowledgeMap = useMemo(() => isKnowledgeMap(rawNodes), [rawNodes]);
+  const pathMetrics = useMapPathMetrics(pathProjectIds, view === "caminho" && !knowledgeMap);
   const pathMetricsByNode = useMemo(() => Object.fromEntries(rawNodes.map((node) =>
     [node.id, nodeMetricSnapshot(node, pathMetrics.data ?? {})])), [rawNodes, pathMetrics.data]);
 
@@ -2097,7 +2101,7 @@ function InnerMap({
           {(["caminho", "mapa"] as const).map(v => (
             <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => handleSetView(v)}
               className={cn("h-7 rounded px-3 text-xs font-medium transition-colors flex items-center gap-1.5", view === v ? "bg-card text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground")}>
-              {v === "caminho" ? "🎯 Caminho" : "🗺️ Mapa 2D"}
+              {v === "caminho" ? (knowledgeMap ? "📚 Lista" : "🎯 Caminho") : "🗺️ Mapa 2D"}
             </button>
           ))}
         </div>
@@ -2374,7 +2378,27 @@ function InnerMap({
           </Button>
         </div>
       )}
-      {view === "caminho" && (
+      {view === "caminho" && knowledgeMap && (
+        <div className="absolute inset-0 z-[5]">
+          <MapOutlineView
+            title={maps.find(m => m.id === mapId)?.name ?? "Mapa"}
+            nodes={rawNodes}
+            edges={edges.map(e => ({ source: e.source, target: e.target }))}
+            onOpen={openFromPath}
+            onSwitchToCanvas={() => handleSetView("mapa")}
+          />
+        </div>
+      )}
+      {view === "mapa" && !knowledgeMap && !presenting && rawNodes.length > 40 && (
+        <div className="pointer-events-none absolute bottom-4 left-1/2 z-[6] -translate-x-1/2">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur">
+            <span className="text-muted-foreground">Mapa grande ({rawNodes.length} etapas).</span>
+            <button type="button" onClick={runAutoLayout} className="font-medium text-primary hover:underline">Organizar automaticamente</button>
+            <span className="text-muted-foreground">(guarda uma cópia antes)</span>
+          </div>
+        </div>
+      )}
+      {view === "caminho" && !knowledgeMap && (
         <div className="absolute inset-0 z-[5]">
           <MapPathView
             nodes={rawNodes}
