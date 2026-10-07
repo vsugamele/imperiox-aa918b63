@@ -27,3 +27,13 @@ Ideias para avaliar quando entrar (com o Vinicius, antes de construir):
 - Legenda fixa e filtros: só caminho principal / só pendências / só métricas fora da meta.
 - Cada playbook marca suas etapas como principal ou alternativa (campo no passo do playbook) para o mapa saber desenhar.
 - Card compacto padrão: nº do passo · nome · dono · status · métrica × meta · próximo resultado esperado.
+
+## Segurança — deixada para o final (levantamento de 07/10/2026)
+Repositório `vsugamele/imperiox-aa918b63` é **público**. Achados (sem imprimir chaves):
+- 🔴 Chave **service_role** de produção em `scripts/inject_geelark_tools_map.mjs` e `scripts/inject_master_company_map.mjs` (acesso total ao banco).
+- 🟠 Chave de API do **n8n** em `scratch/deploy_json.ps1` e `scratch/n8n_deploy_script.ps1`.
+- 🟠 Chave da **Evolution** esteve no `OPERACAO.md` (hoje não está; segue no histórico do git).
+- 🟢 Chave `anon` em 18 arquivos e no `.env` (pública por natureza).
+- A `anon` antiga está em 70 de 86 crons, sites e tracker: trocar a service_role (novo segredo JWT ou chaves novas `sb_secret_`/`sb_publishable_`) derruba a `anon` antiga junto → troca planejada.
+
+Plano proposto: (1) repositório privado (conferir deploy Vercel antes); (2) tirar segredos dos arquivos (scripts leem variável de ambiente, `scratch/` sai); (3) migrar para as chaves novas do Supabase com mapa de todos os usos e desligar as antigas; (4) Vinicius: revogar chave do n8n, trocar chave da Evolution, trocar senhas do SEC1.1.
