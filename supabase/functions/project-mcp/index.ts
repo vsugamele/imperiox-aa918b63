@@ -23,6 +23,7 @@ import { launchPreview, planLaunch, writeLaunch } from "../_shared/launch-plan.t
 import { adsSyncHealth, type AdsSyncHealthRow } from "../_shared/live-panel.ts";
 import { liveReadings, type LiveOrder, type LiveVariant, type SaleRow, type SpendRow } from "../_shared/test-live.ts";
 import { methodScoreboard, normalizeMetodo, type ScoreBy, type ScoreInput } from "../_shared/method-scoreboard.ts";
+import { buildFunnelLive, type AdsRow as FunnelAdsRow, type PageRow as FunnelPageRow, type SaleRow as FunnelSaleRow } from "../_shared/funnel-live.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -984,6 +985,15 @@ const MCP_TOOLS = [
     name: "get_test_order",
     description: "Uma ordem de teste: dados, variantes (com links, ids da Meta, última leitura e veredito), passos para lançar e a última avaliação.",
     inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
+    name: "get_funnel_live",
+    description: "Painel ao vivo do funil de um projeto (e produto): anúncio (gasto, CTR, CPC) → página (visitas do rastreador) → checkout → venda (vendas, ticket, CPA) → bump/upsell → recuperação no WhatsApp, com a conversão entre etapas, o status de cada uma (ok, atenção, gargalo, sem dado, medição incompleta) e o gargalo. Totais: gasto, faturamento, líquido, saldo, ROAS e CPA.",
+    inputSchema: {
+      type: "object",
+      properties: { project_id: { type: "string" }, produto: { type: "string", description: "Nome exato do produto (opcional)" }, dias: { type: "number", description: "Janela em dias (padrão 7)" } },
+      required: ["project_id"],
+    },
   },
   {
     name: "get_copy_library",
@@ -2588,6 +2598,25 @@ Deno.serve(async (req) => {
             const { order, variants } = await loadTestOrder(supabase, String(args.id));
             const plan = { nome_campanha: `[${order.project_id}] ${order.nome} — teste de ângulos ABO`, variantes: variants.map((v) => ({ ...v, nome_conjunto: `${String(v.ordem).padStart(2, "0")} ${v.angulo}`, nome_anuncio: v.utm_content })) };
             const result = { ordem: order, variantes: variants, passos: launchSteps({ ...order, verba_dia_conjunto: Number(order.verba_dia_conjunto) }, plan as unknown as Parameters<typeof launchSteps>[1]), dias_no_ar: order.ativado_em ? Math.round(((Date.now() - Date.parse(order.ativado_em)) / 86400000) * 10) / 10 : 0 };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_funnel_live") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const pid = String(args.project_id);
+            const dias = Math.min(90, Math.max(1, Number(args.dias) || 7));
+            const since = new Date(Date.now() - dias * 86400000).toISOString();
+            const [adsRes, salesRes, pagesRes] = await Promise.all([
+              supabase.from("imphq_ads_spend").select("spend, impressoes, link_clicks, cliques, init_checkout, purchases").eq("project_id", pid).gte("date", since.slice(0, 10)).limit(5000),
+              supabase.from("imphq_vendas").select("status, valor, valor_liquido, tipo_venda, produto_nome, data").eq("project_id", pid).gte("created_at", since).limit(5000),
+              supabase.rpc("imphq_page_metrics", { p_project_id: pid, p_since: since }),
+            ]);
+            if (adsRes.error) throw adsRes.error;
+            if (salesRes.error) throw salesRes.error;
+            const all = (salesRes.data ?? []) as FunnelSaleRow[];
+            const sales = args.produto ? all.filter((v) => v.produto_nome === String(args.produto)) : all;
+            const pages = ((pagesRes.data as { pages?: FunnelPageRow[] } | null)?.pages ?? []).filter((p) => Number(p.values?.sessoes_pagina ?? 0) > 0);
+            const result = { projeto: pid, produto: args.produto ?? "todos", dias, produtos: [...new Set(all.map((v) => v.produto_nome).filter(Boolean))], ...buildFunnelLive({ ads: (adsRes.data ?? []) as FunnelAdsRow[], pages, sales }) };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 

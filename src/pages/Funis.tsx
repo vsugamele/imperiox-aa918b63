@@ -16,11 +16,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
 import { FunilPipelineWizard } from "@/components/funis/FunilPipelineWizard";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History, Building2, Zap } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History, Building2, Zap, Gauge } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
 import { JourneyCanvas } from "@/components/funis/journey/JourneyCanvas";
+import { FunnelLivePanel } from "@/components/funis/FunnelLivePanel";
 import { CloneFunnelDialog } from "@/components/funis/CloneFunnelDialog";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Copy, Calculator } from "lucide-react";
@@ -137,7 +138,7 @@ export default function Funis() {
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<NodeJS.Timeout>();
-  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa" | "jornada">("hub");
+  const [viewMode, setViewMode] = useState<"funis" | "ecossistema" | "hub" | "mapa" | "jornada" | "painel">("hub");
   const [searchParams] = useSearchParams();
   const [showEcosystem, setShowEcosystem] = useState(false);
   const [aiOrganizing, setAiOrganizing] = useState(false);
@@ -392,7 +393,7 @@ export default function Funis() {
   // Sync viewMode from URL query param (e.g. /funis?view=mapa)
   useEffect(() => {
     const view = searchParams.get("view");
-    if (view === "hub" || view === "funis" || view === "ecossistema" || view === "mapa" || view === "jornada") {
+    if (view === "hub" || view === "funis" || view === "ecossistema" || view === "mapa" || view === "jornada" || view === "painel") {
       setViewMode(view);
     }
   }, [searchParams]);
@@ -1523,6 +1524,9 @@ export default function Funis() {
             <Button size="sm" variant={viewMode === "hub" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("hub")}>
               <Sparkles className="h-3 w-3" /> Hub
             </Button>
+            <Button size="sm" variant={viewMode === "painel" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("painel")}>
+              <Gauge className="h-3 w-3" /> Painel ao vivo
+            </Button>
             <Button size="sm" variant={viewMode === "funis" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("funis")}>
               <Layers className="h-3 w-3" /> Funis
             </Button>
@@ -1563,7 +1567,9 @@ export default function Funis() {
         </div>
       </div>
 
-      {viewMode === "hub" ? (
+      {viewMode === "painel" ? (
+        <FunnelLivePanel projects={projects.map((p) => ({ id: p.id, name: p.name }))} initialProjectId={hubProjectId} />
+      ) : viewMode === "hub" ? (
         <ProductHubCanvas projects={projects} onProjectsReload={load} initialProjectId={hubProjectId} />
       ) : viewMode === "mapa" ? (
         <CompanyMapCanvas
