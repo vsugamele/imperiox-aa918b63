@@ -37,7 +37,7 @@ async function loadLivePanel(projectId: string): Promise<LivePanel> {
   });
 }
 
-/** Painel ao vivo do projeto, relido a cada minuto, com a variação desde a leitura anterior desta sessão. */
+/** Painel ao vivo do projeto, relido a cada minuto, com a variação desde a última leitura gravada (ou da sessão). */
 export function useLivePanel(projectId: string | null) {
   const query = useQuery({
     queryKey: ["live-panel", projectId],
@@ -61,5 +61,25 @@ export function useLivePanel(projectId: string | null) {
     }
   }, [query.data, query.dataUpdatedAt]);
 
-  return { ...query, comparison };
+  // Leituras gravadas a cada 15 min (live-snapshot): o "vs" usa a última leitura de hoje diferente da atual,
+  // e sobrevive a recarregar a página. A comparação da sessão fica como reserva enquanto não há leitura gravada.
+  const snapshots = useQuery({
+    queryKey: ["live-snapshots", projectId],
+    enabled: !!projectId,
+    refetchInterval: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("imphq_live_snapshots").select("taken_at, painel")
+        .eq("project_id", projectId as string).eq("dia", brtToday().day).order("taken_at", { ascending: false }).limit(8);
+      if (error) throw error;
+      return (data ?? []) as Array<{ taken_at: string; painel: unknown }>;
+    },
+  });
+  const stored = (() => {
+    if (!query.data || !snapshots.data?.length) return null;
+    const current = JSON.stringify(query.data.parcial);
+    const base = snapshots.data.find((s) => JSON.stringify((s.painel as LivePanel).parcial) !== current);
+    return base ? { delta: liveDelta(query.data, base.painel as LivePanel), at: Date.parse(base.taken_at) } : null;
+  })();
+
+  return { ...query, comparison: stored ?? comparison };
 }

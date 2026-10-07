@@ -20,7 +20,8 @@ import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/toda
 import { evaluateScale, hypothesisBoard } from "../_shared/scale-ladder.ts";
 import { ACCESS_BY_KEY, ACCESS_STATUS_LABEL, CHANNELS, accessChecklist, channelsFromPlaybooks, parseChannels, type DeclaredAccess } from "../_shared/launch-kit.ts";
 import { launchPreview, planLaunch, writeLaunch } from "../_shared/launch-plan.ts";
-import { adsSyncHealth, type AdsSyncHealthRow } from "../_shared/live-panel.ts";
+import { adsSyncHealth, liveDelta, type AdsSyncHealthRow, type LivePanel } from "../_shared/live-panel.ts";
+import { brtDay, loadProjectLivePanel } from "../_shared/live-panel-load.ts";
 import { liveReadings, type LiveOrder, type LiveVariant, type SaleRow, type SpendRow } from "../_shared/test-live.ts";
 import { methodScoreboard, normalizeMetodo, type ScoreBy, type ScoreInput } from "../_shared/method-scoreboard.ts";
 import { normalizeVariants, pageKey, slugify, splitReport, type PageMetricValues } from "../_shared/page-split.ts";
@@ -1115,6 +1116,15 @@ const MCP_TOOLS = [
         confirmado_por: { type: "string" },
       },
       required: ["id", "leituras"],
+    },
+  },
+  {
+    name: "get_live_panel",
+    description: "Painel ao vivo do projeto hoje (mesmo da tela): funil (visitas → checkout iniciado → checkout preenchido → pedidos), gasto, faturamento, vendas, CPA com zona da Esteira (ESCALA/LUCRATIVA/MAGRA/PREJUÍZO), ROAS, lucro, ritmo e projeção do dia, alertas de rastreio, fonte de cada número, variação desde a última leitura gravada (a cada 15 min) e as leituras do dia.",
+    inputSchema: {
+      type: "object",
+      properties: { project_id: { type: "string", description: "ID único do projeto" } },
+      required: ["project_id"],
     },
   },
   {
@@ -2792,6 +2802,26 @@ Deno.serve(async (req) => {
           if (name === "evaluate_test_order") {
             if (!args?.id || !Array.isArray(args.leituras)) throw new Error("id e leituras são obrigatórios");
             const result = await evaluateTestOrderTool(supabase, args);
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_live_panel") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const projectId = String(args.project_id);
+            const [panel, snaps] = await Promise.all([
+              loadProjectLivePanel(supabase, projectId),
+              supabase.from("imphq_live_snapshots").select("taken_at, gasto, faturamento, vendas, cpa, zona, painel")
+                .eq("project_id", projectId).eq("dia", brtDay().day).order("taken_at", { ascending: true }).limit(200),
+            ]);
+            if (snaps.error) throw snaps.error;
+            const rows = snaps.data ?? [];
+            const current = JSON.stringify(panel.parcial);
+            const base = [...rows].reverse().find((r) => JSON.stringify((r.painel as LivePanel).parcial) !== current) ?? null;
+            const result = {
+              projeto: projectId, ...panel,
+              variacao: base ? { desde: base.taken_at, ...liveDelta(panel, base.painel as LivePanel) } : null,
+              leituras_do_dia: rows.map(({ painel: _p, ...r }) => r),
+            };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 

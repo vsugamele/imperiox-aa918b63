@@ -17,7 +17,8 @@ import * as approvalRows from "@shared/approval-rows";
 import * as autonomy from "@shared/autonomy";
 import { DECISIONS_BY_SOURCE, decideApproval as applyDecision } from "@shared/approval-decide";
 import * as testOrder from "@shared/test-order";
-import { adsSyncHealth } from "@shared/live-panel";
+import { adsSyncHealth, liveDelta } from "@shared/live-panel";
+import { brtDay, loadProjectLivePanel } from "@shared/live-panel-load";
 import { PLAYBOOK_LIBRARY } from "@shared/playbook-library";
 import { checkMcpKey } from "@shared/mcp-auth";
 
@@ -99,7 +100,7 @@ function runtime(opts: { failInsertOn?: string } = {}) {
   };
   const source = readFileSync("supabase/functions/project-mcp/index.ts", "utf8").replace(/^import .*;\r?\n/gm, "");
   const output = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
-  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, ...launchPlan, ...approvalRows, ...autonomy, ...testOrder, DECISIONS_BY_SOURCE, applyDecision, adsSyncHealth, checkMcpKey,
+  const dependencies = { ...maps, ...capabilities, ...mapOrder, ...playbooks, ...playbookApply, ...mapSteps, ...approvalQueue, ...projectBriefing, ...todayBoard, ...scaleLadder, ...launchKit, ...launchPlan, ...approvalRows, ...autonomy, ...testOrder, DECISIONS_BY_SOURCE, applyDecision, adsSyncHealth, liveDelta, brtDay, loadProjectLivePanel, checkMcpKey,
     createClient: (_url: string, _key: string, options?: { global?: { headers?: Record<string, string> } }) => {
       const actor = options?.global?.headers?.["x-imperio-actor"];
       if (actor) actors.push(actor);
@@ -281,6 +282,14 @@ describe("project-mcp approvals and briefing", () => {
     await expect(app.call("launch_project", { nome: "Crypto Signals", canais: "youtube", confirmar: true })).rejects.toThrow(/desfeito/);
     expect(app.deletes.map((d) => d.table)).toEqual(["imphq_playbook_applications", "imphq_project_access", "imphq_company_maps", "imphq_projects"]);
     expect(app.deletes.at(-1)).toMatchObject({ col: "id", val: "crypto_signals" });
+  });
+
+  it("returns the live panel with source per number and today's readings", async () => {
+    const res = await runtime().call("get_live_panel", { project_id: "p" });
+    expect(res).toMatchObject({ projeto: "p", moeda: "BRL", variacao: null, leituras_do_dia: [] });
+    expect(res.parcial.vendas).toMatchObject({ valor: 1, fonte: "webhook" });
+    expect(res.parcial.faturamento).toMatchObject({ valor: 47, fonte: "webhook" });
+    expect(res.alertas.some((a: string) => a.startsWith("Sem gasto"))).toBe(true);
   });
 
   it("evaluates the scale ladder without touching the database", async () => {

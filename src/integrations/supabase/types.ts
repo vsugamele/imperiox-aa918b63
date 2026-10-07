@@ -28610,6 +28610,54 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_live_snapshots: {
+        Row: {
+          cpa: number | null
+          dia: string
+          faturamento: number | null
+          gasto: number | null
+          id: string
+          lucro: number | null
+          moeda: string | null
+          painel: Json
+          project_id: string
+          roas: number | null
+          taken_at: string
+          vendas: number | null
+          zona: string | null
+        }
+        Insert: {
+          cpa?: number | null
+          dia: string
+          faturamento?: number | null
+          gasto?: number | null
+          id?: string
+          lucro?: number | null
+          moeda?: string | null
+          painel: Json
+          project_id: string
+          roas?: number | null
+          taken_at?: string
+          vendas?: number | null
+          zona?: string | null
+        }
+        Update: {
+          cpa?: number | null
+          dia?: string
+          faturamento?: number | null
+          gasto?: number | null
+          id?: string
+          lucro?: number | null
+          moeda?: string | null
+          painel?: Json
+          project_id?: string
+          roas?: number | null
+          taken_at?: string
+          vendas?: number | null
+          zona?: string | null
+        }
+        Relationships: []
+      }
       imphq_scale_rounds: {
         Row: {
           created_at: string
@@ -57514,6 +57562,10 @@ export type Database = {
           meta_ultimo_sync: string | null
           project_id: string | null
           ultimo_dia_com_gasto: string | null
+          zernio_configurado: boolean | null
+          zernio_erro: string | null
+          zernio_status: string | null
+          zernio_ultimo_sync: string | null
         }
         Insert: {
           meta_configurado?: never

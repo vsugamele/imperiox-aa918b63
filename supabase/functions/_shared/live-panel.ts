@@ -136,9 +136,10 @@ export function buildLivePanel(input: LiveInput) {
 
 export type LivePanel = ReturnType<typeof buildLivePanel>;
 
-/** Linha de imphq_v_ads_sync_health (só status; nunca token). O Zernio é X1 do Direct, não fonte de anúncio. */
+/** Linha de imphq_v_ads_sync_health (só status; nunca token). Gasto chega pela Meta direta ou pelo Zernio. */
 export interface AdsSyncHealthRow {
   meta_configurado?: boolean | null; meta_status?: string | null; meta_ultimo_sync?: string | null; meta_erro_codigo?: string | null; meta_erro?: string | null;
+  zernio_configurado?: boolean | null; zernio_status?: string | null; zernio_ultimo_sync?: string | null; zernio_erro?: string | null;
   ultimo_dia_com_gasto?: string | null;
 }
 
@@ -146,21 +147,31 @@ const STALE_HOURS = 36;
 const dm = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
 
 /**
- * Saúde do sync de anúncios da Meta: erro declarado, parado (último sucesso há mais de 36 h) ou ok.
- * Token expirado (erro 190) vira instrução direta: só uma pessoa gera token novo.
+ * Saúde do sync de anúncios: o gasto chega pela Meta direta ou pelo Zernio (decisão de 05/10 e 07/10).
+ * Um caminho funcionando basta ("ok"); sem nenhum, explica cada caminho: erro, parado (> 36 h sem sucesso).
  */
 export function adsSyncHealth(row: AdsSyncHealthRow | null | undefined, now: number = Date.now()) {
-  if (!row || !row.meta_configurado) {
-    return { estado: "sem_config" as const, problemas: ["Nenhuma conta de anúncio da Meta ligada ao sync do Império."] };
+  if (!row || (!row.meta_configurado && !row.zernio_configurado)) {
+    return { estado: "sem_config" as const, problemas: ["Nenhuma conta de anúncio ligada ao sync do Império (Meta ou Zernio)."] };
   }
-  const stale = !row.meta_ultimo_sync || now - Date.parse(row.meta_ultimo_sync) > STALE_HOURS * 3600000;
+  const stale = (iso: string | null | undefined) => !iso || now - Date.parse(iso) > STALE_HOURS * 3600000;
+  const metaOk = !!row.meta_configurado && row.meta_status !== "error" && !stale(row.meta_ultimo_sync);
+  const zernioOk = !!row.zernio_configurado && row.zernio_status !== "error" && !stale(row.zernio_ultimo_sync);
+  if (metaOk || zernioOk) return { estado: "ok" as const, problemas: [] };
+
   const problemas: string[] = [];
-  if (row.meta_erro_codigo === "190") problemas.push(`Token da Meta expirado${row.meta_ultimo_sync ? ` (último sync ok em ${dm(row.meta_ultimo_sync)})` : ""}: o gasto vem do Zernio ou do MCP de anúncios (decisão de 05/10), não do token direto.`);
-  else if (row.meta_status === "error") problemas.push(`Sync da Meta com erro: ${row.meta_erro ?? "sem detalhe"}.`);
-  else if (stale) problemas.push(`Sync da Meta parado${row.meta_ultimo_sync ? ` desde ${dm(row.meta_ultimo_sync)}` : ""}.`);
-  if (!problemas.length) return { estado: "ok" as const, problemas: [] };
+  if (row.meta_configurado) {
+    if (row.meta_erro_codigo === "190") problemas.push(`Token da Meta expirado${row.meta_ultimo_sync ? ` (último sync ok em ${dm(row.meta_ultimo_sync)})` : ""}.`);
+    else if (row.meta_status === "error") problemas.push(`Sync da Meta com erro: ${row.meta_erro ?? "sem detalhe"}.`);
+    else problemas.push(`Sync da Meta parado${row.meta_ultimo_sync ? ` desde ${dm(row.meta_ultimo_sync)}` : ""}.`);
+  }
+  if (row.zernio_configurado) {
+    if (row.zernio_status === "error") problemas.push(`Sync de anúncios do Zernio com erro: ${row.zernio_erro ?? "sem detalhe"}.`);
+    else problemas.push(`Sync de anúncios do Zernio parado${row.zernio_ultimo_sync ? ` desde ${dm(row.zernio_ultimo_sync)}` : ""}.`);
+  }
   if (row.ultimo_dia_com_gasto) problemas.push(`Último dia com gasto registrado: ${dm(row.ultimo_dia_com_gasto)}.`);
-  return { estado: row.meta_status === "error" ? "erro" as const : "parado" as const, problemas };
+  const erro = (row.meta_configurado && row.meta_status === "error") || (row.zernio_configurado && row.zernio_status === "error");
+  return { estado: erro ? "erro" as const : "parado" as const, problemas };
 }
 
 /** Variação entre duas leituras (para "vs leitura anterior"). */
@@ -181,4 +192,52 @@ export function liveDelta(now: LivePanel, before: LivePanel | null) {
 export function dayFraction(now: Date = new Date(), offsetHours = -3): number {
   const local = new Date(now.getTime() + offsetHours * 3600000);
   return (local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds()) / 86400;
+}
+
+// ── Alertas no grupo (LIVE1.2) ───────────────────────────────────────────────
+
+export type LiveAlertKind = "cpa_fora_do_alvo" | "cpa_voltou" | "rastreio_divergente";
+export interface LiveAlert { tipo: LiveAlertKind; texto: string }
+
+/** Leitura gravada (imphq_live_snapshots) no mínimo que a regra de alerta precisa. */
+export interface LiveSnapshotLite { zona: string | null; vendas: number | null; cpa: number | null; taken_at: string }
+
+const GOOD_ZONES = new Set(["escala", "lucrativa"]);
+const BAD_ZONES = new Set(["magra", "prejuizo"]);
+/** Com poucas vendas o CPA oscila demais: só alerta a partir disto. */
+export const ALERT_MIN_SALES = 3;
+/** Intervalo mínimo entre alertas do mesmo tipo no mesmo projeto. Divergência de rastreio costuma durar o dia: 12 h. */
+export const ALERT_GAP_MS: Record<LiveAlertKind, number> = { cpa_fora_do_alvo: 2 * 3600_000, cpa_voltou: 2 * 3600_000, rastreio_divergente: 12 * 3600_000 };
+
+/**
+ * Alertas da leitura atual comparada com a anterior. Só mudança de estado vira alerta (não repete a cada 15 min):
+ * CPA que estava no alvo (ESCALA/LUCRATIVA) e foi para MAGRA/PREJUÍZO, o caminho inverso, e pixel × checkout discordando.
+ * `lastSent` = último envio por tipo (ISO), para o intervalo mínimo (ALERT_GAP_MS).
+ */
+export function liveAlerts(input: {
+  projectName: string;
+  panel: LivePanel;
+  previous: LiveSnapshotLite | null;
+  lastSent: Partial<Record<LiveAlertKind, string>>;
+  now?: number;
+}): LiveAlert[] {
+  const now = input.now ?? Date.now();
+  const { panel, previous } = input;
+  const money = (v: number | null) => (v === null ? "—" : `${panel.moeda} ${v.toFixed(2)}`);
+  const alerts: LiveAlert[] = [];
+  const zona = panel.parcial.cpa.zona;
+  const vendas = panel.parcial.vendas.valor ?? 0;
+  if (zona && previous?.zona && vendas >= ALERT_MIN_SALES) {
+    if (GOOD_ZONES.has(previous.zona) && BAD_ZONES.has(zona)) {
+      alerts.push({ tipo: "cpa_fora_do_alvo", texto: `⚠️ *${input.projectName}*: CPA saiu do alvo — ${money(panel.parcial.cpa.valor)} (${panel.parcial.cpa.zona_label}), alvo ${money(panel.parcial.cpa.alvo)}. Hoje: ${vendas} vendas, gasto ${money(panel.parcial.gasto.valor)}, ROAS ${panel.parcial.roas.valor ?? "—"}.` });
+    } else if (BAD_ZONES.has(previous.zona) && GOOD_ZONES.has(zona)) {
+      alerts.push({ tipo: "cpa_voltou", texto: `✅ *${input.projectName}*: CPA voltou ao alvo — ${money(panel.parcial.cpa.valor)} (${panel.parcial.cpa.zona_label}). Hoje: ${vendas} vendas.` });
+    }
+  }
+  const divergence = panel.alertas.find((a) => a.startsWith("Pixel da Meta"));
+  if (divergence) alerts.push({ tipo: "rastreio_divergente", texto: `🔎 *${input.projectName}*: ${divergence}` });
+  return alerts.filter((a) => {
+    const last = input.lastSent[a.tipo];
+    return !last || now - Date.parse(last) >= ALERT_GAP_MS[a.tipo];
+  });
 }

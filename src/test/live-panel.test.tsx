@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { adsSyncHealth, buildLivePanel, dayFraction, liveDelta, type LiveInput } from "@shared/live-panel";
+import { adsSyncHealth, buildLivePanel, dayFraction, liveAlerts, liveDelta, type LiveInput } from "@shared/live-panel";
 import { LivePanel } from "@/components/projeto/LivePanel";
 
 const params = { payout: 70, cpaAlvo: 45 };
@@ -72,10 +72,15 @@ describe("painel ao vivo: regra", () => {
 
 describe("saúde do sync de anúncios", () => {
   const now = Date.parse("2026-10-03T20:00:00Z");
-  it("token expirado da Meta vira instrução, com o último dia de gasto", () => {
-    const h = adsSyncHealth({ meta_configurado: true, meta_status: "error", meta_erro_codigo: "190", meta_ultimo_sync: "2026-06-26T17:30:08Z", ultimo_dia_com_gasto: "2026-07-16" }, now);
-    expect(h).toEqual({ estado: "erro", problemas: [
-      "Token da Meta expirado (último sync ok em 26/06): o gasto vem do Zernio ou do MCP de anúncios (decisão de 05/10), não do token direto.",
+  const metaVencida = { meta_configurado: true, meta_status: "error", meta_erro_codigo: "190", meta_ultimo_sync: "2026-06-26T17:30:08Z" };
+  it("Meta com token vencido e Zernio sincronizando: o gasto chega, está ok", () => {
+    expect(adsSyncHealth({ ...metaVencida, zernio_configurado: true, zernio_status: "success", zernio_ultimo_sync: "2026-10-03T12:20:00Z" }, now)).toEqual({ estado: "ok", problemas: [] });
+  });
+
+  it("nenhum caminho funcionando explica cada um, com o último dia de gasto", () => {
+    expect(adsSyncHealth({ ...metaVencida, zernio_configurado: true, zernio_status: "success", zernio_ultimo_sync: "2026-08-19T09:01:27Z", ultimo_dia_com_gasto: "2026-07-16" }, now)).toEqual({ estado: "erro", problemas: [
+      "Token da Meta expirado (último sync ok em 26/06).",
+      "Sync de anúncios do Zernio parado desde 19/08.",
       "Último dia com gasto registrado: 16/07.",
     ] });
   });
@@ -83,6 +88,7 @@ describe("saúde do sync de anúncios", () => {
   it("parado, ok e sem conta", () => {
     expect(adsSyncHealth({ meta_configurado: true, meta_status: "ok", meta_ultimo_sync: "2026-09-30T00:00:00Z" }, now)).toEqual({ estado: "parado", problemas: ["Sync da Meta parado desde 30/09."] });
     expect(adsSyncHealth({ meta_configurado: true, meta_status: "ok", meta_ultimo_sync: "2026-10-03T19:30:00Z" }, now)).toEqual({ estado: "ok", problemas: [] });
+    expect(adsSyncHealth({ zernio_configurado: true, zernio_status: "error", zernio_erro: "conta vazia", zernio_ultimo_sync: "2026-10-03T19:00:00Z" }, now)).toMatchObject({ estado: "erro", problemas: ["Sync de anúncios do Zernio com erro: conta vazia."] });
     expect(adsSyncHealth(null, now).estado).toBe("sem_config");
   });
 
@@ -90,6 +96,37 @@ describe("saúde do sync de anúncios", () => {
     const p = buildLivePanel({ ...full, ads: [], syncHealth: { estado: "erro", problemas: ["Token da Meta expirado."] } });
     expect(p.alertas).toContain("Token da Meta expirado.");
     expect(p.alertas.some((a) => a.startsWith("Sem gasto"))).toBe(false);
+  });
+});
+
+describe("alertas no grupo", () => {
+  const now = Date.parse("2026-10-07T18:00:00Z");
+  // full: CPA 40 com alvo 45 → ESCALA; com gasto maior vira PREJUÍZO (CPA 80 > payout 70).
+  const ruim = buildLivePanel({ ...full, ads: [{ valor: 800, compras: 10 }] });
+  const bom = buildLivePanel(full);
+  const prev = (zona: string) => ({ zona, vendas: 8, cpa: 40, taken_at: "2026-10-07T17:45:00Z" });
+
+  it("só mudança de estado vira alerta: saiu do alvo e voltou", () => {
+    expect(ruim.parcial.cpa.zona).toBe("prejuizo");
+    expect(liveAlerts({ projectName: "JP", panel: ruim, previous: prev("escala"), lastSent: {}, now }).map((a) => a.tipo)).toEqual(["cpa_fora_do_alvo"]);
+    expect(liveAlerts({ projectName: "JP", panel: ruim, previous: prev("prejuizo"), lastSent: {}, now })).toEqual([]);
+    const volta = liveAlerts({ projectName: "JP", panel: bom, previous: prev("magra"), lastSent: {}, now });
+    expect(volta.map((a) => a.tipo)).toEqual(["cpa_voltou"]);
+    expect(volta[0].texto).toContain("*JP*");
+  });
+
+  it("não alerta sem leitura anterior, com poucas vendas ou dentro do intervalo", () => {
+    expect(liveAlerts({ projectName: "JP", panel: ruim, previous: null, lastSent: {}, now })).toEqual([]);
+    const poucas = buildLivePanel({ ...full, sales: full.sales.slice(8), ads: [{ valor: 800, compras: 2 }] });
+    expect(liveAlerts({ projectName: "JP", panel: poucas, previous: prev("escala"), lastSent: {}, now })).toEqual([]);
+    expect(liveAlerts({ projectName: "JP", panel: ruim, previous: prev("escala"), lastSent: { cpa_fora_do_alvo: "2026-10-07T17:00:00Z" }, now })).toEqual([]);
+    expect(liveAlerts({ projectName: "JP", panel: ruim, previous: prev("escala"), lastSent: { cpa_fora_do_alvo: "2026-10-07T15:00:00Z" }, now })).toHaveLength(1);
+  });
+
+  it("divergência de rastreio sai uma vez a cada 12 h", () => {
+    const div = buildLivePanel({ ...full, ads: [{ valor: 400, compras: 20 }] });
+    expect(liveAlerts({ projectName: "JP", panel: div, previous: null, lastSent: {}, now }).map((a) => a.tipo)).toEqual(["rastreio_divergente"]);
+    expect(liveAlerts({ projectName: "JP", panel: div, previous: null, lastSent: { rastreio_divergente: "2026-10-07T08:00:00Z" }, now })).toEqual([]);
   });
 });
 
