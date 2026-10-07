@@ -5,6 +5,9 @@ import { z } from "https://esm.sh/zod@3.23.8";
 import { loadCopyContext, contextToSystemAddendum } from "../_shared/context-loader.ts";
 import { deriveAudienceGuardrails, buildGuardBlock, findForbiddenHits } from "../_shared/audience-guardrails.ts";
 import { createLogger } from "../_shared/logger.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("copy-engine");
 
 const log = createLogger("copy-engine");
 

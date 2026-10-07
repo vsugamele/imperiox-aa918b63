@@ -1,5 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("rag-embed-answer");
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })

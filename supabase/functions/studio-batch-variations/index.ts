@@ -2,6 +2,9 @@
 // A IA gera N ângulos criativos distintos aplicando pequenas mutações no prompt/config.
 // Cada variante herda upstream do nó de origem e é agrupada por batch_group_id.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("studio-batch-variations");
 
 interface CanvasNode {
   id:string;workflow_id:string;tipo:string;titulo:string|null;status:string;created_at:string;updated_at:string;

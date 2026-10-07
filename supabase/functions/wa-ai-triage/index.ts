@@ -2,6 +2,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { jpDecision } from "../_shared/jp-service-policy.ts";
 import { record } from "../_shared/value.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("wa-ai-triage");
 
 function errorMessage(value: unknown): string | undefined { if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message; return undefined; }
 

@@ -15,6 +15,9 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { isWithinSendWindow } from "../_shared/send-window.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("ig-reengagement");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

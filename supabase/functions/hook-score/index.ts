@@ -1,5 +1,8 @@
 // Scores a hook/script for viral potential 0-100 using Lovable AI.
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("hook-score");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("daily-stories-ideas");
 
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function descriptions(value: unknown): string[] { return Array.isArray(value) ? value.slice(0, 3).map(item => { const d = record(item); return typeof d.descricao === "string" && d.descricao || typeof d.text === "string" && d.text || ""; }).filter(Boolean) : []; }

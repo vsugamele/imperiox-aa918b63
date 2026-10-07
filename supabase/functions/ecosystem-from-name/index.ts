@@ -8,6 +8,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { loadSkillPrompt, runSkill } from "../_shared/run-skill.ts";
 import { buildPostSaleBlueprints } from "./post-sale-templates.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("ecosystem-from-name");
 
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function errorMessage(value: unknown): string | undefined { const message = record(value).message; return typeof message === "string" ? message : undefined; }

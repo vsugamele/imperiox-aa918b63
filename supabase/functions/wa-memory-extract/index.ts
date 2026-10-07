@@ -2,6 +2,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 const memorySchema = z.object({ objecoes_recorrentes: z.array(z.unknown()).nullish(), gatilhos_positivos: z.array(z.unknown()).nullish(), produtos_mencionados: z.array(z.unknown()).nullish(), informacoes_pessoais: z.record(z.unknown()).nullish(), qualificacao: z.record(z.unknown()).nullish() }).passthrough();
 // wa-memory-extract — extrai memória estruturada de uma conversa e atualiza lead_memory + conversation_summary
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("wa-memory-extract");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

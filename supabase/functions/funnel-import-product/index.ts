@@ -3,6 +3,9 @@
 // O cliente persiste o resultado em imphq_projects.data.produtos.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("funnel-import-product");
 
 interface ImportedProduct extends Record<string, unknown> { nome?: string | null; imagem?: string | null; cor_primaria?: string | null }
 function parseImportedProduct(content: string): ImportedProduct {

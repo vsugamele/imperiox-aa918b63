@@ -2,6 +2,9 @@
 // usando contexto do produto + branding do projeto.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("funnel-node-copy");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -7,6 +7,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 // Retorna { perfil, camadas, crencas, evidencias_por_campo, confianca_por_campo }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("avatar-pipeline");
 
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 const FilledAvatar = z.object({ fields: z.record(z.object({ valor: z.string().nullish(), evidence_ids: z.array(z.string()).nullish() }).passthrough()).nullish() }).passthrough();

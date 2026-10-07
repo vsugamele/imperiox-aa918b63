@@ -5,6 +5,9 @@ import { ALL_SLUGS, ANGLE_BY_SLUG, anglesCatalogBlock, qualityChecklistBlock } f
 import { validateAndFixAngles, withRetry, type AngleOut } from "./_validators.ts";
 import { deriveAudienceGuardrails, buildGuardBlock, findForbiddenHits } from "../_shared/audience-guardrails.ts";
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("openflow-ai");
 
 
 function createOpenflowClient(url: string, key: string) { return createClient(url, key); }

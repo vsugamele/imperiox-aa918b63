@@ -6,6 +6,9 @@ import {
   attempts, imageReadMessages, nextStep, parseLeitura, parseProject, projectNicho, projectRequest, videoReadMessages,
   type Leitura, type PipelineStep, type ProjectOption, type RefRow,
 } from "../_shared/ref-pipeline.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("ref-pipeline");
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

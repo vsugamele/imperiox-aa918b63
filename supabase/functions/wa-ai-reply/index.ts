@@ -22,6 +22,9 @@ import { BUYING_RE, EMOTIONAL_RE, cachedAudioUrl, decideVoice, inQuotaCooldown, 
 
 
 import { z } from "https://esm.sh/zod@3.25.76";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("wa-ai-reply");
 function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function records(value: unknown): Record<string, unknown>[] { return Array.isArray(value) ? value.map(record) : []; }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }

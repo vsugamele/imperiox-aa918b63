@@ -2,6 +2,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 // wa-lead-qualifier — qualifica lead via IA com base nas últimas mensagens
 // Salva em imphq_leads.data.qualificacao e atualiza nivel_qualificacao
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("wa-lead-qualifier");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

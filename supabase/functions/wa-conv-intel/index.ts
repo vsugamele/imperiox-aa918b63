@@ -1,6 +1,9 @@
 // Gera resumo + intent_tags de uma conversa WhatsApp on-demand
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("wa-conv-intel");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

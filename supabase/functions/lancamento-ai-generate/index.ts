@@ -3,6 +3,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 // Salva como kanban cards em uma coluna "🚀 Plano de Lançamento" e retorna o plano completo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("lancamento-ai-generate");
 
 const launchPlanSchema = z.object({plano:z.object({fases:z.array(z.object({nome:z.string().nullish(),objetivo:z.string().nullish(),acoes:z.array(z.object({dia:z.union([z.number(),z.string()]).nullish(),titulo:z.string().nullish(),tipo:z.string().nullish(),descricao:z.string().nullish()}).passthrough()).nullish()}).passthrough()).nullish()}).passthrough().nullish()}).passthrough();
 

@@ -19,6 +19,9 @@ import {
 } from "./_lib/db.ts";
 import { handleWebhook } from "./_lib/webhook-handler.ts";
 import { handleSendMessage } from "./_lib/send-message-handler.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("whatsapp-api");
 
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function errorMessage(value: unknown): string | undefined { const message = record(value).message; return typeof message === "string" ? message : undefined; }

@@ -2,6 +2,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 // transcript-ingest: Direct text → chunk → embed → imphq_wa_knowledge
 // Called by the batch upload PowerShell script for JP Freitas transcripts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("transcript-ingest");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

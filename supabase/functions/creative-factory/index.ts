@@ -27,6 +27,9 @@ function openaiSizeFromFormato(formato: string): "1024x1024" | "1024x1536" | "15
 import { ANGLE_BY_SLUG } from "../_shared/creativeAngles.ts";
 import { requireUserOrServiceRole } from "../_shared/require-auth.ts";
 import { copyPrompt, imageInstruction, parseCopy, planAxes, type VariationAxis, type VariationCopy, type VariationRequest } from "../_shared/creative-variations.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("creative-factory");
 
 const ANGULO_PROMPTS: Record<string, string> = Object.fromEntries(
   Object.entries(ANGLE_BY_SLUG).map(([slug, a]) => [slug, a.visualPrompt])

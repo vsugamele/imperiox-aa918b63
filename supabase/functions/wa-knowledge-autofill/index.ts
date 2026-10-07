@@ -1,6 +1,9 @@
 // wa-knowledge-autofill: gera rascunhos de resposta para perguntas sem cobertura na base de conhecimento
 // Roda via cron semanal. Para cada projeto, pega até 30 perguntas sem resposta e gera drafts com LLM.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("wa-knowledge-autofill");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

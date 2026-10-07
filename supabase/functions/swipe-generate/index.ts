@@ -2,6 +2,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 // Swipe File — Motor de geração: variations | extract_template | bulk_campaign
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireUser } from "../_shared/require-auth.ts";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("swipe-generate");
 
 function makeClient(url: string, key: string) { return createClient(url, key); }
 const ProjectContext = z.object({ produtos: z.array(z.object({ id: z.string().nullish(), nome: z.string().nullish() }).passthrough()).nullish(), avatar: z.unknown(), branding: z.unknown() }).passthrough();

@@ -3,6 +3,9 @@
 // Idempotente: sempre escreve os mesmos 4 nomes de arquivo, com roteiros fixos.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("x1-audio-seed");
 
 const VOICE = "nPczCjzI2devNBz1zQrb"; // Brian
 

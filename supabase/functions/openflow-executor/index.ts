@@ -4,6 +4,9 @@ import { sendToChannel, type ChannelSession } from "../_shared/channel-out.ts";
 
 
 import { z } from "https://esm.sh/zod@3.25.76";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("openflow-executor");
 const stepSchema = z.object({
 id: z.string().nullish(),
 tipo: z.string(),

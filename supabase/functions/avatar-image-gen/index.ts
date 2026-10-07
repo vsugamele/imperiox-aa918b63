@@ -1,6 +1,9 @@
 // Streaming image generation using Gemini 3.1 Flash Image (Nano Banana 2)
 // with avatar reference photos. Forwards SSE from Lovable AI Gateway.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("avatar-image-gen");
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/images/generations";
 

@@ -2,6 +2,9 @@ import { z } from "https://esm.sh/zod@3.25.76";
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 const inputSchema = z.object({ nome: z.string(), nicho: z.string().nullish(), url_concorrente: z.string().nullish(), preset: z.string().nullish(), skills: z.array(z.string()).nullish() }).passthrough();
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("project-autopilot");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

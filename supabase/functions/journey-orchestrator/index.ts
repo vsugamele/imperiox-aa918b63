@@ -4,6 +4,9 @@ const avatarSchema = z.union([z.string(), z.object({ descricao: z.string().nulli
 const contextSchema = z.object({ produtos: z.array(productSchema).nullish(), avatar: avatarSchema.nullish(), briefing: z.object({ produtos: z.array(productSchema).nullish(), avatar: avatarSchema.nullish(), promessa: z.string().nullish(), dores: z.array(z.unknown()).nullish(), objecoes: z.array(z.unknown()).nullish() }).passthrough().nullish() }).passthrough();
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+// Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
+installAiUsageTracking("journey-orchestrator");
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
