@@ -9,7 +9,10 @@ import { cpaZone, ZONE_LABEL, type ScaleParams, type Zone } from "./scale-ladder
 export type LiveSource = "tracker" | "webhook" | "meta" | "calculado";
 export const SOURCE_LABEL: Record<LiveSource, string> = { tracker: "tracker", webhook: "checkout", meta: "Meta", calculado: "calculado" };
 
-export interface SaleRow { status: string | null; valor: number | null; data?: unknown }
+export interface SaleRow { status: string | null; valor: number | null; data?: unknown; tipo_venda?: string | null }
+
+/** Order bump é dinheiro a mais na mesma compra, não um cliente novo: entra no faturamento, não na contagem de vendas. */
+export const isBump = (tipo: string | null | undefined) => /bump/i.test(tipo ?? "");
 export interface AdRow { valor?: number | null; landing_page_views?: number | null; checkouts_iniciados?: number | null; init_checkout?: number | null; compras?: number | null; valor_conversao?: number | null; moeda?: string | null }
 
 export interface LiveInput {
@@ -58,7 +61,9 @@ function pick(...options: Array<[LiveSource, number | null, boolean]>): LiveNumb
 export function buildLivePanel(input: LiveInput) {
   const { sales, ads } = input;
   const hasAds = ads.length > 0;
-  const approved = sales.filter((s) => APPROVED.has((s.status ?? "").toLowerCase()));
+  const approvedAll = sales.filter((s) => APPROVED.has((s.status ?? "").toLowerCase()));
+  // Pedidos = vendas principais; o bump soma no faturamento (approvedAll), não na contagem nem no CPA.
+  const approved = approvedAll.filter((s) => !isBump(s.tipo_venda));
   const pending = sales.filter((s) => PENDING.has((s.status ?? "").toLowerCase()));
   const refunded = sales.filter((s) => REFUNDED.has((s.status ?? "").toLowerCase()));
   const ev = (name: string) => num(input.trackerEvents[name]);
@@ -69,9 +74,9 @@ export function buildLivePanel(input: LiveInput) {
 
   const visitas = pick(["tracker", ev("PageView"), hasTracker], ["meta", sum(ads, (a) => a.landing_page_views), hasAds]);
   const checkoutIniciado = pick(["tracker", ev("InitiateCheckout"), hasTracker], ["meta", sum(ads, adCheckouts), hasAds]);
-  const checkoutPreenchido: LiveNumber = input.webhookConnected ? { valor: sales.length, fonte: "webhook" } : { valor: null, fonte: null };
+  const checkoutPreenchido: LiveNumber = input.webhookConnected ? { valor: sales.filter((s) => !isBump(s.tipo_venda)).length, fonte: "webhook" } : { valor: null, fonte: null };
   const pedidos = pick(["webhook", approved.length, input.webhookConnected], ["meta", sum(ads, (a) => a.compras), hasAds]);
-  const faturamento = pick(["webhook", sum(approved, (s) => s.valor), input.webhookConnected], ["meta", sum(ads, (a) => a.valor_conversao), hasAds]);
+  const faturamento = pick(["webhook", sum(approvedAll, (s) => s.valor), input.webhookConnected], ["meta", sum(ads, (a) => a.valor_conversao), hasAds]);
   // Com checkout e Meta ao mesmo tempo, o card mostra os dois: divergência grande quase sempre é rastreio quebrado.
   if (input.webhookConnected && hasAds) {
     pedidos.outra = { valor: sum(ads, (a) => a.compras), fonte: "meta" };

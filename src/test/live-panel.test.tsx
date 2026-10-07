@@ -38,6 +38,13 @@ describe("painel ao vivo: regra", () => {
     expect(p.alertas).toEqual([]);
   });
 
+  it("order bump soma no faturamento, mas não conta como venda nem baixa o CPA", () => {
+    const p = buildLivePanel({ ...full, sales: [...full.sales, { status: "aprovado", valor: 47, tipo_venda: "orderbump" }] });
+    expect(p.parcial.vendas.valor).toBe(10);
+    expect(p.parcial.faturamento.valor).toBe(1237);
+    expect(p.parcial.cpa.valor).toBe(40);
+  });
+
   it("sem tracker e sem webhook, usa a Meta e avisa", () => {
     const p = buildLivePanel({ ...full, trackerEvents: {}, sales: [], webhookConnected: false });
     expect(p.funil.etapas.map((e) => [e.key, e.valor, e.fonte])).toEqual([["visitas", 900, "meta"], ["checkout_iniciado", 200, "meta"], ["pedidos", 12, "meta"]]);

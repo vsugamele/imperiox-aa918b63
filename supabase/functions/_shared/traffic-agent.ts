@@ -13,11 +13,12 @@ export interface AdDayRow {
   valor: number | string | null; compras?: number | string | null; init_checkout?: number | string | null;
   link_clicks?: number | string | null; effective_status?: string | null; data_ref: string;
 }
-export interface AdSale { utm_campaign: string | null; utm_content: string | null; status: string | null }
+export interface AdSale { utm_campaign: string | null; utm_content: string | null; status: string | null; tipo_venda?: string | null }
 
 export interface AdStats {
   ad_id: string; nome: string; campanha: string | null; status: string;
-  gasto: number; vendas: number; fonte_vendas: "utm" | "pixel" | "nenhuma"; ic: number; cliques: number;
+  /** Vendas reais do checkout ligadas ao anúncio pela UTM (sem bump). O pixel fica só como referência. */
+  gasto: number; vendas: number; pixel: number; ic: number; cliques: number;
   dias_com_gasto: number; dias_sem_gastar: number;
 }
 
@@ -39,14 +40,17 @@ export function adMatchesContent(adName: string, key: string): boolean {
   return new RegExp(`(^|\\D)0*${Number(m[1])}(\\D|$)`).test(name) && name.includes(m[2]);
 }
 
-/** Números de 7 dias por anúncio; vendas pela UTM quando o nome casa, senão pelo pixel. Linhas sem anúncio (só campanha) ficam de fora. */
+/**
+ * Números de 7 dias por anúncio. Vendas = só as reais do checkout ligadas pela UTM, sem order bump (Vinicius, 07/10:
+ * o pixel duplica — 26 compras no pixel × 8 vendas reais em 06/10). Linhas sem anúncio (só campanha) ficam de fora.
+ */
 export function adStats(rows: ReadonlyArray<AdDayRow>, sales: ReadonlyArray<AdSale>, today: string): AdStats[] {
   const byAd = new Map<string, AdDayRow[]>();
   for (const r of rows) {
     if (!r.ad_id || r.ad_id.startsWith("CAMP:")) continue;
     byAd.set(r.ad_id, [...(byAd.get(r.ad_id) ?? []), r]);
   }
-  const paidKeys = sales.filter((s) => PAID.has((s.status ?? "").toLowerCase())).map((s) => contentKey(s.utm_content)).filter(Boolean);
+  const paidKeys = sales.filter((s) => PAID.has((s.status ?? "").toLowerCase()) && !/bump/i.test(s.tipo_venda ?? "")).map((s) => contentKey(s.utm_content)).filter(Boolean);
   const out: AdStats[] = [];
   for (const [adId, list] of byAd) {
     const sorted = list.slice().sort((a, b) => a.data_ref.localeCompare(b.data_ref));
@@ -59,13 +63,19 @@ export function adStats(rows: ReadonlyArray<AdDayRow>, sales: ReadonlyArray<AdSa
     const lastSpend = withSpend[withSpend.length - 1];
     out.push({
       ad_id: adId, nome, campanha: last.campanha ?? null, status: (last.effective_status ?? "").toUpperCase(),
-      gasto, vendas: utm > 0 ? utm : pixel, fonte_vendas: utm > 0 ? "utm" : pixel > 0 ? "pixel" : "nenhuma",
+      gasto, vendas: utm, pixel,
       ic: sorted.reduce((s, r) => s + n(r.init_checkout), 0), cliques: sorted.reduce((s, r) => s + n(r.link_clicks), 0),
       dias_com_gasto: withSpend.length,
       dias_sem_gastar: lastSpend ? Math.max(0, Math.round((Date.parse(today) - Date.parse(lastSpend)) / 86400000)) : 7,
     });
   }
   return out.sort((a, b) => b.gasto - a.gasto);
+}
+
+/** Vendas reais (sem bump) da campanha que não casaram com nenhum anúncio: aparecem no relatório, não somem. */
+export function unattributedSales(stats: ReadonlyArray<AdStats>, sales: ReadonlyArray<AdSale>): number {
+  const real = sales.filter((s) => PAID.has((s.status ?? "").toLowerCase()) && !/bump/i.test(s.tipo_venda ?? ""));
+  return Math.max(0, real.length - stats.reduce((sum, a) => sum + a.vendas, 0));
 }
 
 export type TrafficAction = "pausar_auto" | "pausar" | "escalar" | "observar" | "manter";
@@ -132,4 +142,42 @@ export function trafficPlan(stats: ReadonlyArray<AdStats>, p: ScaleParams, curre
       escalar: decisoes.filter((d) => d.acao === "escalar").length,
     },
   };
+}
+
+export type TrafficPlan = ReturnType<typeof trafficPlan>;
+
+/**
+ * Aviso do agente no grupo Imperio X. `pausados` = o que ele pausou sozinho agora; `propostas` = o que entrou na fila
+ * (decidido com "ok N" na rodada do operador). Sem nada além de "manter", devolve texto vazio (não manda).
+ */
+export function trafficMessage(input: {
+  projeto: string; plan: TrafficPlan; currency?: string; semAnuncio: number;
+  pausados: ReadonlyArray<{ nome: string; motivo: string }>; falhas: ReadonlyArray<{ nome: string; erro: string }>;
+  propostas: number; appUrl: string;
+}): string {
+  const { plan } = input;
+  const money = (v: number) => {
+    try { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: input.currency ?? "BRL" }).format(v); } catch { return v.toFixed(2); }
+  };
+  const escalar = plan.decisoes.filter((d) => d.acao === "escalar");
+  const observar = plan.decisoes.filter((d) => d.acao === "observar");
+  const lines: string[] = [];
+  for (const p of input.pausados) lines.push(`⏸️ Pausei sozinho: *${p.nome}* — ${p.motivo}`);
+  for (const f of input.falhas) lines.push(`⚠️ Tentei pausar *${f.nome}* e falhou: ${f.erro}`);
+  if (input.propostas) lines.push(`🟠 ${input.propostas} pausa(s) para decidir — vão numeradas na próxima rodada do operador (responder "ok N").`);
+  for (const e of escalar) lines.push(`🟢 Escalar: *${e.nome}* — ${e.motivo}`);
+  for (const o of observar) lines.push(`👀 Observar: *${o.nome}* — ${o.motivo}`);
+  if (plan.ofensores.length) lines.push(`💸 Ofensores (gasto além do CPA alvo): ${plan.ofensores.map((o) => `${o.nome} ${money(o.desperdicio)}`).join(" · ")}`);
+  if (!lines.length) return "";
+  for (const a of plan.alternativas) lines.push(`💡 ${a.texto}`);
+  if (input.semAnuncio) lines.push(`ℹ️ ${input.semAnuncio} venda(s) com UTM que não casou com nenhum anúncio (conferir nomes/UTMs).`);
+  const r = plan.resumo;
+  return [
+    `📈 *Tráfego — ${input.projeto}* (7 dias, vendas reais do checkout)`,
+    `${r.anuncios} anúncios · ${money(r.gasto)} gastos · ${r.vendas} vendas${r.vendas ? ` · CPA ${money(r.gasto / r.vendas)}` : ""}`,
+    "",
+    ...lines,
+    "",
+    `Desfazer pausa: ${input.appUrl}/imperius`,
+  ].join("\n");
 }

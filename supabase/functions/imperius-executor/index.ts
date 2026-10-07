@@ -34,7 +34,21 @@ const actionPayloadSchema = z.object({
   new_budget: z.union([z.string(), z.number()]).nullish(), old_budget: z.union([z.string(), z.number()]).nullish(),
   flow_name: z.string().nullish(), trigger_tipo: z.string().nullish(), projeto_id: z.string().nullish(), produto: z.string().nullish(), acoes: z.array(z.unknown()).nullish(),
   venda_id: z.string().nullish(), phone: z.string().nullish(), project_id: z.string().nullish(), conversation_id: z.string().nullish(), tool: z.string().nullish(), args: z.record(z.unknown()).nullish(),
+  via: z.string().nullish(), entity_name: z.string().nullish(),
 }).passthrough();
+
+/**
+ * Pausa/ativa pelo Zernio (TRF1.1): o token direto da Meta está vencido desde 26/06 e o gasto do JP já vem do Zernio.
+ * Ações marcadas com payload.via = "zernio" (ex.: propostas do agente de tráfego) usam o zernio-ads-toggle.
+ */
+async function zernioStatus(supabase: ReturnType<typeof makeClient>, projectId: string | null | undefined, entityType: string, entityId: string, entityName: string | null | undefined, status: "ACTIVE" | "PAUSED", reason: string | null | undefined) {
+  const r = await supabase.functions.invoke("zernio-ads-toggle", {
+    body: { project_id: projectId, entity_type: entityType, entity_id: entityId, entity_name: entityName ?? undefined, action: status, previous_status: status === "PAUSED" ? "ACTIVE" : "PAUSED", reason: reason ?? undefined },
+  });
+  if (r.error) throw new Error(r.error.message);
+  if (r.data?.error) throw new Error(String(r.data.error));
+  return r.data;
+}
 interface QueuedAction { id: string; kind: ActionKind | string; payload?: unknown; projeto_id?: string | null; reason?: string | null }
 
 async function execAction(supabase: ReturnType<typeof makeClient>, action: QueuedAction): Promise<{ ok: boolean; result?: unknown; revert_payload?: unknown; error?: string }> {
@@ -43,6 +57,10 @@ async function execAction(supabase: ReturnType<typeof makeClient>, action: Queue
     const p = actionPayloadSchema.parse(action.payload || {});
     switch (kind) {
       case "pauseAd": {
+        if (p.via === "zernio" && p.entity_id) {
+          const data = await zernioStatus(supabase, action.projeto_id ?? p.project_id, p.entity_type || "ad", p.entity_id, p.entity_name, "PAUSED", action.reason);
+          return { ok: true, result: data, revert_payload: { via: "zernio", entity_id: p.entity_id, entity_type: p.entity_type || "ad", entity_name: p.entity_name, new_status: "ACTIVE" } };
+        }
         // Chama facebook-ads-toggle existente
         const r = await supabase.functions.invoke("facebook-ads-toggle", {
           body: { entity_id: p.entity_id, entity_type: p.entity_type || "adset", new_status: "PAUSED", projeto_id: action.projeto_id, reason: action.reason },
@@ -171,7 +189,10 @@ async function execAction(supabase: ReturnType<typeof makeClient>, action: Queue
 async function revertAction(supabase: ReturnType<typeof makeClient>, action: QueuedAction & { revert_payload: unknown }): Promise<{ ok: boolean; error?: string }> {
   try {
     const payload = z.record(z.unknown()).parse(action.revert_payload);
-    if (action.kind === "pauseAd" || action.kind === "adjustBudget") {
+    if (action.kind === "pauseAd" && (payload as { via?: unknown }).via === "zernio") {
+      const target = z.object({ entity_id: z.string().min(1), entity_type: z.string().nullish(), entity_name: z.string().nullish(), new_status: z.enum(["ACTIVE", "PAUSED"]) }).parse(payload);
+      await zernioStatus(supabase, action.projeto_id, target.entity_type || "ad", target.entity_id, target.entity_name, target.new_status, action.reason);
+    } else if (action.kind === "pauseAd" || action.kind === "adjustBudget") {
       const target = z.object({ entity_id: z.string().min(1), entity_type: z.string().nullish(), new_status: z.enum(["ACTIVE", "PAUSED"]).optional(), new_budget: z.union([z.string().min(1), z.number()]).optional() }).parse(payload);
       if (action.kind === "pauseAd" && !target.new_status) throw new Error("Estado anterior ausente");
       if (action.kind === "adjustBudget" && target.new_budget === undefined) throw new Error("Orçamento anterior ausente");

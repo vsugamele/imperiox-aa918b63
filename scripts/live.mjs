@@ -35,7 +35,7 @@ const start = `${day}T03:00:00.000Z`;
 const end = new Date(Date.parse(start) + 86400000).toISOString();
 const p = q(project);
 const events = query(`select event_name, count(*)::int n from imphq_events where project_id = ${p} and event_name in ('PageView','InitiateCheckout') and created_at >= ${q(start)} and created_at < ${q(end)} group by 1`);
-const sales = query(`select status, valor, data from imphq_vendas where project_id = ${p} and created_at >= ${q(start)} and created_at < ${q(end)}`).map((s) => ({ ...s, valor: Number(s.valor), data: parse(s.data) }));
+const sales = query(`select status, valor, data, tipo_venda from imphq_vendas where project_id = ${p} and created_at >= ${q(start)} and created_at < ${q(end)}`).map((s) => ({ ...s, valor: Number(s.valor), data: parse(s.data) }));
 const ads = query(`select valor, landing_page_views, checkouts_iniciados, init_checkout, compras, valor_conversao, moeda from imphq_ads_spend where project_id = ${p} and data_ref = ${q(day)}`)
   .map((a) => Object.fromEntries(Object.entries(a).map(([k, v]) => [k, k === "moeda" ? v : v === null ? null : Number(v)])));
 const [hook] = query(`select exists (select 1 from imphq_vendas where project_id = ${p} and created_at >= ${q(new Date(Date.parse(end) - 30 * 86400000).toISOString())} and created_at < ${q(end)}) as ok`);

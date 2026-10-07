@@ -41,6 +41,8 @@ export const AUTONOMY_RULES: AutonomyRule[] = [
   // Ordem de teste de criativos (TST1.1)
   { key: "teste:criar", label: "Planejar e registrar um teste de criativos", teto: "auto", padrao: "auto", motivo: "Só grava o plano no Império; nada vai para a Meta." },
   { key: "teste:ativar", label: "Ligar um teste na Meta", teto: "aprovar", padrao: "aprovar", motivo: "Começa a gastar verba." },
+  // Agente de tráfego (TRF1.1)
+  { key: "trafego:pausar_prejuizo_claro", label: "Pausar anúncio com prejuízo claro", teto: "auto", padrao: "auto", motivo: "Autorizado pelo Vinicius em 07/10: só anúncio ativo com gasto ≥ 3× o CPA alvo em 7 dias e nenhuma venda real; avisa no grupo e dá para desfazer." },
   { key: "teste:pausar_variante", label: "Pausar variante morta pela Esteira", teto: "aprovar", padrao: "aprovar", motivo: "Mexe em anúncio no ar; vale o corte autorizado no próprio teste (corte_autorizado_por)." },
 ];
 

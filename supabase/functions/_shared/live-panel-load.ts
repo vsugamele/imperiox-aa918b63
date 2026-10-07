@@ -34,7 +34,7 @@ export async function loadProjectLivePanel(sb: LiveDb, projectId: string, now: D
   const [pv, ic, salesRes, adsRes, webhookRes, paramsRes, healthRes] = await Promise.all([
     count("PageView"),
     count("InitiateCheckout"),
-    sb.from("imphq_vendas").select("status, valor, data").eq("project_id", projectId).gte("created_at", start).limit(5000),
+    sb.from("imphq_vendas").select("status, valor, data, tipo_venda").eq("project_id", projectId).gte("created_at", start).limit(5000),
     sb.from("imphq_ads_spend").select("valor, landing_page_views, checkouts_iniciados, init_checkout, compras, valor_conversao, moeda").eq("project_id", projectId).eq("data_ref", day).limit(5000),
     sb.from("imphq_vendas").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", month),
     sb.from("imphq_scale_rounds").select("params").eq("project_id", projectId).order("updated_at", { ascending: false }).limit(1),
