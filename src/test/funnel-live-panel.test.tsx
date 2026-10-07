@@ -9,6 +9,11 @@ const live = buildFunnelLive({
   sales: [{ status: "aprovado", valor: 47, valor_liquido: 23.5, tipo_venda: "principal" }],
 });
 
+vi.mock("@/hooks/usePageSplits", () => ({
+  usePageSplits: () => ({ data: [] }),
+  useCreatePageSplit: () => ({ mutate: vi.fn(), isPending: false }),
+  useEndPageSplit: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock("@/hooks/useFunnelLive", () => ({
   useFunnelLive: () => ({ isLoading: false, error: null, data: { ...live, produtos: ["Código dos Cortes Perfeitos"], paginas: [], adsDoProjetoInteiro: false } }),
 }));

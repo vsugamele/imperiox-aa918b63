@@ -150,3 +150,6 @@ verify_jwt = false
 
 [functions.cinna-shield-x1]
 verify_jwt = true
+
+[functions.split]
+verify_jwt = false

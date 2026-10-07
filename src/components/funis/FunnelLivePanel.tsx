@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { REFERENCIA, type Metric, type Stage, type StageId, type StageStatus } from "@shared/funnel-live";
 import { useFunnelLive } from "@/hooks/useFunnelLive";
+import { PageSplitsSection } from "@/components/funis/PageSplitsSection";
 
 interface ProjectOption { id: string; name: string }
 
@@ -96,6 +97,8 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
               </li>
             ))}
           </ol>
+
+          {projectId && <PageSplitsSection projectId={projectId} />}
 
           {data.paginas.length > 0 && (
             <section className="space-y-2 rounded-lg border border-border bg-card p-4" aria-label="Páginas medidas">

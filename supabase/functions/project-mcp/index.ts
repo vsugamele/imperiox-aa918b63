@@ -23,6 +23,7 @@ import { launchPreview, planLaunch, writeLaunch } from "../_shared/launch-plan.t
 import { adsSyncHealth, type AdsSyncHealthRow } from "../_shared/live-panel.ts";
 import { liveReadings, type LiveOrder, type LiveVariant, type SaleRow, type SpendRow } from "../_shared/test-live.ts";
 import { methodScoreboard, normalizeMetodo, type ScoreBy, type ScoreInput } from "../_shared/method-scoreboard.ts";
+import { normalizeVariants, pageKey, slugify, splitReport, type PageMetricValues } from "../_shared/page-split.ts";
 import { buildFunnelLive, type AdsRow as FunnelAdsRow, type PageRow as FunnelPageRow, type SaleRow as FunnelSaleRow } from "../_shared/funnel-live.ts";
 
 const corsHeaders = {
@@ -994,6 +995,28 @@ const MCP_TOOLS = [
       properties: { project_id: { type: "string" }, produto: { type: "string", description: "Nome exato do produto (opcional)" }, dias: { type: "number", description: "Janela em dias (padrão 7)" } },
       required: ["project_id"],
     },
+  },
+  {
+    name: "create_page_split",
+    description: "Cria um teste A/B/C de página: um link único (para usar no anúncio) que divide o tráfego entre 2 ou 3 páginas pelo peso, mantém UTMs e fbclid e devolve a pessoa sempre à mesma página. Só grava no Império; nada vai para a Meta.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" }, nome: { type: "string" },
+        variantes: { type: "array", items: { type: "object" }, description: "[{ url, peso }] — 2 ou 3 páginas com link completo" },
+      },
+      required: ["project_id", "nome", "variantes"],
+    },
+  },
+  {
+    name: "get_page_splits",
+    description: "Testes A/B/C de página do projeto com a leitura por variante: pessoas enviadas, visitas, cliques e checkouts medidos pelo rastreador, conversão e vencedora (mínimo 100 visitas por página e 20% de vantagem).",
+    inputSchema: { type: "object", properties: { project_id: { type: "string" } }, required: ["project_id"] },
+  },
+  {
+    name: "end_page_split",
+    description: "Encerra um teste de página. Com vencedor (A, B ou C), o mesmo link passa a mandar 100% para a vencedora, sem trocar o anúncio.",
+    inputSchema: { type: "object", properties: { slug: { type: "string" }, vencedor: { type: "string" } }, required: ["slug"] },
   },
   {
     name: "get_copy_library",
@@ -2599,6 +2622,46 @@ Deno.serve(async (req) => {
             const plan = { nome_campanha: `[${order.project_id}] ${order.nome} — teste de ângulos ABO`, variantes: variants.map((v) => ({ ...v, nome_conjunto: `${String(v.ordem).padStart(2, "0")} ${v.angulo}`, nome_anuncio: v.utm_content })) };
             const result = { ordem: order, variantes: variants, passos: launchSteps({ ...order, verba_dia_conjunto: Number(order.verba_dia_conjunto) }, plan as unknown as Parameters<typeof launchSteps>[1]), dias_no_ar: order.ativado_em ? Math.round(((Date.now() - Date.parse(order.ativado_em)) / 86400000) * 10) / 10 : 0 };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "create_page_split") {
+            if (!args?.project_id || !args?.nome || !Array.isArray(args.variantes)) throw new Error("project_id, nome e variantes são obrigatórios");
+            const list = normalizeVariants((args.variantes as Array<Record<string, unknown>>).map((v, i) => ({ key: String.fromCharCode(65 + i), url: v.url, peso: v.peso ?? 1 }))).slice(0, 3);
+            if (list.length < 2) throw new Error("Pelo menos 2 páginas com link completo (https://…)");
+            const slug = `${slugify(String(args.nome))}-${Math.random().toString(36).slice(2, 6)}`;
+            const { error } = await supabase.from("imphq_page_splits").insert({ project_id: String(args.project_id), slug, nome: String(args.nome), variantes: list, created_by: "claude (MCP)" });
+            if (error) throw error;
+            const link = `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/split/${slug}`;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ slug, link, variantes: list, aviso: "As páginas precisam do rastreador do Império para medir visitas e cliques." }, null, 2) }] } });
+          }
+
+          if (name === "get_page_splits") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const pid = String(args.project_id);
+            const { data: splits, error } = await supabase.from("imphq_page_splits").select("id, slug, nome, status, vencedor, variantes, created_at").eq("project_id", pid).order("created_at", { ascending: false }).limit(20);
+            if (error) throw error;
+            if (!splits?.length) return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ total: 0, testes: [] }) }] } });
+            const since = splits.reduce((m: string, x: { created_at: string }) => (x.created_at < m ? x.created_at : m), splits[0].created_at);
+            const [countsRes, pagesRes] = await Promise.all([
+              supabase.rpc("imphq_split_counts", { p_split_ids: splits.map((x: { id: string }) => x.id) }),
+              supabase.rpc("imphq_page_metrics", { p_project_id: pid, p_since: since }),
+            ]);
+            const counts = (countsRes.data ?? []) as Array<{ split_id: string; variante: string; enviados: number }>;
+            const pages: Record<string, PageMetricValues> = Object.fromEntries((((pagesRes.data as { pages?: Array<{ url: string; values: PageMetricValues }> } | null)?.pages) ?? []).map((p) => [pageKey(p.url), p.values]));
+            const testes = splits.map((x: { id: string; slug: string; nome: string; status: string; vencedor: string | null; variantes: unknown }) => {
+              const v = normalizeVariants(x.variantes);
+              const hits = Object.fromEntries(counts.filter((c) => c.split_id === x.id).map((c) => [c.variante, Number(c.enviados)]));
+              return { slug: x.slug, nome: x.nome, status: x.status, vencedor_definido: x.vencedor, link: `https://tkbivipqiewkfnhktmqq.supabase.co/functions/v1/split/${x.slug}`, ...splitReport(v, hits, pages) };
+            });
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ total: testes.length, testes }, null, 2) }] } });
+          }
+
+          if (name === "end_page_split") {
+            if (!args?.slug) throw new Error("slug é obrigatório");
+            const vencedor = args.vencedor ? String(args.vencedor).toUpperCase() : null;
+            const { data, error } = await supabase.from("imphq_page_splits").update({ status: "encerrado", vencedor, updated_at: new Date().toISOString() }).eq("slug", String(args.slug)).select("slug, status, vencedor");
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ atualizado: data ?? [] }, null, 2) }] } });
           }
 
           if (name === "get_funnel_live") {

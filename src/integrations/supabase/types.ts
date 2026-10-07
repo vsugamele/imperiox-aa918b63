@@ -27033,6 +27033,45 @@ export type Database = {
           },
         ]
       }
+      imphq_page_splits: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          project_id: string
+          slug: string
+          status: string
+          updated_at: string
+          variantes: Json
+          vencedor: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          project_id: string
+          slug: string
+          status?: string
+          updated_at?: string
+          variantes: Json
+          vencedor?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          project_id?: string
+          slug?: string
+          status?: string
+          updated_at?: string
+          variantes?: Json
+          vencedor?: string | null
+        }
+        Relationships: []
+      }
       imphq_playbook_applications: {
         Row: {
           aplicado_por: string | null
@@ -28945,6 +28984,39 @@ export type Database = {
           provider?: string
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      imphq_split_hits: {
+        Row: {
+          created_at: string
+          id: number
+          nova_visita: boolean
+          split_id: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_source: string | null
+          variante: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          nova_visita?: boolean
+          split_id: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_source?: string | null
+          variante: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          nova_visita?: boolean
+          split_id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_source?: string | null
+          variante?: string
         }
         Relationships: []
       }
@@ -57734,6 +57806,10 @@ export type Database = {
       }
     }
     Functions: {
+      imphq_split_counts: {
+        Args: { p_split_ids: string[] }
+        Returns: { enviados: number; novos: number; split_id: string; variante: string }[]
+      }
       adicionar_creditos_ia: {
         Args: {
           p_descricao: string
