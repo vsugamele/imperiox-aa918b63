@@ -21,6 +21,8 @@ const library = [
   { id: "angulo-70", numero: 70, nome: "Curiosidade / Loop aberto", categoria: "generico" },
 ] as never;
 
+vi.mock("@/components/estrategias/MiningSources", () => ({ MiningSources: () => null }));
+
 describe("No mercado", () => {
   it("resume camadas e ângulos e decide uma dúvida", () => {
     render(<MarketAngles library={library} />);

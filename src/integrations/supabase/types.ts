@@ -26554,6 +26554,51 @@ export type Database = {
         }
         Relationships: []
       }
+      imphq_mining_sources: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          limite: number
+          min_dias: number
+          pais: string
+          project_id: string
+          tipo: string
+          ultima_execucao: string | null
+          ultimo_resultado: Json | null
+          valor: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          limite?: number
+          min_dias?: number
+          pais?: string
+          project_id: string
+          tipo: string
+          ultima_execucao?: string | null
+          ultimo_resultado?: Json | null
+          valor: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          limite?: number
+          min_dias?: number
+          pais?: string
+          project_id?: string
+          tipo?: string
+          ultima_execucao?: string | null
+          ultimo_resultado?: Json | null
+          valor?: string
+        }
+        Relationships: []
+      }
       imphq_notification_preferences: {
         Row: {
           checkout_abandonado: boolean

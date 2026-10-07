@@ -1057,6 +1057,31 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "list_mining_sources",
+    description: "Fontes da mineração diária da Biblioteca de Anúncios da Meta (palavra-chave, página de concorrente ou link de busca), por projeto, com o resultado da última rodada (vistos, novos, erro).",
+    inputSchema: { type: "object", properties: { project_id: { type: "string" } } },
+  },
+  {
+    name: "add_mining_source",
+    description: "Adiciona uma fonte de mineração. Todo dia às 6h o sistema pega os anúncios há mais tempo no ar e com mais variações, guarda a mídia e manda para o pipeline de referências (transcrição, leitura, ângulo). Custa ~US$0,006 por anúncio.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string" },
+        tipo: { type: "string", enum: ["palavra", "pagina", "url"] },
+        valor: { type: "string", description: "Palavra-chave, link/ID da página ou link da busca na Biblioteca" },
+        pais: { type: "string", description: "BR, US, PT ou ALL (só para palavra). Padrão BR" },
+        limite: { type: "number", description: "Novos por rodada, 1-50. Padrão 15" },
+      },
+      required: ["project_id", "tipo", "valor"],
+    },
+  },
+  {
+    name: "run_mining",
+    description: "Roda a mineração agora para uma fonte (source_id). Leva até 2 minutos e devolve quantos anúncios viu e quantos gravou.",
+    inputSchema: { type: "object", properties: { source_id: { type: "string" } }, required: ["source_id"] },
+  },
+  {
     name: "list_test_orders",
     description: "Ordens de teste (mais recentes primeiro), com status, verba, dias no ar e resumo da última avaliação.",
     inputSchema: { type: "object", properties: { project_id: { type: "string" }, status: { type: "string", enum: ["rascunho", "pronto", "no_ar", "encerrado", "cancelado"] } } },
@@ -2723,6 +2748,30 @@ Deno.serve(async (req) => {
           if (name === "get_method_scoreboard") {
             const result = await loadMethodScoreboard(supabase, (args ?? {}) as Record<string, unknown>);
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "list_mining_sources") {
+            let q = supabase.from("imphq_mining_sources").select("id, project_id, tipo, valor, pais, limite, ativo, ultima_execucao, ultimo_resultado").order("created_at", { ascending: false });
+            if (args?.project_id) q = q.eq("project_id", String(args.project_id));
+            const { data, error } = await q;
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ total: (data ?? []).length, fontes: data ?? [] }, null, 2) }] } });
+          }
+
+          if (name === "add_mining_source") {
+            const valor = String(args?.valor ?? "").trim();
+            if (!args?.project_id || !valor || !["palavra", "pagina", "url"].includes(String(args?.tipo))) throw new Error("project_id, tipo (palavra|pagina|url) e valor são obrigatórios");
+            const limite = Math.min(50, Math.max(1, Number(args?.limite) || 15));
+            const { data, error } = await supabase.from("imphq_mining_sources").insert({ project_id: String(args.project_id), tipo: String(args.tipo), valor, pais: String(args?.pais ?? "BR").toUpperCase(), limite, created_by: "mcp" }).select("id, project_id, tipo, valor, pais, limite").single();
+            if (error) throw new Error(error.code === "23505" ? "Essa fonte já existe neste projeto" : error.message);
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ criada: data, proxima_rodada: "diária às 06:15 BRT (ou run_mining agora)" }, null, 2) }] } });
+          }
+
+          if (name === "run_mining") {
+            if (!args?.source_id) throw new Error("source_id é obrigatório");
+            const { data, error } = await supabase.functions.invoke("ref-mining", { body: { modo: "source", source_id: String(args.source_id) } });
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
           }
 
           if (name === "list_test_orders") {

@@ -7,6 +7,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { marketSummary } from "@shared/method-scoreboard";
+import { MiningSources } from "@/components/estrategias/MiningSources";
 import { useLibraryHealth, useReferenceAngles, useReviewReferenceAngle, type CopyLibraryItem, type ReferenceAngle } from "@/hooks/useCopyLibrary";
 
 interface Alt { id: string; p: number }
@@ -69,13 +70,13 @@ export function MarketAngles({ library }: { library: CopyLibraryItem[] }) {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  if (isLoading) return <><LibraryHealthCard /><PageSkeleton variant="list" label="Carregando o mercado" /></>;
+  if (isLoading) return <><LibraryHealthCard /><MiningSources /><PageSkeleton variant="list" label="Carregando o mercado" /></>;
   if (error) return <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {errorMessage(error)}</div>;
-  if (!refs.length) return <><LibraryHealthCard /><p className="py-6 text-center text-sm text-muted-foreground">Nenhuma referência classificada ainda. O Jev roda a cada 6 horas nas referências com transcrição.</p></>;
+  if (!refs.length) return <><LibraryHealthCard /><MiningSources /><p className="py-6 text-center text-sm text-muted-foreground">Nenhuma referência classificada ainda. O Jev roda a cada 6 horas nas referências com transcrição.</p></>;
 
   return (
     <div className="space-y-5">
-      <LibraryHealthCard />
+      <LibraryHealthCard /><MiningSources />
       <p className="text-sm text-muted-foreground">
         {resumo.classificadas} referências com ângulo decidido (o Jev com confiança alta, ou alguém do time). {resumo.duvidas} esperando revisão.
       </p>
