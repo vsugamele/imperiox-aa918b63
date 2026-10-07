@@ -53,3 +53,14 @@ describe("leitura ao vivo do teste", () => {
     expect(text.indexOf("01 Medo")).toBeLessThan(text.indexOf("02 Quer"));
   });
 });
+
+describe("bump no teste de criativos", () => {
+  it("soma o bump na receita do anúncio sem contar outra venda", () => {
+    const comBump = [
+      { utm_campaign: "ccp-teste-angulos-0510", utm_content: "01-medo", status: "aprovado", valor: 47, valor_liquido: 23.5, tipo_venda: "principal" },
+      { utm_campaign: "ccp-teste-angulos-0510", utm_content: "01-medo", status: "aprovado", valor: 47, valor_liquido: 23.5, tipo_venda: "orderbump" },
+    ];
+    const [medo] = liveReadings(order, variants.slice(0, 1), [], comBump);
+    expect(medo).toMatchObject({ vendas: 1, receita_liquida: 47 });
+  });
+});

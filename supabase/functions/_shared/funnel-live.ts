@@ -4,7 +4,7 @@
 
 export interface AdsRow { spend?: number | string | null; impressoes?: number | null; link_clicks?: number | null; cliques?: number | null; init_checkout?: number | null; purchases?: number | null }
 export interface PageRow { url: string; values: { sessoes_pagina?: number | null; cliques_cta?: number | null; cliques_checkout?: number | null } }
-export interface SaleRow { status: string | null; valor: number | string | null; valor_liquido?: number | string | null; tipo_venda?: string | null; produto_nome?: string | null; data?: unknown }
+export interface SaleRow { status: string | null; valor: number | string | null; valor_liquido?: number | string | null; tipo_venda?: string | null; produto_nome?: string | null; data?: unknown; external_transaction_id?: string | null }
 
 export type StageId = "anuncio" | "pagina" | "checkout" | "venda" | "extra" | "recuperacao";
 export type StageStatus = "ok" | "atencao" | "gargalo" | "sem_dado" | "medicao_incompleta";

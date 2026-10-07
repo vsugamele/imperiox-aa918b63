@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
         adIds.length
           ? sb.from("imphq_ads_spend").select("ad_id, spend, init_checkout, link_clicks, impressoes, purchases, effective_status, created_at").in("ad_id", adIds).gte("date", since)
           : Promise.resolve({ data: [] as SpendRow[] }),
-        sb.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido").eq("project_id", order.project_id).eq("utm_campaign", order.utm_campaign),
+        sb.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido, tipo_venda").eq("project_id", order.project_id).eq("utm_campaign", order.utm_campaign),
       ]);
       const vs = (variants ?? []) as LiveVariant[];
       const readings = liveReadings(order as LiveOrder, vs, (spend ?? []) as SpendRow[], (sales ?? []) as SaleRow[]);

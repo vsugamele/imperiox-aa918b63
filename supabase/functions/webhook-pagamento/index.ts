@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { tictoBumpSales, tictoBumps } from "../_shared/ticto-bumps.ts";
 import { pushNotifyByPref, resolveProjectRecipients } from "../_shared/push-notify.ts";
 import { isHwPayload, parseHwPayload } from "../_shared/hw-order.ts";
 import { resolveSaleJourney } from "../_shared/sale-attribution.ts";
@@ -1423,6 +1424,16 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
         } catch (e) {
           console.warn("[webhook-pagamento] Meta diária check error:", e);
         }
+      }
+    }
+
+    // Order bumps da Ticto (FUN1.3): vêm dentro do aviso da compra principal e não viravam venda. Cada bump entra como
+    // "orderbump" do mesmo pedido (mesma transação, outro produto: o índice único evita duplicar em reenvio).
+    if (evento === "compra_aprovada" && leadId && plataforma === "Ticto" && tictoBumps(body).length) {
+      for (const row of tictoBumpSales(body, { leadId, projectId, externalTxId, dataCompra: data_compra, utms: webhookUtms })) {
+        const { error: bumpErr } = await supabase.from("imphq_vendas").insert(row);
+        if (bumpErr && bumpErr.code !== "23505") console.error("[webhook-pagamento] bump insert:", bumpErr.message);
+        else if (!bumpErr) console.log("[webhook-pagamento] Order bump registrado:", row.produto_nome, row.valor);
       }
     }
 

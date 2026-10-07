@@ -39,7 +39,7 @@ export function useTestLive(orders: TestOrder[]) {
         adIds.length
           ? supabase.from("imphq_ads_spend").select("ad_id, spend, init_checkout, link_clicks, impressoes, purchases, effective_status, created_at, date").in("ad_id", adIds)
           : Promise.resolve({ data: [], error: null }),
-        supabase.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido").in("utm_campaign", campaigns),
+        supabase.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido, tipo_venda").in("utm_campaign", campaigns),
       ]);
       if (sRes.error) throw sRes.error;
       if (vRes.error) throw vRes.error;

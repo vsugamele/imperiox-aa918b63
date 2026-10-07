@@ -29,7 +29,7 @@ export interface SpendRow {
 }
 
 /** Venda da plataforma (imphq_vendas). */
-export interface SaleRow { utm_campaign: string | null; utm_content: string | null; status: string | null; valor?: number | string | null; valor_liquido?: number | string | null }
+export interface SaleRow { utm_campaign: string | null; utm_content: string | null; status: string | null; valor?: number | string | null; valor_liquido?: number | string | null; tipo_venda?: string | null }
 
 export interface LiveReading {
   ordem: number;
@@ -60,7 +60,9 @@ export function liveReadings(order: Pick<LiveOrder, "utm_campaign">, variants: R
     const gasto = round2(rows.reduce((s, r) => s + num(r.spend), 0));
     const cliques = rows.reduce((s, r) => s + num(r.link_clicks), 0);
     const impressoes = rows.reduce((s, r) => s + num(r.impressoes), 0);
-    const vendidas = sales.filter((s) => s.utm_campaign === order.utm_campaign && saleContent(s.utm_content) === v.utm_content.toLowerCase() && PAID.has(String(s.status ?? "").toLowerCase()));
+    const pagas = sales.filter((s) => s.utm_campaign === order.utm_campaign && saleContent(s.utm_content) === v.utm_content.toLowerCase() && PAID.has(String(s.status ?? "").toLowerCase()));
+    // Bump/upsell do mesmo pedido soma na receita, mas não conta como outra venda (FUN1.3).
+    const vendidas = pagas.filter((s) => (s.tipo_venda ?? "principal") === "principal");
     const latest = [...rows].sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))[0];
     return {
       ordem: v.ordem,
@@ -71,7 +73,7 @@ export function liveReadings(order: Pick<LiveOrder, "utm_campaign">, variants: R
       ctr: impressoes ? round2((cliques / impressoes) * 100) : null,
       compras_pixel: rows.reduce((s, r) => s + num(r.purchases), 0),
       vendas: vendidas.length,
-      receita_liquida: round2(vendidas.reduce((s, x) => s + num(x.valor_liquido ?? x.valor), 0)),
+      receita_liquida: round2(pagas.reduce((s, x) => s + num(x.valor_liquido ?? x.valor), 0)),
       cpa: vendidas.length ? round2(gasto / vendidas.length) : null,
       status_meta: latest?.effective_status ?? null,
     };

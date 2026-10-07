@@ -1305,7 +1305,7 @@ async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unk
   const adIds = (variants ?? []).map((v: { meta_ad_id: string | null }) => v.meta_ad_id).filter(Boolean) as string[];
   const [{ data: spend }, { data: sales }, { data: lib }] = await Promise.all([
     adIds.length ? supabase.from("imphq_ads_spend").select("ad_id, spend, init_checkout, link_clicks, impressoes, purchases, effective_status, created_at, date").in("ad_id", adIds) : Promise.resolve({ data: [] }),
-    supabase.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido").in("utm_campaign", orders.map((o: { utm_campaign: string }) => o.utm_campaign)),
+    supabase.from("imphq_vendas").select("utm_campaign, utm_content, status, valor, valor_liquido, tipo_venda").in("utm_campaign", orders.map((o: { utm_campaign: string }) => o.utm_campaign)),
     supabase.from("imphq_copy_library").select("id, nome, categoria, numero").eq("biblioteca", "angulo"),
   ]);
   const rows: ScoreInput[] = [];
@@ -2671,13 +2671,14 @@ Deno.serve(async (req) => {
             const since = new Date(Date.now() - dias * 86400000).toISOString();
             const [adsRes, salesRes, pagesRes] = await Promise.all([
               supabase.from("imphq_ads_spend").select("spend, impressoes, link_clicks, cliques, init_checkout, purchases").eq("project_id", pid).gte("date", since.slice(0, 10)).limit(5000),
-              supabase.from("imphq_vendas").select("status, valor, valor_liquido, tipo_venda, produto_nome, data").eq("project_id", pid).gte("created_at", since).limit(5000),
+              supabase.from("imphq_vendas").select("status, valor, valor_liquido, tipo_venda, produto_nome, data, external_transaction_id").eq("project_id", pid).gte("created_at", since).limit(5000),
               supabase.rpc("imphq_page_metrics", { p_project_id: pid, p_since: since }),
             ]);
             if (adsRes.error) throw adsRes.error;
             if (salesRes.error) throw salesRes.error;
             const all = (salesRes.data ?? []) as FunnelSaleRow[];
-            const sales = args.produto ? all.filter((v) => v.produto_nome === String(args.produto)) : all;
+            const txs = new Set(all.filter((v) => v.produto_nome === String(args.produto)).map((v) => v.external_transaction_id).filter(Boolean));
+            const sales = args.produto ? all.filter((v) => v.produto_nome === String(args.produto) || ((v.tipo_venda ?? "principal") !== "principal" && txs.has(v.external_transaction_id))) : all;
             const pages = ((pagesRes.data as { pages?: FunnelPageRow[] } | null)?.pages ?? []).filter((p) => Number(p.values?.sessoes_pagina ?? 0) > 0);
             const result = { projeto: pid, produto: args.produto ?? "todos", dias, produtos: [...new Set(all.map((v) => v.produto_nome).filter(Boolean))], ...buildFunnelLive({ ads: (adsRes.data ?? []) as FunnelAdsRow[], pages, sales }) };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
