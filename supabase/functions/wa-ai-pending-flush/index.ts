@@ -75,14 +75,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Última mensagem da conversa
-    const { data: lastMsg } = await supabase
+    // Última mensagem da conversa. A coluna é provider_message_id: pedir "message_id" (que não existe) fazia a consulta
+    // falhar, cair em "no_message" e limpar a fila sem responder — toda mensagem fora do horário ficava sem resposta.
+    const { data: lastMsg, error: lastErr } = await supabase
       .from("imphq_wa_messages")
-      .select("direction, content, message_id, created_at")
+      .select("direction, content, provider_message_id, created_at")
       .eq("conversation_id", conv.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Erro de leitura não pode apagar a fila: mantém o pending e tenta de novo na próxima rodada.
+    if (lastErr) {
+      console.error(`[wa-ai-pending-flush] conv=${conv.id} read_error: ${lastErr.message}`);
+      results.push({ id: conv.id, action: "read_error", error: lastErr.message });
+      continue;
+    }
 
     if (!lastMsg) {
       await supabase.from("imphq_wa_conversations").update({ ai_pending_since: null }).eq("id", conv.id);
@@ -118,7 +126,7 @@ Deno.serve(async (req) => {
           provider_id: conv.provider_id,
           phone: conv.phone,
           message: lastMsg.content || "",
-          message_id: lastMsg.message_id,
+          message_id: lastMsg.provider_message_id,
           from_flush: true,
         }),
       });
