@@ -1,119 +1,118 @@
-// Meta Offline Conversions uploader
-// Envia vendas de imphq_vendas para o Offline Event Set da Meta
-// Pode rodar para 1 projeto (body: { project_id }) ou para todos (body: {} via cron)
+// Purchase server-side para a Meta via Conversions API (substitui a Offline Conversions API, descontinuada).
+// Envia vendas aprovadas de imphq_vendas para /{pixel_id}/events com event_id = número do pedido (dedup com o Pixel).
+// Roda para 1 projeto (body: { project_id }) ou para todos (body: {} via cron a cada 30 min).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { buildUserData, matchKeys, PAID_STATUSES, sendCapi, type CapiEvent } from "../_shared/meta-capi.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const FB_VERSION = "v19.0";
-
-async function sha256(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input.trim().toLowerCase());
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function onlyDigits(s: string | null | undefined): string {
-  return (s || "").replace(/\D+/g, "");
-}
-
 function makeClient(url: string, key: string) { return createClient(url, key); }
-interface OfflineProject { id: string; meta_offline_event_set_id: string | null; fb_access_token: string | null }
-interface OfflineLead { id?: string; email?: string | null; phone?: string | null; nome?: string | null }
-interface MatchKeys { em?: string[]; ph?: string[]; fn?: string[]; ln?: string[] }
-interface OfflineEvent { match_keys: MatchKeys; event_name: string; event_time: number; value: number; currency: string; order_id: string; custom_data: { content_name: string; utm_campaign: string; utm_source: string; utm_content: string; click_id: string } }
-async function processProject(supabase: ReturnType<typeof makeClient>, project: OfflineProject) {
-  const eventSetId: string | null = project.meta_offline_event_set_id;
-  const accessToken: string | null = project.fb_access_token;
-  if (!eventSetId || !accessToken) {
-    return { project_id: project.id, skipped: true, reason: "missing_event_set_or_token" };
-  }
+interface CapiProject { id: string; fb_pixel_id: string | null; fb_access_token: string | null; fb_test_event_code?: string | null; settings?: Record<string, unknown> | null }
+interface SaleLead { id?: string; email?: string | null; phone?: string | null; nome?: string | null }
+const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {});
+const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
-  // pega vendas pendentes (ultimos 60 dias - limite Meta é 62 dias)
-  const sinceIso = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+/** Valor da Purchase: "comissao" (padrão para afiliado, quando existe valor_liquido) ou "preco". */
+function purchaseValue(v: Record<string, unknown>, mode: string): number {
+  const liquido = Number(v.valor_liquido);
+  if (mode !== "preco" && Number.isFinite(liquido) && liquido > 0) return liquido;
+  return Number(v.valor || 0);
+}
+
+async function processProject(supabase: ReturnType<typeof makeClient>, project: CapiProject) {
+  const pixelId = project.fb_pixel_id;
+  const accessToken = project.fb_access_token;
+  if (!pixelId || !accessToken) return { project_id: project.id, skipped: true, reason: "missing_pixel_or_token" };
+  const valueMode = str(rec(project.settings).meta_purchase_value) ?? "comissao";
+
+  // Meta aceita eventos de até 7 dias atrás com action_source=website.
+  const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: vendas, error: errV } = await supabase
     .from("imphq_vendas")
-    .select("id, lead_id, valor, valor_liquido, produto_nome, data_venda, external_transaction_id, utm_campaign, utm_source, utm_content, click_id, status")
+    .select("id, lead_id, valor, valor_liquido, produto_nome, data_venda, external_transaction_id, utm_campaign, utm_source, utm_content, click_id, status, pais, nome, data, tipo_venda")
     .eq("project_id", project.id)
     .is("meta_offline_synced_at", null)
     .gte("data_venda", sinceIso)
-    .in("status", ["aprovada", "approved", "paid", "completed", "finalizada"])
+    .in("status", PAID_STATUSES)
     .limit(500);
 
   if (errV) return { project_id: project.id, error: errV.message };
   if (!vendas || vendas.length === 0) return { project_id: project.id, uploaded: 0 };
 
-  // Busca leads em batch
   const leadIds = [...new Set(vendas.map((v) => v.lead_id).filter(Boolean))];
-  const leadMap = new Map<string, OfflineLead>();
+  const leadMap = new Map<string, SaleLead>();
   if (leadIds.length > 0) {
-    const { data: leads } = await supabase
-      .from("imphq_leads")
-      .select("id, email, phone, nome")
-      .in("id", leadIds);
+    const { data: leads } = await supabase.from("imphq_leads").select("id, email, phone, nome").in("id", leadIds);
     for (const l of leads || []) leadMap.set(l.id, l);
   }
 
-  // Constroi eventos
-  const events: OfflineEvent[] = [];
+  const events: CapiEvent[] = [];
   const eventSaleIds: string[] = [];
+  const keysBySale: string[][] = [];
   for (const v of vendas) {
     const lead = leadMap.get(v.lead_id) || {};
-    const matchKeys: MatchKeys = {};
-    if (lead.email) matchKeys.em = [await sha256(lead.email)];
-    const phone = onlyDigits(lead.phone);
-    if (phone) matchKeys.ph = [await sha256(phone)];
-    if (lead.nome) {
-      const parts = String(lead.nome).trim().split(/\s+/);
-      matchKeys.fn = [await sha256(parts[0] || "")];
-      if (parts.length > 1) matchKeys.ln = [await sha256(parts.slice(-1)[0] || "")];
-    }
-    if (!matchKeys.em && !matchKeys.ph) continue; // sem match key, pula
-
+    const data = rec(v.data);
+    const attr = rec(data.atribuicao);
+    const tracker = rec(data.tracker);
+    const eventMs = new Date(v.data_venda).getTime();
+    const userData = await buildUserData({
+      email: lead.email, phone: lead.phone, name: lead.nome || v.nome, country: v.pais,
+      externalId: str(attr.sub3) ?? str(tracker.visitor_id) ?? v.lead_id,
+      fbp: str(attr.sub1) ?? str(tracker.fbp), fbc: str(attr.sub2) ?? str(tracker.fbc),
+      fbclid: str(attr.fbclid),
+    }, eventMs);
+    const keys = matchKeys(userData);
+    // Sem nenhuma chave de identidade a Meta descarta; deixa para nova tentativa quando o lead for enriquecido.
+    if (!["em", "ph", "fbc", "fbp"].some((k) => keys.includes(k))) continue;
+    const orderId = str(data.pedido) ?? v.external_transaction_id ?? v.id;
+    const currency = (str(data.moeda) && str(data.moeda) !== "UNKNOWN" ? str(data.moeda)! : "BRL").toUpperCase();
     eventSaleIds.push(v.id);
+    keysBySale.push(keys);
     events.push({
-      match_keys: matchKeys,
       event_name: "Purchase",
-      event_time: Math.floor(new Date(v.data_venda).getTime() / 1000),
-      value: Number(v.valor || 0),
-      currency: "BRL",
-      order_id: v.external_transaction_id || v.id,
+      event_time: Math.floor(eventMs / 1000),
+      event_id: `purchase_${v.external_transaction_id || v.id}`,
+      action_source: "website",
+      user_data: userData,
       custom_data: {
+        value: purchaseValue(v, valueMode),
+        currency,
+        order_id: orderId,
         content_name: v.produto_nome || "",
-        utm_campaign: v.utm_campaign || "",
-        utm_source: v.utm_source || "",
-        utm_content: v.utm_content || "",
-        click_id: v.click_id || "",
+        content_type: "product",
+        utm_campaign: v.utm_campaign || undefined,
+        utm_source: v.utm_source || undefined,
+        utm_content: v.utm_content || undefined,
+        sale_type: v.tipo_venda || undefined,
       },
     });
   }
 
-  if (events.length === 0) {
-    return { project_id: project.id, uploaded: 0, skipped_no_match: vendas.length };
-  }
+  if (events.length === 0) return { project_id: project.id, uploaded: 0, total_candidates: vendas.length, skipped_no_match: vendas.length };
 
-  // Envia em batches de 100 (limite Meta = 1000, mas 100 é seguro)
   let uploaded = 0;
-  const url = `https://graph.facebook.com/${FB_VERSION}/${eventSetId}/events`;
   const errors: string[] = [];
   for (let i = 0; i < events.length; i += 100) {
     const batch = events.slice(i, i + 100);
-    const form = new FormData();
-    form.append("upload_tag", `imperius_${project.id}_${Date.now()}`);
-    form.append("data", JSON.stringify(batch));
-    form.append("access_token", accessToken);
-    const resp = await fetch(url, { method: "POST", body: form });
-    const json = await resp.json();
-    if (!resp.ok || json.error) {
-      errors.push(JSON.stringify(json.error || json));
+    const ids = eventSaleIds.slice(i, i + 100);
+    const result = await sendCapi(pixelId, accessToken, batch, { testEventCode: project.fb_test_event_code, fetchImpl: fetch });
+    await supabase.from("imphq_capi_log").insert(batch.map((e, j) => ({
+      project_id: project.id, pixel_id: pixelId, event_name: e.event_name, event_id: e.event_id, source: "venda",
+      match_keys: keysBySale[i + j], ok: result.ok, http_status: result.status, error: result.error ?? null,
+      fbtrace_id: result.fbtrace_id ?? null, test_mode: !!project.fb_test_event_code,
+    })));
+    if (!result.ok) {
+      errors.push(result.error ?? "send_failed");
+      await supabase.from("imphq_vendas").update({ meta_capi_status: "erro", meta_capi_error: (result.error ?? "").slice(0, 500) }).in("id", ids);
       continue;
     }
-    const ids = eventSaleIds.slice(i, i + 100);
+    // Em modo teste não marca como enviada, para a venda real ainda subir depois.
+    if (project.fb_test_event_code) { uploaded += batch.length; continue; }
     const { error: syncError } = await supabase.from("imphq_vendas")
-      .update({ meta_offline_synced_at: new Date().toISOString() }).in("id", ids);
+      .update({ meta_offline_synced_at: new Date().toISOString(), meta_capi_status: "enviado", meta_capi_error: null }).in("id", ids);
     if (syncError) { errors.push(`sync marker: ${syncError.message}`); continue; }
     uploaded += batch.length;
   }
@@ -124,43 +123,27 @@ async function processProject(supabase: ReturnType<typeof makeClient>, project: 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     let body: { project_id?: string } = {};
     try { const input: unknown = await req.json(); if (input && typeof input === "object" && "project_id" in input && typeof input.project_id === "string") body = { project_id: input.project_id }; } catch { /* Empty bodies are allowed for cron. */ }
 
-    let projects: OfflineProject[] = [];
+    const cols = "id, fb_pixel_id, fb_access_token, fb_test_event_code, settings";
+    let projects: CapiProject[] = [];
     if (body.project_id) {
-      const { data } = await supabase
-        .from("imphq_projects")
-        .select("id, meta_offline_event_set_id, fb_access_token")
-        .eq("id", body.project_id)
-        .maybeSingle();
+      const { data } = await supabase.from("imphq_projects").select(cols).eq("id", body.project_id).maybeSingle();
       if (data) projects = [data];
     } else {
-      const { data } = await supabase
-        .from("imphq_projects")
-        .select("id, meta_offline_event_set_id, fb_access_token")
-        .not("meta_offline_event_set_id", "is", null)
-        .not("fb_access_token", "is", null)
-        .eq("is_archived", false);
+      const { data } = await supabase.from("imphq_projects").select(cols)
+        .not("fb_pixel_id", "is", null).not("fb_access_token", "is", null).eq("is_archived", false);
       projects = data || [];
     }
 
     const results = [];
-    for (const p of projects) {
-      results.push(await processProject(supabase, p));
-    }
-
-    return new Response(JSON.stringify({ ok: true, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    for (const p of projects) results.push(await processProject(supabase, p));
+    return new Response(JSON.stringify({ ok: true, results }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : e && typeof e === "object" && "message" in e ? e.message : undefined }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : undefined }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

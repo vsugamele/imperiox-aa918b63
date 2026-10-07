@@ -2,6 +2,7 @@ import { record } from "@/lib/funis-data";
 import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { TrackerEvidence } from "@/components/tracker/TrackerEvidence";
+import { MetaCapiCard } from "@/components/tracker/MetaCapiCard";
 import { paginatedQuery } from "@/lib/paginated-query";
 import { SectionInfo } from "@/components/SectionInfo";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
@@ -515,6 +516,8 @@ window.IMPERIO_FUNNEL = ${JSON.stringify({ projectId: filterProject === "all" ? 
 
       <TrackerEvidence projectId={filterProject === "all" ? null : filterProject}
         since={reportRange.since} until={reportRange.until} projects={projects} />
+
+      <MetaCapiCard />
 
       {legacyLoading && <p role="status" className="text-sm text-muted-foreground">Carregando fontes do tracker…</p>}
       {legacyError && <div role="alert" className="space-y-2 text-sm text-destructive">

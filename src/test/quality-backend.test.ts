@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
+import { buildUserData, matchKeys, PAID_STATUSES, sendCapi } from "@shared/meta-capi";
 
 type Handler = (request: Request) => Promise<Response>;
 function loadEmbedder(authorized: boolean, provider = false) {
@@ -11,8 +12,8 @@ function loadEmbedder(authorized: boolean, provider = false) {
   const createClient = vi.fn(() => ({}));
   const requireUser = vi.fn(async () => authorized ? { ok: true } : { ok: false, response: new Response("Unauthorized", { status: 401 }) });
   const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [{ embedding: Array(768).fill(0.1) }] }), { status: 200 }));
-  const run = new Function("serve", "createClient", "requireUser", "Deno", "fetch", compiled.outputText);
-  run((value: Handler) => { handler = value; }, createClient, requireUser, { env: { get: (name: string) => provider && name === "LOVABLE_API_KEY" ? "test-provider" : undefined } }, fetchMock);
+  const run = new Function("serve", "createClient", "requireUser", "Deno", "fetch", "installAiUsageTracking", "fetchWithAiUsage", compiled.outputText);
+  run((value: Handler) => { handler = value; }, createClient, requireUser, { env: { get: (name: string) => provider && name === "LOVABLE_API_KEY" ? "test-provider" : undefined } }, fetchMock, () => {}, (_projectId: unknown, input: RequestInfo | URL, init?: RequestInit) => (fetchMock as unknown as typeof fetch)(input, init));
   if (!handler) throw new Error("Handler not registered");
   return { handler, createClient, requireUser, fetchMock };
 }
@@ -52,8 +53,8 @@ describe("document embedder request boundary", () => {
 function loadOpenflowContracts() {
   const source = readFileSync(resolve(process.cwd(), "supabase/functions/openflow-ai/index.ts"), "utf8").replace(/^import .*;\r?\n/gm, "");
   const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } });
-  const run = new Function("serve", "z", `${compiled.outputText}\nreturn { requestSchema, nodeSchema, emailSchema, generatedAngleSchema };`);
-  return run(() => undefined, z) as { requestSchema: z.ZodType<Record<string, unknown>>; nodeSchema: z.ZodType; emailSchema: z.ZodType; generatedAngleSchema: z.ZodType };
+  const run = new Function("serve", "z", "installAiUsageTracking", "fetchWithAiUsage", `${compiled.outputText}\nreturn { requestSchema, nodeSchema, emailSchema, generatedAngleSchema };`);
+  return run(() => undefined, z, () => {}, (_p: unknown, input: RequestInfo | URL, init?: RequestInit) => fetch(input, init)) as { requestSchema: z.ZodType<Record<string, unknown>>; nodeSchema: z.ZodType; emailSchema: z.ZodType; generatedAngleSchema: z.ZodType };
 }
 import { z } from "zod";
 describe("Openflow typed input and generated output contracts", () => {
@@ -160,8 +161,9 @@ function loadBackendHandler(name: string, database: unknown, fetchMock: unknown)
   const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
   let handler: Handler | undefined;
   // installAiUsageTracking (custo por automação, OP1.4) vira função vazia: o harness tira os imports.
-  new Function("Deno", "createClient", "fetch", "z", "serve", "installAiUsageTracking", "fetchWithAiUsage", compiled.outputText)(
+  new Function("Deno", "createClient", "fetch", "z", "serve", "installAiUsageTracking", "fetchWithAiUsage", "buildUserData", "matchKeys", "PAID_STATUSES", "sendCapi", compiled.outputText)(
     { env: { get: () => "test" }, serve: (h: Handler) => { handler = h; } }, () => database, fetchMock, z, (h: Handler) => { handler = h; }, () => {}, (_projectId: string | null, input: RequestInfo | URL, init?: RequestInit) => (fetchMock as typeof fetch)(input, init),
+    buildUserData, matchKeys, PAID_STATUSES, sendCapi,
   );
   if (!handler) throw new Error("Handler not registered");
   return handler;
@@ -232,7 +234,7 @@ function loadContractPrefix(name: string, names: string) {
   const source = readFileSync(resolve(process.cwd(), `supabase/functions/${name}/index.ts`), "utf8").replace(/^import .*;\r?\n/gm, "");
   const prefix = source.slice(0, source.indexOf("Deno.serve"));
   const compiled = ts.transpileModule(prefix, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
-  return new Function("z", "Deno", `${prefix.includes("const corsHeaders") ? "" : "const corsHeaders = {};"}${compiled.outputText}; return { ${names} };`)(z, { env: { get: () => "test" } });
+  return new Function("z", "Deno", "installAiUsageTracking", "fetchWithAiUsage", `${prefix.includes("const corsHeaders") ? "" : "const corsHeaders = {};"}${compiled.outputText}; return { ${names} };`)(z, { env: { get: () => "test" } }, () => {}, (_p: unknown, input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
 }
 it("keeps Facebook numeric metrics and maps expired token errors", async () => {
   const contracts = loadContractPrefix("facebook-ads-sync", "graphResponseSchema, buildFacebookErrorResponse") as { graphResponseSchema: z.ZodType; buildFacebookErrorResponse: (v: unknown) => Response };
@@ -385,8 +387,8 @@ it("retains failed offline batches and unmatched sales for retry", async () => {
   const sales = Array.from({ length: 102 }, (_, i) => ({ id: `sale-${i}`, lead_id: i === 101 ? "unmatched" : "lead", data_venda: "2026-09-01", valor: 10 }));
   const synced = new Set<string>();
   const db = { from: (table: string) => {
-    const data = table === "imphq_projects" ? { id: "project", meta_offline_event_set_id: "events", fb_access_token: "mock" } : table === "imphq_leads" ? [{ id: "lead", email: "a@example.com" }] : sales.filter(sale => !synced.has(sale.id));
-    return { ...queryResult(data), update: () => ({ in: async (_column: string, ids: string[]) => { ids.forEach(id => synced.add(id)); return { error: null }; } }) };
+    const data = table === "imphq_projects" ? { id: "project", fb_pixel_id: "123", fb_access_token: "mock" } : table === "imphq_leads" ? [{ id: "lead", email: "a@example.com" }] : sales.filter(sale => !synced.has(sale.id));
+    return { ...queryResult(data), insert: async () => ({ error: null }), update: (body: Record<string, unknown>) => ({ in: async (_column: string, ids: string[]) => { if (body.meta_offline_synced_at) ids.forEach(id => synced.add(id)); return { error: null }; } }) };
   } };
   const fetchMock = vi.fn().mockResolvedValueOnce(new Response("{}", { status: 503 })).mockResolvedValueOnce(new Response("{}"));
   const handler = loadBackendHandler("meta-offline-upload", db, fetchMock);

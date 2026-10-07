@@ -11,7 +11,7 @@ function touch(v: unknown): Record<string, unknown> {
 }
 function metadata(v: unknown): Record<string, unknown> {
   const source = record(v); const out: Record<string, unknown> = {};
-  for (const k of ["offer_id", "player_id", "link_id", "tracker_version", "validation", "qa_source", "page_type", "destination_host", "pitch_evidence", "position_seconds", "duration_seconds", "pitch_configured", "retention_configured", "player_api"]) {
+  for (const k of ["offer_id", "player_id", "link_id", "tracker_version", "validation", "qa_source", "page_type", "destination_host", "pitch_evidence", "position_seconds", "duration_seconds", "pitch_configured", "retention_configured", "player_api", "fbp", "fbc", "meta_event"]) {
     if (typeof source[k] === "string") out[k] = text(source[k]);
     else if (typeof source[k] === "boolean" || typeof source[k] === "number") out[k] = source[k];
   }
@@ -27,7 +27,7 @@ export function normalizeFunnelEvent(input: unknown, receivedAt = new Date()): R
   const step = raw && STEPS.has(raw) ? raw : normalized ? ALIASES[normalized] : null;
   const project = text(b.project_id || b.project, 100);
   if (!project || !step) throw new Error("invalid_payload");
-  const m = metadata(b.meta); const v2 = m.tracker_version === "TRK1.1";
+  const m = metadata(b.meta); const v2 = typeof m.tracker_version === "string" && /^TRK1\.[1-9]/.test(m.tracker_version);
   const session = text(b.session_id, 200); const eventId = text(b.event_id, 200);
   if (v2 && (!session || !eventId)) throw new Error("missing_identity");
   const occurred = text(b.event_at, 40); const timestamp = occurred ? Date.parse(occurred) : NaN;

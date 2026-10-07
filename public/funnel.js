@@ -1,4 +1,4 @@
-/* Império tracker TRK1.1. One instance per project; no new Pixel installation. */
+/* Império tracker TRK1.2. One instance per project. Pixel + Conversions API with shared event_id (dedup). */
 (function () {
   'use strict';
   var script = document.currentScript;
@@ -39,6 +39,19 @@
     try { var ft = JSON.parse(qs.get('imp_ft')); var fp = {}; keys.forEach(function (k) { if (typeof (ft.params || {})[k] === 'string') fp[k] = ft.params[k].slice(0,500); }); if (Number.isFinite(Date.parse(ft.at))) state.first_touch = { params: fp, at: ft.at, landing: cleanUrl(ft.landing) }; } catch (_) {}
   }
   state.active_at = now; state.updated_at = now; save('state', state);
+  // Meta identity: _fbp/_fbc cookies (created here when the Pixel has not yet, same format the Pixel uses).
+  function cookie(name) { var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; }
+  function setCookie(name, value) { if (config.trackingConsent === false) return; try { document.cookie = name + '=' + encodeURIComponent(value) + ';max-age=7776000;path=/;SameSite=Lax'; } catch (_) {} }
+  if (config.trackingConsent !== false) {
+    if (incoming.fbclid && (!cookie('_fbc') || cookie('_fbc').split('.').slice(3).join('.') !== incoming.fbclid)) setCookie('_fbc', 'fb.1.' + now + '.' + incoming.fbclid);
+    if (transfer && /^fb\.\d\.\d+\.\d+$/.test(qs.get('imp_fbp') || '') && !cookie('_fbp')) setCookie('_fbp', qs.get('imp_fbp'));
+    if (transfer && /^fb\.\d\.\d+\..+$/.test(qs.get('imp_fbc') || '') && !cookie('_fbc')) setCookie('_fbc', qs.get('imp_fbc'));
+    if (!cookie('_fbp')) setCookie('_fbp', 'fb.1.' + now + '.' + Math.floor(Math.random() * 9e9 + 1e9));
+  }
+  function metaIds() { return { fbp: cookie('_fbp') || null, fbc: cookie('_fbc') || null }; }
+  // Funnel step -> Meta event (mirrors STEP_TO_META in _shared/meta-capi.ts).
+  var META_EVENTS = { vsl_view:'PageView', advertorial_view:'PageView', pdp_view:'ViewContent', vsl_play:'ViewContent', vsl_pitch:'PitchReached', vsl_cta_visible:'PitchReached', vsl_complete:'VideoComplete', vsl_cta_click:'AddToCart', pdp_cta_click:'AddToCart', advertorial_cta_click:'AddToCart', add_to_cart:'AddToCart', checkout:'InitiateCheckout', quiz:'Lead' };
+  var STANDARD = { PageView:1, ViewContent:1, AddToCart:1, InitiateCheckout:1, Lead:1, Purchase:1 };
   var pageType = config.pageType || 'vsl';
   var pitchAt = Number(config.pitchSeconds || (script && script.getAttribute('data-pitch-at')) || 0);
   var ctaSelector = config.ctaSelector || (script && script.getAttribute('data-cta')) || 'a.buylink';
@@ -53,6 +66,10 @@
     u.searchParams.set('imp_project', project); u.searchParams.set('imp_vid', state.visitor_id);
     u.searchParams.set('imp_sid', state.session_id); u.searchParams.set('imp_click_id', state.click_id);
     if (!u.searchParams.has('click_id')) u.searchParams.set('click_id',state.click_id);
+    var ids = metaIds();
+    if (ids.fbp) u.searchParams.set('imp_fbp', ids.fbp); if (ids.fbc) u.searchParams.set('imp_fbc', ids.fbc);
+    // Affiliate sub-IDs come back in the sale postback: sub1=fbp, sub2=fbc, sub3=visitor. Existing values are never overwritten.
+    if (config.passMetaIds !== false) { if (ids.fbp && !u.searchParams.has('sub1')) u.searchParams.set('sub1', ids.fbp); if (ids.fbc && !u.searchParams.has('sub2')) u.searchParams.set('sub2', ids.fbc); if (!u.searchParams.has('sub3')) u.searchParams.set('sub3', state.visitor_id); }
     if (state.link_id) u.searchParams.set('imp_link_id',state.link_id);
     u.searchParams.set('imp_t', String(Date.now())); u.searchParams.set('imp_ft', JSON.stringify(state.first_touch));
     return u.href;
@@ -85,10 +102,15 @@
     var eid = id();
     var attrs = state.last_touch.params || {};
     var payload = Object.assign({}, attrs, { project_id:project, session_id:state.session_id, visitor_id:state.visitor_id, click_id:state.click_id, event_id:eid, event_at:new Date().toISOString(), step:step, page_url:cleanUrl(location.href), referrer:cleanUrl(document.referrer), first_touch:state.first_touch, last_touch:state.last_touch,
-      meta:Object.assign({offer_id:config.offerId || null,player_id:config.playerId || null,link_id:state.link_id || null,page_type:pageType,tracker_version:'TRK1.1',validation:attrs.utm_source === 'codex-validation'},extra || {}) });
+      meta:Object.assign({offer_id:config.offerId || null,player_id:config.playerId || null,link_id:state.link_id || null,page_type:pageType,tracker_version:'TRK1.2',validation:attrs.utm_source === 'codex-validation',meta_event:META_EVENTS[step] || null},metaIds(),extra || {}) });
     var queue = read('queue', []);
     if (queue.length >= 100) { var h = queue.findIndex(function (e) { return e.payload.step === 'heartbeat'; }); if (h >= 0) queue.splice(h,1); else { console.warn('Imperio tracker: queue full'); return null; } }
     queue.push({payload:payload,time:Date.now(),attempts:0,next:0}); save('queue', queue); drain();
+    var metaEvent = META_EVENTS[step];
+    if (metaEvent && config.pixelId && typeof window.fbq === 'function' && !(metaEvent === 'PageView' && config.pixelPageView === false)) {
+      var params = { funnel_step: step }; if (config.offerId) params.content_ids = [config.offerId];
+      window.fbq(STANDARD[metaEvent] ? 'track' : 'trackCustom', metaEvent, params, { eventID: eid });
+    }
     if (typeof window.gtag === 'function') window.gtag('event', step, {project_id:project,player_id:config.playerId,event_id:eid,debug_mode:attrs.utm_source === 'codex-validation'});
     return eid;
   }
@@ -145,8 +167,9 @@
   document.addEventListener('iframe:connected',function (ev) { if (ev.detail) bindPlayer(ev.detail.player,true); });
   if (cta) new MutationObserver(function () { if (getComputedStyle(cta).display !== 'none' && cta.getBoundingClientRect().height > 0) reach('vsl_cta_visible',config.playerId || 'html-video',{pitch_evidence:'cta_visible'}); }).observe(cta,{attributes:true,attributeFilter:['style','class']});
   var viewId = track(pageType === 'advertorial' ? 'advertorial_view' : pageType === 'pdp' ? 'pdp_view' : (script && script.getAttribute('data-step')) || 'vsl_view');
-  if (config.pixelId && window.fbq && viewId) window.fbq('track','PageView',{}, {eventID:viewId});
+  // PDP fires ViewContent as its view step; keep a Pixel PageView for page audiences.
+  if (pageType === 'pdp' && viewId && config.pixelId && typeof window.fbq === 'function' && config.pixelPageView !== false) window.fbq('track', 'PageView', {}, { eventID: 'pv_' + viewId });
   window.addEventListener('online', drain);
   setInterval(function () { if (document.visibilityState === 'visible' && Date.now() - state.active_at < 1800000) track('heartbeat'); },30000);
-  window.imperioTracker = {track:track,decorate:decorate,getIdentity:function () { return {visitor_id:state.visitor_id,session_id:state.session_id,click_id:state.click_id}; },getTouches:function () { return {first:state.first_touch,last:state.last_touch}; },getDiagnostics:function () { var q=read('queue',[]); return {version:'TRK1.1',pending:q.length,failed:q.filter(function (e) {return e.attempts >= 3;}).length}; }};
+  window.imperioTracker = {track:track,decorate:decorate,getIdentity:function () { return {visitor_id:state.visitor_id,session_id:state.session_id,click_id:state.click_id}; },getTouches:function () { return {first:state.first_touch,last:state.last_touch}; },getDiagnostics:function () { var q=read('queue',[]); return {version:'TRK1.2',fbp:metaIds().fbp,fbc:metaIds().fbc,pending:q.length,failed:q.filter(function (e) {return e.attempts >= 3;}).length}; }};
 })();
