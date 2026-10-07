@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { SOURCE_LABEL, type LiveNumber, type LiveSource } from "@shared/live-panel";
 import { useLivePanel } from "@/hooks/useLivePanel";
+import { LiveDayChart } from "@/components/projeto/LiveDayChart";
 
 interface LivePanelProps {
   projectId: string;
@@ -41,7 +42,7 @@ function Delta({ value, format, invert = false }: { value: number | null | undef
 
 /** Painel ao vivo do dia (LIVE1.1): funil, parcial com fonte de cada número, ritmo e alertas de rastreio. */
 export function LivePanel({ projectId }: LivePanelProps) {
-  const { data, isLoading, error, dataUpdatedAt, comparison } = useLivePanel(projectId);
+  const { data, isLoading, error, dataUpdatedAt, comparison, daySeries } = useLivePanel(projectId);
 
   if (isLoading) return <Skeleton className="h-48 w-full rounded-lg" />;
   if (error || !data) return <p className="rounded-lg border border-border p-3 text-xs text-destructive">Painel ao vivo indisponível: {error instanceof Error ? error.message : "erro"}</p>;
@@ -99,6 +100,8 @@ export function LivePanel({ projectId }: LivePanelProps) {
           </div>
         ))}
       </div>
+
+      <LiveDayChart points={daySeries} currency={moeda} />
 
       <p className="text-[11px] text-muted-foreground">
         Ritmo: ~{data.ritmo.vendas_por_hora} vendas/h · dia ≈ {data.ritmo.projecao_vendas} vendas e {m(data.ritmo.projecao_faturamento)}

@@ -68,10 +68,11 @@ export function useLivePanel(projectId: string | null) {
     enabled: !!projectId,
     refetchInterval: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from("imphq_live_snapshots").select("taken_at, painel")
-        .eq("project_id", projectId as string).eq("dia", brtToday().day).order("taken_at", { ascending: false }).limit(8);
+      // Todas as leituras de hoje (no máximo 96 a cada 15 min): base do "vs" e do gráfico do dia.
+      const { data, error } = await supabase.from("imphq_live_snapshots").select("taken_at, gasto, faturamento, painel")
+        .eq("project_id", projectId as string).eq("dia", brtToday().day).order("taken_at", { ascending: false }).limit(120);
       if (error) throw error;
-      return (data ?? []) as Array<{ taken_at: string; painel: unknown }>;
+      return (data ?? []) as Array<{ taken_at: string; gasto: number | null; faturamento: number | null; painel: unknown }>;
     },
   });
   const stored = (() => {
@@ -81,5 +82,12 @@ export function useLivePanel(projectId: string | null) {
     return base ? { delta: liveDelta(query.data, base.painel as LivePanel), at: Date.parse(base.taken_at) } : null;
   })();
 
-  return { ...query, comparison: stored ?? comparison };
+  /** Série do dia em ordem de horário (gasto e faturamento acumulados a cada leitura). */
+  const daySeries = (snapshots.data ?? []).slice().reverse().map((s) => ({
+    at: Date.parse(s.taken_at),
+    gasto: s.gasto === null ? null : Number(s.gasto),
+    faturamento: s.faturamento === null ? null : Number(s.faturamento),
+  }));
+
+  return { ...query, comparison: stored ?? comparison, daySeries };
 }

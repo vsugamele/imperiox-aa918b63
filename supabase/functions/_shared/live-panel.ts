@@ -241,3 +241,31 @@ export function liveAlerts(input: {
     return !last || now - Date.parse(last) >= ALERT_GAP_MS[a.tipo];
   });
 }
+
+// ── Linha do resumo diário (LIVE1.4) ─────────────────────────────────────────
+
+/** Leitura gravada no mínimo para o resumo diário do WhatsApp. */
+export interface LiveBriefingSnapshot { moeda: string | null; gasto: number | string | null; faturamento: number | string | null; vendas: number | null; cpa: number | string | null; zona: string | null; roas: number | string | null; taken_at: string }
+
+const ZONE_SHORT: Record<string, string> = { escala: "ESCALA", lucrativa: "LUCRATIVA", magra: "MAGRA", prejuizo: "PREJUÍZO", sem_venda: "sem venda" };
+
+/** "• Painel (hoje até 20:45): gasto R$ 80,32 · faturamento R$ 47,00 · 1 venda · CPA R$ 80,32 · ROAS 0,59" */
+export function liveBriefingLine(snap: LiveBriefingSnapshot, label: string): string {
+  const cur = snap.moeda || "BRL";
+  const num = (v: number | string | null) => (v === null || v === undefined || v === "" ? null : Number(v));
+  const money = (v: number | null) => {
+    if (v === null) return "—";
+    try { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur }).format(v); } catch { return `${cur} ${v.toFixed(2)}`; }
+  };
+  const gasto = num(snap.gasto), fat = num(snap.faturamento), cpa = num(snap.cpa), roas = num(snap.roas);
+  const vendas = snap.vendas ?? 0;
+  const hora = new Date(snap.taken_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  const parts = [
+    gasto !== null ? `gasto ${money(gasto)}` : "sem gasto sincronizado",
+    `faturamento ${money(fat)}`,
+    `${vendas} ${vendas === 1 ? "venda" : "vendas"}`,
+  ];
+  if (cpa !== null) parts.push(`CPA ${money(cpa)}${snap.zona ? ` (${ZONE_SHORT[snap.zona] ?? snap.zona})` : ""}`);
+  if (roas !== null) parts.push(`ROAS ${roas.toFixed(2).replace(".", ",")}`);
+  return `• Painel (${label} até ${hora}): ${parts.join(" · ")}`;
+}

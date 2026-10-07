@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { adsSyncHealth, buildLivePanel, dayFraction, liveAlerts, liveDelta, type LiveInput } from "@shared/live-panel";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { adsSyncHealth, buildLivePanel, dayFraction, liveAlerts, liveBriefingLine, liveDelta, type LiveInput } from "@shared/live-panel";
 import { LivePanel } from "@/components/projeto/LivePanel";
+import { LiveDayChart } from "@/components/projeto/LiveDayChart";
 
 const params = { payout: 70, cpaAlvo: 45 };
 const full: LiveInput = {
@@ -132,7 +133,7 @@ describe("alertas no grupo", () => {
 
 const panel = buildLivePanel(full);
 vi.mock("@/hooks/useLivePanel", () => ({
-  useLivePanel: () => ({ data: panel, isLoading: false, error: null, dataUpdatedAt: Date.parse("2026-10-03T15:00:00Z"), comparison: { delta: { vendas: 2, gasto: 50, faturamento: 238, cpa: -1, roas: 0.1, lucro: 188 }, at: Date.parse("2026-10-03T14:45:00Z") } }),
+  useLivePanel: () => ({ data: panel, isLoading: false, error: null, dataUpdatedAt: Date.parse("2026-10-03T15:00:00Z"), comparison: { delta: { vendas: 2, gasto: 50, faturamento: 238, cpa: -1, roas: 0.1, lucro: 188 }, at: Date.parse("2026-10-03T14:45:00Z") }, daySeries: [] }),
 }));
 
 describe("painel ao vivo: tela", () => {
@@ -145,5 +146,49 @@ describe("painel ao vivo: tela", () => {
     expect(screen.getByText(/variação vs/)).toBeInTheDocument();
     expect(screen.getByText(/dia ≈ 20 vendas/)).toBeInTheDocument();
     expect(screen.getAllByText("checkout").length).toBeGreaterThan(0);
+  });
+});
+
+describe("gráfico do dia", () => {
+  // jsdom não tem ResizeObserver (o ResponsiveContainer do recharts usa para medir).
+  beforeAll(() => {
+    globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+  });
+
+  it("mostra legenda com o valor atual de cada série e a tabela de leituras", () => {
+    const points = [
+      { at: Date.parse("2026-10-07T12:00:00Z"), gasto: 20, faturamento: 0 },
+      { at: Date.parse("2026-10-07T12:15:00Z"), gasto: 35.5, faturamento: 47 },
+    ];
+    render(<LiveDayChart points={points} currency="BRL" />);
+    expect(screen.getByText("Dia até agora")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Gasto e faturamento acumulados hoje, 2 leituras/)).toBeInTheDocument();
+    expect(screen.getAllByText(/R\$\s?47,00/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Ver leituras")).toBeInTheDocument();
+  });
+
+  it("com menos de 2 leituras, avisa em vez de desenhar", () => {
+    render(<LiveDayChart points={[{ at: 1, gasto: null, faturamento: 10 }]} currency="BRL" />);
+    expect(screen.getByText(/a partir de 2 leituras/)).toBeInTheDocument();
+  });
+
+  it("série sem dado nenhum sai da legenda", () => {
+    render(<LiveDayChart points={[{ at: 1, gasto: null, faturamento: 10 }, { at: 2, gasto: null, faturamento: 20 }]} currency="BRL" />);
+    expect(screen.queryByText("Gasto")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Faturamento").length).toBeGreaterThan(0);
+  });
+});
+
+describe("linha do resumo diário", () => {
+  it("resume a leitura com gasto, faturamento, vendas, CPA com zona e ROAS", () => {
+    const line = liveBriefingLine({ moeda: "BRL", gasto: "80.32", faturamento: "47", vendas: 1, cpa: "80.32", zona: "prejuizo", roas: "0.59", taken_at: "2026-10-07T23:45:00Z" }, "hoje");
+    expect(line).toMatch(/^• Painel \(hoje até 20:45\): gasto R\$\s?80,32 · faturamento R\$\s?47,00 · 1 venda · CPA R\$\s?80,32 \(PREJUÍZO\) · ROAS 0,59$/);
+  });
+
+  it("sem gasto e sem CPA não inventa número", () => {
+    const line = liveBriefingLine({ moeda: "USD", gasto: null, faturamento: 0, vendas: 0, cpa: null, zona: null, roas: null, taken_at: "2026-10-07T23:45:00Z" }, "ontem");
+    expect(line).toContain("sem gasto sincronizado");
+    expect(line).toContain("0 vendas");
+    expect(line).not.toContain("CPA");
   });
 });

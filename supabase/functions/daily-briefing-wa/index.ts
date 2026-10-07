@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { buildTodayBoard, type BoardNode } from "../_shared/today-board.ts";
 import { buildTeamDaySection } from "../_shared/team-day.ts";
 import { localDate, type TeamMember } from "../_shared/map-steps.ts";
+import { liveBriefingLine, type LiveBriefingSnapshot } from "../_shared/live-panel.ts";
 
 interface RecoveryData {
   phone?: string | null;
@@ -247,6 +248,20 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
     return (a.name || "").localeCompare(b.name || "");
   });
 
+  // Painel ao vivo (LIVE1.4): última leitura do dia por projeto. Antes do meio-dia mostra o fechamento de ontem;
+  // depois, o parcial de hoje. Falha aqui não derruba o briefing: a linha só fica de fora.
+  const brtNow = new Date(now.getTime() - 3 * 3600000);
+  const liveLabel = brtNow.getUTCHours() < 12 ? "ontem" : "hoje";
+  const liveDay = new Date(brtNow.getTime() - (liveLabel === "ontem" ? 86400000 : 0)).toISOString().slice(0, 10);
+  const liveByProject = new Map<string, LiveBriefingSnapshot>();
+  try {
+    const { data: snaps } = await supabase.from("imphq_live_snapshots")
+      .select("project_id, moeda, gasto, faturamento, vendas, cpa, zona, roas, taken_at").eq("dia", liveDay).order("taken_at", { ascending: false }).limit(2000);
+    for (const sn of (snaps || []) as Array<LiveBriefingSnapshot & { project_id: string }>) if (!liveByProject.has(sn.project_id)) liveByProject.set(sn.project_id, sn);
+  } catch (e) {
+    console.error("[daily-briefing-wa] live snapshots:", e instanceof Error ? e.message : String(e));
+  }
+
   const lines: string[] = [];
   lines.push(isOnDemand ? "⚡ *Imperius — Raio-X por Projeto*" : "🏛️ *Imperius — Briefing por Projeto*");
   lines.push(`📅 ${brtNowStr()}`);
@@ -297,6 +312,8 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
 
     lines.push(`${emoji} *${proj.name}* (${proj.category || "Operação"})`);
     lines.push(`• Vendas 24h: R$ ${recAprovada.toFixed(2)} (${aprovadas.length} aprovadas)`);
+    const live = liveByProject.get(String(pId));
+    if (live) lines.push(liveBriefingLine(live, liveLabel));
     
     if (abandonos.length > 0) {
       lines.push(`• Recuperação: ⚠️ ${abandonos.length} abandonos/pix pendentes`);
@@ -328,7 +345,8 @@ async function buildOperationalBriefing(supabase: ReturnType<typeof createClient
       lines.push(`• Fila de Atendimento: 🟢 Fila zerada`);
     }
 
-    if (creatives.length > 0) {
+    // Com leitura do painel, o gasto real substitui a lista de criativos (gravada pelo sync da Meta, parado desde 26/06).
+    if (creatives.length > 0 && !live) {
       lines.push(`• Meta Ads: ${hasActiveAds ? "🟢 Anúncios rodando" : "🟡 Campanhas pausadas"}`);
       if (!hasActiveAds) actions.push(`[${proj.name}] Reativar tráfego pausado no Meta Ads.`);
     }

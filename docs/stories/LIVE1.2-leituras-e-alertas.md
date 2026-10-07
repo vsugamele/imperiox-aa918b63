@@ -16,13 +16,16 @@
 ## Validação real (07/10, dry_run)
 5 projetos ativos (JP, HorseJello, Vigor Boost, SlimSoda, MemoFlow). JP: gasto R$ 80,32 (Zernio), 1 venda, alerta de rastreio (pixel 4 × checkout 1).
 
-## Próximo
-- Gráfico do dia com as leituras (gasto × faturamento) na tela.
-- Leitura também no resumo diário (`daily-briefing-wa`) e no `get_briefing`.
+## Complemento (07/10)
+- [x] Gráfico do dia na tela (`LiveDayChart`): gasto × faturamento acumulados pelas leituras, um eixo só (mesma moeda), linhas de 2px, legenda com o valor atual de cada série, dica ao passar o mouse, tabela "Ver leituras"; cores validadas com o validador de paleta no fundo escuro do card (todas as checagens passam, CVD ΔE 26,8)
+- [x] Resumo diário (`daily-briefing-wa`): linha "Painel" por projeto com a última leitura (antes do meio-dia, fechamento de ontem; depois, parcial de hoje); com leitura, ela substitui a linha "Meta Ads", que lia criativos gravados pelo sync da Meta (parado desde 26/06) e podia dizer "campanhas pausadas" com anúncio rodando. Publicado (versão no ar = HEAD antes); prévia `dry_run` conferida com dados reais
+- [ ] Conferência visual logado do gráfico
+- [ ] Leitura no `get_briefing` do MCP
 
 ## File List
 - `supabase/migrations/20261007_imphq_live_snapshots.sql`, `20261007_imphq_live_snapshot_cron.sql`, `20261007_imphq_zernio_ads_source.sql` (novos)
 - `supabase/functions/_shared/live-panel.ts`, `supabase/functions/_shared/live-panel-load.ts` (novo)
 - `supabase/functions/live-snapshot/index.ts` (novo), `supabase/functions/project-mcp/index.ts`
-- `src/hooks/useLivePanel.ts`, `src/integrations/supabase/types.ts`
+- `src/hooks/useLivePanel.ts`, `src/integrations/supabase/types.ts`, `src/components/projeto/LiveDayChart.tsx` (novo), `src/components/projeto/LivePanel.tsx`
+- `supabase/functions/daily-briefing-wa/index.ts`
 - `src/test/live-panel.test.tsx`, `src/test/mcp-approvals-briefing.test.ts`, `src/test/map-agent-status-mcp.test.ts`
