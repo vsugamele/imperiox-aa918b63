@@ -15,7 +15,7 @@
 - [x] `whatsapp-api` (webhook): mensagem de grupo grava `participant`, `participant_alt` e `push_name` em `metadata`; comando do Imperio X vai para `operator-decide` sem esperar. Versão no ar = HEAD antes de publicar; deno check sem erro antes/depois; publicado e conferido (sobe e responde 200)
 - [x] Function `operator-decide` publicada
 - [x] Teste de recepção: mensagem do Vinicius no Imperio X chegou ao banco (07/10 16:58 BRT). Antes, nenhuma mensagem do grupo estava gravada porque ninguém além do bot escrevia lá.
-- [ ] Cadastrar `whatsapp_ids` do Vinicius e do Bruno (a partir de uma mensagem nova no grupo, que agora grava o participante)
+- [x] `whatsapp_ids` cadastrados com os números informados pelo Vinicius (07/10), com e sem o 9 depois do DDD. Se o grupo mandar o remetente como `@lid`, o primeiro "ok" responde "não reconheci (…xxxx)" sem executar nada e o id entra no cadastro.
 - [ ] Teste real: rodada → "ok N" → decisão no diário e resposta no grupo
 
 ## File List
