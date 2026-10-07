@@ -24,8 +24,9 @@
 ## Pendente (ação humana)
 - [ ] **Token da Meta**: gerar token de usuário do sistema (não expira) no Business Manager com `ads_read` e salvar nas integrações do JP (e "tatuagem", se ainda usar).
 - [ ] **Julho do JP**: em que checkout rodou a venda de julho e se a Ticto tinha o webhook do Império ativo; se der, exportar os pedidos para importar.
-- [ ] **Domínios sem dono**: `horse-jello.healiks.com`, `codigodacobertura.*`, `gelatina-core-magic.lovable.app`, prévias do Lovable com id — de que projeto são?
+- [x] **Domínios sem dono**: `horse-jello.healiks.com`, `codigodacobertura.*`, `gelatina-core-magic.lovable.app`, prévias do Lovable com id — de que projeto são?
   - 03/10: `horse-jello.healiks.com` → projeto novo **HorseJello** (decisão do Vinicius), com as 6 vendas H&W sem projeto e 169 eventos de 90 dias (migração `20261003_imphq_horsejello_project.sql`, com desfazer). Seguem sem dono: `codigodacobertura.*`, `gelatina-core-magic.lovable.app` e prévias do Lovable.
+  - 07/10 (Vinicius): `codigodacobertura.*` = outro expert de tatuagem com quem não trabalham mais → fica sem projeto, de propósito. `gelatina-core-magic.lovable.app` = projeto de gelatina do Bruno (repos `GELATINA-KOREANA`/`koreangelatinapp`), pausado → não criar agora; quando voltar, criar pelo lançador e cadastrar o domínio em `imphq_project_domains` (os eventos antigos entram pelo retroativo). Pendência encerrada.
   - Atenção: a H&W grafou um SKU como "HorseJelo" (um L); o webhook acha o projeto pelo nome do produto e esse item sozinho não casaria. Se a oferta seguir, vale passar `?project_id=horsejello` na URL do postback dessa oferta.
 
 ## File List
