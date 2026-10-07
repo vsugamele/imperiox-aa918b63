@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planOperatorRound, type OperatorLive, type OperatorProject } from "@shared/operator";
+import { parseOperatorCommand, planOperatorRound, resolveOperatorCommand, type OperatorLive, type OperatorProject } from "@shared/operator";
 
 // O formatador de moeda usa espaço inquebrável depois do "R$".
 const sp = (t: string) => t.replace(/\u00a0/g, " ");
@@ -78,5 +78,27 @@ describe("operador diário: rodada", () => {
     expect(planOperatorRound([jp], { ...opts, label: "19:30" }).assinatura).toBe(a);
     const menos = { ...jp, briefing: { ...jp.briefing!, etapas: { lista_atrasadas: [] } } };
     expect(planOperatorRound([menos], opts).assinatura).not.toBe(a);
+  });
+});
+
+describe("operador: respostas no grupo", () => {
+  it("entende ok/sim/não/pago com um ou vários números", () => {
+    expect(parseOperatorCommand("ok 1")).toEqual({ decisao: "approve", numeros: [1] });
+    expect(parseOperatorCommand("Sim 2")).toEqual({ decisao: "approve", numeros: [2] });
+    expect(parseOperatorCommand("ok 1, 3 e 5.")).toEqual({ decisao: "approve", numeros: [1, 3, 5] });
+    expect(parseOperatorCommand("não 2")).toEqual({ decisao: "reject", numeros: [2] });
+    expect(parseOperatorCommand("nao 2 2")).toEqual({ decisao: "reject", numeros: [2] });
+    expect(parseOperatorCommand("pago 4")).toEqual({ decisao: "mark_paid", numeros: [4] });
+  });
+
+  it("ignora conversa normal do grupo", () => {
+    for (const t of ["ok", "ok pessoal", "vamos ver o 2 amanhã", "1", "", null, "ok 1 e o resto depois"]) expect(parseOperatorCommand(t)).toBeNull();
+  });
+
+  it("liga os números à última rodada e aponta os que não existem", () => {
+    const r = planOperatorRound([jp], opts);
+    const res = resolveOperatorCommand({ decisao: "approve", numeros: [2, 9] }, r.itens);
+    expect(res.decisoes).toEqual([{ n: 2, key: "duvida_bot:d1", texto: "Dúvidas do bot: Qual o prazo de acesso? — espera 5 h", decisao: "approve" }]);
+    expect(res.desconhecidos).toEqual([9]);
   });
 });

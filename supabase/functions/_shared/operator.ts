@@ -135,3 +135,37 @@ export function planOperatorRound(projects: ReadonlyArray<OperatorProject>, opts
   ].filter((l): l is string => l !== null).join("\n").replace(/\n{3,}/g, "\n\n");
   return { itens, texto, assinatura, feitos_pela_ia: feitosTotal };
 }
+
+// ── Respostas no grupo (OPR1.2) ──────────────────────────────────────────────
+
+export type OperatorDecision = "approve" | "reject" | "mark_paid";
+export interface OperatorCommand { decisao: OperatorDecision; numeros: number[] }
+
+const VERBS: Array<[RegExp, OperatorDecision]> = [
+  [/^(ok|sim|aprova(r|do)?|pode)$/, "approve"],
+  [/^(n[aã]o|nao|recusa(r)?|reprova(r)?|descarta(r)?)$/, "reject"],
+  [/^pago$/, "mark_paid"],
+];
+
+/**
+ * Lê uma mensagem do grupo como comando do operador: "ok 1", "ok 1 3", "sim 2", "não 2", "pago 4", "ok 1, 3 e 5".
+ * Só a mensagem inteira no formato verbo + números vale; qualquer outra conversa do grupo devolve null.
+ */
+export function parseOperatorCommand(text: string | null | undefined): OperatorCommand | null {
+  const t = (text ?? "").trim().toLowerCase().replace(/[.!]+$/, "");
+  const m = /^([a-zà-ú]+)\s+([\d\s,e]+)$/.exec(t);
+  if (!m) return null;
+  const verb = VERBS.find(([re]) => re.test(m[1]));
+  if (!verb) return null;
+  const numeros = [...new Set((m[2].match(/\d+/g) ?? []).map(Number).filter((n) => n > 0 && n < 100))];
+  return numeros.length ? { decisao: verb[1], numeros } : null;
+}
+
+/** Itens numerados da última rodada que o comando aponta; número sem item volta em `desconhecidos`. */
+export function resolveOperatorCommand(cmd: OperatorCommand, itens: ReadonlyArray<OperatorItem>) {
+  const alvo = cmd.numeros.map((n) => ({ n, item: itens.find((i) => i.n === n && i.key) ?? null }));
+  return {
+    decisoes: alvo.filter((a) => a.item).map((a) => ({ n: a.n, key: a.item!.key as string, texto: a.item!.texto, decisao: cmd.decisao })),
+    desconhecidos: alvo.filter((a) => !a.item).map((a) => a.n),
+  };
+}
