@@ -17,7 +17,7 @@
 - [x] Versão no ar conferida igual ao HEAD antes de publicar; publicada com a fila vazia (nenhuma mensagem disparada na publicação).
 - [x] Busca nas outras functions por leitura de `imphq_wa_messages` pedindo `message_id`: nenhuma outra.
 - [ ] Conferir na primeira manhã (08:00 BRT) que conversas enfileiradas à noite foram respondidas (`action: invoked` no log do flush e mensagem `ai` na conversa).
-- [ ] Decisão do Vinicius: responder agora as 4 conversas que ficaram sem resposta?
+- [x] Vinicius autorizou (07/10): as 4 voltaram para a fila às 16:08 BRT. O flush entregou e o bot respondeu 3 (16:10, 16:11, 16:12) — prova real da correção. A 4ª (a890adad, 04/10) não é falha: o número está na lista de ignorados (`ignored_phones`) da config do número do JP.
 
 ## File List
 - `supabase/functions/wa-ai-pending-flush/index.ts`
