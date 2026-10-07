@@ -7,11 +7,48 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { marketSummary } from "@shared/method-scoreboard";
-import { useReferenceAngles, useReviewReferenceAngle, type CopyLibraryItem, type ReferenceAngle } from "@/hooks/useCopyLibrary";
+import { useLibraryHealth, useReferenceAngles, useReviewReferenceAngle, type CopyLibraryItem, type ReferenceAngle } from "@/hooks/useCopyLibrary";
 
 interface Alt { id: string; p: number }
 
 const altList = (r: ReferenceAngle): Alt[] => (Array.isArray(r.copy_lib_alt) ? (r.copy_lib_alt as unknown as Alt[]) : []).filter((a) => a && typeof a.id === "string");
+
+const FORMATO_LABEL: Record<string, string> = {
+  estatico: "Estático", carrossel: "Carrossel", print_conversa: "Print de conversa", antes_depois: "Antes e depois", depoimento: "Depoimento",
+  ugc_fala: "UGC falando", demonstracao: "Demonstração", narrativa_broll: "Narração com b-roll", entrevista_podcast: "Entrevista/podcast",
+  produto: "Produto", infografico: "Infográfico", meme: "Meme", outro: "Outro",
+};
+
+/** Quanto da biblioteca já passou pelo pipeline (REF2.1): texto, projeto, ângulo e formatos. */
+function LibraryHealthCard() {
+  const { data } = useLibraryHealth();
+  if (!data) return null;
+  const bar = (label: string, n: number, total: number) => (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs"><span className="text-foreground">{label}</span><span className="font-mono text-muted-foreground">{n}/{total}</span></div>
+      <div className="h-1.5 overflow-hidden rounded bg-muted"><motion.div className="h-full rounded bg-primary" initial={{ width: 0 }} animate={{ width: `${total ? (n / total) * 100 : 0}%` }} /></div>
+    </div>
+  );
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-card p-4" aria-label="Saúde da biblioteca">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-foreground">Saúde da biblioteca</h3>
+        <span className="text-[11px] text-muted-foreground">O pipeline processa sozinho a cada 10 minutos: guarda a mídia, transcreve, lê a imagem, etiqueta projeto e ângulo.</span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {bar("Vídeos transcritos", data.videos_com_texto, data.videos)}
+        {bar("Imagens lidas", data.imagens_lidas, data.imagens)}
+        {bar("Com projeto", data.com_projeto, data.total)}
+        {bar("Com ângulo", data.com_angulo, data.total)}
+      </div>
+      {data.formatos.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" aria-label="Formatos">
+          {data.formatos.map((f) => <span key={f.formato} className="rounded-md border border-border px-2 py-0.5 text-[11px] text-foreground">{FORMATO_LABEL[f.formato] ?? f.formato} <span className="font-mono text-muted-foreground">{f.n}</span></span>)}
+        </div>
+      )}
+    </section>
+  );
+}
 
 /** O que o mercado está rodando (referências classificadas pelo Jev) e a fila de dúvidas para alguém do time decidir. */
 export function MarketAngles({ library }: { library: CopyLibraryItem[] }) {
@@ -32,12 +69,13 @@ export function MarketAngles({ library }: { library: CopyLibraryItem[] }) {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  if (isLoading) return <PageSkeleton variant="list" label="Carregando o mercado" />;
+  if (isLoading) return <><LibraryHealthCard /><PageSkeleton variant="list" label="Carregando o mercado" /></>;
   if (error) return <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {errorMessage(error)}</div>;
-  if (!refs.length) return <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma referência classificada ainda. O Jev roda a cada 6 horas nas referências com transcrição.</p>;
+  if (!refs.length) return <><LibraryHealthCard /><p className="py-6 text-center text-sm text-muted-foreground">Nenhuma referência classificada ainda. O Jev roda a cada 6 horas nas referências com transcrição.</p></>;
 
   return (
     <div className="space-y-5">
+      <LibraryHealthCard />
       <p className="text-sm text-muted-foreground">
         {resumo.classificadas} referências com ângulo decidido (o Jev com confiança alta, ou alguém do time). {resumo.duvidas} esperando revisão.
       </p>

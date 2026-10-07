@@ -46,3 +46,41 @@ export function useReviewReferenceAngle() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reference-angles"] }),
   });
 }
+
+export interface LibraryHealthData {
+  total: number; videos: number; videos_com_texto: number; imagens: number; imagens_lidas: number; com_projeto: number; com_angulo: number;
+  formatos: Array<{ formato: string; n: number }>;
+}
+
+/** Saúde da biblioteca de referências (REF2.1): quanto já foi processado pelo pipeline. Atualiza a cada 2 minutos. */
+export function useLibraryHealth() {
+  return useQuery({
+    queryKey: ["library-health"],
+    refetchInterval: 120_000,
+    queryFn: async (): Promise<LibraryHealthData> => {
+      const count = async (build: (q: ReturnType<typeof base>) => ReturnType<typeof base>) => {
+        const { count: n, error } = await build(base());
+        if (error) throw error;
+        return n ?? 0;
+      };
+      const base = () => supabase.from("imphq_referencias").select("id", { count: "exact", head: true });
+      const [total, videos, videosTexto, imagens, imagensLidas, comProjeto, comAngulo, fmt] = await Promise.all([
+        count((q) => q),
+        count((q) => q.eq("tipo", "video")),
+        count((q) => q.eq("tipo", "video").not("transcricao", "is", null).neq("transcricao", "")),
+        count((q) => q.neq("tipo", "video")),
+        count((q) => q.neq("tipo", "video").not("transcricao", "is", null).neq("transcricao", "")),
+        count((q) => q.not("project_id", "is", null)),
+        count((q) => q.in("copy_lib_status", ["firme", "revisado"])),
+        supabase.from("imphq_referencias").select("formato").not("formato", "is", null).limit(2000),
+      ]);
+      if (fmt.error) throw fmt.error;
+      const by = new Map<string, number>();
+      for (const r of fmt.data ?? []) by.set(String(r.formato), (by.get(String(r.formato)) ?? 0) + 1);
+      return {
+        total, videos, videos_com_texto: videosTexto, imagens, imagens_lidas: imagensLidas, com_projeto: comProjeto, com_angulo: comAngulo,
+        formatos: [...by.entries()].map(([formato, n]) => ({ formato, n })).sort((a, b) => b.n - a.n),
+      };
+    },
+  });
+}

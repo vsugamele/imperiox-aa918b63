@@ -28277,6 +28277,10 @@ export type Database = {
       }
       imphq_referencias: {
         Row: {
+          formato: string | null
+          leitura: Json | null
+          pipeline: Json
+          pipeline_at: string | null
           copy_lib_alt: Json | null
           copy_lib_at: string | null
           copy_lib_camada: string | null
@@ -28311,6 +28315,10 @@ export type Database = {
           video_ref: Json | null
         }
         Insert: {
+          formato?: string | null
+          leitura?: Json | null
+          pipeline?: Json
+          pipeline_at?: string | null
           copy_lib_alt?: Json | null
           copy_lib_at?: string | null
           copy_lib_camada?: string | null
@@ -28345,6 +28353,10 @@ export type Database = {
           video_ref?: Json | null
         }
         Update: {
+          formato?: string | null
+          leitura?: Json | null
+          pipeline?: Json
+          pipeline_at?: string | null
           copy_lib_alt?: Json | null
           copy_lib_at?: string | null
           copy_lib_camada?: string | null

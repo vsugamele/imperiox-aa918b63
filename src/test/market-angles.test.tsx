@@ -13,6 +13,7 @@ vi.mock("@/hooks/useCopyLibrary", () => ({
     ],
   }),
   useReviewReferenceAngle: () => ({ mutate, isPending: false }),
+  useLibraryHealth: () => ({ data: { total: 606, videos: 329, videos_com_texto: 107, imagens: 277, imagens_lidas: 12, com_projeto: 21, com_angulo: 56, formatos: [{ formato: "print_conversa", n: 3 }] } }),
 }));
 
 const library = [
@@ -24,6 +25,9 @@ describe("No mercado", () => {
   it("resume camadas e ângulos e decide uma dúvida", () => {
     render(<MarketAngles library={library} />);
     expect(screen.getByText(/2 referências com ângulo decidido/)).toBeInTheDocument();
+    const saude = screen.getByRole("region", { name: "Saúde da biblioteca" });
+    expect(saude).toHaveTextContent("Vídeos transcritos107/329");
+    expect(saude).toHaveTextContent("Print de conversa 3");
     const angulos = screen.getByRole("region", { name: "Ângulos do mercado" });
     fireEvent.click(within(angulos).getByRole("button", { name: /6 · Sintoma → causa raiz/ }));
     expect(within(angulos).getByText("PCOS e receita")).toBeInTheDocument();
