@@ -14,9 +14,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { FileUpload } from "@/components/FileUpload";
 import {
-  KeyRound, Plus, Search, Eye, EyeOff, Copy, ExternalLink, Pencil, Trash2, Globe, Download
+  KeyRound, Plus, Search, Eye, EyeOff, Copy, ExternalLink, Pencil, Trash2, Globe, Download,
+  RefreshCw, Zap, Bot, CheckCircle2, AlertCircle
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface VaultItem {
   id: string;
@@ -30,6 +33,13 @@ interface VaultItem {
   icon_url: string | null;
   produto: string | null;
   created_at: string;
+  sync_method?: string | null;
+  portal_type?: string | null;
+  is_sync_enabled?: boolean | null;
+  last_sync_at?: string | null;
+  last_sync_status?: string | null;
+  last_sync_error?: string | null;
+  config?: Record<string, any> | null;
 }
 
 const CATEGORIES = [
@@ -55,7 +65,21 @@ const getFaviconUrl = (url: string | null) => {
   } catch { return null; }
 };
 
-const emptyForm = { name: "", url: "", username: "", password_encrypted: "", category: "geral", notes: "", project_id: "", icon_url: "", produto: "" };
+const emptyForm = {
+  name: "",
+  url: "",
+  username: "",
+  password_encrypted: "",
+  category: "geral",
+  notes: "",
+  project_id: "",
+  icon_url: "",
+  produto: "",
+  sync_method: "manual",
+  portal_type: "other",
+  is_sync_enabled: false,
+  api_key_or_token: "",
+};
 
 export default function Cofre() {
   const [items, setItems] = useState<VaultItem[]>([]);
@@ -64,18 +88,20 @@ export default function Cofre() {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
+  const [filterAutomatedOnly, setFilterAutomatedOnly] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [importingLinks, setImportingLinks] = useState(false);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     const [vaultRes, projRes] = await Promise.all([
       supabase.from("imphq_tools_vault").select("*").order("category").order("name"),
       supabase.from("imphq_projects").select("id, name, data"),
     ]);
-    setItems(vaultRes.data || []);
+    setItems((vaultRes.data as unknown as VaultItem[]) || []);
     setProjects(projRes.data || []);
     setLoading(false);
   }, []);
@@ -85,6 +111,7 @@ export default function Cofre() {
   const filtered = items.filter(item => {
     if (filterCat !== "all" && item.category !== filterCat) return false;
     if (filterProject !== "all" && item.project_id !== filterProject) return false;
+    if (filterAutomatedOnly && (!item.portal_type || item.portal_type === "other" || item.sync_method === "manual")) return false;
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -92,6 +119,7 @@ export default function Cofre() {
   const openNew = () => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (item: VaultItem) => {
     setEditingId(item.id);
+    const cfg = item.config || {};
     setForm({
       name: item.name,
       url: item.url || "",
@@ -102,6 +130,10 @@ export default function Cofre() {
       project_id: item.project_id || "",
       icon_url: item.icon_url || "",
       produto: item.produto || "",
+      sync_method: item.sync_method || "manual",
+      portal_type: item.portal_type || "other",
+      is_sync_enabled: item.is_sync_enabled ?? false,
+      api_key_or_token: cfg.api_key || cfg.api_token || "",
     });
     setDialogOpen(true);
   };
@@ -118,19 +150,49 @@ export default function Cofre() {
       project_id: form.project_id || null,
       icon_url: form.icon_url || null,
       produto: form.produto || null,
+      sync_method: form.sync_method,
+      portal_type: form.portal_type,
+      is_sync_enabled: form.is_sync_enabled,
+      config: form.api_key_or_token ? { api_key: form.api_key_or_token, api_token: form.api_key_or_token } : {},
       updated_at: new Date().toISOString(),
     };
     if (editingId) {
       const { error } = await supabase.from("imphq_tools_vault").update(payload).eq("id", editingId);
-      if (error) { toast.error("Erro ao salvar"); return; }
-      toast.success("Ferramenta atualizada");
+      if (error) { toast.error("Erro ao salvar: " + error.message); return; }
+      toast.success("Ferramenta atualizada no cofre");
     } else {
       const { error } = await supabase.from("imphq_tools_vault").insert(payload);
-      if (error) { toast.error("Erro ao criar"); return; }
-      toast.success("Ferramenta adicionada");
+      if (error) { toast.error("Erro ao criar: " + error.message); return; }
+      toast.success("Ferramenta adicionada ao cofre");
     }
     setDialogOpen(false);
     fetchData();
+  };
+
+  const handleSyncNow = async (item: VaultItem) => {
+    setSyncingId(item.id);
+    toast.info(`Iniciando extração autônoma para ${item.name}...`);
+    try {
+      const { data, error } = await supabase.functions.invoke("vault-sync", {
+        body: { vault_id: item.id }
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        const firstResult = data.results?.[0];
+        if (firstResult?.status === "error") {
+          toast.error(`Falha no sync: ${firstResult.message}`);
+        } else {
+          toast.success(`Concluído! ${firstResult?.message || "Métricas sincronizadas"}`);
+        }
+        fetchData();
+      } else {
+        toast.error(`Erro: ${data?.error || "Falha na sincronização"}`);
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao disparar sync: ${err.message}`);
+    } finally {
+      setSyncingId(null);
+    }
   };
 
   const remove = async (id: string) => {
@@ -211,7 +273,7 @@ export default function Cofre() {
         </div>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar ferramenta..." className="pl-9 bg-secondary" />
@@ -234,6 +296,14 @@ export default function Cofre() {
             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button
+          variant={filterAutomatedOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFilterAutomatedOnly(!filterAutomatedOnly)}
+          className="text-xs gap-1.5 h-10"
+        >
+          <Zap className="h-3.5 w-3.5" /> {filterAutomatedOnly ? "Apenas Automatizados (Ativo)" : "Filtrar Automatizados"}
+        </Button>
       </div>
 
       {filtered.length === 0 ? (
@@ -261,6 +331,7 @@ export default function Cofre() {
                   {catItems.map(item => {
                     const proj = projects.find(p => p.id === item.project_id);
                     const catInfo = getCategoryInfo(item.category);
+                    const hasAutomation = item.sync_method && item.sync_method !== "manual";
                     return (
                       <Card key={item.id} className={`group hover:border-primary/30 transition-colors border-l-4 ${catInfo.border}`}>
                         <CardHeader className="pb-2">
@@ -277,6 +348,25 @@ export default function Cofre() {
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             </div>
+                          </div>
+
+                          {/* Badges de automação operacional */}
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                            {item.sync_method === "metodo_a_api" && (
+                              <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[9px] px-1.5 py-0 h-4">
+                                <Zap className="h-2.5 w-2.5 mr-0.5 inline" /> Método A (API)
+                              </Badge>
+                            )}
+                            {item.sync_method === "metodo_b_scraper" && (
+                              <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-[9px] px-1.5 py-0 h-4">
+                                <Bot className="h-2.5 w-2.5 mr-0.5 inline" /> Método B (Scraper)
+                              </Badge>
+                            )}
+                            {item.is_sync_enabled && (
+                              <Badge variant="outline" className="text-emerald-400 border-emerald-500/40 text-[9px] px-1.5 py-0 h-4">
+                                🟢 Sync Ativo
+                              </Badge>
+                            )}
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-2 text-xs">
@@ -305,10 +395,42 @@ export default function Cofre() {
                             </div>
                           )}
                           {item.notes && <p className="text-muted-foreground italic">{item.notes}</p>}
-                          <div className="flex gap-1 flex-wrap">
+
+                          {/* Status de Sincronização */}
+                          {item.last_sync_at && (
+                            <div className="pt-1 border-t border-border/40 text-[11px]">
+                              {item.last_sync_status === "success" ? (
+                                <div className="flex items-center gap-1 text-emerald-400">
+                                  <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                  <span>Sync: {new Date(item.last_sync_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 text-rose-400" title={item.last_sync_error || ""}>
+                                  <AlertCircle className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">Erro: {item.last_sync_error || "Falha"}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex gap-1 flex-wrap pt-1">
                             {proj && <Badge variant="outline" className="text-[10px]">📁 {proj.name}</Badge>}
                             {item.produto && <Badge variant="outline" className="text-[10px]">📦 {item.produto}</Badge>}
                           </div>
+
+                          {/* Botão de Disparo Direto */}
+                          {(hasAutomation || (item.portal_type && item.portal_type !== "other")) && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="w-full h-7 mt-2 text-[11px] gap-1.5 bg-secondary/80 hover:bg-secondary"
+                              onClick={() => handleSyncNow(item)}
+                              disabled={syncingId === item.id}
+                            >
+                              <RefreshCw className={cn("h-3 w-3", syncingId === item.id && "animate-spin text-primary")} />
+                              {syncingId === item.id ? "Extraindo métricas..." : "Sincronizar Métricas"}
+                            </Button>
+                          )}
                         </CardContent>
                       </Card>
                     );
@@ -473,6 +595,78 @@ curl -H "x-api-key: SUA_CHAVE" \\
               </div>
             </div>
             <div><Label>Notas</Label><Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
+
+            {/* Seção de Automação Operacional (Método A + B) */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                  <Zap className="h-3.5 w-3.5" /> Automação Operacional (Método A + B)
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="sync_enabled" className="text-[11px] text-muted-foreground cursor-pointer">
+                    Sync Ativo
+                  </Label>
+                  <Switch
+                    id="sync_enabled"
+                    checked={form.is_sync_enabled}
+                    onCheckedChange={(checked) => setForm((f) => ({ ...f, is_sync_enabled: checked }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <Label className="text-[11px]">Tipo de Portal</Label>
+                  <Select
+                    value={form.portal_type || "other"}
+                    onValueChange={(v) => {
+                      const method = v === "hw_hub" ? "metodo_b_scraper" : v === "other" ? "manual" : "metodo_a_api";
+                      setForm((f) => ({ ...f, portal_type: v, sync_method: method }));
+                    }}
+                  >
+                    <SelectTrigger className="h-8 bg-background text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="other">Outro (Manual)</SelectItem>
+                      <SelectItem value="hw_hub">H&W Hub (hwaffiliate.com)</SelectItem>
+                      <SelectItem value="whop">Whop API (Pagamentos)</SelectItem>
+                      <SelectItem value="google_analytics">Google Analytics 4</SelectItem>
+                      <SelectItem value="clarity">Microsoft Clarity</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-[11px]">Método de Extração</Label>
+                  <Select
+                    value={form.sync_method || "manual"}
+                    onValueChange={(v) => setForm((f) => ({ ...f, sync_method: v }))}
+                  >
+                    <SelectTrigger className="h-8 bg-background text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual (Sem Sync)</SelectItem>
+                      <SelectItem value="metodo_a_api">Método A (API Oficial)</SelectItem>
+                      <SelectItem value="metodo_b_scraper">Método B (Scraper Headless)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {form.portal_type !== "other" && form.sync_method !== "manual" && (
+                <div>
+                  <Label className="text-[11px]">Token de API / Chave de Acesso (opcional)</Label>
+                  <Input
+                    value={form.api_key_or_token}
+                    onChange={(e) => setForm((f) => ({ ...f, api_key_or_token: e.target.value }))}
+                    placeholder="Cole aqui o token de API ou deixe vazio para usar a senha"
+                    className="h-8 bg-background text-xs"
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>

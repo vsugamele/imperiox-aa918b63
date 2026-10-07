@@ -14,11 +14,14 @@ export interface ProductHealth {
   checkout_rate: number; // vendas / checkouts (%)
   score: number; // 0-100
   tier: "alta" | "media" | "baixa";
+  cliques_afiliado?: number;
+  epc?: number;
+  origem?: string;
 }
 
 export interface ProductHealthData {
   produtos: ProductHealth[];
-  totals: { receita: number; spend: number; vendas: number; roas: number };
+  totals: { receita: number; spend: number; vendas: number; roas: number; cliques_afiliado?: number };
   loading: boolean;
   refresh: () => void;
 }
@@ -38,7 +41,7 @@ function scoreOf(p: { roas: number; cpa: number; ticket: number; checkout_rate: 
 
 export function useProductHealth(projectId: string, days: number = 30): ProductHealthData {
   const [state, setState] = useState<ProductHealthData>({
-    produtos: [], totals: { receita: 0, spend: 0, vendas: 0, roas: 0 }, loading: true, refresh: () => {},
+    produtos: [], totals: { receita: 0, spend: 0, vendas: 0, roas: 0, cliques_afiliado: 0 }, loading: true, refresh: () => {},
   });
   const [tick, setTick] = useState(0);
 
@@ -53,7 +56,7 @@ export function useProductHealth(projectId: string, days: number = 30): ProductH
       const sinceIso = new Date(Date.now() - days * 86400_000).toISOString();
       const sinceDate = sinceIso.slice(0, 10);
 
-      const [vendasRes, adsRes] = await Promise.all([
+      const [vendasRes, adsRes, metricsDailyRes] = await Promise.all([
         supabase
           .from("imphq_vendas")
           .select("valor, valor_liquido, status, produto_nome")
@@ -63,6 +66,12 @@ export function useProductHealth(projectId: string, days: number = 30): ProductH
         supabase
           .from("imphq_ads_spend")
           .select("spend, valor, ctr, checkouts_iniciados, init_checkout, campanha")
+          .eq("project_id", projectId)
+          .gte("data_ref", sinceDate)
+          .limit(5000),
+        supabase
+          .from("imphq_metrics_daily" as any)
+          .select("cliques, conversoes, cvr, receita_bruta, receita_liquida, epc, produto_nome, source")
           .eq("project_id", projectId)
           .gte("data_ref", sinceDate)
           .limit(5000),
@@ -80,10 +89,33 @@ export function useProductHealth(projectId: string, days: number = 30): ProductH
         const cur = byProd[key] || {
           produto: v.produto_nome, receita: 0, vendas: 0, ticket: 0,
           spend: 0, roas: 0, cpa: 0, ctr_medio: 0, checkouts: 0, checkout_rate: 0,
-          score: 0, tier: "baixa" as const,
+          score: 0, tier: "baixa" as const, cliques_afiliado: 0, epc: 0, origem: "vendas",
         };
         cur.receita += valor;
         cur.vendas += 1;
+        byProd[key] = cur;
+      }
+
+      // Incorpora métricas diárias dos scrapers e APIs do cofre (H&W Hub, Whop, etc.)
+      const dailyRows = (metricsDailyRes?.data as any[]) || [];
+      for (const m of dailyRows) {
+        const key = norm(m.produto_nome) || projectId;
+        const prodNome = m.produto_nome || (projectId.charAt(0).toUpperCase() + projectId.slice(1));
+        const cur = byProd[key] || {
+          produto: prodNome, receita: 0, vendas: 0, ticket: 0,
+          spend: 0, roas: 0, cpa: 0, ctr_medio: 0, checkouts: 0, checkout_rate: 0,
+          score: 0, tier: "baixa" as const, cliques_afiliado: 0, epc: 0, origem: m.source,
+        };
+
+        cur.cliques_afiliado = (cur.cliques_afiliado || 0) + (Number(m.cliques) || 0);
+
+        // Se vendas não vieram pelo webhook direto, usa as do relatório do afiliado/whop
+        if (cur.vendas === 0 && m.conversoes) {
+          cur.vendas += Number(m.conversoes) || 0;
+        }
+        if (cur.receita === 0 && (m.receita_liquida || m.receita_bruta)) {
+          cur.receita += Number(m.receita_liquida || m.receita_bruta) || 0;
+        }
         byProd[key] = cur;
       }
 
@@ -120,19 +152,22 @@ export function useProductHealth(projectId: string, days: number = 30): ProductH
         const ticket = p.vendas ? p.receita / p.vendas : 0;
         const roas = p.spend > 0 ? p.receita / p.spend : 0;
         const cpa = p.vendas > 0 ? p.spend / p.vendas : 0;
-        const checkout_rate = p.checkouts > 0 ? (p.vendas / p.checkouts) * 100 : 0;
+        const checkoutsTotal = p.checkouts > 0 ? p.checkouts : (p.cliques_afiliado || 0);
+        const checkout_rate = checkoutsTotal > 0 ? (p.vendas / checkoutsTotal) * 100 : 0;
+        const epc = p.cliques_afiliado && p.cliques_afiliado > 0 ? p.receita / p.cliques_afiliado : 0;
         const score = scoreOf({ roas, cpa, ticket, checkout_rate });
         const tier: ProductHealth["tier"] = score >= 70 ? "alta" : score >= 40 ? "media" : "baixa";
-        return { ...p, ticket, roas, cpa, ctr_medio, checkout_rate, score, tier };
+        return { ...p, ticket, roas, cpa, ctr_medio, checkout_rate, epc, score, tier };
       }).sort((a, b) => b.receita - a.receita);
 
       const receita = produtos.reduce((s, p) => s + p.receita, 0);
       const vendas = produtos.reduce((s, p) => s + p.vendas, 0);
+      const cliquesTotal = produtos.reduce((s, p) => s + (p.cliques_afiliado || 0), 0);
       const roasTotal = spendTotal > 0 ? receita / spendTotal : 0;
 
       setState({
         produtos,
-        totals: { receita, spend: spendTotal, vendas, roas: roasTotal },
+        totals: { receita, spend: spendTotal, vendas, roas: roasTotal, cliques_afiliado: cliquesTotal },
         loading: false,
         refresh: () => setTick(t => t + 1),
       });

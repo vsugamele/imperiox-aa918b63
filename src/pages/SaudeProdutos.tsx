@@ -102,6 +102,18 @@ function ProductCard({ p }: { p: ProductHealth }) {
             <div className="text-muted-foreground">CTR médio</div>
             <div className="text-sm font-semibold">{p.ctr_medio.toFixed(2)}%</div>
           </div>
+          {p.cliques_afiliado !== undefined && p.cliques_afiliado > 0 && (
+            <div className="rounded-md border border-border/40 p-2 bg-secondary/30">
+              <div className="text-muted-foreground">Cliques (Scraper/Hub)</div>
+              <div className="text-sm font-semibold">{p.cliques_afiliado}</div>
+            </div>
+          )}
+          {p.epc !== undefined && p.epc > 0 && (
+            <div className="rounded-md border border-border/40 p-2 bg-secondary/30">
+              <div className="text-muted-foreground">EPC</div>
+              <div className="text-sm font-semibold">R$ {p.epc.toFixed(2)}</div>
+            </div>
+          )}
         </div>
 
         <div className="pt-2 border-t border-border/40 space-y-3">
