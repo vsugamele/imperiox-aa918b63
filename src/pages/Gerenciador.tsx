@@ -1,6 +1,15 @@
 import type { Tables } from "@/integrations/supabase/types";
 type AdSpend = Tables<"imphq_ads_spend">;
-type RevenueRow = Pick<Tables<"imphq_vendas">,"id"|"project_id"|"produto_nome"|"valor"|"valor_liquido"|"plataforma"|"data_venda"|"utm_campaign"|"utm_content"|"utm_term">;
+type RevenueRow = Pick<Tables<"imphq_vendas">,"id"|"project_id"|"produto_nome"|"valor"|"valor_liquido"|"plataforma"|"data_venda"|"utm_campaign"|"utm_content"|"utm_term"|"status"|"tipo_venda">;
+/** Só venda paga conta no faturamento (recusado, pix gerado e reembolso ficam de fora). */
+const PAID_STATUSES = ["aprovado", "approved", "paid", "completed"];
+/** Limites do dia em BRT: data_venda é timestamp, então "≤ 2026-10-07" cortava o próprio dia (o filtro "Hoje" dava zero). */
+const brtStart = (day: string) => `${day}T00:00:00-03:00`;
+const brtNextDay = (day: string) => {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return `${d.toISOString().slice(0, 10)}T00:00:00-03:00`;
+};
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,7 +76,8 @@ export default function Gerenciador() {
         return q;
       };
       const baseVendas = (gte: string, lte: string) => {
-        let q = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, data_venda, utm_campaign, utm_content, utm_term").gte("data_venda", gte).lte("data_venda", lte).limit(2000);
+        let q = supabase.from("imphq_vendas").select("id, project_id, produto_nome, valor, valor_liquido, plataforma, data_venda, utm_campaign, utm_content, utm_term, status, tipo_venda")
+          .in("status", PAID_STATUSES).gte("data_venda", brtStart(gte)).lt("data_venda", brtNextDay(lte)).limit(5000);
         if (projectId !== "__all__") q = q.eq("project_id", projectId);
         return q;
       };
@@ -102,9 +112,11 @@ export default function Gerenciador() {
   const totals = useMemo(() => {
     const sum = (arr: AdSpend[], key: "valor" | "compras") => arr.reduce((s, x) => s + Number(x[key] || 0), 0);
     const sumVendas = (arr: RevenueRow[]) => arr.reduce((s, v) => s + getRevenue(v, revenueMode), 0);
+    // Compras = vendas reais do checkout (order bump soma no faturamento, não conta venda); o pixel duplica e fica de referência.
+    const realSales = (arr: RevenueRow[]) => arr.filter((v) => !/bump/i.test(v.tipo_venda ?? "")).length;
     return {
-      cur: { valor: sum(metaAds, "valor"), compras: sum(metaAds, "compras"), receita: sumVendas(vendas) },
-      prev: { valor: sum(metaAdsPrev, "valor"), compras: sum(metaAdsPrev, "compras"), receita: sumVendas(vendasPrev) },
+      cur: { valor: sum(metaAds, "valor"), compras: realSales(vendas), pixel: sum(metaAds, "compras"), receita: sumVendas(vendas) },
+      prev: { valor: sum(metaAdsPrev, "valor"), compras: realSales(vendasPrev), pixel: sum(metaAdsPrev, "compras"), receita: sumVendas(vendasPrev) },
     };
   }, [metaAds, metaAdsPrev, vendas, vendasPrev, revenueMode]);
 

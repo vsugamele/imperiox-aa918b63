@@ -50,6 +50,14 @@ describe("JP operational recovery contract", () => {
     expect(result.needsHandoff).toBe(true);
     expect(fetch).not.toHaveBeenCalled();
   });
+  it("guides login when the screenshot shows the account already exists instead of handing off", async () => {
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const fromVision = await jpPrepareAccessReply("Pelo print, aparece 'User already registered': você já tem conta.", email, "Não consigo acessar", "📷 Não consegui entrar, apareceu essa mensagem", true);
+    expect(fromVision.needsHandoff).toBe(false);
+    expect(fromVision.text).toContain("Esqueci minha senha");
+    expect((await jpPrepareAccessReply("Ok", email, "", "diz que já tem conta com meu email")).needsHandoff).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("refuses a model-generated courtesy instead of granting all courses", async () => {
     const fetch = vi.fn();vi.stubGlobal("fetch",fetch);
     expect((await jpPrepareAccessReply(`[JP_GRANT:${email}] Acesso liberado!`,email,"Meu pagamento não apareceu")).needsHandoff).toBe(true);

@@ -41,6 +41,9 @@ const corsHeaders = {
 };
 
 // ── Retry helper for transient failures (e.g. OpenRouter) ──
+/** Modelo padrão das respostas e plano B quando o modelo configurado falha. */
+const DEFAULT_REPLY_MODEL = "google/gemini-2.5-flash";
+
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 1000): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -1935,7 +1938,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         }
       }
 
-      let model = aiConfig.ai_model || "google/gemini-2.5-flash";
+      let model = aiConfig.ai_model || DEFAULT_REPLY_MODEL;
       if (activeStep?.ia_search_web) {
         model = "google/gemini-2.5-flash"; // native search grounding on OpenRouter
       } else if (activeStep?.ia_model) {
@@ -1945,23 +1948,37 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
       // 9. Chama OpenRouter (com retry automático — 3 tentativas)
       const startTime = Date.now();
+      const callModel = (m: string) => withRetry(() => fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://imperiox.lovable.app",
+          "X-Title": "Imperio HQ",
+        },
+        body: JSON.stringify({
+          model: m,
+          messages: msgs,
+          max_tokens: aiConfig.max_tokens || 350,
+          temperature: Number(aiConfig.ai_temperature ?? 0.7),
+          // DeepSeek V4 pensa antes de responder quando pode: no WhatsApp isso só gasta o limite de tokens e atrasa.
+          ...(m.startsWith("deepseek/") ? { reasoning: { enabled: false } } : {}),
+        }),
+      }), 3, 1000);
       let orRes: Response;
       try {
-        orRes = await withRetry(() => fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://imperiox.lovable.app",
-            "X-Title": "Imperio HQ",
-          },
-          body: JSON.stringify({
-            model,
-            messages: msgs,
-            max_tokens: aiConfig.max_tokens || 350,
-            temperature: Number(aiConfig.ai_temperature ?? 0.7),
-          }),
-        }), 3, 1000);
+        orRes = await callModel(model);
+        // Plano B: modelo configurado recusou (ex.: teste de um modelo novo) → esta mensagem sai pelo modelo padrão.
+        if (!orRes.ok && model !== DEFAULT_REPLY_MODEL) {
+          const errText = await orRes.text();
+          console.warn(`[wa-ai-reply] ${model} falhou (HTTP ${orRes.status}); usando ${DEFAULT_REPLY_MODEL}: ${errText.slice(0, 200)}`);
+          await Promise.resolve(supabase.from("imphq_wa_ai_logs").insert({
+            project_id, conversation_id, lead_id: leadRow?.id || null, model, latency_seconds: (Date.now() - startTime) / 1000,
+            success: false, error_message: `HTTP ${orRes.status} (plano B: ${DEFAULT_REPLY_MODEL}): ${errText.slice(0, 160)}`,
+          })).catch(() => {});
+          model = DEFAULT_REPLY_MODEL;
+          orRes = await callModel(model);
+        }
       } catch (fetchErr) {
         console.error(`[wa-ai-reply] OpenRouter fetch error após 3 tentativas: ${errorMessage(fetchErr)}`);
 
@@ -2032,7 +2049,14 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         });
       }
 
-      const orData = await orRes.json();
+      let orData = await orRes.json();
+      // Resposta vazia do modelo configurado também cai no plano B (não deixa o lead sem resposta).
+      if (!String(orData?.choices?.[0]?.message?.content || "").trim() && model !== DEFAULT_REPLY_MODEL) {
+        console.warn(`[wa-ai-reply] ${model} respondeu vazio; usando ${DEFAULT_REPLY_MODEL}`);
+        model = DEFAULT_REPLY_MODEL;
+        const retry = await callModel(model).catch(() => null);
+        if (retry?.ok) orData = await retry.json();
+      }
 
       // Log success to database
       try {
@@ -2065,6 +2089,9 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
         } else if (modelLower.includes("gemini-2.5-pro") || modelLower.includes("gemini-1.5-pro")) {
           inputRate = 1.25;
           outputRate = 5.00;
+        } else if (modelLower.includes("deepseek-v4")) {
+          inputRate = 0.30;
+          outputRate = 1.20;
         } else if (modelLower.includes("deepseek-chat") || modelLower.includes("deepseek")) {
           inputRate = 0.14;
           outputRate = 0.28;

@@ -4,7 +4,10 @@ import { cn } from "@/lib/utils";
 
 interface Totals {
   valor: number;
+  /** Vendas reais do checkout (sem order bump). */
   compras: number;
+  /** Compras que o pixel da Meta reportou (referência; costuma duplicar). */
+  pixel?: number;
   receita: number;
 }
 
@@ -63,6 +66,7 @@ export function KpiCardsHeader({ current, previous }: Props) {
     {
       label: "Compras",
       value: current.compras.toLocaleString("pt-BR"),
+      hint: current.pixel !== undefined ? `checkout · pixel ${current.pixel.toLocaleString("pt-BR")}` : undefined,
       icon: ShoppingCart,
       cur: current.compras,
       prev: previous.compras,
@@ -96,6 +100,7 @@ export function KpiCardsHeader({ current, previous }: Props) {
               </span>
               <DeltaBadge current={c.cur} previous={c.prev} inverse={c.inverse} />
             </div>
+            {"hint" in c && c.hint ? <div className="mt-1 text-[10px] text-muted-foreground">{c.hint}</div> : null}
           </div>
         );
       })}

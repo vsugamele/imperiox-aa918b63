@@ -596,7 +596,8 @@ export default function ConversationList({
       </div>
 
       {/* List */}
-      <ScrollArea className="flex-1">
+      {/* O Radix põe o conteúdo em display:table: nome/mensagem longos alargavam a linha e cortavam horário e contagem. */}
+      <ScrollArea className="flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block">
         {loading ? (
           <div className="p-3 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (

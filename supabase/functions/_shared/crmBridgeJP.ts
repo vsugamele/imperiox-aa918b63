@@ -224,11 +224,18 @@ export interface JPVerifiedGrant {
   onGranted: (purchase: VerifiedPurchase, email: string) => Promise<void>;
 }
 
+/** Tela de "Criar conta" com "User already registered": a pessoa já tem conta e tentou criar outra. */
+const ALREADY_REGISTERED = /already registered|user already exists|j[aá] (est[aá] |foi )?(cadastrad|registrad)|j[aá] (tem|possui|existe) (uma )?(conta|cadastro)/i;
+const ALREADY_REGISTERED_REPLY = "Essa mensagem aparece porque você já tem conta (ela foi criada na compra), então não precisa criar outra. Na tela, clique em *Entrar* e use o seu e-mail e a senha que enviamos por e-mail. Se não lembrar a senha, clique em *Esqueci minha senha* e crie uma nova.";
+
 /** Never announce account recovery until the CRM has verified access and issued a real token. */
 export async function jpPrepareAccessReply(reply: string, email: string, incomingContext: string, currentMessage = incomingContext, previousLinkSent = false, grant?: JPVerifiedGrant): Promise<{ text: string; needsHandoff: boolean }> {
   const accessPattern = /acess|login|senha|entrar.{0,30}(curso|aula|plataforma)|aulas.{0,30}(bloque|nao|não)/i;
   const continuation = /@|não (deu|funcion|entrou)|nao (deu|funcion|entrou)|continua|ainda (não|nao)|^sim[.!\s]*$/i.test(currentMessage);
   const accessIntent = accessPattern.test(currentMessage) || (continuation && accessPattern.test(incomingContext));
+  // Print com "User already registered" (lido pela visão do modelo, que cita na resposta) ou dito no texto: orientar o login,
+  // não tratar como link quebrado (07/10: a cliente tentou criar conta e o bot mandou para a equipe).
+  if (ALREADY_REGISTERED.test(currentMessage) || ALREADY_REGISTERED.test(reply)) return { text: ALREADY_REGISTERED_REPLY, needsHandoff: false };
   if (previousLinkSent && /(?:não|nao) (?:deu|funcion|entrou|consigo|consegui)|continua.{0,20}(?:bloque|erro)|link.{0,20}(?:não|nao|erro)/i.test(currentMessage))
     return { text: "O link não resolveu o acesso. Preciso que a equipe verifique o cadastro para concluir isso.", needsHandoff: true };
   if (accessIntent && !email) return { text: "Qual é o email que você usou na compra? Vou consultar o cadastro para ajudar com o acesso.", needsHandoff: false };
