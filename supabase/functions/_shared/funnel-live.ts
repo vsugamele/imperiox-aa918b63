@@ -118,7 +118,7 @@ export function buildFunnelLive(input: { ads: ReadonlyArray<AdsRow>; pages: Read
       metrics: [{ label: "Extras vendidos", value: extrasPagos.length, fmt: "int" }, { label: "Receita extra", value: round(extrasPagos.reduce((s, v) => s + n(v.valor), 0)), fmt: "brl" }],
       conversao: { label: "Aceite", value: extraTaxa, referencia: REFERENCIA.extra },
       status: !aprovadas.length ? "sem_dado" : extras.length === 0 ? "sem_dado" : statusFor(extraTaxa, REFERENCIA.extra),
-      nota: aprovadas.length && extras.length === 0 ? "Nenhum order bump ou upsell registrado: oportunidade de ticket." : null,
+      nota: aprovadas.length && extras.length === 0 ? "Nenhuma venda de bump ou upsell chegou da plataforma no período. Se o checkout tem bump, confira se o webhook do produto do bump aponta para o Império." : null,
     },
     {
       id: "recuperacao", label: "Recuperação no WhatsApp",
