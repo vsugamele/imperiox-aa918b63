@@ -48,16 +48,22 @@ export function MetaCapiCard() {
   useEffect(() => { load(); }, [load]);
 
   const field = (p: ProjectRow, k: "fb_pixel_id" | "fb_access_token" | "fb_test_event_code") => (drafts[p.id]?.[k] ?? p[k] ?? "") as string;
-  const valueMode = (p: ProjectRow) => drafts[p.id]?.valueMode ?? String((p.settings || {}).meta_purchase_value ?? "comissao");
+  const valueMode = (p: ProjectRow) => drafts[p.id]?.valueMode
+    ?? ((p.settings || {}).meta_purchase_source === "plataforma" ? "plataforma" : String((p.settings || {}).meta_purchase_value ?? "comissao"));
   const setDraft = (id: string, patch: Partial<ProjectRow> & { valueMode?: string }) => setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
 
   const save = async (p: ProjectRow) => {
     setBusy(p.id);
+    const mode = valueMode(p);
     const { error } = await supabase.from("imphq_projects").update({
       fb_pixel_id: field(p, "fb_pixel_id").trim() || null,
       fb_access_token: field(p, "fb_access_token").trim() || null,
       fb_test_event_code: field(p, "fb_test_event_code").trim() || null,
-      settings: { ...(p.settings || {}), meta_purchase_value: valueMode(p) },
+      settings: {
+        ...(p.settings || {}),
+        meta_purchase_source: mode === "plataforma" ? "plataforma" : "imperio",
+        meta_purchase_value: mode === "plataforma" ? ((p.settings || {}).meta_purchase_value ?? "comissao") : mode,
+      },
     } as never).eq("id", p.id);
     setBusy(null);
     if (error) { toast.error("Erro ao salvar: " + error.message); return; }
@@ -117,6 +123,7 @@ export function MetaCapiCard() {
                   <SelectContent>
                     <SelectItem value="comissao">Valor = comissão</SelectItem>
                     <SelectItem value="preco">Valor = preço pago</SelectItem>
+                    <SelectItem value="plataforma">Compra já vai pelo checkout</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="flex gap-1">

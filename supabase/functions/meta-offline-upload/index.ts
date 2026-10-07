@@ -22,10 +22,26 @@ function purchaseValue(v: Record<string, unknown>, mode: string): number {
   return Number(v.valor || 0);
 }
 
+/** fbclid salvo pelo checkout: data.utms.fbclid, ou embutido no utm_content no padrão "nome-do-anuncio::FBCLID::". */
+function extractFbclid(v: Record<string, unknown>): string | null {
+  const utms = rec(rec(v.data).utms);
+  const direct = str(utms.fbclid) ?? str(rec(rec(v.data).atribuicao).fbclid);
+  if (direct) return direct;
+  for (const raw of [v.utm_content, utms.utm_content, v.utm_term, utms.utm_term]) {
+    const s = str(raw);
+    if (!s || !s.includes("::")) continue;
+    const hit = s.split("::").map((p) => p.trim()).find((p) => /^[A-Za-z0-9_-]{40,}$/.test(p));
+    if (hit) return hit;
+  }
+  return null;
+}
+
 async function processProject(supabase: ReturnType<typeof makeClient>, project: CapiProject) {
   const pixelId = project.fb_pixel_id;
   const accessToken = project.fb_access_token;
   if (!pixelId || !accessToken) return { project_id: project.id, skipped: true, reason: "missing_pixel_or_token" };
+  // Quando o checkout (ex.: Ticto) já manda Purchase pela própria integração, enviar de novo duplicaria a venda.
+  if (rec(project.settings).meta_purchase_source === "plataforma") return { project_id: project.id, skipped: true, reason: "purchase_sent_by_platform" };
   const valueMode = str(rec(project.settings).meta_purchase_value) ?? "comissao";
 
   // Meta aceita eventos de até 7 dias atrás com action_source=website.
@@ -62,7 +78,7 @@ async function processProject(supabase: ReturnType<typeof makeClient>, project: 
       email: lead.email, phone: lead.phone, name: lead.nome || v.nome, country: v.pais,
       externalId: str(attr.sub3) ?? str(tracker.visitor_id) ?? v.lead_id,
       fbp: str(attr.sub1) ?? str(tracker.fbp), fbc: str(attr.sub2) ?? str(tracker.fbc),
-      fbclid: str(attr.fbclid),
+      fbclid: extractFbclid(v),
     }, eventMs);
     const keys = matchKeys(userData);
     // Sem nenhuma chave de identidade a Meta descarta; deixa para nova tentativa quando o lead for enriquecido.

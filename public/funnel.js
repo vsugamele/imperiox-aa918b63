@@ -3,6 +3,9 @@
   'use strict';
   var script = document.currentScript;
   var config = window.IMPERIO_FUNNEL || {};
+  // Atributos no <script> também configuram o Pixel: data-pixel-id, data-pixel-page-view="false".
+  if (script && !config.pixelId && script.getAttribute('data-pixel-id')) config.pixelId = script.getAttribute('data-pixel-id');
+  if (script && config.pixelPageView === undefined && script.getAttribute('data-pixel-page-view') === 'false') config.pixelPageView = false;
   var project = config.projectId || (script && script.getAttribute('data-project'));
   if (!project) return;
   window.__imperioTrackers = window.__imperioTrackers || {};
@@ -101,13 +104,15 @@
     if (step !== 'heartbeat') active();
     var eid = id();
     var attrs = state.last_touch.params || {};
+    // Só marca meta_event (=> CAPI espelha no servidor) quando o Pixel dispara com este mesmo eventID.
+    var metaEvent = META_EVENTS[step];
+    var pixelOn = !!(metaEvent && config.pixelId && typeof window.fbq === 'function' && !(metaEvent === 'PageView' && config.pixelPageView === false));
     var payload = Object.assign({}, attrs, { project_id:project, session_id:state.session_id, visitor_id:state.visitor_id, click_id:state.click_id, event_id:eid, event_at:new Date().toISOString(), step:step, page_url:cleanUrl(location.href), referrer:cleanUrl(document.referrer), first_touch:state.first_touch, last_touch:state.last_touch,
-      meta:Object.assign({offer_id:config.offerId || null,player_id:config.playerId || null,link_id:state.link_id || null,page_type:pageType,tracker_version:'TRK1.2',validation:attrs.utm_source === 'codex-validation',meta_event:META_EVENTS[step] || null},metaIds(),extra || {}) });
+      meta:Object.assign({offer_id:config.offerId || null,player_id:config.playerId || null,link_id:state.link_id || null,page_type:pageType,tracker_version:'TRK1.2',validation:attrs.utm_source === 'codex-validation',meta_event:pixelOn ? metaEvent : null},metaIds(),extra || {}) });
     var queue = read('queue', []);
     if (queue.length >= 100) { var h = queue.findIndex(function (e) { return e.payload.step === 'heartbeat'; }); if (h >= 0) queue.splice(h,1); else { console.warn('Imperio tracker: queue full'); return null; } }
     queue.push({payload:payload,time:Date.now(),attempts:0,next:0}); save('queue', queue); drain();
-    var metaEvent = META_EVENTS[step];
-    if (metaEvent && config.pixelId && typeof window.fbq === 'function' && !(metaEvent === 'PageView' && config.pixelPageView === false)) {
+    if (pixelOn) {
       var params = { funnel_step: step }; if (config.offerId) params.content_ids = [config.offerId];
       window.fbq(STANDARD[metaEvent] ? 'track' : 'trackCustom', metaEvent, params, { eventID: eid });
     }

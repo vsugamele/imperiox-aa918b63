@@ -25,6 +25,8 @@ async function forwardToMeta(db: Db, row: Record<string, unknown>, req: Request)
   if (!eventName || !eventId) return;
   const meta = (row.meta ?? {}) as Record<string, unknown>;
   if (meta.validation === true) return;
+  // Sem o Pixel ter disparado com este event_id, o evento de servidor duplicaria a contagem na Meta.
+  if (meta.meta_event !== eventName) return;
   const cfg = await pixelConfig(db, String(row.project_id));
   if (!cfg.pixel || !cfg.token) return;
   const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null;
