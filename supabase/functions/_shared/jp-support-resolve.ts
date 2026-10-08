@@ -11,6 +11,12 @@ export type SupportAction =
   | { acao: "pedir_email" }
   | { acao: "sem_compra"; email: string };
 
+/** Pediu o "grupo" ou a comunidade dos alunos: é a aba Comunidade da área de membros, não um grupo de WhatsApp. */
+export const COMMUNITY_PATH = "/community";
+export function wantsCommunity(inboundTexts: ReadonlyArray<string>): boolean {
+  return /\bgrupo\b|comunidade/i.test(inboundTexts.slice(-4).join("\n"));
+}
+
 /** O último e-mail que a própria pessoa escreveu (o mais recente vale: ela pode ter corrigido). */
 export function lastEmail(inboundTexts: ReadonlyArray<string>): string {
   for (let i = inboundTexts.length - 1; i >= 0; i--) {
@@ -33,10 +39,11 @@ export function decideSupport(input: { inboundTexts: ReadonlyArray<string>; emai
   return { acao: "sem_compra", email };
 }
 
-export function supportMessage(action: SupportAction, link = "", liberadoAgora: ReadonlyArray<string> = []): string {
+export function supportMessage(action: SupportAction, link = "", liberadoAgora: ReadonlyArray<string> = [], comunidade = false): string {
   if (action.acao === "pedir_email") return "Oi! Pra eu liberar seu acesso agora, me manda o e-mail que você usou na compra?";
   if (action.acao === "sem_compra") return `Procurei pelo e-mail ${action.email} e não encontrei compra nele. Você pode ter usado outro e-mail na compra? Me manda o outro e-mail ou o comprovante que eu resolvo por aqui.`;
   if (action.acao === "vitalicio") return `Desculpa a demora! Liberei seu acesso vitalício à formação completa. Entra por este link, sem precisar de senha: ${link}\n\nMe avisa se conseguiu entrar.`;
+  if (comunidade) return `Desculpa a demora! A comunidade dos alunos fica dentro da área de membros, na aba *Comunidade*: não precisa de convite. Entra por este link, que já abre nela, sem precisar de senha: ${link}\n\nMe avisa se conseguiu entrar.`;
   const extra = liberadoAgora.length ? ` Também liberei o ${liberadoAgora.join(" e o ")}, que tinha ficado de fora.` : "";
   return `Desculpa a demora! Resolvi aqui: seu acesso está liberado.${extra} Entra por este link, sem precisar de senha: ${link}\n\nSe um dia pedir senha, use "Esqueci minha senha" com o e-mail ${action.email}. Me avisa se conseguiu entrar.`;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideSupport, hasPaidAccess, JP_FREE_PLAN_ID, lastEmail, supportMessage } from "@shared/jp-support-resolve";
+import { decideSupport, hasPaidAccess, JP_FREE_PLAN_ID, lastEmail, supportMessage, wantsCommunity } from "@shared/jp-support-resolve";
 
 const paid = [{ scope: "program", plan_id: null, program_id: "ccp", expires_at: "2099-01-01T00:00:00Z" }];
 const free = [{ scope: "plan", plan_id: JP_FREE_PLAN_ID, program_id: null, expires_at: null }];
@@ -24,5 +24,14 @@ describe("resolvedor do suporte de acesso JP", () => {
     expect(msg).toContain("Também liberei o Segredo do Corte");
     expect(msg).toContain("https://jp/auth/verify?token=1");
     expect(supportMessage({ acao: "sem_compra", email: "a@x.com" })).toContain("não encontrei compra");
+  });
+
+  it("quem pede o grupo dos alunos recebe a Comunidade da área de membros, não promessa de convite", () => {
+    expect(wantsCommunity(["Já comprei o curso e gostaria que me add ao grupo"])).toBe(true);
+    expect(wantsCommunity(["quero entrar na comunidade"])).toBe(true);
+    expect(wantsCommunity(["agrupamento de mechas"])).toBe(false);
+    const msg = supportMessage({ acao: "link", email: "a@x.com" }, "https://jp/auth/verify?token=1", [], true);
+    expect(msg).toContain("aba *Comunidade*");
+    expect(msg).toContain("https://jp/auth/verify?token=1");
   });
 });

@@ -98,6 +98,17 @@ Não consigo acessar o curso que comprei VITALÍCIO`, email, false, { findPurcha
     expect(onGranted).toHaveBeenCalledWith(expect.objectContaining({ origem: "vitalicio" }), email);
   });
 
+  it("aluno que pede o grupo recebe o link que já abre na Comunidade da área de membros", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [{ is_active: true, scope: "program", program_id: CCP }] }))
+      .mockResolvedValueOnce(json({ magic_link: link }));
+    vi.stubGlobal("fetch", fetch);
+    const result = await jpPrepareAccessReply("Vou pedir para a equipe te adicionar", email, "Já comprei e quero entrar no grupo", "Já comprei e quero entrar no grupo", false, { findPurchase: async () => null, onGranted: vi.fn() });
+    expect(result).toMatchObject({ needsHandoff: false });
+    expect(result.text).toContain("aba *Comunidade*");
+    expect(JSON.parse(fetch.mock.calls[1][1].body).redirect_path).toBe("/community");
+  });
+
   it("vitalício que já está no plano sem prazo só recebe o link, sem nova liberação", async () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [{ is_active: true, scope: "plan", plan_id: JP_LIFETIME_PLAN.plan_id, expires_at: null }] }))

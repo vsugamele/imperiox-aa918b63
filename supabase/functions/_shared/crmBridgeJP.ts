@@ -140,6 +140,7 @@ INTEGRAÇÃO REAL ÁREA DE MEMBROS JP FREITAS:
 - Não conceda acesso/cortesia nem use JP_GRANT. Pagamento alegado exige verificação operacional.
 - Falha de consulta, aluno sem acesso confirmado ou erro ao gerar link: [TRANSICAO_HUMANA].
 - Não anuncie que entrou sem senha usando o domínio comum. Não afirme que liberou acesso ou enviou email.
+- Grupo/comunidade de alunos: é a aba *Comunidade* dentro da área de membros (jphaireducation.com.br/community). Não existe grupo de WhatsApp para alunos e ninguém da equipe precisa adicionar: mande o link de entrada.
 - Não peça qual curso comprou quando o CRM já identificou os acessos. Nunca anuncie nomes não retornados pelo CRM.
 - NUNCA invente que o sistema está com "instabilidade", "fora do ar" ou "com erro ao gerar link" quando o aluno tiver acesso ativo no cadastro. Se ele reclamar de acesso negado após comprar Código dos Cortes Perfeitos (R$ 47), oriente que ele deve acessar o link direto do curso dele (/programs/3c368b42-5b73-4d86-a1cd-35c3022b142d) e não clicar no banner da Formação de R$ 797.
 `;
@@ -230,7 +231,8 @@ const ALREADY_REGISTERED_REPLY = "Essa mensagem aparece porque você já tem con
 
 /** Never announce account recovery until the CRM has verified access and issued a real token. */
 export async function jpPrepareAccessReply(reply: string, email: string, incomingContext: string, currentMessage = incomingContext, previousLinkSent = false, grant?: JPVerifiedGrant): Promise<{ text: string; needsHandoff: boolean }> {
-  const accessPattern = /acess|login|senha|entrar.{0,30}(curso|aula|plataforma)|aulas.{0,30}(bloque|nao|não)/i;
+  const accessPattern = /acess|login|senha|entrar.{0,30}(curso|aula|plataforma)|aulas.{0,30}(bloque|nao|não)|\bgrupo\b|comunidade/i;
+  const community = /\bgrupo\b|comunidade/i.test(currentMessage) || (/@/.test(currentMessage) && /\bgrupo\b|comunidade/i.test(incomingContext));
   const continuation = /@|não (deu|funcion|entrou)|nao (deu|funcion|entrou)|continua|ainda (não|nao)|^sim[.!\s]*$/i.test(currentMessage);
   const accessIntent = accessPattern.test(currentMessage) || (continuation && accessPattern.test(incomingContext));
   // Print com "User already registered" (lido pela visão do modelo, que cita na resposta) ou dito no texto: orientar o login,
@@ -279,8 +281,10 @@ ${currentMessage}`) && !hasLifetimePlan(status.programs)) {
       const ent = status.programs[0] ? record(status.programs[0]) : null;
       const progId = ent?.program_id ? String(ent.program_id) : "";
       if (progId) redirectPath = `/programs/${progId}`;
+      if (community) redirectPath = "/community";
       const link = verifiedMagicLink(await jpIssueMagicLink(email, redirectPath));
       if (!link) throw new Error("JP_MAGIC_LINK_FAILED");
+      if (community) return { text: `A comunidade dos alunos fica dentro da área de membros, na aba *Comunidade*: não precisa de convite. Entra por este link, que já abre nela, sem precisar de senha: ${link}\n\nMe avisa se conseguiu entrar.`, needsHandoff: false };
       return { text: `Seu acesso está ativo no cadastro. Este é o link para entrar sem senha: ${link}\n\nMe avisa se conseguiu entrar.`, needsHandoff: false };
     }
     return { text: await jpProcessTags(reply, email), needsHandoff: /\[(TRANSICAO_HUMANA|CHAMAR_HUMANO)\]/i.test(reply) };

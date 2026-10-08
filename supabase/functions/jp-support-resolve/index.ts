@@ -4,7 +4,7 @@
 // Body: { modo: "dry" | "run", conversas: [{ canal: "instagram" | "whatsapp", id }] }.
 // Anti-loop: no máximo 20 conversas por chamada, uma resposta por conversa a cada 12h, para após 3 falhas seguidas.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { decideSupport, lastEmail, supportMessage, type ActiveEntitlement, type SupportAction } from "../_shared/jp-support-resolve.ts";
+import { COMMUNITY_PATH, decideSupport, lastEmail, supportMessage, wantsCommunity, type ActiveEntitlement, type SupportAction } from "../_shared/jp-support-resolve.ts";
 import { hasLifetimePlan, JP_LIFETIME_PLAN, LIFETIME_CLAIM_REF } from "../_shared/jp-verified-grant.ts";
 import { phoneTail } from "../_shared/jp-verified-grant.ts";
 
@@ -58,11 +58,11 @@ async function activeEnts(sb: Sb, userId: string | null): Promise<ActiveEntitlem
   return (data ?? []) as ActiveEntitlement[];
 }
 
-async function magicLink(sb: Sb, userId: string): Promise<string> {
+async function magicLink(sb: Sb, userId: string, path = "/home"): Promise<string> {
   const { data: t } = await sb.from("areamembrojp_tenant_settings").select("site_url").maybeSingle();
   const origin = String(t?.site_url ?? "https://www.jphaireducation.com.br").replace(/\/$/, "");
   const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
-  const { error } = await sb.from("areamembrojp_tenant_magic_tokens").insert({ user_id: userId, token_hash: token, tenant_origin: origin, redirect_path: "/home", expires_at: new Date(Date.now() + 86_400_000).toISOString() });
+  const { error } = await sb.from("areamembrojp_tenant_magic_tokens").insert({ user_id: userId, token_hash: token, tenant_origin: origin, redirect_path: path, expires_at: new Date(Date.now() + 86_400_000).toISOString() });
   if (error) throw new Error(`link: ${error.message}`);
   return `${origin}/auth/verify?token=${token}`;
 }
@@ -136,12 +136,13 @@ Deno.serve(async (req) => {
         const ents = await activeEnts(sb, userId);
         const action: SupportAction = decideSupport({ inboundTexts: conv.inbound, email, hasAccount: !!userId, ents, hasLifetime: hasLifetimePlan(ents) });
         const swept = email ? await sweptProducts(sb, email) : [];
-        if (modo !== "run") { out.push({ id: conv.id, canal: conv.canal, email, acao: action.acao, mensagem: supportMessage(action, "<link>", swept) }); continue; }
+        const comunidade = action.acao === "link" && wantsCommunity(conv.inbound);
+        if (modo !== "run") { out.push({ id: conv.id, canal: conv.canal, email, acao: action.acao, comunidade, mensagem: supportMessage(action, "<link>", swept, comunidade) }); continue; }
 
         let uid = userId;
         if (action.acao === "vitalicio") uid = await grantLifetime(sb, email, userId);
-        const link = (action.acao === "link" || action.acao === "vitalicio") && uid ? await magicLink(sb, uid) : "";
-        const text = supportMessage(action, link, swept);
+        const link = (action.acao === "link" || action.acao === "vitalicio") && uid ? await magicLink(sb, uid, comunidade ? COMMUNITY_PATH : "/home") : "";
+        const text = supportMessage(action, link, swept, comunidade);
         await send(sb, conv, text);
 
         const resolved = action.acao === "link" || action.acao === "vitalicio";
