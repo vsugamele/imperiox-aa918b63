@@ -49,8 +49,13 @@ function duration(file) {
 }
 
 function grab(file, seconds, outFile) {
-  run("ffmpeg", ["-y", "-loglevel", "error", "-ss", String(seconds), "-i", file, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", outFile]);
-  return existsSync(outFile);
+  for (const back of [0, 0.5, 1, 2]) {
+    try {
+      run("ffmpeg", ["-y", "-loglevel", "error", "-ss", String(Math.max(0, seconds - back)), "-i", file, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", outFile]);
+      if (existsSync(outFile)) return true;
+    } catch { /* tenta um pouco antes */ }
+  }
+  return false;
 }
 
 async function socialToStorage() {
