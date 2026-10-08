@@ -32,3 +32,4 @@ supabase/.temp
 .tmp-live/
 .tmp-health/
 .tmp-centro/
+.tmp-ref-frames/

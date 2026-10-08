@@ -70,6 +70,8 @@ export interface Analise {
   quality_score?: number | null;
   replication_prompt?: string | null;
   criador?: string | null;
+  copy?: { gancho?: string | null; mecanismo?: string | null; vilao?: string | null; promessa?: string | null; prova?: string | null; cta?: string | null } | null;
+  cenas?: Array<{ seconds: number; descricao: string }> | null;
 }
 
 export interface DossierRefItem {
@@ -275,7 +277,7 @@ export function ReferenceDossierModal({
                         {secs(f.seconds)}
                       </div>
                     </div>
-                    <figcaption className="text-center text-[10px] text-slate-400 font-medium">
+                    <figcaption className="text-center text-[10px] text-slate-400 font-medium" title={a.cenas?.find((c) => Math.abs(c.seconds - f.seconds) < 0.5)?.descricao}>
                       Cena {i + 1}
                     </figcaption>
                   </figure>
@@ -315,7 +317,7 @@ export function ReferenceDossierModal({
             )}
             {typeof a.quality_score === "number" && (
               <Badge variant="outline" className="text-xs bg-slate-900 border-slate-800 text-slate-300">
-                Score de Qualidade: <strong className="text-emerald-400 ml-1">{a.quality_score}/20</strong>
+                Score de Qualidade: <strong className="text-emerald-400 ml-1">{a.quality_score}/10</strong>
               </Badge>
             )}
             {a.criador && (
@@ -330,6 +332,24 @@ export function ReferenceDossierModal({
             <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-800/40 text-xs">
               <span className="font-bold text-purple-400 uppercase tracking-wide">Troca de Crença (Belief Shift): </span>
               <span className="text-slate-300">{a.belief_shift.from} ➔ <strong className="text-purple-300">{a.belief_shift.to}</strong></span>
+            </div>
+          )}
+
+          {/* Dossiê da copy (Dissecador REF3.1) */}
+          {a.copy && Object.values(a.copy).some(Boolean) && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">🎯 Dossiê da Copy</h4>
+              <div className="grid gap-2 sm:grid-cols-2 p-3.5 rounded-xl border border-slate-800 bg-slate-900/40 text-xs">
+                {([
+                  ["gancho", "Gancho"], ["mecanismo", "Mecanismo"], ["vilao", "Vilão"],
+                  ["promessa", "Promessa"], ["prova", "Prova"], ["cta", "CTA"],
+                ] as const).map(([k, label]) => a.copy?.[k] ? (
+                  <div key={k} className="space-y-0.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
+                    <div className="text-slate-200 leading-relaxed">{a.copy[k]}</div>
+                  </div>
+                ) : null)}
+              </div>
             </div>
           )}
 
