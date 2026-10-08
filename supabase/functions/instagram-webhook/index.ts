@@ -813,7 +813,7 @@ ${account.project_id === "jp_freitas" ? `- RELACIONAMENTO JP: responda ao assunt
                             await supa.from("imphq_ai_actions").insert({
                               kind: "grantAccess", risk_level: "low", status: "executed", confidence: 0.95, auto_executed: true, executed_at: now,
                               title: `Liberei o acesso de ${convInfo.participant_name || convInfo.participant_username || email} ao ${purchase.programa} (Instagram)`,
-                              reason: `Pediu ajuda com o acesso no direct; compra aprovada em ${purchase.data_venda.slice(0, 10)} e o programa não estava liberado.`,
+                              reason: purchase.origem === "vitalicio" ? "Disse no direct que tem o vitalício: entrou no plano da formação sem prazo (regra de 08/10). Confira se não for aluna." : `Pediu ajuda com o acesso no direct; compra aprovada em ${purchase.data_venda.slice(0, 10)} e o programa não estava liberado.`,
                               payload: { email, venda_id: purchase.venda_id, program_id: purchase.program_id, ig_conversation_id: convInfo.id },
                               projeto_id: account.project_id, source: "ig-access-grant",
                             });

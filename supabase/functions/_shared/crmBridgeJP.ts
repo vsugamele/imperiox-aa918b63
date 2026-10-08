@@ -1,5 +1,5 @@
 import { record, text as stringValue, errorText } from "./value.ts";
-import { activeProgramIds, grantedReply, type VerifiedPurchase } from "./jp-verified-grant.ts";
+import { activeProgramIds, claimsLifetime, grantedReply, hasLifetimePlan, JP_LIFETIME_PLAN, LIFETIME_CLAIM_REF, lifetimeClaimPurchase, lifetimeReply, type VerifiedPurchase } from "./jp-verified-grant.ts";
 import { jpAccessStatus, verifiedMagicLink } from "./conversation-policy.ts";
 declare const Deno: { env: { get(name: string): string | undefined } };
 // CRM Bridge JP Freitas — escopo isolado para project_id === 'jp_freitas'.
@@ -260,6 +260,19 @@ export async function jpPrepareAccessReply(reply: string, email: string, incomin
         if (!link) throw new Error("JP_MAGIC_LINK_FAILED");
         await grant.onGranted(purchase, email).catch((e) => console.warn("[crmBridgeJP] grant log failed:", errorText(e)));
         return { text: grantedReply(purchase.programa, link), needsHandoff: false };
+      }
+      // Diz que tem o vitalício e ainda não está no plano da formação sem prazo: entra nele (regra de 08/10).
+      if (grant && lookup && record(lookup).ok === true && claimsLifetime(`${incomingContext}
+${currentMessage}`) && !hasLifetimePlan(status.programs)) {
+        const account = await jpCreateAccount(email);
+        if (!account || record(account).ok === false) throw new Error("JP_ACCOUNT_FAILED");
+        const granted = await callBridge("grant_access", { email, plan_id: JP_LIFETIME_PLAN.plan_id, source_ref: LIFETIME_CLAIM_REF });
+        if (!granted || record(granted).ok === false) throw new Error("JP_GRANT_FAILED");
+        if (!hasLifetimePlan(jpAccessStatus(await jpLookupLead(email)).programs)) throw new Error("JP_GRANT_NOT_CONFIRMED");
+        const link = verifiedMagicLink(await jpIssueMagicLink(email, "/home", true));
+        if (!link) throw new Error("JP_MAGIC_LINK_FAILED");
+        await grant.onGranted(lifetimeClaimPurchase(), email).catch((e) => console.warn("[crmBridgeJP] grant log failed:", errorText(e)));
+        return { text: lifetimeReply(link), needsHandoff: false };
       }
       if (!status.hasAccess) throw new Error("JP_ACCESS_NOT_CONFIRMED");
       let redirectPath = "/home";

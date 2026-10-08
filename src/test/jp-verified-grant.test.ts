@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { jpPrepareAccessReply } from "@shared/crmBridgeJP";
-import { activeProgramIds, phoneTail, pickVerifiedPurchase, programForProduct } from "@shared/jp-verified-grant";
+import { activeProgramIds, claimsLifetime, hasLifetimePlan, JP_LIFETIME_PLAN, phoneTail, pickVerifiedPurchase, programForProduct } from "@shared/jp-verified-grant";
 
 const CCP = "3c368b42-5b73-4d86-a1cd-35c3022b142d";
 const email = "aluna@example.test";
@@ -11,6 +11,11 @@ describe("compra verificada → programa", () => {
   it("mapeia só produtos conhecidos e escolhe a compra aprovada mais recente que ainda não está ativa", () => {
     expect(programForProduct("Código dos Cortes Perfeitos")?.program_id).toBe(CCP);
     expect(programForProduct("Formação JP Hair Education")).toBeNull();
+    expect(programForProduct("Segredo do Corte")?.program_id).toBe("164d66e6-8186-4d1a-8303-e2b88bf95f7f");
+    expect(claimsLifetime("comprei o curso VITALÍCIO em 2024")).toBe(true);
+    expect(claimsLifetime("comprei o curso ontem")).toBe(false);
+    expect(hasLifetimePlan([{ plan_id: JP_LIFETIME_PLAN.plan_id, expires_at: null }])).toBe(true);
+    expect(hasLifetimePlan([{ plan_id: JP_LIFETIME_PLAN.plan_id, expires_at: "2027-01-01" }])).toBe(false);
     const sales = [
       { id: "v1", produto_nome: "Código dos Cortes Perfeitos", status: "aprovado", data_venda: "2026-10-06T10:00:00Z", created_at: "2026-10-06T10:00:00Z" },
       { id: "v2", produto_nome: "Finalização Express", status: "recusado", data_venda: "2026-10-06T11:00:00Z", created_at: "2026-10-06T11:00:00Z" },
@@ -71,5 +76,35 @@ describe("liberação verificada no atendimento", () => {
     expect(result.needsHandoff).toBe(true);
     expect(result.text).not.toContain("liberei");
     expect(onGranted).not.toHaveBeenCalled();
+  });
+
+  it("diz que tem o vitalício: entra no plano da formação sem prazo, confere e manda o link", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, exists: false }))
+      .mockResolvedValueOnce(json({ ok: true, user_id: "u1", created: true }))
+      .mockResolvedValueOnce(json({ ok: true }))
+      .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [{ is_active: true, scope: "plan", plan_id: JP_LIFETIME_PLAN.plan_id, expires_at: null }] }))
+      .mockResolvedValueOnce(json({ magic_link: link }));
+    vi.stubGlobal("fetch", fetch);
+    const onGranted = vi.fn(async () => {});
+    const result = await jpPrepareAccessReply("Vou verificar", email, `${email}
+Não consigo acessar o curso que comprei VITALÍCIO`, email, false, { findPurchase: async () => null, onGranted });
+    expect(result).toMatchObject({ needsHandoff: false });
+    expect(result.text).toContain("vitalício");
+    expect(result.text).toContain(link);
+    const grantBody = JSON.parse(fetch.mock.calls[2][1].body);
+    expect(grantBody).toMatchObject({ action: "grant_access", email, plan_id: JP_LIFETIME_PLAN.plan_id, source_ref: "vitalicio-declarado" });
+    expect(grantBody.expires_at).toBeUndefined();
+    expect(onGranted).toHaveBeenCalledWith(expect.objectContaining({ origem: "vitalicio" }), email);
+  });
+
+  it("vitalício que já está no plano sem prazo só recebe o link, sem nova liberação", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, exists: true, entitlements: [{ is_active: true, scope: "plan", plan_id: JP_LIFETIME_PLAN.plan_id, expires_at: null }] }))
+      .mockResolvedValueOnce(json({ magic_link: link }));
+    vi.stubGlobal("fetch", fetch);
+    const result = await jpPrepareAccessReply("Ok", email, "Não consigo acessar meu vitalício", "Não consigo acessar meu vitalício", false, { findPurchase: async () => null, onGranted: vi.fn() });
+    expect(result.text).toContain("Seu acesso está ativo");
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

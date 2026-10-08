@@ -9,6 +9,7 @@ export const JP_PROGRAM_BY_PRODUCT: ReadonlyArray<{ match: RegExp } & ProgramRef
   { match: /c[óo]digo dos cortes/i, program_id: "3c368b42-5b73-4d86-a1cd-35c3022b142d", programa: "O Código dos Cortes Perfeitos" },
   { match: /finaliza[çc][ãa]o express/i, program_id: "d2760367-8fd7-4538-8765-10ac0810fb72", programa: "Finalização Express" },
   { match: /corte express/i, program_id: "f93166f9-e72c-4b66-a4d0-bc4ef7f860b1", programa: "Corte Express" },
+  { match: /segredo do corte/i, program_id: "164d66e6-8186-4d1a-8303-e2b88bf95f7f", programa: "O Segredo do Corte" },
 ];
 
 export function programForProduct(produto: string | null | undefined): ProgramRef | null {
@@ -18,7 +19,36 @@ export function programForProduct(produto: string | null | undefined): ProgramRe
 
 export interface SaleForGrant { id: string; produto_nome: string | null; status: string | null; data_venda: string | null; created_at: string }
 
-export interface VerifiedPurchase extends ProgramRef { venda_id: string; produto_nome: string; data_venda: string }
+export interface VerifiedPurchase extends ProgramRef { venda_id: string; produto_nome: string; data_venda: string; origem?: "compra" | "vitalicio" }
+
+/**
+ * Regra do Vinicius (08/10): quem diz no atendimento que tem o VITALÍCIO entra no plano da formação (Premium, todos os
+ * programas) sem prazo. Compras antigas (2024) não estão no Império, então a palavra da aluna vale; tudo fica em "A IA fez".
+ */
+export const JP_LIFETIME_PLAN = { plan_id: "001637d7-9b8a-4d2d-ba01-d7d00d27c33a", programa: "Formação JP Hair Education (vitalício)" } as const;
+export const LIFETIME_CLAIM_REF = "vitalicio-declarado";
+
+export function claimsLifetime(text: string | null | undefined): boolean {
+  return /vital[ií]ci/i.test(String(text ?? ""));
+}
+
+/** Já tem o plano da formação sem prazo: não há nada a liberar. */
+export function hasLifetimePlan(entitlements: ReadonlyArray<unknown>): boolean {
+  return entitlements.some((e) => {
+    const r = e && typeof e === "object" ? e as Record<string, unknown> : {};
+    return r.plan_id === JP_LIFETIME_PLAN.plan_id && !r.expires_at;
+  });
+}
+
+export function lifetimeClaimPurchase(now = new Date()): VerifiedPurchase {
+  return { program_id: "", programa: JP_LIFETIME_PLAN.programa, venda_id: LIFETIME_CLAIM_REF, produto_nome: JP_LIFETIME_PLAN.programa, data_venda: now.toISOString(), origem: "vitalicio" };
+}
+
+export function lifetimeReply(link: string): string {
+  return `Liberei seu acesso vitalício à formação completa agora. Este é o link para entrar sem senha: ${link}
+
+Me avisa se conseguiu entrar.`;
+}
 
 const PAID = new Set(["aprovado", "approved", "paid", "pago", "completed"]);
 
