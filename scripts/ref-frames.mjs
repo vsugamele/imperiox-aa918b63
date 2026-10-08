@@ -96,7 +96,7 @@ async function frames() {
       let marks = (Array.isArray(r.cenas) ? r.cenas : []).map((c) => Number(c.seconds)).filter((s) => Number.isFinite(s) && s >= 0);
       if (!marks.length && dur > 0) marks = Array.from({ length: 12 }, (_, i) => Math.round(((i + 0.5) * dur / 12) * 100) / 100);
       marks = marks.map((s) => Math.min(s, Math.max(0, dur - 0.15)));
-      const dir = join(WORK, "frames", r.id);
+      const dir = join(WORK, "frames", "dissect", r.id);
       mkdirSync(dir, { recursive: true });
       const quadros = [];
       marks.forEach((s, i) => {
@@ -109,7 +109,7 @@ async function frames() {
     } finally { rmSync(vid, { force: true }); }
   }
   if (!updates.length) return;
-  supabase(["storage", "cp", "-r", join(WORK, "frames").split("\\").join("/"), `ss:///${BUCKET}/dissect/`, "--linked", "--experimental", "--cache-control", "max-age=31536000", "-j", "6"]);
+  supabase(["storage", "cp", "-r", join(WORK, "frames", "dissect").split("\\").join("/"), `ss:///${BUCKET}/`, "--linked", "--experimental", "--cache-control", "max-age=31536000", "-j", "6"]);
   for (let i = 0; i < updates.length; i += 20) {
     sql(updates.slice(i, i + 20).map((u) => `update imphq_referencias set quadros = ${q(JSON.stringify(u.quadros))}::jsonb,
       image_url = case when coalesce(image_url,'') = '' or image_url ~* '\\.(mp4|mov|webm|m4v)(\\?|$)' then ${q(u.quadros[0].url)} else image_url end,
@@ -118,5 +118,34 @@ async function frames() {
   console.log(`${updates.length} storyboard(s) gravado(s).`);
 }
 
+async function compress() {
+  const rows = sql(`select id, url, image_url, video_ref from imphq_referencias
+    where analise is null and pipeline->'dissecar'->>'erro' like 'vídeo grande%' limit ${limit};`);
+  console.log(`${rows.length} vídeo(s) grande(s) para comprimir.`);
+  const dir = join(WORK, "lite", "referencias-lite");
+  rmSync(join(WORK, "lite"), { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const ok = [];
+  for (const r of rows) {
+    const src = [r.url, r.image_url].find((u) => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(String(u ?? "")));
+    if (!src) continue;
+    const raw = join(WORK, `${r.id}.raw.mp4`);
+    try {
+      await download(src, raw);
+      // 480p, ~500 kbps, áudio mono 64k: um anúncio de 60 s fica em ~4-5 MB, sobra margem para os 20 MB.
+      run("ffmpeg", ["-y", "-loglevel", "error", "-i", raw, "-vf", "scale=-2:'min(480,ih)'", "-c:v", "libx264", "-preset", "veryfast", "-b:v", "500k", "-maxrate", "700k", "-bufsize", "1400k", "-c:a", "aac", "-ac", "1", "-b:a", "64k", "-movflags", "+faststart", join(dir, `${r.id}.mp4`)]);
+      ok.push(r);
+      console.log(`  ok ${r.id}`);
+    } catch (e) { console.warn(`  falhou ${r.id}: ${String(e.message).split("\n")[0]}`); }
+    finally { rmSync(raw, { force: true }); }
+  }
+  if (!ok.length) return;
+  supabase(["storage", "cp", "-r", dir.split("\\").join("/"), "ss:///project-media/", "--linked", "--experimental", "-j", "4"]);
+  sql(ok.map((r) => `update imphq_referencias set video_ref = coalesce(video_ref, '{}'::jsonb) || jsonb_build_object('lite', ${q(`${MEDIA_BASE}/referencias-lite/${r.id}.mp4`)}),
+    pipeline = pipeline - 'dissecar', updated_at = now() where id = ${q(r.id)};`).join("\n"));
+  console.log(`${ok.length} cópia(s) leve(s) no Storage; o ref-dissect tenta de novo.`);
+}
+
 if (social) await socialToStorage();
+else if (args.includes("--compress")) await compress();
 else await frames();

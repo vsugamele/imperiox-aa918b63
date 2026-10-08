@@ -13,7 +13,7 @@ const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { sta
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {});
 const makeClient = () => createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 type Sb = ReturnType<typeof makeClient>;
-interface Ref { id: string; titulo: string | null; tipo: string | null; url: string | null; image_url: string | null; transcricao: string | null; pipeline: unknown }
+interface Ref { id: string; titulo: string | null; tipo: string | null; url: string | null; image_url: string | null; transcricao: string | null; pipeline: unknown; video_ref: unknown }
 
 function toBase64(bytes: Uint8Array): string {
   let bin = "";
@@ -33,7 +33,11 @@ async function openrouter(messages: unknown[]) {
 }
 
 const tentativas = (r: Ref) => Number(obj(obj(r.pipeline).dissecar).tentativas ?? 0);
-const videoUrl = (r: Ref) => [r.url, r.image_url].find((u) => storageObject(u) && /\.(mp4|mov|webm|m4v)(\?|$)/i.test(String(u))) ?? [r.url, r.image_url].find((u) => storageObject(u)) ?? null;
+const videoUrl = (r: Ref) => {
+  const lite = obj(r.video_ref).lite;
+  if (typeof lite === "string" && storageObject(lite)) return lite;
+  return [r.url, r.image_url].find((u) => storageObject(u) && /\.(mp4|mov|webm|m4v)(\?|$)/i.test(String(u))) ?? [r.url, r.image_url].find((u) => storageObject(u)) ?? null;
+};
 
 async function mark(sb: Sb, r: Ref, patch: Record<string, unknown>, result: Record<string, unknown>) {
   const pipeline = { ...obj(r.pipeline), dissecar: { tentativas: tentativas(r) + 1, ...result, em: new Date().toISOString() } };
@@ -73,7 +77,7 @@ Deno.serve(async (req) => {
   const body = obj(await req.json().catch(() => ({})));
   const limite = Math.max(1, Math.min(4, Number(body.limite ?? 2)));
   const sb = makeClient();
-  const cols = "id, titulo, tipo, url, image_url, transcricao, pipeline";
+  const cols = "id, titulo, tipo, url, image_url, transcricao, pipeline, video_ref";
   let q = sb.from("imphq_referencias").select(cols).is("analise", null);
   q = typeof body.id === "string" ? q.eq("id", body.id) : q.or("tipo.eq.video,url.ilike.%.mp4%").order("created_at", { ascending: false }).limit(200);
   const { data, error } = await q;
