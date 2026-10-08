@@ -37,7 +37,9 @@ const PAID = new Set(["aprovado", "approved", "paid", "pago", "completed"]);
 
 /** Texto do que a IA fez, por tipo de ação automática. */
 const ACTION_DONE: Record<string, string> = {
-  grantAccess: "Conferi a compra aprovada, liberei o acesso na área de membros e mandei o link de entrada no WhatsApp.",
+  grantAccess: "Liberei o acesso na área de membros e mandei o link de entrada na conversa.",
+  grantAccessSilent: "Liberei o acesso de uma compra paga que não tinha chegado à área de membros (sem mensagem para a pessoa).",
+  supportReply: "Respondi quem estava esperando o suporte de acesso, com o link de entrada quando o acesso estava ok.",
   pauseAd: "Pausei o anúncio.",
 };
 
