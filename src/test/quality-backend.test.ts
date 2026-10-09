@@ -404,6 +404,26 @@ it("retains failed offline batches and unmatched sales for retry", async () => {
     expect(synced.has("sale-101")).toBe(false);
   } finally { vi.unstubAllGlobals(); }
 });
+it("sends one Purchase per order with bump value, contents and checkout fbc/fbp", async () => {
+  const main = { id: "sale-main", lead_id: "lead", data_venda: "2026-10-06T12:00:00Z", valor: 47, tipo_venda: "principal", external_transaction_id: "T1", produto_nome: "Código dos Cortes Perfeitos", data: { tracker: { fbc: "fb.1.1759700000000.PAZabc", fbp: "fb.1.1759700000000.123456", visitor_id: "v-1" } } };
+  const bump = { external_transaction_id: "T1", produto_nome: "Segredo do Corte", valor: 47 };
+  let vendasCalls = 0;
+  const db = { from: (table: string) => {
+    const data = table === "imphq_projects" ? { id: "project", fb_pixel_id: "123", fb_access_token: "mock" }
+      : table === "imphq_leads" ? [{ id: "lead", email: "a@example.com" }]
+      : table === "imphq_vendas" ? (vendasCalls++ === 0 ? [main] : [bump]) : [];
+    return { ...queryResult(data), insert: async () => ({ error: null }), update: () => ({ in: async () => ({ error: null }) }) };
+  } };
+  const fetchMock = vi.fn().mockResolvedValue(new Response("{}"));
+  vi.stubGlobal("crypto", { subtle: { digest: async () => new Uint8Array([1, 2]).buffer } });
+  try {
+    const result = await (await loadBackendHandler("meta-offline-upload", db, fetchMock)(request({ project_id: "project" }))).json();
+    expect(result.results[0]).toMatchObject({ uploaded: 1 });
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body).data;
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ event_id: "purchase_T1", custom_data: { value: 94, num_items: 2, content_ids: ["Código dos Cortes Perfeitos", "Segredo do Corte"] }, user_data: { fbc: "fb.1.1759700000000.PAZabc", fbp: "fb.1.1759700000000.123456" } });
+  } finally { vi.unstubAllGlobals(); }
+});
 it("retries a failed consultive touch before advancing the sequence", async () => {
   let state: Record<string, unknown> = {};
   const updates = vi.fn((body: { followup_state: Record<string, unknown> }) => { state = body.followup_state; return queryResult(null); });

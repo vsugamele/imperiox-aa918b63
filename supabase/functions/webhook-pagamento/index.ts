@@ -6,6 +6,8 @@ import { resolveSaleJourney } from "../_shared/sale-attribution.ts";
 
 import { z } from "https://esm.sh/zod@3.25.76";
 
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -134,6 +136,30 @@ const CAPI_EVENT_MAP: Record<string, string> = {
   inicio_checkout: "InitiateCheckout",
   visualizacao_conteudo: "ViewContent",
 };
+
+/** Chaves de identidade que o checkout da Ticto repassa em query_params (cookies _fbc/_fbp, fbclid, visitante do tracker).
+ *  Ficam em data.tracker da venda para o meta-offline-upload mandar a Purchase com fbc/fbp (TRK1.3). */
+export function tictoCheckoutTracking(body: unknown): Record<string, string> | null {
+  const qp = record(record(body).query_params);
+  const out: Record<string, string> = {};
+  for (const key of ["fbc", "fbp", "fbclid", "visitor_id", "utm_id"]) {
+    const v = qp[key];
+    if (typeof v === "string" && v.trim()) out[key] = v.trim();
+  }
+  if (Object.keys(out).length === 0) return null;
+  return { ...out, source: "ticto_checkout" };
+}
+
+/** Pixels que recebem a Purchase daqui. O pixel principal do projeto (fb_pixel_id + fb_access_token) tem um remetente só:
+ *  o meta-offline-upload, ou a própria plataforma quando settings.meta_purchase_source = "plataforma". Mandar daqui também
+ *  duplicava a compra na Meta, porque cada remetente usa um event_id diferente (TRK1.3). */
+export function purchaseCapiPixels<T extends { pixel_id: string }>(
+  pixels: T[],
+  project: { fb_pixel_id?: string | null; fb_access_token?: string | null } | null | undefined,
+): T[] {
+  const covered = project?.fb_pixel_id && project?.fb_access_token ? String(project.fb_pixel_id).trim() : null;
+  return covered ? pixels.filter((p) => p.pixel_id !== covered) : pixels;
+}
 
 const QUERY_EVENT_MAP: Record<string, string> = {
   Lead: "lead_capturado",
@@ -739,6 +765,7 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
     const { plataforma, evento: parsedEvento, email, nome, phone, valor, produto, data_compra, tipo_venda, financeiro, utms: webhookUtms, externalTxId, pais, moedaOriginal, valorOriginal } = parseWebhookBody(body, hotmartToken);
 
     let evento = parsedEvento;
+    const checkoutTracking = plataforma === "Ticto" ? tictoCheckoutTracking(body) : null;
 
     // Override evento if query param ?event= is provided
     if (queryEvent) {
@@ -829,13 +856,15 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
     let fbPixelId: string | undefined;
     let fbTestCode: string | undefined;
     let fbPixels: Array<{ pixel_id: string; access_token: string; test_event_code?: string; label?: string }> = [];
+    let capiProject: { fb_pixel_id?: string | null; fb_access_token?: string | null } | null = null;
 
     if (projectId) {
       const { data: proj } = await supabase
         .from("imphq_projects")
-        .select("data")
+        .select("data, fb_pixel_id, fb_access_token")
         .eq("id", projectId)
         .single();
+      capiProject = proj ? { fb_pixel_id: proj.fb_pixel_id, fb_access_token: proj.fb_access_token } : null;
 
       fbToken = (proj?.data?.facebook_access_token || "").replace(/^Bearer\s+/i, "").trim().replace(/^["']|["']$/g, "");
       fbPixelId = proj?.data?.facebook_pixel_id;
@@ -972,6 +1001,7 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
           utm_term: webhookUtms?.utm_term || null,
           data: {
             ...(webhookUtms ? { utms: webhookUtms } : {}),
+            ...(checkoutTracking ? { tracker: checkoutTracking } : {}),
             ...(matchedCampaignId ? { matched_campaign_id: matchedCampaignId } : {}),
             ...(pais ? { pais_comprador: pais } : {}),
             ...(moedaOriginal ? { moeda_original: moedaOriginal } : {}),
@@ -1119,6 +1149,15 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
         await supabase.from("imphq_vendas").update(upd).eq("id", promotable.id);
         console.log("[webhook-pagamento] Promoted pending sale to aprovado:", promotable.id);
 
+        // fbc/fbp do checkout entram na venda promovida para a Purchase server-side (TRK1.3)
+        if (checkoutTracking) {
+          const { data: promotedRow } = await supabase.from("imphq_vendas").select("data").eq("id", promotable.id).maybeSingle();
+          const promotedData = record(promotedRow?.data);
+          await supabase.from("imphq_vendas")
+            .update({ data: { ...promotedData, tracker: { ...record(promotedData.tracker), ...checkoutTracking } } })
+            .eq("id", promotable.id);
+        }
+
         // ── Flow Attribution: record which OpenFlow automation led to this purchase
         try {
           if (leadId) {
@@ -1211,6 +1250,7 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
         const vendaData: Record<string, unknown> = {};
         if (financeiro) Object.assign(vendaData, financeiro);
         if (webhookUtms) vendaData.utms = webhookUtms;
+        if (checkoutTracking) vendaData.tracker = checkoutTracking;
         if (tipo_venda !== "principal") vendaData.tipo_venda = tipo_venda;
         if (pais) vendaData.pais_comprador = pais;
         if (moedaOriginal) vendaData.moeda_original = moedaOriginal;
@@ -1653,11 +1693,12 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
 
     // Send CAPI event for supported event types — dispara em paralelo p/ todos os pixels configurados
     const capiEventName = CAPI_EVENT_MAP[evento];
-    if (capiEventName && fbPixels.length > 0) {
+    const capiPixels = capiEventName === "Purchase" ? purchaseCapiPixels(fbPixels, capiProject) : fbPixels;
+    if (capiEventName && capiPixels.length > 0) {
       const fallbackKey = `${email || "anon"}:${valor || 0}:${produto || ""}`;
       const eventId = await buildCapiEventId(externalTxId, capiEventName, fallbackKey);
       const results = await Promise.allSettled(
-        fbPixels.map((px) =>
+        capiPixels.map((px) =>
           sendCAPIEvent(
             px.access_token, px.pixel_id, px.test_event_code,
             capiEventName, email, nome, phone, valor, produto, eventId,
@@ -1665,7 +1706,7 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
         )
       );
       results.forEach((r, i) => {
-        const px = fbPixels[i];
+        const px = capiPixels[i];
         const tag = `${px.label || "pixel"}:${px.pixel_id}`;
         if (r.status === "fulfilled") {
           console.log(`[webhook-pagamento] CAPI ${capiEventName} OK [${tag}] event_id=${eventId.slice(0,12)}:`, r.value);
@@ -1758,6 +1799,9 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
         }
       }
 
+      // O executor pode esperar minutos dentro da requisição (atrasos curtos do fluxo). Rodando em segundo plano,
+      // a plataforma recebe a resposta na hora e o aviso não estoura os 150s nem fica como não processado (TRK1.3).
+      const runAutomations = async () => {
       let executorSuccess = true;
       let executorError: string | null = null;
       if (matched.length > 0) {
@@ -1819,6 +1863,9 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
           console.warn(`[webhook-pagamento] Webhook ${webhookRow.id} NOT marked as processed. Error: ${executorError}`);
         }
       }
+      };
+      if (matched.length > 0 && typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(runAutomations());
+      else await runAutomations();
     } else {
       // No trigger mapping — still mark as processed (data was saved)
       if (webhookRow?.id) {

@@ -22,10 +22,23 @@ function purchaseValue(v: Record<string, unknown>, mode: string): number {
   return Number(v.valor || 0);
 }
 
-/** fbclid salvo pelo checkout: data.utms.fbclid, ou embutido no utm_content no padrão "nome-do-anuncio::FBCLID::". */
+interface OrderItem { produto_nome?: string | null; valor?: unknown; valor_liquido?: unknown }
+
+/** Um pedido = uma Purchase: a venda principal mais os bumps do mesmo pedido, com valor somado e os itens em contents. */
+function orderPurchase(main: OrderItem, bumps: OrderItem[], mode: string) {
+  const items = [main, ...bumps].map((it) => ({
+    id: String(it.produto_nome || "produto"),
+    quantity: 1,
+    item_price: purchaseValue(it as Record<string, unknown>, mode),
+  }));
+  const value = Math.round(items.reduce((sum, it) => sum + it.item_price, 0) * 100) / 100;
+  return { value, contents: items, content_ids: items.map((it) => it.id), num_items: items.length };
+}
+
+/** fbclid salvo pelo checkout: data.tracker/utms.fbclid, ou embutido no utm_content no padrão "nome-do-anuncio::FBCLID::". */
 function extractFbclid(v: Record<string, unknown>): string | null {
   const utms = rec(rec(v.data).utms);
-  const direct = str(utms.fbclid) ?? str(rec(rec(v.data).atribuicao).fbclid);
+  const direct = str(rec(rec(v.data).tracker).fbclid) ?? str(utms.fbclid) ?? str(rec(rec(v.data).atribuicao).fbclid);
   if (direct) return direct;
   for (const raw of [v.utm_content, utms.utm_content, v.utm_term, utms.utm_term]) {
     const s = str(raw);
@@ -65,6 +78,24 @@ async function processProject(supabase: ReturnType<typeof makeClient>, project: 
     for (const l of leads || []) leadMap.set(l.id, l);
   }
 
+  // Bumps entram já marcados como enviados (não viram Purchase própria); o valor deles vai na Purchase do pedido.
+  const orderIds = [...new Set(vendas.filter((v) => v.tipo_venda !== "orderbump").map((v) => v.external_transaction_id).filter(Boolean))];
+  const bumpsByOrder = new Map<string, OrderItem[]>();
+  if (orderIds.length > 0) {
+    const { data: bumps } = await supabase
+      .from("imphq_vendas")
+      .select("external_transaction_id, produto_nome, valor, valor_liquido")
+      .eq("project_id", project.id)
+      .eq("tipo_venda", "orderbump")
+      .in("status", PAID_STATUSES)
+      .in("external_transaction_id", orderIds);
+    for (const b of bumps || []) {
+      const list = bumpsByOrder.get(b.external_transaction_id) || [];
+      list.push(b);
+      bumpsByOrder.set(b.external_transaction_id, list);
+    }
+  }
+
   const events: CapiEvent[] = [];
   const eventSaleIds: string[] = [];
   const keysBySale: string[][] = [];
@@ -87,6 +118,7 @@ async function processProject(supabase: ReturnType<typeof makeClient>, project: 
     const currency = (str(data.moeda) && str(data.moeda) !== "UNKNOWN" ? str(data.moeda)! : "BRL").toUpperCase();
     eventSaleIds.push(v.id);
     keysBySale.push(keys);
+    const order = orderPurchase(v, v.tipo_venda === "orderbump" ? [] : bumpsByOrder.get(v.external_transaction_id) || [], valueMode);
     events.push({
       event_name: "Purchase",
       event_time: Math.floor(eventMs / 1000),
@@ -94,11 +126,14 @@ async function processProject(supabase: ReturnType<typeof makeClient>, project: 
       action_source: "website",
       user_data: userData,
       custom_data: {
-        value: purchaseValue(v, valueMode),
+        value: order.value,
         currency,
         order_id: orderId,
         content_name: v.produto_nome || "",
         content_type: "product",
+        content_ids: order.content_ids,
+        contents: order.contents,
+        num_items: order.num_items,
         utm_campaign: v.utm_campaign || undefined,
         utm_source: v.utm_source || undefined,
         utm_content: v.utm_content || undefined,

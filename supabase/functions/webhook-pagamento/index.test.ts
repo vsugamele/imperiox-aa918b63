@@ -8,6 +8,8 @@ import {
   extractUtms,
   parseTictoDate,
   buildCapiEventId,
+  tictoCheckoutTracking,
+  purchaseCapiPixels,
 } from "./index.ts";
 
 // ─────────────────────────── Ticto v2 ───────────────────────────
@@ -169,4 +171,19 @@ Deno.test("buildCapiEventId: usa fallback quando externalTxId vazio", async () =
   const b = await buildCapiEventId("", "Purchase", "email:100");
   assertEquals(a, b);
   assertExists(a);
+});
+
+// ─────────────────────────── TRK1.3: fonte única da Purchase ───────────────────────────
+Deno.test("tictoCheckoutTracking: guarda fbc/fbp/fbclid/visitante do checkout", () => {
+  const body = { query_params: { fbc: "fb.1.1759700000000.PAZabc", fbp: "fb.1.1759700000000.123456", fbclid: "PAZabc", visitor_id: "v-1", utm_id: "", currency: "BRL" } };
+  assertEquals(tictoCheckoutTracking(body), { fbc: "fb.1.1759700000000.PAZabc", fbp: "fb.1.1759700000000.123456", fbclid: "PAZabc", visitor_id: "v-1", source: "ticto_checkout" });
+  assertEquals(tictoCheckoutTracking({ query_params: { currency: "BRL" } }), null);
+  assertEquals(tictoCheckoutTracking({}), null);
+});
+
+Deno.test("purchaseCapiPixels: o pixel principal do projeto não recebe Purchase pelo webhook", () => {
+  const pixels = [{ pixel_id: "523" }, { pixel_id: "614" }];
+  assertEquals(purchaseCapiPixels(pixels, { fb_pixel_id: "614", fb_access_token: "tok" }), [{ pixel_id: "523" }]);
+  assertEquals(purchaseCapiPixels(pixels, { fb_pixel_id: "614", fb_access_token: null }), pixels);
+  assertEquals(purchaseCapiPixels(pixels, null), pixels);
 });
