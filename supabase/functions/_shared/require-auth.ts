@@ -43,5 +43,25 @@ export async function requireUserOrServiceRole(req: Request) {
   if (serviceRole && token && token === serviceRole) {
     return { ok: true as const, userId: "service_role", token };
   }
+  // A env pode ter sido rotacionada; aceita também um JWT cujo payload diz service_role, desde que o
+  // endpoint admin do Auth (que só aceita service_role de verdade) o reconheça.
+  if (token && jwtRole(token) === "service_role") {
+    const url = Deno.env.get("SUPABASE_URL")!;
+    const r = await fetch(`${url}/auth/v1/admin/users?per_page=1`, { headers: { apikey: token, Authorization: `Bearer ${token}` } }).catch(() => null);
+    if (r?.ok) return { ok: true as const, userId: "service_role", token };
+  }
   return requireUser(req);
+}
+
+/** Lê o claim role de um JWT sem validar (a validação é feita depois, contra o Auth). */
+function jwtRole(token: string): string | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="));
+    const role = JSON.parse(json)?.role;
+    return typeof role === "string" ? role : null;
+  } catch {
+    return null;
+  }
 }

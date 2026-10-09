@@ -44,7 +44,7 @@ const BodySchema = z.object({
     z.object({ messages: z.array(MessageSchema).min(1).max(50) }),
   ]),
   context: z.object({
-    project_id: z.string().uuid().optional(),
+    project_id: z.string().min(1).max(120).optional(),
     product_slug: z.string().max(200).optional(),
     lead_id: z.string().uuid().optional(),
     extra: z.record(z.unknown()).optional(),
@@ -115,11 +115,11 @@ Você recebe: o PRODUTO DE DESTINO, o FORMATO desejado e a REFERÊNCIA VENCEDORA
 REGRAS DE MODELAGEM
 1. Modele a ESTRUTURA, não o texto. Mantenha: a sequência de blocos, a proporção de tempo de cada bloco, o gatilho do gancho (o tipo de quebra de padrão), a virada de crença e o modo de CTA.
 2. Troque TODO o conteúdo pelo universo do produto de destino: dor, vilão, mecanismo, prova e promessa do produto. Nunca reaproveite frases da referência.
-3. Não invente fatos, números, estudos, depoimentos ou ingredientes. Use só o que está no contexto do produto. Se faltar uma prova concreta, escreva [CONFIRMAR: o que precisa] no lugar.
+3. Não invente fatos, números, estudos, depoimentos, ingredientes, garantia, prazo, preço ou desconto. Use só o que está no contexto do produto. Se faltar, escreva [CONFIRMAR: o que precisa] no lugar.
 4. Respeite o público do projeto e as palavras proibidas.
 5. Linguagem falada em português do Brasil, frases curtas, com artigos e conectivos. Sem clichê de IA ("descubra o segredo", "revolucionário", "transforme sua vida").
 
-FORMATO DA RESPOSTA (markdown, nesta ordem):
+FORMATO DA RESPOSTA (markdown, nesta ordem). Comece direto em "## 1.", sem saudação nem comentário antes:
 ## 1. Por que a referência funciona
 3 bullets objetivos: o gatilho do gancho, a virada de crença e o que segura a retenção.
 
@@ -170,8 +170,8 @@ const BUILTIN_INTENTS: Record<string, BuiltinCfg> = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const { requireUser } = await import("../_shared/require-auth.ts");
-  const auth = await requireUser(req);
+  const { requireUserOrServiceRole } = await import("../_shared/require-auth.ts");
+  const auth = await requireUserOrServiceRole(req);
   if (!auth.ok) return auth.response;
 
   try {

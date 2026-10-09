@@ -19,7 +19,6 @@ export type CriarRoteiroRef = RefForBrief & { id: string; project_id?: string | 
 
 type Project = { id: string; name: string };
 const OUTRO = "__outro__";
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toLowerCase();
 
 /** Gera um roteiro modelado numa referência dissecada para o produto escolhido (copy-engine · modelar_referencia). */
@@ -51,6 +50,7 @@ export function CriarRoteiroModal({ item, open, onOpenChange }: { item: CriarRot
     setProdutoLivre(match ? "" : item.produto ?? "");
   }, [open, item, projects]);
 
+  const temProjeto = projectId !== OUTRO;
   const produto = projectId === OUTRO ? produtoLivre.trim() : projects.find((p) => p.id === projectId)?.name ?? "";
   const input = useMemo(() => (item ? buildModelingInput(item, formato, produto || "[produto]", extra) : ""), [item, formato, produto, extra]);
 
@@ -66,7 +66,7 @@ export function CriarRoteiroModal({ item, open, onOpenChange }: { item: CriarRot
         body: {
           intent: "modelar_referencia",
           input,
-          context: UUID.test(projectId) ? { project_id: projectId } : undefined,
+          context: temProjeto ? { project_id: projectId, extra: { project_slug: projectId } } : undefined,
         },
       });
       if (error) throw error;
@@ -89,7 +89,7 @@ export function CriarRoteiroModal({ item, open, onOpenChange }: { item: CriarRot
   const abrirCopyLab = () => {
     onOpenChange(false);
     navigate("/copy-lab", {
-      state: { initialIntent: "criativo_imperador", projectId: UUID.test(projectId) ? projectId : undefined, briefing: input, initialOutput: output },
+      state: { initialIntent: "criativo_imperador", projectId: temProjeto ? projectId : undefined, briefing: input, initialOutput: output },
     });
   };
 
@@ -130,7 +130,7 @@ export function CriarRoteiroModal({ item, open, onOpenChange }: { item: CriarRot
               {projectId === OUTRO && (
                 <Input className="h-9 text-sm" value={produtoLivre} onChange={(e) => setProdutoLivre(e.target.value)} placeholder="Nome e o que o produto faz" />
               )}
-              {UUID.test(projectId) && <p className="text-[11px] text-muted-foreground">Usa avatar, produto e guardrails do projeto.</p>}
+              {temProjeto && <p className="text-[11px] text-muted-foreground">Usa avatar, produto e guardrails do projeto.</p>}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Formato</Label>
