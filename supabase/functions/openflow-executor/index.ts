@@ -198,6 +198,16 @@ function getLeadTimezoneOffset(phone: string): number {
   return -3;
 }
 
+// Gatilhos de compra: depois que o lead pagou, recuperação (pix, boleto, carrinho, recusado) não faz mais sentido.
+const PURCHASE_TRIGGERS = ["compra_aprovada", "venda_principal_aprovada", "orderbump_aprovado", "upsell_aprovado", "downsell_aprovado"];
+
+/** Trava entre fluxos: o fluxo novo toma o lugar do ativo? Compra sempre ganha de fluxo que não é de compra (OF2.1);
+ *  fora isso vale a regra antiga (ativo não exclusivo e prioridade maior). */
+function canPreemptFlow(f: { trigger: string; activeTrigger: string | null; activeExclusivo: boolean; myPrioridade: number; activePrioridade: number }): boolean {
+  if (PURCHASE_TRIGGERS.includes(f.trigger) && !PURCHASE_TRIGGERS.includes(f.activeTrigger || "")) return true;
+  return !f.activeExclusivo && f.myPrioridade > f.activePrioridade;
+}
+
 // Normalize step fields from editor format to executor format
 function normalizeStep(input: unknown) {
   const step = stepSchema.parse(input);
@@ -440,9 +450,12 @@ Deno.serve(async (req) => {
     let activeFlowName: string | null = null;
     let activeFlowExclusivo = false;
     let activeFlowPrioridade = 5;
+    let activeFlowTrigger: string | null = null;
+    let lockLeadIds: string[] = [];
     if (!resume_from_step && !automacao_id) {
       // Resolve a set of lead_ids that share the same phone as the incoming lead (when available)
       const relatedLeadIds: string[] = lead_data?.lead_id ? [lead_data.lead_id] : [];
+      lockLeadIds = relatedLeadIds;
       const phoneRaw = lead_data?.telefone || lead_data?.phone || lead_data?.whatsapp;
       if (phoneRaw) {
         const phoneDigits = String(phoneRaw).replace(/\D/g, "");
@@ -470,10 +483,11 @@ Deno.serve(async (req) => {
           activeFlowId = activeExecs[0].automacao_id;
           const { data: activeAuto } = await supabase
             .from("imphq_automacoes")
-            .select("nome, prioridade, exclusivo")
+            .select("nome, prioridade, exclusivo, trigger_tipo")
             .eq("id", activeFlowId)
             .maybeSingle();
           activeFlowName = activeAuto?.nome || activeFlowId;
+          activeFlowTrigger = activeAuto?.trigger_tipo ?? null;
           activeFlowExclusivo = !!activeAuto?.exclusivo;
           activeFlowPrioridade = Number(activeAuto?.prioridade ?? 5);
           console.log(`[openflow-executor] Lead/phone já em fluxo "${activeFlowName}" (${activeFlowId}) — exclusivo=${activeFlowExclusivo} prioridade=${activeFlowPrioridade}`);
@@ -485,13 +499,14 @@ Deno.serve(async (req) => {
       // ── Cross-flow lock: skip / preempt based on prioridade + exclusivo
       if (activeFlowId && activeFlowId !== auto.id) {
         const myPrioridade = Number(auto.prioridade ?? 5);
-        const canPreempt = !activeFlowExclusivo && myPrioridade > activeFlowPrioridade;
+        const canPreempt = canPreemptFlow({ trigger: trigger_tipo, activeTrigger: activeFlowTrigger, activeExclusivo: activeFlowExclusivo, myPrioridade, activePrioridade: activeFlowPrioridade });
         if (canPreempt) {
-          // Cancel the previous active flow execution(s) for this lead
+          // Cancel the previous active flow execution(s) for this lead only (sem o filtro de lead cancelava o fluxo de todos)
           await supabase
             .from("imphq_flow_executions")
             .update({ status: "cancelled", error_message: `Preempted by higher-priority flow "${auto.nome}"`, updated_at: new Date().toISOString() })
             .eq("automacao_id", activeFlowId)
+            .in("lead_id", lockLeadIds)
             .in("status", ["running", "waiting"]);
           console.log(`[openflow-executor] Preempt: "${auto.nome}" (p=${myPrioridade}) > "${activeFlowName}" (p=${activeFlowPrioridade})`);
           activeFlowId = null;

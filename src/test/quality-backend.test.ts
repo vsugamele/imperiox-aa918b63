@@ -516,6 +516,16 @@ it("runs existing payment webhook parser regressions with the local runtime", as
   for (const test of cases) await test.run();
 });
 
+it("lets a purchase take over a recovery flow, keeping the old priority rule otherwise", () => {
+  const { canPreemptFlow } = loadContractPrefix("openflow-executor", "canPreemptFlow") as { canPreemptFlow: (f: { trigger: string; activeTrigger: string | null; activeExclusivo: boolean; myPrioridade: number; activePrioridade: number }) => boolean };
+  const base = { activeExclusivo: false, myPrioridade: 5, activePrioridade: 5 };
+  expect(canPreemptFlow({ ...base, trigger: "compra_aprovada", activeTrigger: "aguardando_pagamento" })).toBe(true);
+  expect(canPreemptFlow({ ...base, trigger: "compra_aprovada", activeTrigger: "pagamento_recusado", activeExclusivo: true })).toBe(true);
+  expect(canPreemptFlow({ ...base, trigger: "compra_aprovada", activeTrigger: "compra_aprovada" })).toBe(false);
+  expect(canPreemptFlow({ ...base, trigger: "carrinho_abandonado", activeTrigger: "aguardando_pagamento" })).toBe(false);
+  expect(canPreemptFlow({ ...base, trigger: "carrinho_abandonado", activeTrigger: "aguardando_pagamento", myPrioridade: 6 })).toBe(true);
+  expect(canPreemptFlow({ ...base, trigger: "carrinho_abandonado", activeTrigger: "aguardando_pagamento", myPrioridade: 6, activeExclusivo: true })).toBe(false);
+});
 it("normalizes legacy OpenFlow steps while preserving media and pacing", () => {
   const contracts = loadContractPrefix("openflow-executor", "normalizeStep, replaceVariables") as { normalizeStep: (value: unknown) => Record<string, unknown>; replaceVariables: (text: string, data: unknown, lead: unknown) => string };
   expect(contracts.normalizeStep({ tipo: "aguardar", delay_sec: 2, template: "Hello", custom: { routing: true } })).toMatchObject({ tipo: "delay", delay_sec: 2, delay_min: 0, mensagem: "Hello", custom: { routing: true } });

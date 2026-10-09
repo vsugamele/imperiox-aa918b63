@@ -71,7 +71,7 @@ type LinkSale = (db: ReturnType<typeof database>["db"], opts: SaleOptions) => Pr
 
 // Reuse quality-backend's transpilation pattern: execute the actual Deno source
 // while erasing its remote type import, with only its local value helpers supplied.
-function loadLinkSale(): LinkSale {
+function loadAttribution(): Record<string, unknown> {
   const source = readFileSync(resolve(process.cwd(), "supabase/functions/_shared/attribution.ts"), "utf8");
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
@@ -82,9 +82,10 @@ function loadLinkSale(): LinkSale {
     throw new Error(`Unexpected runtime import: ${name}`);
   });
   if (typeof exports.linkSaleToAttribution !== "function") throw new Error("Missing linkSaleToAttribution");
-  return exports.linkSaleToAttribution as LinkSale;
+  return exports;
 }
-const linkSaleToAttribution = loadLinkSale();
+const attribution = loadAttribution();
+const linkSaleToAttribution = attribution.linkSaleToAttribution as LinkSale;
 const empty: DbReply = { data: null, error: null };
 const sale: SaleOptions = {
   project_id: "project-1", venda_id: "sale-1", venda_status: "aprovado",
@@ -120,6 +121,8 @@ describe("TRK1.1 WhatsApp sale attribution", () => {
         metadata: { source: "retained", match_method: "click_id", match_confidence: "confirmed" } },
       filters: [{ operator: "eq", column: "id", value: "explicit" }],
     });
+    // O código voltou no aviso da plataforma: conta como clique no link da mensagem.
+    expect((app.calls[2] as { update: Record<string, unknown> }).update.clicked_at).toEqual(expect.any(String));
     expect(app.calls[3]).toMatchObject({ table: "imphq_vendas", operation: "update", update: { click_id: input },
       filters: [{ operator: "eq", column: "id", value: "sale-1" }, { operator: "eq", column: "project_id", value: "project-1" }],
     });
@@ -148,6 +151,8 @@ describe("TRK1.1 WhatsApp sale attribution", () => {
     expect(app.calls[2].order).toEqual({ column: "sent_at", ascending: false });
     expect(app.calls[2].limit).toBe(1);
     expect(app.calls[3].update?.metadata).toEqual({ source: "retained", match_method: "phone_product_7d", match_confidence: "inferred" });
+    // Casamento só por telefone não prova que o link foi aberto.
+    expect(app.calls[3].update).not.toHaveProperty("clicked_at");
     expect(app.calls.every(call => call.table !== "imphq_vendas")).toBe(true);
   });
 
@@ -206,5 +211,22 @@ describe("TRK1.1 WhatsApp sale attribution", () => {
     expectExplicitScope(app.calls[0], "click_id", "click-1");
     expectExplicitScope(app.calls[1], "attribution_id", "click-1");
     expect(app.calls[2].filters).toContainEqual({ operator: "lte", column: "sent_at", value: sale.data_venda });
+  });
+});
+
+describe("OF2.1 WhatsApp link code returns through Ticto sck", () => {
+  const inject = attribution.injectAttributionParam as (url: string, id: string) => string;
+  const fromSck = attribution.attributionFromSck as (sck: unknown) => string | null;
+  it("adds sck=wa_<id> without overwriting an existing sck", () => {
+    const url = new URL(inject("https://checkout.ticto.app/O854B666F?utm_source=wa", "abc123def456"));
+    expect(url.searchParams.get("sck")).toBe("wa_abc123def456");
+    expect(url.searchParams.get("xc")).toBe("abc123def456");
+    expect(new URL(inject("https://checkout.ticto.app/X?sck=meta-ads", "abc")).searchParams.get("sck")).toBe("meta-ads");
+  });
+  it("reads only wa_ codes back", () => {
+    expect(fromSck("wa_abc123def456")).toBe("abc123def456");
+    expect(fromSck("wa_")).toBeNull();
+    expect(fromSck("campanha|conjunto")).toBeNull();
+    expect(fromSck(undefined)).toBeNull();
   });
 });

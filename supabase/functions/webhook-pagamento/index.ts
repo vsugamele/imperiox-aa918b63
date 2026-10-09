@@ -388,7 +388,8 @@ export function extractUtms(input: unknown): Record<string, string> | null {
 
   // 3) sck (Ticto subscriber tracking code)
   const sck = body?.sck || body?.tracking?.sck;
-  if (sck) {
+  // "wa_<id>" é o código de link de mensagem do WhatsApp (attribution.ts), não campanha.
+  if (sck && !String(sck).startsWith("wa_")) {
     const sckParts = decodeXcod(String(sck));
     cmp = cmp || sckParts.utm_campaign;
     cnt = cnt || sckParts.utm_content;
@@ -1031,7 +1032,9 @@ async function processWebhook(req: Request, input: unknown, projectIdInit: strin
 
           // ── WA Attribution: liga venda a um attribution_id de mensagem WhatsApp ──
           try {
-            const attrFromBody = body?.xc || body?.attr || body?.tracking?.xc || body?.tracking?.attr || body?.data?.purchase?.tracking?.xc;
+            const sckAttr = String(body?.tracking?.sck || body?.sck || "");
+            const attrFromBody = body?.xc || body?.attr || body?.tracking?.xc || body?.tracking?.attr || body?.data?.purchase?.tracking?.xc
+              || (sckAttr.startsWith("wa_") && sckAttr.length > 3 ? sckAttr.slice(3) : null);
             const { linkSaleToAttribution } = await import("../_shared/attribution.ts");
             const matchedAttr = await linkSaleToAttribution(supabase, {
               project_id: projectId!,

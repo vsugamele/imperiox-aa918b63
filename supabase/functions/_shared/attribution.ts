@@ -66,12 +66,21 @@ export function injectAttributionParam(url: string, attrId: string): string {
     const u = new URL(url);
     if (!u.searchParams.has("attr")) u.searchParams.set("attr", attrId);
     if (!u.searchParams.has("xc")) u.searchParams.set("xc", attrId);
+    // A Ticto não devolve attr/xc no aviso, mas devolve o sck: é por ele que o clique volta (OF2.1).
+    if (!u.searchParams.has("sck")) u.searchParams.set("sck", `${WA_SCK_PREFIX}${attrId}`);
     return u.toString();
   } catch (_) {
     return url.includes("?")
-      ? `${url}&attr=${attrId}&xc=${attrId}`
-      : `${url}?attr=${attrId}&xc=${attrId}`;
+      ? `${url}&attr=${attrId}&xc=${attrId}&sck=${WA_SCK_PREFIX}${attrId}`
+      : `${url}?attr=${attrId}&xc=${attrId}&sck=${WA_SCK_PREFIX}${attrId}`;
   }
+}
+
+export const WA_SCK_PREFIX = "wa_";
+
+/** Código de atribuição que voltou no sck da plataforma ("wa_<id>"), ou null. */
+export function attributionFromSck(sck: unknown): string | null {
+  return typeof sck === "string" && sck.startsWith(WA_SCK_PREFIX) && sck.length > WA_SCK_PREFIX.length ? sck.slice(WA_SCK_PREFIX.length) : null;
 }
 
 export type AttributionContext = {
@@ -145,14 +154,14 @@ export async function linkSaleToAttribution(
     data_venda?: string | null;
   }
 ): Promise<string | null> {
-  let attrRow: { id: string; attribution_id: string; sent_at: string; metadata: unknown } | null = null;
+  let attrRow: { id: string; attribution_id: string; sent_at: string; metadata: unknown; clicked_at?: string | null } | null = null;
   let method = "click_id";
   const paidAt = opts.data_venda && Number.isFinite(Date.parse(opts.data_venda)) ? new Date(opts.data_venda) : new Date();
 
   if (opts.click_id) {
     const matches = await Promise.all((["click_id", "attribution_id"] as const).map(column => supabase
       .from("imphq_wa_attribution")
-      .select("id, attribution_id, sent_at, metadata")
+      .select("id, attribution_id, sent_at, metadata, clicked_at")
       .eq(column, opts.click_id)
       .eq("project_id", opts.project_id)
       .gte("sent_at", new Date(paidAt.getTime() - 30 * 86400000).toISOString())
@@ -170,7 +179,7 @@ export async function linkSaleToAttribution(
   if (!attrRow && opts.phone && opts.produto_nome) {
     const { data, error } = await supabase
       .from("imphq_wa_attribution")
-      .select("id, attribution_id, sent_at, metadata")
+      .select("id, attribution_id, sent_at, metadata, clicked_at")
       .eq("project_id", opts.project_id)
       .eq("phone", opts.phone)
       .eq("produto_nome", opts.produto_nome)
@@ -194,6 +203,8 @@ export async function linkSaleToAttribution(
       venda_status: opts.venda_status,
       matched_at: new Date().toISOString(),
       click_id: opts.click_id || attrRow.attribution_id,
+      // O código do link voltou no aviso da plataforma: o lead abriu o checkout por esta mensagem (OF2.1).
+      ...(method === "click_id" && !attrRow.clicked_at ? { clicked_at: new Date().toISOString() } : {}),
       metadata: { ...record(attrRow.metadata), match_method: method, match_confidence: method === "click_id" ? "confirmed" : "inferred" },
     })
     .eq("id", attrRow.id);

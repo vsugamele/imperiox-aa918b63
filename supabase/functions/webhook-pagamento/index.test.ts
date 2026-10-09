@@ -187,3 +187,10 @@ Deno.test("purchaseCapiPixels: o pixel principal do projeto não recebe Purchase
   assertEquals(purchaseCapiPixels(pixels, { fb_pixel_id: "614", fb_access_token: null }), pixels);
   assertEquals(purchaseCapiPixels(pixels, null), pixels);
 });
+
+Deno.test("extractUtms: sck de link do WhatsApp (wa_<id>) não vira campanha", () => {
+  assertEquals(extractUtms({ tracking: { sck: "wa_abc123def456" } }), null);
+  const r = extractUtms({ tracking: { sck: "wa_abc123def456", utm_campaign: "recuperacao" } })!;
+  assertEquals(r.utm_campaign, "recuperacao");
+  assertEquals(r.utm_content, "");
+});
