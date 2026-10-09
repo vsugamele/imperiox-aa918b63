@@ -8,7 +8,8 @@ Status: Feito · 09/10/2026 (pendente: chave da Resend)
 - [x] Ao tomar o lugar, cancela o fluxo anterior só do lead em questão (antes cancelava aquele fluxo para todos os leads).
 - [x] Faxina `imphq_flow_sweep_stale(24)` de hora em hora (cron `openflow-stale-sweep`): execução em "running" parada há 24 h vira "failed" com `last_error_kind = stale_running`. Fica de fora conversa de canal (Cinna/webchat) e execução esperando evento. 365 encerradas em 09/10 (jun–set).
 - [x] Passo de e-mail (OF2.2): as 8 falhas da semana são "API key is invalid". A chave vem de `imphq_projects.data.email_config` do jp_freitas, com remetente `contato@clubedasbrabas.com.br` (configuração de outra marca). A área de membros do JP envia o e-mail de acesso pela Resend dela: os 13 compradores de 03–09/10 receberam "Bem-vindo(a) à JP Hair Education! Seus dados de acesso". O log do passo agora traz status HTTP, de qual cadastro veio a chave e, quando a chave é recusada, onde trocar ou que dá para tirar o passo.
-- [ ] Decidir: tirar o passo de e-mail do fluxo "Aprovada - JP Freitas" (duplica o da área de membros) ou trocar a chave e o remetente em `data.email_config`.
+- [x] Passos de e-mail tirados do fluxo "Aprovada - JP Freitas" (Vinicius, 09/10: "Pode ser"); fluxo ficou com 3 WhatsApps. Versão anterior salva em `imphq_automacao_versions` (versão 9). A execução que estava parada no e-mail do D+2 foi movida para o WhatsApp do D+3.
+- [x] Boas-vindas reenviada aos 9 compradores de 03–07/10 que ficaram sem (Vinicius: "envia pra limparmos a base"): 1 primeiro, conferido no registro do WhatsApp com id do provedor, depois os outros 8 com 20 s de intervalo. 9/9 enviadas em 09/10 entre 10h30 e 10h46; seguem para D+1 e D+3.
 
 ## WhatsApp
 
