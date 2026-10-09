@@ -108,6 +108,65 @@ DIRETRIZES DE OURO:
 2. Sem clichês de IA vazios. Escreva como copywriter de resposta direta de alto nível.
 `;
 
+const MODELAR_REFERENCIA_SYSTEM_PROMPT = `Você é Diretor Criativo e Copywriter Sênior de resposta direta da Império HQ. Sua especialidade é MODELAR criativos vencedores: pegar um anúncio que já provou funcionar, entender POR QUE ele funciona e reconstruir a mesma engrenagem para outro produto.
+
+Você recebe: o PRODUTO DE DESTINO, o FORMATO desejado e a REFERÊNCIA VENCEDORA já dissecada (dossiê da copy, anatomia por blocos com tempos, cenas e transcrição). O contexto do produto/avatar do projeto vem no fim deste prompt quando houver.
+
+REGRAS DE MODELAGEM
+1. Modele a ESTRUTURA, não o texto. Mantenha: a sequência de blocos, a proporção de tempo de cada bloco, o gatilho do gancho (o tipo de quebra de padrão), a virada de crença e o modo de CTA.
+2. Troque TODO o conteúdo pelo universo do produto de destino: dor, vilão, mecanismo, prova e promessa do produto. Nunca reaproveite frases da referência.
+3. Não invente fatos, números, estudos, depoimentos ou ingredientes. Use só o que está no contexto do produto. Se faltar uma prova concreta, escreva [CONFIRMAR: o que precisa] no lugar.
+4. Respeite o público do projeto e as palavras proibidas.
+5. Linguagem falada em português do Brasil, frases curtas, com artigos e conectivos. Sem clichê de IA ("descubra o segredo", "revolucionário", "transforme sua vida").
+
+FORMATO DA RESPOSTA (markdown, nesta ordem):
+## 1. Por que a referência funciona
+3 bullets objetivos: o gatilho do gancho, a virada de crença e o que segura a retenção.
+
+## 2. Mapa de modelagem
+Tabela: Bloco da referência (tempo) | Função | Bloco novo para o produto.
+
+## 3. Ganchos
+3 opções de gancho, cada uma com o tipo de gatilho entre parênteses.
+
+## 4. Roteiro
+Siga exatamente o FORMATO pedido (tabela com tempos quando for vídeo).
+
+## 5. Extras do formato
+O que o formato pedir além do roteiro (ex.: árvore da DM, perfil do ator, headlines, conceito da imagem). Se não pedir nada, omita esta seção.
+
+## 6. Checklist antes de gravar
+Até 5 itens, incluindo todos os [CONFIRMAR] pendentes.`;
+
+type BuiltinCfg = {
+  intent: string; label: string; system_prompt: string; model: string;
+  reasoning: string; output_format: string; enabled: boolean; apply_style: boolean;
+};
+
+// Intents que funcionam mesmo sem linha em imphq_copy_engine_prompts (a linha da tabela tem precedência).
+const BUILTIN_INTENTS: Record<string, BuiltinCfg> = {
+  lote_anuncios_memoflow: {
+    intent: "lote_anuncios_memoflow",
+    label: "Lote de Anúncios MemoFlow (Tráfego)",
+    system_prompt: MEMOFLOW_ADS_SYSTEM_PROMPT,
+    model: "google/gemini-2.5-pro",
+    reasoning: "high",
+    output_format: "markdown",
+    enabled: true,
+    apply_style: true,
+  },
+  modelar_referencia: {
+    intent: "modelar_referencia",
+    label: "Criar roteiro a partir de referência dissecada",
+    system_prompt: MODELAR_REFERENCIA_SYSTEM_PROMPT,
+    model: "google/gemini-2.5-pro",
+    reasoning: "high",
+    output_format: "markdown",
+    enabled: true,
+    apply_style: true,
+  },
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -133,19 +192,7 @@ Deno.serve(async (req) => {
 
     if (cfgErr) log.error("cfg error", cfgErr);
 
-    let activeCfg = cfg;
-    if (!activeCfg && body.intent === "lote_anuncios_memoflow") {
-      activeCfg = {
-        intent: "lote_anuncios_memoflow",
-        label: "Lote de Anúncios MemoFlow (Tráfego)",
-        system_prompt: MEMOFLOW_ADS_SYSTEM_PROMPT,
-        model: "google/gemini-2.5-pro",
-        reasoning: "high",
-        output_format: "markdown",
-        enabled: true,
-        apply_style: true,
-      };
-    }
+    const activeCfg = cfg ?? BUILTIN_INTENTS[body.intent] ?? null;
 
     if (!activeCfg) return json({ error: `intent não encontrado: ${body.intent}` }, 404);
 
@@ -239,7 +286,7 @@ Deno.serve(async (req) => {
           ],
           stream: false,
         };
-        if (cfg.output_format === "json") retryPayload.response_format = { type: "json_object" };
+        if (activeCfg.output_format === "json") retryPayload.response_format = { type: "json_object" };
         const retryRes = await fetch(providerUrl, {
           method: "POST",
           headers: { Authorization: `Bearer ${providerKey}`, "Content-Type": "application/json" },
@@ -259,7 +306,7 @@ Deno.serve(async (req) => {
     return json({
       intent: body.intent,
       model,
-      output_format: cfg.output_format,
+      output_format: activeCfg.output_format,
       content,
       raw: data,
       guardrail_violations: guardrailViolations,

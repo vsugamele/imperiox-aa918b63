@@ -20,6 +20,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { ReferenceDossierModal, type Analise } from "@/components/referencias/ReferenceDossierModal";
+import { CriarRoteiroModal } from "@/components/referencias/CriarRoteiroModal";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
 const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok", "YouTube", "Instagram", "Email", "Outro"];
@@ -96,115 +97,6 @@ async function downloadMedia(url: string, filename?: string) {
   }
 }
 
-function ModelarRoteiroModal({ refItem, open, onOpenChange }: { refItem: Ref | null; open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [produto, setProduto] = useState("LinfaFlow");
-  const [formato, setFormato] = useState("Comment-to-DM (Reels/TikTok)");
-  const [copied, setCopied] = useState(false);
-
-  if (!refItem) return null;
-
-  const hookText = refItem.analise?.editorial?.topic || refItem.titulo;
-  const transcriptSnippet = refItem.transcricao || (refItem.analise?.transcript ? refItem.analise.transcript.map(t => t.text).join(" ") : "");
-  const anatomyBlocks = refItem.analise?.anatomy?.blocks?.map(b => `- ${b.label}: ${b.purpose}`).join("\n") || "";
-
-  const generatedPrompt = `Você é um Copywriter e Diretor Criativo de Direct Response.
-Modele a estrutura deste criativo vencedor de referência para o nosso produto: ${produto}.
-
-FORMATO DESEJADO: ${formato}
-
-DADOS DA REFERÊNCIA VENCEDORA:
-Título: ${refItem.titulo}
-Nicho Original: ${refItem.analise?.editorial?.primaryNiche || "Saúde / Bem-estar"}
-Ângulo: ${refItem.analise?.angle_family || "Não especificado"}
-Gancho/Ideia: ${hookText}
-${anatomyBlocks ? `\nEstrutura dos Blocos Persuasivos:\n${anatomyBlocks}\n` : ""}
-${transcriptSnippet ? `\nTranscrição de Referência:\n"${transcriptSnippet.slice(0, 1000)}..."\n` : ""}
-
-SUA TAREFA:
-1. Extraia o mecanismo psicológico exato (Por que esse gancho funcionou nos primeiros 3 segundos?).
-2. Crie 3 variações de GANCHO (0-3s) adaptadas para ${produto} mantendo o mesmo gatilho de curiosidade/quebra de padrão.
-3. Escreva o Roteiro Completo Cena a Cena (Gancho, Vilão Oculto, Revelação da Solução, CTA direto).
-4. Garanta linguagem natural e falada, zero clichês de IA.`;
-
-  const copyPrompt = () => {
-    navigator.clipboard.writeText(generatedPrompt);
-    setCopied(true);
-    toast.success("Prompt de modelagem copiado para a área de transferência!");
-    setTimeout(() => setCopied(false), 2500);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-amber-400" /> Modelar Roteiro com IA
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="p-3 rounded-lg bg-secondary/50 border border-border text-xs space-y-1">
-            <p className="font-semibold text-foreground">Referência Selecionada:</p>
-            <p className="text-muted-foreground">{refItem.titulo}</p>
-            {refItem.analise?.editorial?.primaryNiche && (
-              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
-                {refItem.analise.editorial.primaryNiche}
-              </Badge>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Produto de Destino</Label>
-              <Select value={produto} onValueChange={setProduto}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LinfaFlow">LinfaFlow (Drenagem Linfática)</SelectItem>
-                  <SelectItem value="Slim Soda">Slim Soda (Emagrecimento / Saciedade)</SelectItem>
-                  <SelectItem value="Vovó Mei">Vovó Mei (Receita Antiga / Metabolismo)</SelectItem>
-                  <SelectItem value="CardioFlush">CardioFlush (Pressão / Circulação)</SelectItem>
-                  <SelectItem value="Personalizado">Outro Produto</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Formato de Saída</Label>
-              <Select value={formato} onValueChange={setFormato}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Comment-to-DM (Reels/TikTok)">Comment-to-DM (Reels/TikTok)</SelectItem>
-                  <SelectItem value="UGC Talking Head (Anúncio Pago)">UGC Talking Head (Anúncio Pago)</SelectItem>
-                  <SelectItem value="Mini VSL / Storytelling">Mini VSL / Storytelling</SelectItem>
-                  <SelectItem value="Estático / Carrossel Nativo">Estático / Carrossel Nativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <Label className="text-xs font-semibold">Prompt Estratégico Gerado</Label>
-              <Button size="sm" variant="outline" onClick={copyPrompt} className="h-7 text-xs gap-1.5 border-amber-500/30 text-amber-300">
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                {copied ? "Copiado!" : "Copiar Prompt"}
-              </Button>
-            </div>
-            <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 max-h-56 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-              {generatedPrompt}
-            </pre>
-          </div>
-        </div>
-        <DialogFooter className="flex items-center justify-between sm:justify-between">
-          <p className="text-[11px] text-muted-foreground">
-            Cole no ChatGPT, Claude ou no gerador de roteiros para produzir o anúncio.
-          </p>
-          <Button onClick={copyPrompt} className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold gap-1.5 text-xs">
-            <Sparkles className="h-3.5 w-3.5" /> Copiar e Criar Roteiro
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function TranscriptionBlock({ refItem, onChange }: { refItem: Ref; onChange: (patch: Partial<Ref>) => void }) {
   const [busy, setBusy] = useState(false);
@@ -2265,9 +2157,9 @@ function ReferenciasDesktop() {
         </DialogContent>
       </Dialog>
 
-      {/* Modelar Roteiro Modal */}
-      <ModelarRoteiroModal
-        refItem={modelarRef}
+      {/* Criar roteiro baseado na referência */}
+      <CriarRoteiroModal
+        item={modelarRef}
         open={!!modelarRef}
         onOpenChange={(open) => { if (!open) setModelarRef(null); }}
       />

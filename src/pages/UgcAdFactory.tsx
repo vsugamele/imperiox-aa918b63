@@ -2,6 +2,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import type { Json, Tables } from "@/integrations/supabase/types";
 import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +23,13 @@ function gateErrors(value: unknown): string[] {
 }
 
 export default function UgcAdFactory() {
-  const [produto, setProduto] = useState("");
+  const routeState = (useLocation().state || {}) as { produto?: string; research?: string };
+  const [produto, setProduto] = useState(routeState.produto ?? "");
   const [refUrl, setRefUrl] = useState("");
   const [age, setAge] = useState("26-35");
   const [tone, setTone] = useState("confessional");
   const [lane, setLane] = useState("pain");
-  const [research, setResearch] = useState("");
+  const [research, setResearch] = useState(routeState.research ?? "");
   const [loading, setLoading] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [current, setCurrent] = useState<Job | null>(null);

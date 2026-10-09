@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Loader2, Play, Copy, Check, Sparkles, Video, Download } from "lucide-react";
+import { ExternalLink, Loader2, Play, Copy, Check, Sparkles, Video, Download, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CriarRoteiroModal } from "./CriarRoteiroModal";
 
 async function downloadMedia(url: string, filename?: string) {
   try {
@@ -82,6 +83,9 @@ export interface DossierRefItem {
   duracao?: number | null;
   quadros?: Frame[] | null;
   analise?: Analise | null;
+  project_id?: string | null;
+  produto?: string | null;
+  transcricao?: string | null;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -177,6 +181,7 @@ export function ReferenceDossierModal({
 }) {
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
+  const [roteiroOpen, setRoteiroOpen] = useState(false);
 
   if (!item) return null;
 
@@ -224,6 +229,13 @@ export function ReferenceDossierModal({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold"
+                onClick={() => setRoteiroOpen(true)}
+              >
+                <PenLine className="h-3.5 w-3.5" /> Criar Roteiro
+              </Button>
               {item.url && (
                 <Button
                   size="sm"
@@ -433,6 +445,7 @@ export function ReferenceDossierModal({
           )}
         </div>
       </DialogContent>
+      <CriarRoteiroModal item={item} open={roteiroOpen} onOpenChange={setRoteiroOpen} />
     </Dialog>
   );
 }
