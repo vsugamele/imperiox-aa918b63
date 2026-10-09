@@ -1756,8 +1756,11 @@ Deno.serve(async (req) => {
                   .eq("provider", "resend")
                   .maybeSingle();
 
+                // De onde veio a chave: entra no log para saber qual cadastro trocar quando a Resend recusa (OF2.2).
+                let keySource = "";
                 if (creds?.credentials) {
                   resendApiKey = String(record(creds.credentials).api_key || "");
+                  if (resendApiKey) keySource = "imphq_integration_credentials (resend)";
                   fromEmail = String(record(creds.credentials).from_email || "");
                   fromName = String(record(creds.credentials).from_name || "");
                   replyTo = String(record(creds.credentials).reply_to || "");
@@ -1773,6 +1776,7 @@ Deno.serve(async (req) => {
                   const emailConfig = record(record(proj?.data).email_config);
                   const briefing = record(record(record(proj?.data).checklist).resend);
                   resendApiKey = String(emailConfig.resend_api_key || briefing.resend_api_key || "");
+                  if (resendApiKey) keySource = emailConfig.resend_api_key ? "imphq_projects.data.email_config" : "imphq_projects.data.checklist.resend";
                   fromEmail = String(fromEmail || emailConfig.from_email || briefing.from_email || "");
                   fromName = String(fromName || emailConfig.from_name || briefing.from_name || "");
                   replyTo = String(replyTo || emailConfig.reply_to || briefing.reply_to || "");
@@ -1816,6 +1820,10 @@ Deno.serve(async (req) => {
                       template_name: `inline: ${finalSubject.substring(0, 50)}`,
                       status: resendRes.ok ? "sent" : "error",
                       error: resendRes.ok ? null : (resendData.message || "Erro"),
+                      http_status: resendRes.status,
+                      key_source: keySource,
+                      automacao_id: auto.id,
+                      step: i,
                       resend_id: resendData.id || null,
                       source: "openflow",
                     },
@@ -1827,10 +1835,14 @@ Deno.serve(async (req) => {
                     messagesSent++;
                     console.log(`[openflow-executor] Step ${i} email inline: enviado para ${toEmail}, id: ${resendData.id}`);
                   } else {
+                    const keyRejected = resendRes.status === 401 || resendRes.status === 403;
                     stepResult.status = "error";
-                    stepResult.reason = resendData.message || "Erro no Resend";
+                    stepResult.reason = `Resend ${resendRes.status}: ${resendData.message || "Erro no Resend"} (chave de ${keySource})`
+                      + (keyRejected ? ` — chave recusada: trocar em ${keySource} ou tirar este passo se o e-mail já sai por outro sistema` : "");
+                    stepResult.http_status = resendRes.status;
+                    stepResult.key_source = keySource;
                     stepsFailed++;
-                    failureMessages.push(`Step ${i} (email): ${resendData.message || "Erro no Resend"}`);
+                    failureMessages.push(`Step ${i} (email): ${stepResult.reason}`);
                     console.error(`[openflow-executor] Step ${i} email inline: ERRO (continuando) - ${resendData.message || JSON.stringify(resendData)}`);
                   }
                 }
