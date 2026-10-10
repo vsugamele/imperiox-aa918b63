@@ -8,11 +8,15 @@
 // sugere alternativas (duplicar e gerar variações do vencedor, ou ângulos novos quando ninguém está na meta).
 
 import { cpaZone, ZONE_LABEL, type ScaleParams, type Zone } from "./scale-ladder.ts";
+import { diagnose, diagnosisLine, peersOf, telemetryOf, type Telemetry } from "./hw-telemetry.ts";
+import { cboDecide, type CboParams } from "./cbo-policy.ts";
 
 export interface AdDayRow {
   ad_id: string | null; anuncio: string | null; campaign_id?: string | null; campanha?: string | null;
   valor: number | string | null; compras?: number | string | null; init_checkout?: number | string | null;
   link_clicks?: number | string | null; effective_status?: string | null; data_ref: string;
+  impressoes?: number | string | null; video_3s_views?: number | string | null; video_thruplay?: number | string | null;
+  landing_page_views?: number | string | null;
 }
 export interface AdSale { utm_campaign: string | null; utm_content: string | null; status: string | null; tipo_venda?: string | null }
 
@@ -21,6 +25,8 @@ export interface AdStats {
   /** Vendas reais do checkout ligadas ao anúncio pela UTM (sem bump). O pixel fica só como referência. */
   gasto: number; vendas: number; pixel: number; ic: number; cliques: number;
   dias_com_gasto: number; dias_sem_gastar: number;
+  /** Primeiro dia com gasto na janela (BRT) e as métricas do Método H&W (hook, hold, connect...). */
+  primeiro_dia: string | null; tele: Telemetry;
 }
 
 const n = (v: unknown) => { const x = typeof v === "number" ? v : Number(v); return Number.isFinite(x) ? x : 0; };
@@ -68,6 +74,8 @@ export function adStats(rows: ReadonlyArray<AdDayRow>, sales: ReadonlyArray<AdSa
       ic: sorted.reduce((s, r) => s + n(r.init_checkout), 0), cliques: sorted.reduce((s, r) => s + n(r.link_clicks), 0),
       dias_com_gasto: withSpend.length,
       dias_sem_gastar: lastSpend ? Math.max(0, Math.round((Date.parse(today) - Date.parse(lastSpend)) / 86400000)) : 7,
+      primeiro_dia: withSpend[0] ?? null,
+      tele: telemetryOf(sorted, utm),
     });
   }
   return out.sort((a, b) => b.gasto - a.gasto);
@@ -91,22 +99,46 @@ export interface TrafficAlternative { tipo: "duplicar_vencedor" | "variacoes_do_
 
 const ACTIVE = new Set(["ACTIVE", "ATIVO", ""]);
 
-export function trafficPlan(stats: ReadonlyArray<AdStats>, p: ScaleParams, currency = "BRL") {
+/**
+ * Opções por projeto (imphq_scale_rounds.params): `politica: "cbo_hw"` troca a régua de pausa pela escada do Método CBO
+ * (MHW1.4) e `diagnostico: true` acrescenta ao motivo o estágio que falhou (MHW1.3). Sem elas, o comportamento é o de
+ * sempre.
+ */
+export interface TrafficOptions { politica?: "cpa_alvo" | "cbo_hw"; cbo?: Partial<CboParams>; diagnostico?: boolean; now?: Date }
+
+export function trafficPlan(stats: ReadonlyArray<AdStats>, p: ScaleParams, currency = "BRL", opts: TrafficOptions = {}) {
   const money = (v: number | null) => {
     if (v === null) return "—";
     try { return new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(v); } catch { return `${currency} ${v.toFixed(2)}`; }
   };
   const decisoes: TrafficDecision[] = [];
+  const peers = peersOf(stats.map((s) => s.tele));
+  const comDiagnostico = (motivo: string, s: AdStats) => {
+    if (!opts.diagnostico) return motivo;
+    const linha = diagnosisLine(diagnose(s.tele, peers));
+    return linha ? `${motivo}. ${linha}` : motivo;
+  };
+  const now = opts.now ?? new Date();
   for (const s of stats) {
     const cpa = s.vendas > 0 ? round2(s.gasto / s.vendas) : null;
     const zona = cpaZone(cpa, p);
     const ativo = ACTIVE.has(s.status);
     const base = { ad_id: s.ad_id, nome: s.nome, zona, cpa };
     if (!ativo) continue;
+    if (opts.politica === "cbo_hw") {
+      const cp: CboParams = { payout: p.payout, ...opts.cbo };
+      const horas = s.primeiro_dia ? (now.getTime() - Date.parse(`${s.primeiro_dia}T03:00:00Z`)) / 3_600_000 : 0;
+      const d = cboDecide({ ad_id: s.ad_id, nome: s.nome, gasto: s.gasto, ic: s.ic, vendas: s.vendas, cliques: s.cliques, horas_no_ar: horas }, cp, (v) => money(v));
+      // Autonomia igual à de sempre: só o prejuízo claro (≥ 3× o CPA alvo sem venda) pausa sozinho; o resto da escada é proposta.
+      const acao: TrafficAction = d.acao === "cortar" ? (s.vendas === 0 && s.gasto >= 3 * p.cpaAlvo ? "pausar_auto" : "pausar")
+        : d.acao === "validado" || d.acao === "vira_escala" ? "escalar" : d.acao === "aguardar" ? "observar" : "manter";
+      decisoes.push({ ...base, acao, motivo: comDiagnostico(`[CBO ${d.regra}] ${d.motivo}`, s) });
+      continue;
+    }
     if (s.vendas === 0 && s.gasto >= 3 * p.cpaAlvo) {
-      decisoes.push({ ...base, acao: "pausar_auto", motivo: `${money(s.gasto)} em 7 dias e nenhuma venda (≥ 3× o CPA alvo de ${money(p.cpaAlvo)})` });
+      decisoes.push({ ...base, acao: "pausar_auto", motivo: comDiagnostico(`${money(s.gasto)} em 7 dias e nenhuma venda (≥ 3× o CPA alvo de ${money(p.cpaAlvo)})`, s) });
     } else if (s.vendas === 0 && s.gasto >= 2 * p.cpaAlvo) {
-      decisoes.push({ ...base, acao: "pausar", motivo: `${money(s.gasto)} em 7 dias e nenhuma venda (≥ 2× o CPA alvo)` });
+      decisoes.push({ ...base, acao: "pausar", motivo: comDiagnostico(`${money(s.gasto)} em 7 dias e nenhuma venda (≥ 2× o CPA alvo)`, s) });
     } else if (zona === "prejuizo" && (s.vendas >= 2 || s.gasto >= 3 * p.cpaAlvo)) {
       // Uma venda só não é prova: CPA acima do payout com 1 venda vira proposta só depois de 3× o CPA alvo.
       decisoes.push({ ...base, acao: "pausar", motivo: `CPA ${money(cpa)} (${ZONE_LABEL[zona]}) acima do payout ${money(p.payout)} em ${s.vendas} venda(s)` });

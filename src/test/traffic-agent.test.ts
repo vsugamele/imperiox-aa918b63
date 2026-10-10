@@ -81,3 +81,33 @@ describe("agente de tráfego: decisões", () => {
     expect(trafficMessage({ projeto: "X", plan: calmo, semAnuncio: 0, pausados: [], falhas: [], propostas: 0, appUrl: "" })).toBe("");
   });
 });
+
+describe("agente de tráfego: Método H&W (opcional por projeto)", () => {
+  const now = new Date("2026-10-08T15:00:00Z");
+  const stats = adStats([
+    row("semic", "CCP 01 medo", "2026-10-06", 20, { init_checkout: 0, link_clicks: 30, impressoes: 3000 }),
+    row("valid", "CCP 07 publico", "2026-10-05", 90, { init_checkout: 6, link_clicks: 120, impressoes: 6000 }),
+  ], [sale("07-publico::a"), sale("07-publico::b"), sale("07-publico::c")], "2026-10-08");
+
+  it("sem opção, nada muda: R$20 sem venda fica em manter", () => {
+    const plan = trafficPlan(stats, p, "BRL");
+    expect(plan.decisoes.find((d) => d.ad_id === "semic")?.acao).toBe("manter");
+  });
+
+  it("política CBO: corte 1 sem IC vira proposta e 3 vendas no payout vão para escala", () => {
+    const plan = trafficPlan(stats, p, "BRL", { politica: "cbo_hw", now });
+    const semic = plan.decisoes.find((d) => d.ad_id === "semic")!;
+    expect(semic.acao).toBe("pausar");
+    expect(semic.motivo).toContain("[CBO corte_1]");
+    expect(plan.decisoes.find((d) => d.ad_id === "valid")?.acao).toBe("escalar");
+  });
+
+  it("diagnóstico acrescenta o estágio que falhou ao motivo", () => {
+    const rows = [
+      row("ruim", "CCP 02 dinheiro", "2026-10-06", 60, { link_clicks: 60, impressoes: 4000, landing_page_views: 20 }),
+      row("ok1", "CCP 03 status", "2026-10-06", 10, { link_clicks: 40, impressoes: 3000, landing_page_views: 35 }),
+    ];
+    const plan = trafficPlan(adStats(rows, [], "2026-10-07"), p, "BRL", { diagnostico: true });
+    expect(plan.decisoes.find((d) => d.ad_id === "ruim")?.motivo).toContain("porta emperrou");
+  });
+});

@@ -30373,6 +30373,15 @@ export type Database = {
       }
       imphq_test_variants: {
         Row: {
+          carga: string | null
+          molde_campeao_id: string | null
+          molde_dimensao: string | null
+          molde_variacao: string | null
+          ponto_rota: number | null
+          porta: string | null
+          pouso: string | null
+          revisao: Json | null
+          taxonomia: Json | null
           copy_lib_id: string | null
           angulo: string
           created_at: string
@@ -30398,6 +30407,15 @@ export type Database = {
           veredito: string | null
         }
         Insert: {
+          carga?: string | null
+          molde_campeao_id?: string | null
+          molde_dimensao?: string | null
+          molde_variacao?: string | null
+          ponto_rota?: number | null
+          porta?: string | null
+          pouso?: string | null
+          revisao?: Json | null
+          taxonomia?: Json | null
           copy_lib_id?: string | null
           angulo: string
           created_at?: string
@@ -30423,6 +30441,15 @@ export type Database = {
           veredito?: string | null
         }
         Update: {
+          carga?: string | null
+          molde_campeao_id?: string | null
+          molde_dimensao?: string | null
+          molde_variacao?: string | null
+          ponto_rota?: number | null
+          porta?: string | null
+          pouso?: string | null
+          revisao?: Json | null
+          taxonomia?: Json | null
           copy_lib_id?: string | null
           angulo?: string
           created_at?: string
@@ -30448,6 +30475,13 @@ export type Database = {
           veredito?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "imphq_test_variants_molde_campeao_id_fkey"
+            columns: ["molde_campeao_id"]
+            isOneToOne: false
+            referencedRelation: "imphq_test_variants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imphq_test_variants_order_id_fkey"
             columns: ["order_id"]

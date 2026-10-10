@@ -14,6 +14,7 @@ import { AXIS_ORDER, VARIATION_AXES, type VariationAxis } from "@shared/creative
 import { useGenerateVariations, useTestLive, useTestOrders, useVariationBatches, type TestLive, type TestOrder, type VariationBatch } from "@/hooks/useTestOrders";
 import { LIVE_LABEL, liveEvaluation, liveLabel, type LiveOrder, type LiveVariant } from "@shared/test-live";
 import { methodScoreboard, type ScoreBy, type ScoreInput } from "@shared/method-scoreboard";
+import { CARGAS, PORTAS, POUSOS, type Carga, type Porta, type Pouso } from "@shared/hw-taxonomy";
 import { useCopyLibrary } from "@/hooks/useCopyLibrary";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -117,6 +118,7 @@ function OrderCard({ order, live, libName, onVariations }: { order: TestOrder; l
                   </span>
                 </div>
                 {v.hipotese && <p className="text-[11px] text-muted-foreground">Hipótese: {v.hipotese}</p>}
+                <MethodTags variant={v} />
                 {(v.metodo || v.copy_lib_id) && (
                   <p className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground" aria-label="Etiquetas">
                     <Tag className="h-3 w-3" />
@@ -254,7 +256,33 @@ function BatchesSection({ batches }: { batches: VariationBatch[] }) {
   );
 }
 
-const POR_LABEL: Record<ScoreBy, string> = { metodo: "Método", angulo: "Ângulo", categoria: "Camada" };
+const POR_LABEL: Record<ScoreBy, string> = { metodo: "Método", angulo: "Ângulo", categoria: "Camada", porta: "Porta", carga: "Carga", ponto_rota: "Ponto", pouso: "Pouso" };
+
+interface ReviewSummary { aprovado?: boolean; nota?: number; reprovacoes?: string[]; avisos?: string[] }
+
+/** Réguas do Método H&W (porta, ponto da rota, carga, pouso) e o selo do Revisor, quando existirem. */
+function MethodTags({ variant: v }: { variant: Variant }) {
+  const rev = (v.revisao ?? null) as ReviewSummary | null;
+  const tags = [
+    v.porta ? `Porta: ${PORTAS[v.porta as Porta] ?? v.porta}` : null,
+    v.ponto_rota ? `Ponto ${v.ponto_rota}` : null,
+    v.carga ? `Carga: ${CARGAS[v.carga as Carga] ?? v.carga}` : null,
+    v.pouso ? `Pouso: ${POUSOS[v.pouso as Pouso] ?? v.pouso}` : null,
+    v.molde_variacao ? `Molde ${v.molde_variacao}` : null,
+  ].filter((t): t is string => !!t);
+  if (!tags.length && !rev) return null;
+  const revTitle = rev ? [...(rev.reprovacoes ?? []), ...(rev.avisos ?? [])].join(" · ") || "Sem apontamentos" : "";
+  return (
+    <p className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground" aria-label="Método H&W">
+      {tags.map((t) => <span key={t} className="rounded border border-border px-1">{t}</span>)}
+      {rev && (
+        <span title={revTitle} className={cn("rounded border px-1 font-medium", rev.aprovado ? "border-success/40 text-success" : "border-destructive/40 text-destructive")}>
+          Revisor {rev.aprovado ? "ok" : "reprovou"}{typeof rev.nota === "number" ? ` · ${rev.nota}` : ""}
+        </span>
+      )}
+    </p>
+  );
+}
 const brlScore = (n: number) => `R$ ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Placar de todos os testes: qual método de escrita, qual ângulo da biblioteca e qual camada vendem. */
@@ -262,7 +290,7 @@ function Scoreboard({ orders, live, library }: { orders: TestOrder[]; live: Reco
   const [por, setPor] = useState<ScoreBy>("metodo");
   const rows = useMemo<ScoreInput[]>(() => orders.flatMap((o) => (live[o.id]?.readings ?? []).map((r) => {
     const v = o.variantes.find((x) => x.ordem === r.ordem);
-    return { metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida };
+    return { metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida };
   })), [orders, live]);
   const placar = useMemo(() => methodScoreboard(rows, por, library), [rows, por, library]);
   if (!rows.length) return null;
@@ -300,7 +328,7 @@ function Scoreboard({ orders, live, library }: { orders: TestOrder[]; live: Reco
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-muted-foreground">Etiquete as variantes pelo chat ("etiqueta o teste com método e ângulo"): sem etiqueta o anúncio cai em "Sem etiqueta" e não ensina nada.</p>
+      <p className="text-[11px] text-muted-foreground">Etiquete as variantes pelo chat ("etiqueta o teste com método e ângulo", "revisa e classifica o teste pelo método H&W"): sem etiqueta o anúncio cai em "Sem etiqueta" e não ensina nada.</p>
     </section>
   );
 }

@@ -24,6 +24,13 @@ import { adsSyncHealth, liveDelta, type AdsSyncHealthRow, type LivePanel } from 
 import { brtDay, loadProjectLivePanel, type LiveDb } from "../_shared/live-panel-load.ts";
 import { liveReadings, type LiveOrder, type LiveVariant, type SaleRow, type SpendRow } from "../_shared/test-live.ts";
 import { methodScoreboard, normalizeMetodo, type ScoreBy, type ScoreInput } from "../_shared/method-scoreboard.ts";
+import { CARGAS, PONTOS_ROTA, PORTA_PONTO, PORTAS, POUSOS, levaWarnings, type Porta, type PontoRota } from "../_shared/hw-taxonomy.ts";
+import { CHECKLIST } from "../_shared/hw-review.ts";
+import { CONNECT_MIN, HOOK_BLOCO, HOOK_CARRO, MIN_IMPRESSOES, diagnose, peersOf } from "../_shared/hw-telemetry.ts";
+import { cboCuts, cboDecide, p2Plan } from "../_shared/cbo-policy.ts";
+import { FILA as MOLDE_FILA } from "../_shared/winner-mold.ts";
+import { ETAPAS_MICROLEAD } from "../_shared/microlead.ts";
+import { adStats as trafficAdStats, type AdDayRow as TrafficAdDayRow, type AdSale as TrafficAdSale } from "../_shared/traffic-agent.ts";
 import { normalizeVariants, pageKey, slugify, splitReport, type PageMetricValues } from "../_shared/page-split.ts";
 import { buildFunnelLive, type AdsRow as FunnelAdsRow, type PageRow as FunnelPageRow, type SaleRow as FunnelSaleRow } from "../_shared/funnel-live.ts";
 
@@ -1052,9 +1059,71 @@ const MCP_TOOLS = [
       type: "object",
       properties: {
         project_id: { type: "string" },
-        por: { type: "string", enum: ["metodo", "angulo", "categoria"] },
+        por: { type: "string", enum: ["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso"], description: "porta/carga/ponto_rota/pouso = réguas do Método H&W" },
         order_id: { type: "string", description: "Só um teste" },
       },
+    },
+  },
+  {
+    name: "get_hw_method",
+    description: "Método H&W resumido para aplicar no dia a dia: vocabulário (ponto da rota, carga, porta, pouso), checklist do Revisor, faixas de diagnóstico (hook/hold/connect), escada de cortes CBO para um payout, fila do Molde Vencedor e etapas da microlead. Leia antes de criar, revisar, cortar ou multiplicar criativos.",
+    inputSchema: { type: "object", properties: { payout: { type: "number", description: "O que entra por venda; calcula a escada de cortes (padrão 59, JP CCP)" } } },
+  },
+  {
+    name: "review_creatives",
+    description: "Revisor do Método H&W: classifica (ponto da rota, porta, pouso, carga do primeiro quadro) e revisa (teste do print, hook e aterrissagem, cartão de bolso, compliance Meta) criativos de um teste ou um texto solto. Grava revisão e só preenche etiquetas vazias com confiança firme. Até 10 por chamada.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        order_id: { type: "string" },
+        variant_ids: { type: "array", items: { type: "string" } },
+        texto: { type: "string", description: "Para revisar uma copy solta (sem gravar)" },
+        headline: { type: "string" },
+        image_url: { type: "string" },
+        pagina: { type: "string", description: "O que a página/VSL entrega nos primeiros minutos (promessa e mecanismo)" },
+        publico: { type: "string" },
+        salvar: { type: "boolean", description: "Padrão true para variantes" },
+      },
+    },
+  },
+  {
+    name: "set_method_tags",
+    description: "Etiqueta manualmente as variantes de um teste com as réguas do Método H&W (porta, ponto da rota, carga, pouso) e o molde (campeão e V01–V05). Sobrescreve o que estiver: é a decisão de uma pessoa.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        order_id: { type: "string" },
+        variantes: { type: "array", items: { type: "object" }, description: "[{ ordem, porta?, ponto_rota?, carga?, pouso?, molde_campeao_ordem?, molde_variacao?, molde_dimensao? }]" },
+      },
+      required: ["order_id", "variantes"],
+    },
+  },
+  {
+    name: "diagnose_ads",
+    description: "Diagnóstico do painel pelo Método H&W, por anúncio, nos últimos N dias: hook rate, hold rate, CTR, CPC, connect rate, IC e vendas reais; diz qual estágio falhou (carga, pouso, porta, página, checkout) e o que trocar. Só leitura.",
+    inputSchema: { type: "object", properties: { project_id: { type: "string" }, dias: { type: "number", description: "Padrão 7" } }, required: ["project_id"] },
+  },
+  {
+    name: "cbo_plan",
+    description: "Simula a política Método CBO (P1/P2) nos anúncios do projeto: corte 1 (~32% do payout sem IC), corte 2 (~45% com menos de 2 IC), limite (~85% sem venda), teto de CPC, leitura só após 48h, validação com 3 vendas e a receita da P2 (1-5-N, orçamento 10× payout, bid 70–100%, degraus de bid). Só simula: não pausa nem escala nada.",
+    inputSchema: { type: "object", properties: { project_id: { type: "string" }, payout: { type: "number" }, cpc_max: { type: "number" }, formato: { type: "string", enum: ["imagem", "video"] } }, required: ["project_id"] },
+  },
+  {
+    name: "winner_mold",
+    description: "Molde Vencedor do Método H&W. modo 'desmontar' (variant_id de um criativo com 3 vendas): grava o V00 — script palavra por palavra, quem fala, onde, tom visual. modo 'onda' (order_id ou project_id): devolve a próxima onda de variações (V01 de todos os campeões, depois V02…) com o brief de cada uma, script travado e uma dimensão por vez. Não gera arte.",
+    inputSchema: { type: "object", properties: { modo: { type: "string", enum: ["desmontar", "onda"] }, variant_id: { type: "string" }, order_id: { type: "string" }, project_id: { type: "string" }, salvar_briefs: { type: "boolean" } }, required: ["modo"] },
+  },
+  {
+    name: "microlead_draft",
+    description: "Rascunho de microlead (abertura de 1–2 min, 300–400 palavras, 7 etapas) para entrar antes da lead de uma VSL, com checagem e pesos do teste contra o controle (controle ~72%, reservas 17,5%, nova 10%). Não mexe em página.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        produto: { type: "string" }, publico: { type: "string" }, promessa_vsl: { type: "string" }, mecanismo_vsl: { type: "string" },
+        formato_viral: { type: "string" }, angulo: { type: "string" }, avatar: { type: "string" },
+        aberturas_no_ar: { type: "array", items: { type: "string" } }, so_brief: { type: "boolean" },
+      },
+      required: ["produto", "publico", "promessa_vsl", "mecanismo_vsl"],
     },
   },
   {
@@ -1327,7 +1396,7 @@ const actorClient = (actor: string) => createClient(SUPABASE_URL, SUPABASE_SERVI
 
 /** Placar por método/ângulo/categoria a partir das leituras ao vivo (Zernio + vendas por UTM) de todos os testes do recorte. */
 async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unknown>) {
-  const por = (["metodo", "angulo", "categoria"].includes(String(args.por)) ? String(args.por) : "metodo") as ScoreBy;
+  const por = (["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso"].includes(String(args.por)) ? String(args.por) : "metodo") as ScoreBy;
   let q = supabase.from("imphq_test_orders").select("*").neq("status", "cancelado");
   if (args.project_id) q = q.eq("project_id", String(args.project_id));
   if (args.order_id) q = q.eq("id", String(args.order_id));
@@ -1335,7 +1404,7 @@ async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unk
   if (error) throw error;
   if (!orders?.length) return { por, testes: 0, placar: [] };
   const ids = orders.map((o: { id: string }) => o.id);
-  const { data: variants, error: vErr } = await supabase.from("imphq_test_variants").select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, metodo, copy_lib_id").in("order_id", ids);
+  const { data: variants, error: vErr } = await supabase.from("imphq_test_variants").select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, metodo, copy_lib_id, porta, carga, ponto_rota, pouso").in("order_id", ids);
   if (vErr) throw vErr;
   const adIds = (variants ?? []).map((v: { meta_ad_id: string | null }) => v.meta_ad_id).filter(Boolean) as string[];
   const [{ data: spend }, { data: sales }, { data: lib }] = await Promise.all([
@@ -1345,13 +1414,13 @@ async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unk
   ]);
   const rows: ScoreInput[] = [];
   for (const o of orders) {
-    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { metodo: string | null; copy_lib_id: string | null }>;
+    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { metodo: string | null; copy_lib_id: string | null; porta: string | null; carga: string | null; ponto_rota: number | null; pouso: string | null }>;
     const since = String(o.ativado_em ?? o.created_at).slice(0, 10);
     const sp = ((spend ?? []) as Array<SpendRow & { date: string | null }>).filter((r) => String(r.date ?? "") >= since);
     const readings = liveReadings(o as LiveOrder, vs, sp, (sales ?? []) as SaleRow[]);
     for (const r of readings) {
       const v = vs.find((x) => x.ordem === r.ordem);
-      rows.push({ metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida });
+      rows.push({ metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida });
     }
   }
   return { por, testes: orders.length, anuncios: rows.length, placar: methodScoreboard(rows, por, (lib ?? []) as Array<{ id: string; nome: string; categoria: string; numero: number }>) };
@@ -2758,6 +2827,105 @@ Deno.serve(async (req) => {
           if (name === "get_method_scoreboard") {
             const result = await loadMethodScoreboard(supabase, (args ?? {}) as Record<string, unknown>);
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "get_hw_method") {
+            const payout = Number(args?.payout) > 0 ? Number(args.payout) : 59;
+            const result = {
+              doc: "docs/architecture/metodo-hw-na-imperio.md",
+              taxonomia: { pontos_rota: PONTOS_ROTA, cargas: CARGAS, portas: PORTAS, pousos: POUSOS, porta_por_ponto: PORTA_PONTO, frio: "só pontos 1 e 2" },
+              revisor: CHECKLIST.map((c) => ({ id: c.id, bloco: c.bloco, pergunta: c.pergunta, obrigatoria: c.obrigatoria })),
+              diagnostico: { hook_bloco: HOOK_BLOCO, hook_carro: HOOK_CARRO, connect_min: CONNECT_MIN, impressoes_min: MIN_IMPRESSOES, ordem_validacao: "ROI → vendas → checkout → cliques → CPM" },
+              cbo: { payout, cortes: cboCuts({ payout }), cortes_video: cboCuts({ payout, formato: "video" }), p2: p2Plan(1, { payout }) },
+              molde: MOLDE_FILA,
+              microlead: ETAPAS_MICROLEAD,
+              ritmo_72h: ["T0 sobe 5 criativos (portas diferentes, pontos 1/2, Revisor ok)", "até 48h só cortes da escada", "T48h lê hook/hold/connect/IC/vendas", "T72h corta os piores, registra porta/carga/pouso vencedores, abre V01 do validado"],
+            };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "review_creatives") {
+            const { data, error } = await supabase.functions.invoke("creative-review", { body: args ?? {} });
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
+          }
+
+          if (name === "set_method_tags") {
+            if (!args?.order_id || !Array.isArray(args.variantes)) throw new Error("order_id e variantes são obrigatórios");
+            const { data: vs, error: vErr } = await supabase.from("imphq_test_variants").select("id, ordem, porta, ponto_rota").eq("order_id", String(args.order_id));
+            if (vErr) throw vErr;
+            const byOrdem = new Map((vs ?? []).map((v: { id: string; ordem: number }) => [v.ordem, v.id]));
+            const ok = <T extends string>(v: unknown, allowed: Record<string, unknown>) => (typeof v === "string" && v in allowed ? (v as T) : undefined);
+            const updated: Array<Record<string, unknown>> = [];
+            for (const raw of args.variantes as Array<Record<string, unknown>>) {
+              const vid = byOrdem.get(Number(raw.ordem));
+              if (!vid) continue;
+              const patch: Record<string, unknown> = {};
+              const porta = ok(raw.porta, PORTAS); if (porta) patch.porta = porta;
+              const carga = ok(raw.carga, CARGAS); if (carga) patch.carga = carga;
+              const pouso = ok(raw.pouso, POUSOS); if (pouso) patch.pouso = pouso;
+              const ponto = Number(raw.ponto_rota); if (ponto >= 1 && ponto <= 5) patch.ponto_rota = ponto;
+              if (raw.molde_campeao_ordem !== undefined) { const c = byOrdem.get(Number(raw.molde_campeao_ordem)); if (c) patch.molde_campeao_id = c; }
+              if (typeof raw.molde_variacao === "string" && /^V0[0-5]$/.test(raw.molde_variacao)) patch.molde_variacao = raw.molde_variacao;
+              if (typeof raw.molde_dimensao === "string" && ["quem_fala", "onde", "tom_visual", "pessoa_cenario"].includes(raw.molde_dimensao)) patch.molde_dimensao = raw.molde_dimensao;
+              if (!Object.keys(patch).length) continue;
+              patch.taxonomia = { fonte: "humano", em: new Date().toISOString() };
+              const { error } = await supabase.from("imphq_test_variants").update(patch).eq("id", vid);
+              if (error) throw error;
+              updated.push({ ordem: raw.ordem, ...patch });
+            }
+            const { data: after } = await supabase.from("imphq_test_variants").select("id, porta, ponto_rota").eq("order_id", String(args.order_id));
+            const avisos = levaWarnings((after ?? []).map((v: { id: string; porta: string | null; ponto_rota: number | null }) => ({ id: v.id, porta: v.porta as Porta | null, ponto_rota: v.ponto_rota as PontoRota | null })));
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ atualizadas: updated.length, variantes: updated, avisos_da_leva: avisos }, null, 2) }] } });
+          }
+
+          if (name === "diagnose_ads" || name === "cbo_plan") {
+            if (!args?.project_id) throw new Error("project_id é obrigatório");
+            const projectId = String(args.project_id);
+            const dias = Math.min(30, Math.max(1, Number(args?.dias) || 7));
+            const nowD = new Date();
+            const today = new Date(nowD.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+            const since = new Date(nowD.getTime() - 3 * 3600_000 - (dias - 1) * 86400_000).toISOString().slice(0, 10);
+            const [{ data: rows, error: aErr }, { data: sales, error: sErr }] = await Promise.all([
+              supabase.from("imphq_ads_spend").select("ad_id, anuncio, campaign_id, campanha, valor, compras, init_checkout, link_clicks, effective_status, data_ref, impressoes, video_3s_views, video_thruplay, landing_page_views")
+                .eq("project_id", projectId).eq("source", "zernio").gte("data_ref", since).not("ad_id", "is", null).limit(5000),
+              supabase.from("imphq_vendas").select("utm_campaign, utm_content, status, tipo_venda").eq("project_id", projectId).gte("created_at", `${since}T03:00:00Z`).not("utm_content", "is", null).limit(5000),
+            ]);
+            if (aErr) throw aErr;
+            if (sErr) throw sErr;
+            const stats = trafficAdStats((rows ?? []) as TrafficAdDayRow[], (sales ?? []) as TrafficAdSale[], today);
+            if (name === "diagnose_ads") {
+              const peers = peersOf(stats.map((s) => s.tele));
+              const pct = (x: number | null) => (x === null ? null : Math.round(x * 1000) / 10);
+              const anuncios = stats.map((s) => ({
+                nome: s.nome, status: s.status, gasto: s.gasto, vendas: s.vendas, ic: s.ic,
+                hook_rate: pct(s.tele.hook_rate), hold_rate: pct(s.tele.hold_rate), ctr: pct(s.tele.ctr), cpc: s.tele.cpc, connect_rate: pct(s.tele.connect_rate),
+                diagnostico: diagnose(s.tele, peers),
+              }));
+              return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify({ projeto: projectId, dias, pares: peers, anuncios }, null, 2) }] } });
+            }
+            const { data: round } = await supabase.from("imphq_scale_rounds").select("params").eq("project_id", projectId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+            const rp = (round?.params ?? {}) as { payout?: unknown; cpc_max?: unknown; formato?: unknown };
+            const payout = Number(args?.payout) > 0 ? Number(args.payout) : Number(rp.payout);
+            if (!(payout > 0)) throw new Error("payout não definido: passe payout ou configure a esteira do projeto");
+            const cp = { payout, cpcMax: Number(args?.cpc_max ?? rp.cpc_max) > 0 ? Number(args?.cpc_max ?? rp.cpc_max) : null, formato: (String(args?.formato ?? rp.formato) === "video" ? "video" : "imagem") as "imagem" | "video" };
+            const ativos = stats.filter((s) => ["ACTIVE", "ATIVO", ""].includes(s.status));
+            const decisoes = ativos.map((s) => cboDecide({ ad_id: s.ad_id, nome: s.nome, gasto: s.gasto, ic: s.ic, vendas: s.vendas, cliques: s.cliques, horas_no_ar: s.primeiro_dia ? (nowD.getTime() - Date.parse(`${s.primeiro_dia}T03:00:00Z`)) / 3_600_000 : 0 }, cp));
+            const validados = decisoes.filter((d) => d.acao === "validado" || d.acao === "vira_escala").length;
+            const result = { projeto: projectId, simulacao: true, params: cp, cortes: cboCuts(cp), decisoes, p2: validados ? p2Plan(validados, cp) : null, aviso: "Simulação: nada foi pausado nem escalado. Para valer, configure politica=cbo_hw na esteira do projeto." };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "winner_mold") {
+            const { data, error } = await supabase.functions.invoke("winner-mold", { body: args ?? {} });
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
+          }
+
+          if (name === "microlead_draft") {
+            const { data, error } = await supabase.functions.invoke("microlead-writer", { body: args ?? {} });
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
           }
 
           if (name === "list_mining_sources") {

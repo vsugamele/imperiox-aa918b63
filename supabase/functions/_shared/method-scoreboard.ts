@@ -1,11 +1,17 @@
-// Placar por método, ângulo da biblioteca ou categoria (CPY1.1): soma o que cada anúncio testado gastou e vendeu
-// (leitura ao vivo do teste) e agrupa pela etiqueta da variante. TS puro, usado pelo painel e pelo MCP.
+// Placar por método, ângulo da biblioteca ou categoria (CPY1.1) e pelas réguas do Método H&W (MHW1.1: porta, carga,
+// ponto da rota, pouso): soma o que cada anúncio testado gastou e vendeu (leitura ao vivo do teste) e agrupa pela
+// etiqueta da variante. TS puro, usado pelo painel e pelo MCP.
+import { CARGAS, PONTOS_ROTA, PORTAS, POUSOS } from "./hw-taxonomy.ts";
 
-export type ScoreBy = "metodo" | "angulo" | "categoria";
+export type ScoreBy = "metodo" | "angulo" | "categoria" | "porta" | "carga" | "ponto_rota" | "pouso";
 
 export interface ScoreInput {
   metodo: string | null;
   copy_lib_id: string | null;
+  porta?: string | null;
+  carga?: string | null;
+  ponto_rota?: number | null;
+  pouso?: string | null;
   gasto: number;
   ic: number;
   vendas: number;
@@ -48,6 +54,8 @@ export function normalizeMetodo(metodo: string | null | undefined): string | nul
 
 function keyOf(row: ScoreInput, by: ScoreBy, lib: Map<string, LibraryRef>): string {
   if (by === "metodo") return normalizeMetodo(row.metodo) ?? SEM_ETIQUETA;
+  if (by === "porta" || by === "carga" || by === "pouso") return row[by] || SEM_ETIQUETA;
+  if (by === "ponto_rota") return row.ponto_rota ? String(row.ponto_rota) : SEM_ETIQUETA;
   if (!row.copy_lib_id) return SEM_ETIQUETA;
   if (by === "angulo") return row.copy_lib_id;
   return lib.get(row.copy_lib_id)?.categoria ?? SEM_ETIQUETA;
@@ -60,6 +68,10 @@ function labelOf(key: string, by: ScoreBy, lib: Map<string, LibraryRef>): string
     return item ? `${item.numero ?? ""} · ${item.nome}`.replace(/^ · /, "") : key;
   }
   if (by === "categoria") return CATEGORIA_LABEL[key] ?? key;
+  if (by === "porta") return PORTAS[key as keyof typeof PORTAS] ?? key;
+  if (by === "carga") return CARGAS[key as keyof typeof CARGAS] ?? key;
+  if (by === "pouso") return POUSOS[key as keyof typeof POUSOS] ?? key;
+  if (by === "ponto_rota") return `${key} · ${PONTOS_ROTA[Number(key) as keyof typeof PONTOS_ROTA] ?? ""}`.replace(/ · $/, "");
   return key;
 }
 

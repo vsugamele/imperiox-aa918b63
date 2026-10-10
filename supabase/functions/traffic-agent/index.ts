@@ -8,7 +8,7 @@
 //   - avisa no grupo Imperio X: pausas, escalar, observar, ofensores e alternativas.
 // Anti-repetição: um anúncio com ação do agente nas últimas 24 h não ganha outra. dry_run=true só devolve o plano.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
-import { adStats, trafficMessage, trafficPlan, unattributedSales, type AdDayRow, type AdSale } from "../_shared/traffic-agent.ts";
+import { adStats, trafficMessage, trafficPlan, unattributedSales, type AdDayRow, type AdSale, type TrafficOptions } from "../_shared/traffic-agent.ts";
 import { effectiveAutonomy } from "../_shared/autonomy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -39,17 +39,26 @@ Deno.serve(async (req) => {
     const { data: rounds, error: rErr } = await sb.from("imphq_scale_rounds").select("project_id, params, updated_at").order("updated_at", { ascending: false });
     if (rErr) throw rErr;
     const params = new Map<string, { payout: number; cpaAlvo: number }>();
+    const options = new Map<string, TrafficOptions>();
     for (const r of rounds ?? []) {
-      const p = r.params as { payout?: unknown; cpa_alvo?: unknown } | null;
+      const p = r.params as { payout?: unknown; cpa_alvo?: unknown; politica?: unknown; diagnostico?: unknown; cpc_max?: unknown; formato?: unknown } | null;
       const payout = Number(p?.payout), cpaAlvo = Number(p?.cpa_alvo);
-      if (!params.has(r.project_id) && payout > 0 && cpaAlvo > 0) params.set(r.project_id, { payout, cpaAlvo });
+      if (!params.has(r.project_id) && payout > 0 && cpaAlvo > 0) {
+        params.set(r.project_id, { payout, cpaAlvo });
+        // Método H&W (MHW1.3/1.4): só muda algo quando o projeto liga explicitamente nos parâmetros.
+        options.set(r.project_id, {
+          politica: p?.politica === "cbo_hw" ? "cbo_hw" : "cpa_alvo",
+          diagnostico: p?.diagnostico === true,
+          cbo: { cpcMax: Number(p?.cpc_max) > 0 ? Number(p?.cpc_max) : null, formato: p?.formato === "video" ? "video" : "imagem" },
+        });
+      }
     }
 
     const report: Array<Record<string, unknown>> = [];
     for (const [projectId, p] of params) {
       if (onlyProject && projectId !== onlyProject) continue;
       const [{ data: rows, error: aErr }, { data: sales, error: sErr }, { data: proj }] = await Promise.all([
-        sb.from("imphq_ads_spend").select("ad_id, anuncio, campaign_id, campanha, valor, compras, init_checkout, link_clicks, effective_status, data_ref, moeda")
+        sb.from("imphq_ads_spend").select("ad_id, anuncio, campaign_id, campanha, valor, compras, init_checkout, link_clicks, effective_status, data_ref, moeda, impressoes, video_3s_views, video_thruplay, landing_page_views")
           .eq("project_id", projectId).eq("source", "zernio").gte("data_ref", since).not("ad_id", "is", null).limit(5000),
         sb.from("imphq_vendas").select("utm_campaign, utm_content, status, tipo_venda")
           .eq("project_id", projectId).gte("created_at", sinceIso).not("utm_content", "is", null).limit(5000),
@@ -60,11 +69,11 @@ Deno.serve(async (req) => {
       if (!rows?.length) { report.push({ projeto: projectId, pulado: "sem gasto por anúncio no Zernio em 7 dias" }); continue; }
       const currency = String(rows.find((r) => r.moeda)?.moeda ?? "BRL");
       const stats = adStats(rows as AdDayRow[], (sales ?? []) as AdSale[], today);
-      const plan = trafficPlan(stats, p, currency);
+      const plan = trafficPlan(stats, p, currency, { ...options.get(projectId), now });
       const semAnuncio = unattributedSales(stats, (sales ?? []) as AdSale[]);
       const nome = String(proj?.name ?? projectId);
 
-      if (dryRun) { report.push({ projeto: projectId, params: p, auto_pausa: autoPause, sem_anuncio: semAnuncio, plano: plan, texto: trafficMessage({ projeto: nome, plan, currency, semAnuncio, pausados: [], falhas: [], propostas: 0, appUrl: APP_URL }) }); continue; }
+      if (dryRun) { report.push({ projeto: projectId, params: p, opcoes: options.get(projectId), auto_pausa: autoPause, sem_anuncio: semAnuncio, plano: plan, texto: trafficMessage({ projeto: nome, plan, currency, semAnuncio, pausados: [], falhas: [], propostas: 0, appUrl: APP_URL }) }); continue; }
 
       // Anúncios que já tiveram ação do agente nas últimas 24 h ficam de fora.
       const { data: recent } = await sb.from("imphq_ai_actions").select("payload").eq("source", SOURCE).eq("projeto_id", projectId)
