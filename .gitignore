@@ -33,3 +33,4 @@ supabase/.temp
 .tmp-health/
 .tmp-centro/
 .tmp-ref-frames/
+scratch/
