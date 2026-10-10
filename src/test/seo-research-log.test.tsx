@@ -29,4 +29,15 @@ it("reimports into the explicit project without overwriting prior editorial deci
   expect(store.upsert.mock.calls[0][0][0]).toMatchObject({ id, project_id: "linfaflow", created_at: report.generated_at });
   expect(store.rows.size).toBe(1); expect(store.rows.get(id)?.content).toBe(content);
   expect(await screen.findByText("Decisão: Revisão médica pendente")).toBeInTheDocument();
+  fireEvent.click(screen.getByText("Registrar decisão / resultado"));
+  fireEvent.change(screen.getByLabelText("Decisão SEO"), { target: { value: "Alteração cancelada" } });
+  fireEvent.click(screen.getByText("Cancelar"));
+  expect(screen.queryByLabelText("Decisão SEO")).not.toBeInTheDocument();
+  expect(store.rows.get(id)?.content).toBe(content);
+  // Exercise a second actual import through the UI, rather than only comparing identity hashes.
+  await waitFor(() => expect(screen.queryByText("Associar e importar no projeto linfaflow")).not.toBeInTheDocument());
+  fireEvent.change(screen.getByLabelText("Carregar relatório JSON do radar"), { target: { files: [file] } });
+  fireEvent.click(await screen.findByText("Associar e importar no projeto linfaflow"));
+  await waitFor(() => expect(store.upsert).toHaveBeenCalledTimes(2));
+  expect(store.rows.size).toBe(1); expect(store.rows.get(id)?.content).toBe(content);
 });
