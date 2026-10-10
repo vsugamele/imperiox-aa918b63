@@ -92,6 +92,8 @@ const KIND_LABEL: Record<string, string> = {
   hook: "Gancho",
   body: "Corpo",
   bridge: "Ponte",
+  mechanism: "Mecanismo",
+  problem_agitation: "Agitação da Dor",
   proof: "Prova",
   demonstration: "Demonstração",
   offer: "Oferta",
@@ -102,9 +104,41 @@ const KIND_LABEL: Record<string, string> = {
 const secs = (n: number) => `${n.toFixed(2)}s`;
 const isHttp = (u?: string | null) => !!u && /^https?:\/\//i.test(u);
 
-function VideoPlayer({ id }: { id: string }) {
+function VideoPlayer({ id, url }: { id: string; url?: string | null }) {
   const [src, setSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const driveMatch = url?.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  const driveEmbed = driveMatch ? `https://drive.google.com/file/d/${driveMatch[1]}/preview` : null;
+
+  if (driveEmbed) {
+    return (
+      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2">
+        <div className="text-xs font-semibold text-slate-200 flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Video className="h-4 w-4 text-violet-400" />
+            Player de Vídeo (Google Drive)
+          </span>
+          <a
+            href={url!}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] text-violet-400 hover:underline flex items-center gap-1"
+          >
+            Abrir original <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+        <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black border border-slate-800">
+          <iframe
+            src={driveEmbed}
+            className="w-full h-full border-0"
+            allow="autoplay; encrypted-media; fullscreen"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    );
+  }
 
   const load = async () => {
     if (src || loading) return;
@@ -308,7 +342,7 @@ export function ReferenceDossierModal({
           )}
 
           {/* 2. PLAYER DE VÍDEO SEGURO */}
-          <VideoPlayer id={item.id} />
+          <VideoPlayer id={item.id} url={item.url} />
 
           {/* 3. METADADOS E ÂNGULOS PERSUASIVOS */}
           <div className="flex flex-wrap gap-2 pt-1">
