@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink, FileText, Mic } from "lucide-react";
+import { Save, Loader2, FlaskConical, Wand2, Copy, Sparkles, Image as ImageIcon, ExternalLink, FileText, Mic, Globe, Download, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "other"; src: string } | null {
+function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "gdrive" | "other"; src: string } | null {
   if (!url) return null;
   try {
     const u = new URL(url);
@@ -29,6 +29,13 @@ function getEmbedUrl(url: string): { type: "yt" | "vimeo" | "mp4" | "other"; src
     if (u.hostname.includes("vimeo.com")) {
       const id = u.pathname.split("/").filter(Boolean).pop();
       if (id) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
+    }
+    // Google Drive
+    if (u.hostname.includes("drive.google.com")) {
+      const m = u.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (m) {
+        return { type: "gdrive", src: `https://drive.google.com/file/d/${m[1]}/preview` };
+      }
     }
     if (/\.(mp4|webm|mov)$/i.test(u.pathname)) {
       return { type: "mp4", src: url };
@@ -80,9 +87,10 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
 
   const isVsl = data?.formato === "vsl" || data?.formato === "VSL" || record(data?.blocks).__schema === "vsl7";
   const BLOCK_KEYS = isVsl ? VSL7_BLOCKS : SHORT_BLOCKS;
-  const videoUrl = data?.media_urls?.[0];
+  const videoUrl = data?.video_url || data?.media_urls?.[0];
 
   const embed = useMemo(() => (videoUrl ? getEmbedUrl(videoUrl) : null), [videoUrl]);
+  const res = useMemo(() => record(data?.resultado), [data?.resultado]);
 
   // Carrega criativos atrelados (batches cujo source_swipe_ids contém este swipe)
   useEffect(() => {
@@ -255,7 +263,7 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
           <div className="mt-3 rounded-lg overflow-hidden bg-black/60 border border-border/40">
             {embed.type === "mp4" ? (
               <video src={embed.src} controls className="w-full aspect-video" />
-            ) : embed.type === "yt" || embed.type === "vimeo" ? (
+            ) : embed.type === "yt" || embed.type === "vimeo" || embed.type === "gdrive" ? (
               <iframe
                 src={embed.src}
                 className="w-full aspect-video"
@@ -271,8 +279,9 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
         )}
 
         <Tabs defaultValue={data.raw_text ? "transcricao" : "anatomia"} className="mt-4">
-          <TabsList className={`grid w-full ${isVsl ? "grid-cols-5" : "grid-cols-4"}`}>
+          <TabsList className={`grid w-full ${isVsl ? "grid-cols-6" : "grid-cols-5"}`}>
             <TabsTrigger value="transcricao" className="text-xs gap-1"><FileText className="h-3 w-3" /> Roteiro</TabsTrigger>
+            <TabsTrigger value="midias" className="text-xs gap-1"><ExternalLink className="h-3 w-3" /> Mídias & Links</TabsTrigger>
             <TabsTrigger value="anatomia" className="text-xs">Anatomia</TabsTrigger>
             <TabsTrigger value="reverse" className="text-xs gap-1"><FlaskConical className="h-3 w-3" /> Eng. Reversa</TabsTrigger>
             <TabsTrigger value="motor" className="text-xs gap-1"><Wand2 className="h-3 w-3" /> Motor</TabsTrigger>
@@ -319,6 +328,153 @@ export function SwipeDetail({ swipe, onClose, onSaved }: Props) {
             </p>
           </TabsContent>
 
+          <TabsContent value="midias" className="space-y-4 mt-3">
+            {/* VSLs & Vídeos */}
+            {(((res.vsls as Array<{ text: string; url: string }>)?.length > 0) || data.video_url) && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--gold))] flex items-center gap-1.5">
+                  <Play className="h-3.5 w-3.5" /> VSLs & Vídeos da Oferta
+                </Label>
+                <div className="grid gap-2">
+                  {(((res.vsls as Array<{ text: string; url: string }>) || (data.video_url ? [{ text: "VSL Principal", url: data.video_url }] : []))).map((v, i) => (
+                    <a
+                      key={i}
+                      href={v.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-2.5 rounded border border-border/40 hover:border-[hsl(var(--gold))]/60 bg-secondary/30 hover:bg-secondary/60 transition group text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Play className="h-3.5 w-3.5 text-[hsl(var(--gold))]" />
+                        <span className="font-medium truncate">{v.text || `VSL ${i + 1}`}</span>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground shrink-0 ml-2" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Criativos */}
+            {((res.criativos as Array<{ text: string; url: string }>)?.length > 0) && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5" /> Criativos de Anúncio ({((res.criativos as any[])?.length)})
+                </Label>
+                <div className="grid gap-2">
+                  {((res.criativos as Array<{ text: string; url: string }>)).map((c, i) => (
+                    <a
+                      key={i}
+                      href={c.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-2.5 rounded border border-border/40 hover:border-sky-500/50 bg-secondary/30 hover:bg-secondary/60 transition group text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <ImageIcon className="h-3.5 w-3.5 text-sky-400" />
+                        <span className="font-medium truncate">{c.text || `Criativo ${i + 1}`}</span>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground shrink-0 ml-2" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Landing Pages */}
+            {((res.paginas as Array<{ text: string; url: string; parent?: string }>)?.length > 0) && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5" /> Landing Pages & Páginas Ativas
+                </Label>
+                <div className="grid gap-2">
+                  {((res.paginas as Array<{ text: string; url: string; parent?: string }>)).map((p, i) => (
+                    <a
+                      key={i}
+                      href={p.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-2.5 rounded border border-border/40 hover:border-emerald-500/50 bg-secondary/30 hover:bg-secondary/60 transition group text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Globe className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="font-medium truncate">{p.text || p.url}</span>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground shrink-0 ml-2" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Downloads ZIP */}
+            {((res.zips as Array<{ text: string; url: string }>)?.length > 0) && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> Downloads de Código HTML (.zip)
+                </Label>
+                <div className="grid gap-2">
+                  {((res.zips as Array<{ text: string; url: string }>)).map((z, i) => (
+                    <a
+                      key={i}
+                      href={z.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-2.5 rounded border border-amber-500/30 hover:border-amber-500/60 bg-amber-500/5 hover:bg-amber-500/10 transition group text-xs text-amber-200"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Download className="h-3.5 w-3.5 text-amber-400" />
+                        <span className="font-medium truncate">{z.text || "Baixar HTML da página (.zip)"}</span>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 shrink-0 ml-2" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Meta Ads Library */}
+            {((res.meta_ads as Array<{ text: string; url: string }>)?.length > 0) && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                  <ExternalLink className="h-3.5 w-3.5" /> Meta Ads Library (Concorrente Ao Vivo)
+                </Label>
+                <div className="grid gap-2">
+                  {((res.meta_ads as Array<{ text: string; url: string }>)).map((m, i) => (
+                    <a
+                      key={i}
+                      href={m.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-2.5 rounded border border-blue-500/30 hover:border-blue-500/60 bg-blue-500/5 hover:bg-blue-500/10 transition group text-xs text-blue-200"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Globe className="h-3.5 w-3.5 text-blue-400" />
+                        <span className="font-medium truncate">{m.text || "Ver anúncios ativos na Meta Ads Library"}</span>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 shrink-0 ml-2" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Prints da Oferta */}
+            {((res.prints as string[])?.length > 0) && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5" /> Prints & Estrutura Visual
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {((res.prints as string[])).map((img, i) => (
+                    <a key={i} href={img} target="_blank" rel="noreferrer" className="block rounded border border-border/40 overflow-hidden hover:opacity-90 transition">
+                      <img src={img} alt={`Print ${i + 1}`} className="w-full h-32 object-cover object-top" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="anatomia" className="space-y-3 mt-3">
             <div className="grid grid-cols-2 gap-2">
