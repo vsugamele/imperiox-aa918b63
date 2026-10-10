@@ -36,4 +36,6 @@ Pedido aprovado: integrar Habblaud ao Império com acompanhamento, mensagens, pe
 - Publicação posterior dpl_AHP1AUvEzzVCAsMFpTWc8o6Z89Xw, commit main 26efe0fa, substituiu o deploy local com Escritório. Confirmado no histórico Vercel e no bundle público; não era apenas cache do celular.
 - Integrado origin/main na branch local, preservando chat, referências e telemetria: merge f1afb3bd [Story OFFICE1.7]. Nenhum push realizado.
 - Nova tentativa da suíte geral: 943 testes passando, 14 falhando, 13 erros (incluindo timeout de worker); lint global mantém 13 erros. Gates impedem push para consolidar em main. A publicação local não resolve essa pendência de integração remota.
-- Deploy de recuperação: dpl_8zcb4w19cWdtckFfQFrDiW6grPKm; verificar READY e alias antes de declarar acesso restaurado.
+- Deploy de recuperação: dpl_8zcb4w19cWdtckFfQFrDiW6grPKm READY, alias imperiox.vercel.app. Build remoto passou. Bundle público index-8fHet28k.js contém path escritorio e chunk Escritorio-C89ip9oW.js retorna HTTP 200.
+- Navegador in-app reproduziu 404 antes e, após recarregar a nova publicação, redirecionou corretamente ao login. Sem sessão autenticada disponível neste navegador; não repetimos ações de agentes. Captura C:/Users/vsuga/habblaud/imperio-escritorio-recuperado.png. Chrome ficou indisponível.
+- Typecheck e lint específico concluídos sem erros; 7 testes do conector passaram. Falhas gerais acima permanecem bloqueando push. Integração remota ainda pendente: novas publicações de main podem remover novamente a rota.
