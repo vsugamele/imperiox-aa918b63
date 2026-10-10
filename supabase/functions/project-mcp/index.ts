@@ -30,6 +30,7 @@ import { CONNECT_MIN, HOOK_BLOCO, HOOK_CARRO, MIN_IMPRESSOES, diagnose, peersOf 
 import { cboCuts, cboDecide, p2Plan } from "../_shared/cbo-policy.ts";
 import { FILA as MOLDE_FILA } from "../_shared/winner-mold.ts";
 import { ETAPAS_MICROLEAD } from "../_shared/microlead.ts";
+import { FORMATO_LABEL } from "../_shared/batch-strategist.ts";
 import { adStats as trafficAdStats, type AdDayRow as TrafficAdDayRow, type AdSale as TrafficAdSale } from "../_shared/traffic-agent.ts";
 import { normalizeVariants, pageKey, slugify, splitReport, type PageMetricValues } from "../_shared/page-split.ts";
 import { buildFunnelLive, type AdsRow as FunnelAdsRow, type PageRow as FunnelPageRow, type SaleRow as FunnelSaleRow } from "../_shared/funnel-live.ts";
@@ -1059,7 +1060,7 @@ const MCP_TOOLS = [
       type: "object",
       properties: {
         project_id: { type: "string" },
-        por: { type: "string", enum: ["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso"], description: "porta/carga/ponto_rota/pouso = réguas do Método H&W" },
+        por: { type: "string", enum: ["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso", "formato"], description: "porta/carga/ponto_rota/pouso = réguas do Método H&W; formato = estático, print de conversa, UGC…" },
         order_id: { type: "string", description: "Só um teste" },
       },
     },
@@ -1093,7 +1094,7 @@ const MCP_TOOLS = [
       type: "object",
       properties: {
         order_id: { type: "string" },
-        variantes: { type: "array", items: { type: "object" }, description: "[{ ordem, porta?, ponto_rota?, carga?, pouso?, molde_campeao_ordem?, molde_variacao?, molde_dimensao? }]" },
+        variantes: { type: "array", items: { type: "object" }, description: "[{ ordem, porta?, ponto_rota?, carga?, pouso?, formato?, molde_campeao_ordem?, molde_variacao?, molde_dimensao? }]" },
       },
       required: ["order_id", "variantes"],
     },
@@ -1124,6 +1125,21 @@ const MCP_TOOLS = [
         aberturas_no_ar: { type: "array", items: { type: "string" } }, so_brief: { type: "boolean" },
       },
       required: ["produto", "publico", "promessa_vsl", "mecanismo_vsl"],
+    },
+  },
+  {
+    name: "plan_batch",
+    description: "Estrategista: monta a próxima leva de criativos de um projeto cruzando a biblioteca de ângulos (78), o mercado minerado (ângulo e formato das referências), o que já foi testado e as réguas do Método H&W. Com vencedor: 50% variações dele, 30% ângulos novos, 20% formatos novos; sem vencedor: 70% ângulos novos, 30% formatos. modo 'plano' só mostra; 'salvar' guarda como leva planejada para aprovação; 'aprovar'/'descartar' muda o status. Não gera arte.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        modo: { type: "string", enum: ["plano", "salvar", "aprovar", "descartar"] },
+        project_id: { type: "string" },
+        tamanho: { type: "number", description: "Padrão 20 (5 a 40)" },
+        so_imagem: { type: "boolean", description: "Padrão true: só formatos que a fábrica de imagem gera" },
+        leva_id: { type: "string", description: "Para aprovar/descartar" },
+      },
+      required: ["modo"],
     },
   },
   {
@@ -1396,7 +1412,7 @@ const actorClient = (actor: string) => createClient(SUPABASE_URL, SUPABASE_SERVI
 
 /** Placar por método/ângulo/categoria a partir das leituras ao vivo (Zernio + vendas por UTM) de todos os testes do recorte. */
 async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unknown>) {
-  const por = (["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso"].includes(String(args.por)) ? String(args.por) : "metodo") as ScoreBy;
+  const por = (["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso", "formato"].includes(String(args.por)) ? String(args.por) : "metodo") as ScoreBy;
   let q = supabase.from("imphq_test_orders").select("*").neq("status", "cancelado");
   if (args.project_id) q = q.eq("project_id", String(args.project_id));
   if (args.order_id) q = q.eq("id", String(args.order_id));
@@ -1404,7 +1420,7 @@ async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unk
   if (error) throw error;
   if (!orders?.length) return { por, testes: 0, placar: [] };
   const ids = orders.map((o: { id: string }) => o.id);
-  const { data: variants, error: vErr } = await supabase.from("imphq_test_variants").select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, metodo, copy_lib_id, porta, carga, ponto_rota, pouso").in("order_id", ids);
+  const { data: variants, error: vErr } = await supabase.from("imphq_test_variants").select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, metodo, copy_lib_id, porta, carga, ponto_rota, pouso, formato").in("order_id", ids);
   if (vErr) throw vErr;
   const adIds = (variants ?? []).map((v: { meta_ad_id: string | null }) => v.meta_ad_id).filter(Boolean) as string[];
   const [{ data: spend }, { data: sales }, { data: lib }] = await Promise.all([
@@ -1414,13 +1430,13 @@ async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unk
   ]);
   const rows: ScoreInput[] = [];
   for (const o of orders) {
-    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { metodo: string | null; copy_lib_id: string | null; porta: string | null; carga: string | null; ponto_rota: number | null; pouso: string | null }>;
+    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { metodo: string | null; copy_lib_id: string | null; porta: string | null; carga: string | null; ponto_rota: number | null; pouso: string | null; formato: string | null }>;
     const since = String(o.ativado_em ?? o.created_at).slice(0, 10);
     const sp = ((spend ?? []) as Array<SpendRow & { date: string | null }>).filter((r) => String(r.date ?? "") >= since);
     const readings = liveReadings(o as LiveOrder, vs, sp, (sales ?? []) as SaleRow[]);
     for (const r of readings) {
       const v = vs.find((x) => x.ordem === r.ordem);
-      rows.push({ metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida });
+      rows.push({ metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, formato: v?.formato ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida });
     }
   }
   return { por, testes: orders.length, anuncios: rows.length, placar: methodScoreboard(rows, por, (lib ?? []) as Array<{ id: string; nome: string; categoria: string; numero: number }>) };
@@ -2864,6 +2880,7 @@ Deno.serve(async (req) => {
               const porta = ok(raw.porta, PORTAS); if (porta) patch.porta = porta;
               const carga = ok(raw.carga, CARGAS); if (carga) patch.carga = carga;
               const pouso = ok(raw.pouso, POUSOS); if (pouso) patch.pouso = pouso;
+              const formato = ok(raw.formato, FORMATO_LABEL); if (formato) patch.formato = formato;
               const ponto = Number(raw.ponto_rota); if (ponto >= 1 && ponto <= 5) patch.ponto_rota = ponto;
               if (raw.molde_campeao_ordem !== undefined) { const c = byOrdem.get(Number(raw.molde_campeao_ordem)); if (c) patch.molde_campeao_id = c; }
               if (typeof raw.molde_variacao === "string" && /^V0[0-5]$/.test(raw.molde_variacao)) patch.molde_variacao = raw.molde_variacao;
@@ -2924,6 +2941,12 @@ Deno.serve(async (req) => {
 
           if (name === "microlead_draft") {
             const { data, error } = await supabase.functions.invoke("microlead-writer", { body: args ?? {} });
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
+          }
+
+          if (name === "plan_batch") {
+            const { data, error } = await supabase.functions.invoke("batch-strategist", { body: args ?? {} });
             if (error) throw error;
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
           }

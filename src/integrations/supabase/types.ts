@@ -30374,6 +30374,7 @@ export type Database = {
       imphq_test_variants: {
         Row: {
           carga: string | null
+          formato: string | null
           molde_campeao_id: string | null
           molde_dimensao: string | null
           molde_variacao: string | null
@@ -30408,6 +30409,7 @@ export type Database = {
         }
         Insert: {
           carga?: string | null
+          formato?: string | null
           molde_campeao_id?: string | null
           molde_dimensao?: string | null
           molde_variacao?: string | null
@@ -30442,6 +30444,7 @@ export type Database = {
         }
         Update: {
           carga?: string | null
+          formato?: string | null
           molde_campeao_id?: string | null
           molde_dimensao?: string | null
           molde_variacao?: string | null

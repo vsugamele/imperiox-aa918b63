@@ -15,7 +15,9 @@ import { useGenerateVariations, useTestLive, useTestOrders, useVariationBatches,
 import { LIVE_LABEL, liveEvaluation, liveLabel, type LiveOrder, type LiveVariant } from "@shared/test-live";
 import { methodScoreboard, type ScoreBy, type ScoreInput } from "@shared/method-scoreboard";
 import { CARGAS, PORTAS, POUSOS, type Carga, type Porta, type Pouso } from "@shared/hw-taxonomy";
+import { FORMATO_LABEL } from "@shared/batch-strategist";
 import { useCopyLibrary } from "@/hooks/useCopyLibrary";
+import { NextBatchPanel } from "@/components/testes/NextBatchPanel";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Variant = Tables<"imphq_test_variants">;
@@ -63,6 +65,8 @@ export default function Testes() {
       {orders.map((o) => <OrderCard key={o.id} order={o} live={live[o.id]} libName={libName} onVariations={(variant) => setTarget({ order: o, variant })} />)}
 
       <Scoreboard orders={orders} live={live} library={library} />
+
+      <NextBatchPanel />
 
       <BatchesSection batches={batches} />
 
@@ -256,7 +260,7 @@ function BatchesSection({ batches }: { batches: VariationBatch[] }) {
   );
 }
 
-const POR_LABEL: Record<ScoreBy, string> = { metodo: "Método", angulo: "Ângulo", categoria: "Camada", porta: "Porta", carga: "Carga", ponto_rota: "Ponto", pouso: "Pouso" };
+const POR_LABEL: Record<ScoreBy, string> = { metodo: "Método", angulo: "Ângulo", categoria: "Camada", porta: "Porta", carga: "Carga", ponto_rota: "Ponto", pouso: "Pouso", formato: "Formato" };
 
 interface ReviewSummary { aprovado?: boolean; nota?: number; reprovacoes?: string[]; avisos?: string[] }
 
@@ -264,6 +268,7 @@ interface ReviewSummary { aprovado?: boolean; nota?: number; reprovacoes?: strin
 function MethodTags({ variant: v }: { variant: Variant }) {
   const rev = (v.revisao ?? null) as ReviewSummary | null;
   const tags = [
+    v.formato ? FORMATO_LABEL[v.formato] ?? v.formato : null,
     v.porta ? `Porta: ${PORTAS[v.porta as Porta] ?? v.porta}` : null,
     v.ponto_rota ? `Ponto ${v.ponto_rota}` : null,
     v.carga ? `Carga: ${CARGAS[v.carga as Carga] ?? v.carga}` : null,
@@ -290,7 +295,7 @@ function Scoreboard({ orders, live, library }: { orders: TestOrder[]; live: Reco
   const [por, setPor] = useState<ScoreBy>("metodo");
   const rows = useMemo<ScoreInput[]>(() => orders.flatMap((o) => (live[o.id]?.readings ?? []).map((r) => {
     const v = o.variantes.find((x) => x.ordem === r.ordem);
-    return { metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida };
+    return { metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, formato: v?.formato ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida };
   })), [orders, live]);
   const placar = useMemo(() => methodScoreboard(rows, por, library), [rows, por, library]);
   if (!rows.length) return null;

@@ -13,7 +13,7 @@ describe("taxonomia (porta, ponto, pouso, carga)", () => {
     const q1 = taxonomyRequest({ texto: "Watch this" }).questions;
     expect(Object.keys(q1)).toEqual(["ponto_rota", "porta"]);
     const q2 = taxonomyRequest({ texto: "Eu tinha desistido. Me dá 73 segundos.", primeiro_quadro: "colher de pó espumando num copo" }).questions;
-    expect(Object.keys(q2).sort()).toEqual(["carga", "ponto_rota", "porta", "pouso"]);
+    expect(Object.keys(q2).sort()).toEqual(["carga", "formato", "ponto_rota", "porta", "pouso"]);
   });
 
   it("grava só o que veio firme e ignora escolhas fora do vocabulário", () => {

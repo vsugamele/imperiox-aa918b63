@@ -48,7 +48,7 @@ async function describeFirstFrame(imageUrl: string): Promise<string | null> {
   return d?.choices?.[0]?.message?.content?.trim() || null;
 }
 
-interface Item { variant_id: string | null; subject: ReviewSubject; image_url: string | null; atual: { ponto_rota: number | null; porta: string | null; pouso: string | null; carga: string | null } }
+interface Item { variant_id: string | null; subject: ReviewSubject; image_url: string | null; atual: { ponto_rota: number | null; porta: string | null; pouso: string | null; carga: string | null; formato: string | null } }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     const items: Item[] = [];
 
     if (Array.isArray(body?.variant_ids) || body?.order_id) {
-      let q = sb.from("imphq_test_variants").select("id, order_id, texto, headline, image_url, ponto_rota, porta, pouso, carga").order("ordem").limit(MAX_ITEMS);
+      let q = sb.from("imphq_test_variants").select("id, order_id, texto, headline, image_url, ponto_rota, porta, pouso, carga, formato").order("ordem").limit(MAX_ITEMS);
       if (Array.isArray(body.variant_ids)) q = q.in("id", body.variant_ids.map(String));
       if (body.order_id) q = q.eq("order_id", String(body.order_id));
       const { data, error } = await q;
@@ -72,11 +72,11 @@ Deno.serve(async (req) => {
         items.push({
           variant_id: v.id, image_url: v.image_url,
           subject: { texto: v.texto ?? "", headline: v.headline, pagina: body.pagina ?? oferta.get(v.order_id) ?? null, publico: body.publico ?? null },
-          atual: { ponto_rota: v.ponto_rota, porta: v.porta, pouso: v.pouso, carga: v.carga },
+          atual: { ponto_rota: v.ponto_rota, porta: v.porta, pouso: v.pouso, carga: v.carga, formato: v.formato },
         });
       }
     } else if (body?.texto) {
-      items.push({ variant_id: null, image_url: body.image_url ?? null, subject: { texto: String(body.texto), headline: body.headline ?? null, pagina: body.pagina ?? null, publico: body.publico ?? null, primeiro_quadro: body.primeiro_quadro ?? null }, atual: { ponto_rota: null, porta: null, pouso: null, carga: null } });
+      items.push({ variant_id: null, image_url: body.image_url ?? null, subject: { texto: String(body.texto), headline: body.headline ?? null, pagina: body.pagina ?? null, publico: body.publico ?? null, primeiro_quadro: body.primeiro_quadro ?? null }, atual: { ponto_rota: null, porta: null, pouso: null, carga: null, formato: null } });
     } else {
       return json({ error: "Informe variant_ids, order_id ou texto" }, 400);
     }
@@ -97,13 +97,13 @@ Deno.serve(async (req) => {
           // Etiqueta firme só preenche campo vazio: o que alguém já etiquetou fica.
           const patch: Record<string, unknown> = {
             revisao: { ...revisao, primeiro_quadro: it.subject.primeiro_quadro ?? null, em: new Date().toISOString() },
-            taxonomia: { fonte: "jev", confianca: taxonomia.confianca, sugerido: { ponto_rota: taxonomia.ponto_rota, porta: taxonomia.porta, pouso: taxonomia.pouso, carga: taxonomia.carga }, em: new Date().toISOString() },
+            taxonomia: { fonte: "jev", confianca: taxonomia.confianca, sugerido: { ponto_rota: taxonomia.ponto_rota, porta: taxonomia.porta, pouso: taxonomia.pouso, carga: taxonomia.carga, formato: taxonomia.formato }, em: new Date().toISOString() },
           };
           for (const [k, v] of Object.entries(taxonomia.firmes)) if (it.atual[k as keyof Item["atual"]] == null) patch[k] = v;
           const { error } = await sb.from("imphq_test_variants").update(patch).eq("id", it.variant_id);
           if (error) throw new Error(error.message);
         }
-        out.push({ variant_id: it.variant_id, aprovado: revisao.aprovado, nota: revisao.nota, reprovacoes: revisao.reprovacoes, avisos: revisao.avisos, correcoes_permitidas: revisao.correcoes_permitidas, taxonomia: { ponto_rota: taxonomia.ponto_rota, porta: taxonomia.porta, pouso: taxonomia.pouso, carga: taxonomia.carga, confianca: taxonomia.confianca }, primeiro_quadro: it.subject.primeiro_quadro ?? null });
+        out.push({ variant_id: it.variant_id, aprovado: revisao.aprovado, nota: revisao.nota, reprovacoes: revisao.reprovacoes, avisos: revisao.avisos, correcoes_permitidas: revisao.correcoes_permitidas, taxonomia: { ponto_rota: taxonomia.ponto_rota, porta: taxonomia.porta, pouso: taxonomia.pouso, carga: taxonomia.carga, formato: taxonomia.formato, confianca: taxonomia.confianca }, primeiro_quadro: it.subject.primeiro_quadro ?? null });
         falhas = 0;
       } catch (e) {
         falhas++;

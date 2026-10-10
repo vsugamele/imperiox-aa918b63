@@ -1,6 +1,8 @@
 // Método H&W (MHW1.1): as cinco réguas que explicam por que um criativo vence ou morre — ponto da rota, carga do
 // primeiro quadro, porta do hook, pouso da segunda frase e molde (família de um campeão). TS puro: vocabulário,
 // pergunta ao Jev (TypeSafe) e leitura da resposta. Resumo do método em docs/architecture/metodo-hw-na-imperio.md.
+// Também pergunta o formato (mesmo vocabulário das referências), para o placar e o Estrategista (OPS1.3).
+import { FORMATOS, type Formato } from "./ref-pipeline.ts";
 
 export const PONTOS_ROTA = {
   1: "Não vê o problema",
@@ -107,6 +109,11 @@ export function taxonomyRequest(subject: TaxonomySubject, model = "jev-latest") 
     };
   }
   if (clip(subject.primeiro_quadro, 10)) {
+    questions.formato = {
+      type: "choice",
+      instructions: "Which ad format is this, judging by `primeiro_quadro` (what is seen) and `anuncio` (the copy)?",
+      criteria: FORMATOS,
+    };
     questions.carga = {
       type: "choice",
       instructions: "What does `primeiro_quadro` (the first frame of the ad, seen without sound) use to stop the thumb?",
@@ -137,9 +144,10 @@ export interface TaxonomyVerdict {
   porta: Porta | null;
   pouso: Pouso | null;
   carga: Carga | null;
-  confianca: Partial<Record<"ponto_rota" | "porta" | "pouso" | "carga", number>>;
+  formato: Formato | null;
+  confianca: Partial<Record<"ponto_rota" | "porta" | "pouso" | "carga" | "formato", number>>;
   /** Só os campos com confiança ≥ limiar: são os que podem ser gravados sem revisão. */
-  firmes: Partial<{ ponto_rota: PontoRota; porta: Porta; pouso: Pouso; carga: Carga }>;
+  firmes: Partial<{ ponto_rota: PontoRota; porta: Porta; pouso: Pouso; carga: Carga; formato: Formato }>;
 }
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -156,10 +164,11 @@ export function parseTaxonomyAnswer(resp: { answers?: Record<string, ChoiceAnswe
     porta: pick<Porta>("porta", Object.keys(PORTAS)),
     pouso: pick<Pouso>("pouso", Object.keys(POUSOS)),
     carga: pick<Carga>("carga", Object.keys(CARGAS)),
+    formato: pick<Formato>("formato", Object.keys(FORMATOS)),
     confianca: {},
     firmes: {},
   };
-  for (const k of ["ponto_rota", "porta", "pouso", "carga"] as const) {
+  for (const k of ["ponto_rota", "porta", "pouso", "carga", "formato"] as const) {
     if (!a[k]) continue;
     const c = r3(Number(a[k].confidence ?? 0));
     out.confianca[k] = c;

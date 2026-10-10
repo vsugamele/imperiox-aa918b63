@@ -30,12 +30,15 @@ Referência completa: `docs/architecture/metodo-hw-na-imperio.md` (o que é cada
 | "qual porta/carga vende?" | `get_method_scoreboard` com `por: porta \| carga \| ponto_rota \| pouso` | placar por régua |
 | "multiplica o vencedor" | `winner_mold` (`desmontar` → `onda`) | V00 e briefs da próxima onda |
 | "abertura nova para a VSL" | `microlead_draft` | rascunho 7 etapas + checagem + pesos do split |
+| "monta a próxima leva" / "quero volume para testar" | `plan_batch` (`plano` → `salvar`) | leva de N criativos: ângulo da biblioteca × formato do mercado × porta/ponto/carga, com hipótese |
 
 ## Roteiros
 
 **Revisar antes de subir (Revisor):** `review_creatives` → se reprovou, diga o motivo em uma linha por peça. Correções
 que pode fazer sozinho: número redondo → exato, "ela/minha vizinha" → "você", ligar a frase ao objeto da imagem.
 Ângulo, mecanismo e promessa não mudam sem o dono da copy.
+
+**Volume:** `plan_batch` modo `plano` para ver a leva (com vencedor: 50% variações, 30% ângulos novos, 20% formatos novos), `salvar` para guardar e pedir aprovação na tela de Testes. Gerar arte da leva é outro passo, com OK.
 
 **Montar uma leva (P1):** 5 criativos, cada um numa **porta** diferente (direta, voz dela, quebra de crença, narrativa,
 descoberta), todos nos **pontos 1 ou 2** se for tráfego frio, primeiro quadro com uma das 4 **cargas**
