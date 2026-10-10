@@ -3,7 +3,7 @@ import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock, MoreHorizontal, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, ChevronDown, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock, MoreHorizontal, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -177,10 +177,12 @@ function MediaContent({
   message,
   onFetchMedia,
   isFetchingMedia,
+  onMediaLoad,
 }: {
   message: Message;
   onFetchMedia?: (messageId: string) => void;
   isFetchingMedia?: boolean;
+  onMediaLoad?: () => void;
 }) {
   const { message_type, content } = message;
   const media_url = getResolvedMediaUrl(message);
@@ -193,9 +195,10 @@ function MediaContent({
           <img
             src={media_url}
             alt={filename}
-            className="rounded-lg max-w-full max-h-72 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+            className="rounded-lg max-w-full max-h-56 sm:max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
             onClick={() => window.open(media_url, "_blank")}
             loading="lazy"
+            onLoad={onMediaLoad}
           />
           <DownloadBtn url={media_url} filename={filename} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100" />
         </div>
@@ -311,6 +314,25 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
     const isComposingRef = useRef(false);
     const initialLoadDone = useRef(false);
     const newestTimestampRef = useRef<string | null>(null);
+    const [showScrollBottom, setShowScrollBottom] = useState(false);
+    const isAtBottomRef = useRef(true);
+    const isLoadingOlderRef = useRef(false);
+
+    const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+      const el = messagesContainerRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+      bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+    }, []);
+
+    const handleScroll = useCallback(() => {
+      const el = messagesContainerRef.current;
+      if (!el) return;
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      isAtBottomRef.current = distFromBottom < 120;
+      setShowScrollBottom(distFromBottom > 200);
+    }, []);
+
     const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
     const [iaAtiva, setIaAtiva] = useState<boolean>(true);
     const [togglingIa, setTogglingIa] = useState(false);
@@ -1090,26 +1112,49 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
       const sorted = (data || []).map(toMessage).reverse();
+      isAtBottomRef.current = true;
       setMessages(sorted);
       setHasMore((data?.length || 0) >= PAGE_SIZE);
       initialLoadDone.current = true;
-    }, [conversationId]);
+      requestAnimationFrame(() => scrollToBottom("auto"));
+      setTimeout(() => scrollToBottom("auto"), 50);
+      setTimeout(() => scrollToBottom("auto"), 150);
+      setTimeout(() => scrollToBottom("auto"), 350);
+      setTimeout(() => scrollToBottom("auto"), 700);
+    }, [conversationId, scrollToBottom]);
 
     const loadMore = async () => {
       if (!hasMore || loadingMore || messages.length === 0) return;
+      const el = messagesContainerRef.current;
+      const prevScrollHeight = el?.scrollHeight ?? 0;
+      const prevScrollTop = el?.scrollTop ?? 0;
       setLoadingMore(true);
-      const oldest = messages[0]?.created_at;
-      const { data } = await supabase
-        .from("imphq_wa_messages")
-        .select("*")
-        .eq("conversation_id", conversationId)
-        .lt("created_at", oldest)
-        .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE);
-      const older = (data || []).map(toMessage).reverse();
-      setMessages(prev => [...older, ...prev]);
-      setHasMore((data?.length || 0) >= PAGE_SIZE);
-      setLoadingMore(false);
+      try {
+        const oldest = messages[0]?.created_at;
+        const { data } = await supabase
+          .from("imphq_wa_messages")
+          .select("*")
+          .eq("conversation_id", conversationId)
+          .lt("created_at", oldest)
+          .order("created_at", { ascending: false })
+          .limit(PAGE_SIZE);
+        const older = (data || []).map(toMessage).reverse();
+        if (older.length > 0) {
+          isLoadingOlderRef.current = true;
+          setMessages(prev => [...older, ...prev]);
+          requestAnimationFrame(() => {
+            if (el) {
+              el.scrollTop = (el.scrollHeight - prevScrollHeight) + prevScrollTop;
+            }
+            setTimeout(() => {
+              isLoadingOlderRef.current = false;
+            }, 120);
+          });
+        }
+        setHasMore((data?.length || 0) >= PAGE_SIZE);
+      } finally {
+        setLoadingMore(false);
+      }
     };
 
     const pollNew = useCallback(async () => {
@@ -1125,8 +1170,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           const withoutOptimistic = prev.filter(m => !m._optimistic);
           return [...withoutOptimistic, ...data.map(toMessage)];
         });
+        if (isAtBottomRef.current) {
+          requestAnimationFrame(() => scrollToBottom("smooth"));
+        }
       }
-    }, [conversationId]);
+    }, [conversationId, scrollToBottom]);
 
     useEffect(() => {
       initialLoadDone.current = false;
@@ -1234,10 +1282,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     }, [conversationId, pollNew]);
 
     useEffect(() => {
-      if (isComposingRef.current) return;
-      const el = messagesContainerRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
-    }, [messages]);
+      if (isComposingRef.current || isLoadingOlderRef.current) return;
+      if (isAtBottomRef.current) {
+        scrollToBottom("auto");
+      }
+    }, [messages, scrollToBottom]);
 
     // Auto-resize textarea + slash command/template detection
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1341,6 +1390,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           _optimistic: true,
         };
         setMessages(prev => [...prev, optimisticMsg]);
+        isAtBottomRef.current = true;
+        requestAnimationFrame(() => scrollToBottom("auto"));
 
         const { data, error } = await supabase.functions.invoke("whatsapp-api?action=send_message", {
           body: {
@@ -1415,6 +1466,8 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         _optimistic: true,
       };
       setMessages(prev => [...prev, optimisticMsg]);
+      isAtBottomRef.current = true;
+      requestAnimationFrame(() => scrollToBottom("auto"));
 
       setSending(true);
       try {
@@ -1488,9 +1541,15 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
             );
           })()}
           {/* Chat area with WhatsApp-like pattern background */}
-          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}>
+          <div className="flex-1 min-h-0 relative">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="h-full overflow-y-auto"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }}
+            >
             <div className={`p-4 space-y-1 ${maxWidthClass} mx-auto`}>
               {hasMore && (
                 <div className="flex justify-center mb-2">
@@ -1538,6 +1597,11 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                           message={m}
                           onFetchMedia={handleFetchMedia}
                           isFetchingMedia={!!fetchingMediaMap[m.id]}
+                          onMediaLoad={() => {
+                            if (isAtBottomRef.current) {
+                              scrollToBottom("auto");
+                            }
+                          }}
                         />
 
                         {isEditing ? (
@@ -1698,6 +1762,23 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
               <div ref={bottomRef} />
             </div>
           </div>
+
+          {/* Floating scroll to bottom button */}
+          {showScrollBottom && (
+            <button
+              type="button"
+              onClick={() => {
+                isAtBottomRef.current = true;
+                scrollToBottom("smooth");
+              }}
+              className="absolute bottom-4 right-6 z-30 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl hover:scale-105 active:scale-95 transition-all text-xs font-semibold border border-emerald-400/40 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 cursor-pointer"
+              title="Rolar para as mensagens mais recentes"
+            >
+              <ChevronDown className="h-4 w-4" />
+              <span>Mais recentes</span>
+            </button>
+          )}
+        </div>
 
           {/* Input area */}
           <div className="border-t border-border bg-card p-3 shrink-0">

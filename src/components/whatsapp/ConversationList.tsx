@@ -540,7 +540,10 @@ export default function ConversationList({
             title="Conversas com mensagens não lidas"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-            <span className="truncate">Não lidas</span>
+            <span className="truncate">
+              <span className="hidden xl:inline">Não lidas</span>
+              <span className="xl:hidden">Novas</span>
+            </span>
             {unreadCount > 0 && (
               <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none shadow-sm">
                 {unreadCount > 99 ? "99+" : unreadCount}

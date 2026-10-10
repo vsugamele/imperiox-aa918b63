@@ -42,7 +42,6 @@ import { WebchatWidgets } from "@/components/openflow/WebchatWidgets";
 import { InboundWebhooks } from "@/components/openflow/InboundWebhooks";
 
 import { X1TemplateLauncher } from "@/components/openflow/X1TemplateLauncher";
-import { X1TemplatesStrip } from "@/components/openflow/X1TemplatesStrip";
 import { CinnaCloudFlowCard } from "@/components/openflow/CinnaCloudFlowCard";
 import { CINNA_NATIVE_FLOW_ID } from "@/lib/cinna-shield-x1/openflow";
 import { compileNativeCinna, isNativeCinna } from "@/lib/cinna-shield-x1/native-contract";
@@ -547,10 +546,6 @@ export default function OpenFlow() {
             </div>
           </div>
 
-          <X1TemplatesStrip existingNames={automacoes.map(a => a.nome)} onCreated={load} />
-
-
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {!automacoes.some(a => a.id === CINNA_NATIVE_FLOW_ID) && (filterProject === "__all__" || filterProject === "cinna-shield") && filterProduct === "__all__" && <CinnaCloudFlowCard />}
             {filtered.map(a => {
@@ -937,6 +932,7 @@ export default function OpenFlow() {
         onOpenChange={setShowX1Templates}
         projects={projects}
         onCreated={load}
+        existingNames={automacoes.map(a => a.nome)}
       />
 
       <X1BuilderWizard

@@ -51,14 +51,17 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   projects: { id: string; name: string }[];
   onCreated: () => void;
+  existingNames?: string[];
 }
 
-export function X1TemplateLauncher({ open, onOpenChange, projects, onCreated }: Props) {
+export function X1TemplateLauncher({ open, onOpenChange, projects, onCreated, existingNames = [] }: Props) {
   const templates = useMemo(() => FLOW_TEMPLATES.filter((t) => t.categoria === "x1-conversao"), []);
   const [selected, setSelected] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string>("__none__");
   const [canal, setCanal] = useState<string>("whatsapp");
   const [saving, setSaving] = useState(false);
+
+  const existe = (nome: string) => existingNames.some((n) => (n || "").trim() === nome.trim());
 
   const pick = (t: FlowTemplate) => {
     setSelected(t.id);
@@ -116,7 +119,14 @@ export function X1TemplateLauncher({ open, onOpenChange, projects, onCreated }: 
                     <span className="mr-1">{t.emoji}</span>
                     {t.nome}
                   </p>
-                  <Badge variant="outline" className="shrink-0 text-[10px]">{t.acoes.length} passos</Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {existe(t.nome) && (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">
+                        já criado
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-[10px]">{t.acoes.length} passos</Badge>
+                  </div>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground leading-6">{t.descricao}</p>
                 <p className="mt-2 text-[11px] text-primary/80">{resumoBlocos(t)} …</p>
