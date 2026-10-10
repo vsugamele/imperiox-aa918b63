@@ -4,7 +4,7 @@
 import { CARGAS, PONTOS_ROTA, PORTAS, POUSOS } from "./hw-taxonomy.ts";
 import { FORMATO_LABEL } from "./batch-strategist.ts";
 
-export type ScoreBy = "metodo" | "angulo" | "categoria" | "porta" | "carga" | "ponto_rota" | "pouso" | "formato";
+export type ScoreBy = "metodo" | "angulo" | "categoria" | "porta" | "carga" | "ponto_rota" | "pouso" | "formato" | "avatar";
 
 export interface ScoreInput {
   metodo: string | null;
@@ -14,6 +14,7 @@ export interface ScoreInput {
   ponto_rota?: number | null;
   pouso?: string | null;
   formato?: string | null;
+  avatar_id?: string | null;
   gasto: number;
   ic: number;
   vendas: number;
@@ -57,14 +58,16 @@ export function normalizeMetodo(metodo: string | null | undefined): string | nul
 function keyOf(row: ScoreInput, by: ScoreBy, lib: Map<string, LibraryRef>): string {
   if (by === "metodo") return normalizeMetodo(row.metodo) ?? SEM_ETIQUETA;
   if (by === "porta" || by === "carga" || by === "pouso" || by === "formato") return row[by] || SEM_ETIQUETA;
+  if (by === "avatar") return row.avatar_id || SEM_ETIQUETA;
   if (by === "ponto_rota") return row.ponto_rota ? String(row.ponto_rota) : SEM_ETIQUETA;
   if (!row.copy_lib_id) return SEM_ETIQUETA;
   if (by === "angulo") return row.copy_lib_id;
   return lib.get(row.copy_lib_id)?.categoria ?? SEM_ETIQUETA;
 }
 
-function labelOf(key: string, by: ScoreBy, lib: Map<string, LibraryRef>): string {
+function labelOf(key: string, by: ScoreBy, lib: Map<string, LibraryRef>, nomes?: ReadonlyMap<string, string>): string {
   if (key === SEM_ETIQUETA) return "Sem etiqueta";
+  if (by === "avatar") return nomes?.get(key) ?? key;
   if (by === "angulo") {
     const item = lib.get(key);
     return item ? `${item.numero ?? ""} · ${item.nome}`.replace(/^ · /, "") : key;
@@ -82,7 +85,7 @@ function labelOf(key: string, by: ScoreBy, lib: Map<string, LibraryRef>): string
  * Agrupa os anúncios testados. Ordem: mais vendas, depois menor CPA, depois menos gasto; "sem etiqueta" sempre por último
  * (é o lembrete de que falta etiquetar, não uma categoria que compete).
  */
-export function methodScoreboard(rows: ReadonlyArray<ScoreInput>, by: ScoreBy, library: ReadonlyArray<LibraryRef> = []): ScoreLine[] {
+export function methodScoreboard(rows: ReadonlyArray<ScoreInput>, by: ScoreBy, library: ReadonlyArray<LibraryRef> = [], avatarNomes?: ReadonlyMap<string, string>): ScoreLine[] {
   const lib = new Map(library.map((l) => [l.id, l]));
   const groups = new Map<string, ScoreInput[]>();
   for (const r of rows) {
@@ -96,7 +99,7 @@ export function methodScoreboard(rows: ReadonlyArray<ScoreInput>, by: ScoreBy, l
     const comVenda = rs.filter((r) => r.vendas > 0).length;
     return {
       chave,
-      rotulo: labelOf(chave, by, lib),
+      rotulo: labelOf(chave, by, lib, avatarNomes),
       anuncios: rs.length,
       com_venda: comVenda,
       taxa_com_venda: rs.length ? round2(comVenda / rs.length) : 0,

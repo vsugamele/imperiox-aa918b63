@@ -6,6 +6,7 @@ import Testes from "@/pages/Testes";
 const mutate = vi.fn();
 
 vi.mock("@/components/testes/NextBatchPanel", () => ({ NextBatchPanel: () => null }));
+vi.mock("@/hooks/useCast", () => ({ useAvatarNames: () => ({ data: new Map() }) }));
 
 vi.mock("@/hooks/useCopyLibrary", () => ({
   useCopyLibrary: () => ({ data: [{ id: "angulo-2", nome: "Medo / Consequência futura", categoria: "problema", numero: 2, biblioteca: "angulo" }] }),

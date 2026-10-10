@@ -15,7 +15,8 @@ export interface SavedLeva {
   avisos: string[];
 }
 
-export type LevaPreview = LevaPlan & { projeto: string; contexto: { referencias: number; testados: number; payout: number | null } };
+export interface ElencoResumo { id: string; nome: string; tipo: string | null; papel: string; fotos: number }
+export type LevaPreview = LevaPlan & { projeto: string; contexto: { referencias: number; testados: number; payout: number | null; elenco?: ElencoResumo[] } };
 
 /** Levas salvas pelo Estrategista (OPS1.3), mais recentes primeiro. */
 export function useSavedLevas() {
@@ -50,7 +51,7 @@ export function usePlanLeva() {
 export function useLevaAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { modo: "salvar"; project_id: string; tamanho: number } | { modo: "aprovar" | "descartar"; leva_id: string }) => call<{ ok: boolean }>(input),
+    mutationFn: (input: { modo: "salvar"; project_id: string; tamanho: number; avatares?: Record<number, string | null> } | { modo: "aprovar" | "descartar"; leva_id: string }) => call<{ ok: boolean }>(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["levas"] }),
   });
 }

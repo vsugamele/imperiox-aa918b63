@@ -7,6 +7,7 @@
 //     é a fábrica, quando alguém mandar. `salvar_briefs: true` só registra os briefs como lotes "planejado".
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { nextWave, variationBrief, type ChampionState, type MoldV00, type Variacao, type VariationStatus } from "../_shared/winner-mold.ts";
+import { castFromRows, moldAvatar, type CastRow } from "../_shared/cast.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -50,8 +51,8 @@ async function projectOwner(sb: Sb, projectId: string | null | undefined): Promi
 
 const STATUS_TO_RESULT: Record<string, VariationStatus> = { vencedor: "vendeu", morto: "morreu" };
 
-async function champions(sb: Sb, filter: { order_id?: string; project_id?: string }): Promise<Array<{ state: ChampionState; mold: MoldV00 | null; nome: string; order_id: string }>> {
-  let q = sb.from("imphq_test_variants").select("id, order_id, angulo").eq("molde_variacao", "V00");
+async function champions(sb: Sb, filter: { order_id?: string; project_id?: string }): Promise<Array<{ state: ChampionState; mold: MoldV00 | null; nome: string; order_id: string; avatar_id: string | null }>> {
+  let q = sb.from("imphq_test_variants").select("id, order_id, angulo, avatar_id").eq("molde_variacao", "V00");
   if (filter.order_id) q = q.eq("order_id", filter.order_id);
   const { data: base, error } = await q.limit(50);
   if (error) throw error;
@@ -78,7 +79,7 @@ async function champions(sb: Sb, filter: { order_id?: string; project_id?: strin
       const variacao = k.molde_variacao as Exclude<Variacao, "V00"> | null;
       if (variacao) feitas[variacao] = STATUS_TO_RESULT[k.status] ?? "no_ar";
     }
-    return { state: { campeao_id: v.id, feitas, tem_v00: moldBy.has(v.id) }, mold: moldBy.get(v.id) ?? null, nome: v.angulo, order_id: v.order_id };
+    return { state: { campeao_id: v.id, feitas, tem_v00: moldBy.has(v.id) }, mold: moldBy.get(v.id) ?? null, nome: v.angulo, order_id: v.order_id, avatar_id: (v as { avatar_id?: string | null }).avatar_id ?? null };
   });
 }
 
@@ -120,10 +121,18 @@ Deno.serve(async (req) => {
       const list = await champions(sb, { order_id: body?.order_id ? String(body.order_id) : undefined, project_id: body?.project_id ? String(body.project_id) : undefined });
       if (!list.length) return json({ ok: true, onda: null, motivo: "Nenhum campeão desmontado ainda (V00). Use modo \"desmontar\" num criativo com 3 vendas." });
       const plan = nextWave(list.map((c) => c.state));
+      // Elenco (OPS1.5): V01 sugere outro avatar do mesmo tipo, V02/V04 o tipo oposto.
+      const orderIds = [...new Set(list.map((c) => c.order_id))];
+      const { data: ords } = await sb.from("imphq_test_orders").select("id, project_id").in("id", orderIds);
+      const projectIds = [...new Set((ords ?? []).map((o: { project_id: string }) => o.project_id))];
+      const { data: castRows } = projectIds.length ? await sb.from("imphq_avatar_studio_projects").select("id, nome, tipo, papel, ficha, avatar_photos, ativo, project_id").in("project_id", projectIds) : { data: [] };
+      const projOfOrder = new Map((ords ?? []).map((o: { id: string; project_id: string }) => [o.id, o.project_id]));
       const briefs = plan.itens.flatMap((i) => {
         const c = list.find((x) => x.state.campeao_id === i.campeao_id);
         if (!c?.mold || i.variacao === "V00") return [];
-        return [{ campeao_id: i.campeao_id, campeao: c.nome, ...variationBrief(c.mold, i.variacao) }];
+        const cast = castFromRows(((castRows ?? []) as Array<CastRow & { project_id: string }>).filter((r) => r.project_id === projOfOrder.get(c.order_id)));
+        const sugestao = moldAvatar(i.variacao, c.avatar_id, cast);
+        return [{ campeao_id: i.campeao_id, campeao: c.nome, ...variationBrief(c.mold, i.variacao), avatar_sugerido: sugestao ? { id: sugestao.id, nome: sugestao.nome, tipo: sugestao.tipo } : null }];
       });
       let salvos = 0;
       if (body?.salvar_briefs === true && briefs.length) {

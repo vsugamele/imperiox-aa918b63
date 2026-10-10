@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { CARGAS, PORTAS } from "@shared/hw-taxonomy";
 import type { LevaItem } from "@shared/batch-strategist";
-import { useGenerateLeva, useLevaAction, usePlanLeva, useSavedLevas, type LevaPreview, type SavedLeva } from "@/hooks/useBatchStrategist";
+import { useGenerateLeva, useLevaAction, usePlanLeva, useSavedLevas, type ElencoResumo, type LevaPreview, type SavedLeva } from "@/hooks/useBatchStrategist";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
 
 const BLOCO_LABEL: Record<LevaItem["bloco"], string> = { variacao: "Variação do vencedor", angulo_novo: "Ângulo novo", formato_novo: "Formato novo" };
@@ -24,10 +24,12 @@ export function NextBatchPanel() {
   const [projectId, setProjectId] = useState("");
   const [tamanho, setTamanho] = useState(20);
   const [preview, setPreview] = useState<LevaPreview | null>(null);
+  // Troca manual de avatar por peça antes de salvar (índice → avatar ou null = ninguém).
+  const [avatares, setAvatares] = useState<Record<number, string | null>>({});
   const projectName = (id: string) => targets?.projects.find((p) => p.id === id)?.name ?? id;
 
-  const montar = () => plan.mutate({ project_id: projectId, tamanho }, { onSuccess: setPreview, onError: (e) => toast.error(errorMessage(e)) });
-  const salvar = () => action.mutate({ modo: "salvar", project_id: projectId, tamanho }, {
+  const montar = () => plan.mutate({ project_id: projectId, tamanho }, { onSuccess: (p) => { setPreview(p); setAvatares({}); }, onError: (e) => toast.error(errorMessage(e)) });
+  const salvar = () => action.mutate({ modo: "salvar", project_id: projectId, tamanho, avatares }, {
     onSuccess: () => { toast.success("Leva salva para aprovação"); setPreview(null); },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -58,7 +60,10 @@ export function NextBatchPanel() {
             · base: {preview.contexto.referencias} referências do mercado, {preview.contexto.testados} anúncios testados
           </p>
           {preview.avisos.map((a) => <p key={a} className="text-xs text-warning">{a}</p>)}
-          <LevaTable itens={preview.itens} />
+          {!(preview.contexto.elenco ?? []).some((m) => m.papel !== "publico") && (
+            <p className="text-xs text-muted-foreground">Sem elenco neste projeto: <Link to="/studio?tab=elenco" className="text-primary hover:underline">montar o elenco no Studio</Link> para as artes terem rostos consistentes.</p>
+          )}
+          <LevaTable itens={preview.itens} elenco={(preview.contexto.elenco ?? []).filter((m) => m.papel !== "publico")} avatares={avatares} onAvatar={(idx, id) => setAvatares((a) => ({ ...a, [idx]: id }))} />
         </div>
       )}
 
@@ -114,12 +119,12 @@ function GenerateLeva({ leva }: { leva: SavedLeva }) {
   );
 }
 
-function LevaTable({ itens }: { itens: LevaItem[] }) {
+export function LevaTable({ itens, elenco = [], avatares = {}, onAvatar }: { itens: LevaItem[]; elenco?: ElencoResumo[]; avatares?: Record<number, string | null>; onAvatar?: (idx: number, id: string | null) => void }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead className="text-left text-[11px] uppercase text-muted-foreground">
-          <tr><th className="py-1 pr-2 font-medium">#</th><th className="px-2 font-medium">Bloco</th><th className="px-2 font-medium">Ângulo</th><th className="px-2 font-medium">Formato</th><th className="px-2 font-medium">Porta</th><th className="px-2 font-medium">Ponto</th><th className="px-2 font-medium">Carga</th><th className="px-2 font-medium">Hipótese</th></tr>
+          <tr><th className="py-1 pr-2 font-medium">#</th><th className="px-2 font-medium">Bloco</th><th className="px-2 font-medium">Ângulo</th><th className="px-2 font-medium">Formato</th><th className="px-2 font-medium">Porta</th><th className="px-2 font-medium">Ponto</th><th className="px-2 font-medium">Carga</th><th className="px-2 font-medium">Avatar</th><th className="px-2 font-medium">Hipótese</th></tr>
         </thead>
         <tbody>
           {itens.map((i, idx) => (
@@ -131,6 +136,15 @@ function LevaTable({ itens }: { itens: LevaItem[] }) {
               <td className="px-2">{PORTAS[i.porta]}</td>
               <td className="px-2">{i.ponto_rota}</td>
               <td className="px-2">{CARGAS[i.carga]}</td>
+              <td className="px-2">
+                {elenco.length && onAvatar ? (
+                  <select aria-label={`Avatar da peça ${idx + 1}`} className="h-7 rounded border border-border bg-background px-1 text-xs"
+                    value={(idx in avatares ? avatares[idx] : i.avatar_id) ?? ""} onChange={(e) => onAvatar(idx, e.target.value || null)}>
+                    <option value="">Ninguém</option>
+                    {elenco.map((m) => <option key={m.id} value={m.id}>{m.nome}{m.fotos ? "" : " (sem foto)"}</option>)}
+                  </select>
+                ) : (i.avatar_nome ?? "—")}
+              </td>
               <td className="px-2 text-muted-foreground" title={i.motivo}>{i.hipotese}</td>
             </tr>
           ))}

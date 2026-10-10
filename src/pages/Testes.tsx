@@ -18,6 +18,7 @@ import { CARGAS, PORTAS, POUSOS, type Carga, type Porta, type Pouso } from "@sha
 import { FORMATO_LABEL } from "@shared/batch-strategist";
 import { useCopyLibrary } from "@/hooks/useCopyLibrary";
 import { NextBatchPanel } from "@/components/testes/NextBatchPanel";
+import { useAvatarNames } from "@/hooks/useCast";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Variant = Tables<"imphq_test_variants">;
@@ -260,7 +261,7 @@ function BatchesSection({ batches }: { batches: VariationBatch[] }) {
   );
 }
 
-const POR_LABEL: Record<ScoreBy, string> = { metodo: "Método", angulo: "Ângulo", categoria: "Camada", porta: "Porta", carga: "Carga", ponto_rota: "Ponto", pouso: "Pouso", formato: "Formato" };
+const POR_LABEL: Record<ScoreBy, string> = { metodo: "Método", angulo: "Ângulo", categoria: "Camada", porta: "Porta", carga: "Carga", ponto_rota: "Ponto", pouso: "Pouso", formato: "Formato", avatar: "Avatar" };
 
 interface ReviewSummary { aprovado?: boolean; nota?: number; reprovacoes?: string[]; avisos?: string[] }
 
@@ -295,9 +296,10 @@ function Scoreboard({ orders, live, library }: { orders: TestOrder[]; live: Reco
   const [por, setPor] = useState<ScoreBy>("metodo");
   const rows = useMemo<ScoreInput[]>(() => orders.flatMap((o) => (live[o.id]?.readings ?? []).map((r) => {
     const v = o.variantes.find((x) => x.ordem === r.ordem);
-    return { metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, formato: v?.formato ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida };
+    return { metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, formato: v?.formato ?? null, avatar_id: v?.avatar_id ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida };
   })), [orders, live]);
-  const placar = useMemo(() => methodScoreboard(rows, por, library), [rows, por, library]);
+  const { data: avatarNomes } = useAvatarNames(rows.map((r) => r.avatar_id).filter(Boolean) as string[]);
+  const placar = useMemo(() => methodScoreboard(rows, por, library, avatarNomes), [rows, por, library, avatarNomes]);
   if (!rows.length) return null;
   return (
     <section className="space-y-3 rounded-lg border border-border bg-card p-4" aria-label="Placar por método e ângulo">

@@ -39,6 +39,10 @@ export interface LevaContext {
   marca_topo?: string | null;
   angulo?: AnguloRef | null;
   referencias?: string[];
+  /** Persona do público (Elenco, OPS1.5): para quem a copy fala. */
+  persona?: string | null;
+  /** Quem aparece na arte (Elenco): descrição + aviso de que as primeiras imagens são o rosto. */
+  avatar?: string | null;
 }
 
 export interface LevaCopy {
@@ -70,6 +74,8 @@ export function levaCopyPrompt(item: LevaItem, ctx: LevaContext, jaUsadas: strin
     user: [
       `Oferta: ${ctx.oferta}`,
       ctx.publico ? `Público: ${ctx.publico}` : null,
+      ctx.persona ? `Escreva para esta pessoa, com as palavras dela:\n${ctx.persona}` : null,
+      ctx.avatar ? `Na arte aparece: ${ctx.avatar.split(". Use as primeiras")[0]}. A cena do primeiro quadro precisa caber essa pessoa.` : null,
       `Ângulo: ${item.angulo}${ctx.angulo?.explicacao ? ` — ${clip(ctx.angulo.explicacao, 300)}` : ""}`,
       ctx.angulo?.como_usar ? `Como usar este ângulo: ${clip(ctx.angulo.como_usar, 300)}` : null,
       ctx.angulo?.exemplo ? `Exemplo do ângulo (não copie, só o raciocínio): ${clip(ctx.angulo.exemplo, 300)}` : null,
@@ -102,13 +108,13 @@ export function parseLevaCopy(raw: unknown): LevaCopy | null {
 }
 
 /** Instrução de imagem: formato + carga + cena + textos exatos; referências do mercado só como inspiração de layout. */
-export function levaImagePrompt(item: LevaItem, copy: LevaCopy, ctx: Pick<LevaContext, "marca_topo" | "publico">, aspecto = "4:5", temReferencia = false): string {
+export function levaImagePrompt(item: LevaItem, copy: LevaCopy, ctx: Pick<LevaContext, "marca_topo" | "publico" | "avatar">, aspecto = "4:5", temReferencia = false): string {
   return [
     `Crie um criativo de anúncio no formato ${aspecto}. ${FORMATO_INSTRUCAO[item.formato] ?? FORMATO_INSTRUCAO.estatico}`,
     `Primeiro olhar: ${CARGA_INSTRUCAO[item.carga]} Cena: ${copy.cena_primeiro_quadro}`,
-    ctx.publico ? `As pessoas na imagem devem parecer com o público: ${ctx.publico}.` : null,
+    ctx.avatar ? ctx.avatar : ctx.publico ? `As pessoas na imagem devem parecer com o público: ${ctx.publico}.` : null,
     "Fotografia realista, pessoas brasileiras comuns, mãos e rostos naturais, sem deformação.",
-    temReferencia ? "As imagens anexas são anúncios do mercado: use só como inspiração de composição e ritmo visual. Não copie pessoas, marcas, logos nem textos delas." : null,
+    temReferencia ? `${ctx.avatar ? "As imagens anexas DEPOIS das fotos do rosto" : "As imagens anexas"} são anúncios do mercado: use só como inspiração de composição e ritmo visual. Não copie pessoas, marcas, logos nem textos delas.` : null,
     ctx.marca_topo ? `Pequeno, no topo: "${ctx.marca_topo}".` : null,
     `Headline grande: "${copy.headline_arte.toUpperCase()}".`,
     `Texto de apoio menor: "${copy.subtitulo_arte}".`,

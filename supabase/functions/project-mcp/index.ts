@@ -1060,7 +1060,7 @@ const MCP_TOOLS = [
       type: "object",
       properties: {
         project_id: { type: "string" },
-        por: { type: "string", enum: ["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso", "formato"], description: "porta/carga/ponto_rota/pouso = réguas do Método H&W; formato = estático, print de conversa, UGC…" },
+        por: { type: "string", enum: ["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso", "formato", "avatar"], description: "porta/carga/ponto_rota/pouso = réguas do Método H&W; formato = estático, print de conversa, UGC…; avatar = quem aparece (Elenco)" },
         order_id: { type: "string", description: "Só um teste" },
       },
     },
@@ -1156,6 +1156,23 @@ const MCP_TOOLS = [
         pedido_por: { type: "string", description: "Nome de quem pediu (registra o lote no nome dessa pessoa)" },
       },
       required: ["leva_id", "oferta"],
+    },
+  },
+  {
+    name: "cast",
+    description: "Elenco do projeto (avatares): quem aparece nas artes (com fotos de referência do mesmo rosto) e a persona do público para quem a copy fala. modo 'listar'; 'sugerir' (a IA propõe persona + elenco variado; salvar=true grava, sem fotos); 'fotos' (gera na Kie retrato base + variações da mesma pessoa para um avatar; gasta Kie: confirme antes). O Estrategista atribui avatar a cada peça e a fábrica usa as fotos.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        modo: { type: "string", enum: ["listar", "sugerir", "fotos"] },
+        project_id: { type: "string" },
+        produto: { type: "string" },
+        publico: { type: "string" },
+        quantidade: { type: "number", description: "sugerir: total de avatares (3–6); fotos: 1–5" },
+        salvar: { type: "boolean" },
+        avatar_id: { type: "string" },
+      },
+      required: ["modo"],
     },
   },
   {
@@ -1428,7 +1445,7 @@ const actorClient = (actor: string) => createClient(SUPABASE_URL, SUPABASE_SERVI
 
 /** Placar por método/ângulo/categoria a partir das leituras ao vivo (Zernio + vendas por UTM) de todos os testes do recorte. */
 async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unknown>) {
-  const por = (["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso", "formato"].includes(String(args.por)) ? String(args.por) : "metodo") as ScoreBy;
+  const por = (["metodo", "angulo", "categoria", "porta", "carga", "ponto_rota", "pouso", "formato", "avatar"].includes(String(args.por)) ? String(args.por) : "metodo") as ScoreBy;
   let q = supabase.from("imphq_test_orders").select("*").neq("status", "cancelado");
   if (args.project_id) q = q.eq("project_id", String(args.project_id));
   if (args.order_id) q = q.eq("id", String(args.order_id));
@@ -1436,7 +1453,7 @@ async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unk
   if (error) throw error;
   if (!orders?.length) return { por, testes: 0, placar: [] };
   const ids = orders.map((o: { id: string }) => o.id);
-  const { data: variants, error: vErr } = await supabase.from("imphq_test_variants").select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, metodo, copy_lib_id, porta, carga, ponto_rota, pouso, formato").in("order_id", ids);
+  const { data: variants, error: vErr } = await supabase.from("imphq_test_variants").select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, metodo, copy_lib_id, porta, carga, ponto_rota, pouso, formato, avatar_id").in("order_id", ids);
   if (vErr) throw vErr;
   const adIds = (variants ?? []).map((v: { meta_ad_id: string | null }) => v.meta_ad_id).filter(Boolean) as string[];
   const [{ data: spend }, { data: sales }, { data: lib }] = await Promise.all([
@@ -1446,16 +1463,19 @@ async function loadMethodScoreboard(supabase: Supabase, args: Record<string, unk
   ]);
   const rows: ScoreInput[] = [];
   for (const o of orders) {
-    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { metodo: string | null; copy_lib_id: string | null; porta: string | null; carga: string | null; ponto_rota: number | null; pouso: string | null; formato: string | null }>;
+    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { metodo: string | null; copy_lib_id: string | null; porta: string | null; carga: string | null; ponto_rota: number | null; pouso: string | null; formato: string | null; avatar_id: string | null }>;
     const since = String(o.ativado_em ?? o.created_at).slice(0, 10);
     const sp = ((spend ?? []) as Array<SpendRow & { date: string | null }>).filter((r) => String(r.date ?? "") >= since);
     const readings = liveReadings(o as LiveOrder, vs, sp, (sales ?? []) as SaleRow[]);
     for (const r of readings) {
       const v = vs.find((x) => x.ordem === r.ordem);
-      rows.push({ metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, formato: v?.formato ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida });
+      rows.push({ metodo: v?.metodo ?? null, copy_lib_id: v?.copy_lib_id ?? null, porta: v?.porta ?? null, carga: v?.carga ?? null, ponto_rota: v?.ponto_rota ?? null, pouso: v?.pouso ?? null, formato: v?.formato ?? null, avatar_id: v?.avatar_id ?? null, gasto: r.gasto, ic: r.ic, vendas: r.vendas, receita_liquida: r.receita_liquida });
     }
   }
-  return { por, testes: orders.length, anuncios: rows.length, placar: methodScoreboard(rows, por, (lib ?? []) as Array<{ id: string; nome: string; categoria: string; numero: number }>) };
+  const avatarIds = [...new Set(rows.map((r) => r.avatar_id).filter(Boolean) as string[])];
+  const { data: avs } = avatarIds.length ? await supabase.from("imphq_avatar_studio_projects").select("id, nome").in("id", avatarIds) : { data: [] };
+  const nomes = new Map((avs ?? []).map((a: { id: string; nome: string }) => [a.id, a.nome]));
+  return { por, testes: orders.length, anuncios: rows.length, placar: methodScoreboard(rows, por, (lib ?? []) as Array<{ id: string; nome: string; categoria: string; numero: number }>, nomes) };
 }
 
 async function loadTestOrder(supabase: Supabase, id: string) {
@@ -1535,6 +1555,7 @@ async function createTestOrder(supabase: Supabase, args: Record<string, unknown>
       if (typeof m.porta === "string") patch.porta = m.porta;
       if (typeof m.carga === "string") patch.carga = m.carga;
       if (Number(m.ponto_rota) >= 1 && Number(m.ponto_rota) <= 5) patch.ponto_rota = Number(m.ponto_rota);
+      if (typeof m.avatar_id === "string") patch.avatar_id = m.avatar_id;
       patch.taxonomia = { fonte: "estrategista", em: new Date().toISOString() };
       await db.from("imphq_test_variants").update(patch).eq("order_id", order.id).eq("creative_asset_id", a.id);
     }
@@ -2998,6 +3019,12 @@ Deno.serve(async (req) => {
             if (!res.ok || out?.error) throw new Error(out?.error || `creative-factory respondeu ${res.status}`);
             const result = { ...out, pedido_por: who.name, proximo_passo: "Acompanhe com get_creative_batch (leva_id); depois revise com review_creatives antes de subir." };
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
+          }
+
+          if (name === "cast") {
+            const { data, error } = await supabase.functions.invoke("cast-studio", { body: args ?? {} });
+            if (error) throw error;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
           }
 
           if (name === "list_mining_sources") {

@@ -41,3 +41,16 @@ describe("fábrica da leva", () => {
     expect(quickReview(copy).reprova).toBe(false);
   });
 });
+
+describe("fábrica da leva com elenco", () => {
+  it("a copy recebe a persona e quem aparece; a imagem usa o rosto do avatar antes das referências do mercado", () => {
+    const ctx = { oferta: "CCP", persona: "Persona do público: Linda, 34 anos. Palavras dela: \"eu travo no cacho\".", avatar: "Quem aparece: Rita (Profissional do ramo), 38 anos. Use as primeiras imagens anexas como referência do ROSTO desta pessoa: mesmo rosto." };
+    const { user } = levaCopyPrompt(item({ formato: "estatico", formato_label: "Estático" }), ctx);
+    expect(user).toContain("Escreva para esta pessoa");
+    expect(user).toContain("Na arte aparece: Quem aparece: Rita");
+    expect(user).not.toContain("Use as primeiras imagens");
+    const p = levaImagePrompt(item({ formato: "estatico", formato_label: "Estático" }), copy, ctx, "4:5", true);
+    expect(p).toContain("referência do ROSTO");
+    expect(p).toContain("DEPOIS das fotos do rosto");
+  });
+});

@@ -20100,9 +20100,14 @@ export type Database = {
           created_by: string | null
           descricao: string | null
           estilo_base: string | null
+          ativo: boolean
+          ficha: Json
           id: string
           nome: string
+          origem: string
+          papel: string
           project_id: string
+          tipo: string | null
           updated_at: string
         }
         Insert: {
@@ -20111,9 +20116,14 @@ export type Database = {
           created_by?: string | null
           descricao?: string | null
           estilo_base?: string | null
+          ativo?: boolean
+          ficha?: Json
           id?: string
           nome: string
+          origem?: string
+          papel?: string
           project_id: string
+          tipo?: string | null
           updated_at?: string
         }
         Update: {
@@ -20122,9 +20132,14 @@ export type Database = {
           created_by?: string | null
           descricao?: string | null
           estilo_base?: string | null
+          ativo?: boolean
+          ficha?: Json
           id?: string
           nome?: string
+          origem?: string
+          papel?: string
           project_id?: string
+          tipo?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -30373,6 +30388,7 @@ export type Database = {
       }
       imphq_test_variants: {
         Row: {
+          avatar_id: string | null
           carga: string | null
           formato: string | null
           molde_campeao_id: string | null
@@ -30408,6 +30424,7 @@ export type Database = {
           veredito: string | null
         }
         Insert: {
+          avatar_id?: string | null
           carga?: string | null
           formato?: string | null
           molde_campeao_id?: string | null
@@ -30443,6 +30460,7 @@ export type Database = {
           veredito?: string | null
         }
         Update: {
+          avatar_id?: string | null
           carga?: string | null
           formato?: string | null
           molde_campeao_id?: string | null

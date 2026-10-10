@@ -30,6 +30,7 @@ import { copyPrompt, imageInstruction, parseCopy, planAxes, type VariationAxis, 
 import { installAiUsageTracking } from "../_shared/ai-usage.ts";
 import { levaCopyPrompt, levaImagePrompt, levaToGenerate, parseLevaCopy, quickReview, type AnguloRef, type LevaContext, type LevaCopy } from "../_shared/leva-factory.ts";
 import type { LevaItem } from "../_shared/batch-strategist.ts";
+import { avatarImageLine, castFromRows, personaBlock, photoRefs, type CastRow } from "../_shared/cast.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("creative-factory");
 
@@ -487,33 +488,52 @@ async function processLeva(batchId: string, ctxBase: { oferta: string; publico: 
 
   const libIds = [...new Set(fila.map((x) => x.item.copy_lib_id).filter(Boolean) as string[])];
   const refIds = [...new Set(fila.flatMap((x) => x.item.referencias))];
-  const [{ data: lib }, { data: refs }] = await Promise.all([
+  const [{ data: lib }, { data: refs }, { data: castRows }] = await Promise.all([
     libIds.length ? sb.from("imphq_copy_library").select("id, nome, explicacao, exemplo, como_usar").in("id", libIds) : Promise.resolve({ data: [] }),
     refIds.length ? sb.from("imphq_referencias").select("id, titulo, image_url").in("id", refIds) : Promise.resolve({ data: [] }),
+    sb.from("imphq_avatar_studio_projects").select("id, nome, tipo, papel, ficha, avatar_photos, ativo").eq("project_id", batch.project_id),
   ]);
+  // Elenco (OPS1.5): persona do público na copy; rosto do avatar como primeiras referências da imagem (links assinados).
+  const cast = castFromRows((castRows ?? []) as CastRow[]);
+  const persona = personaBlock(cast) || null;
+  const castBy = new Map(cast.map((m) => [m.id, m]));
+  const fotosBy = new Map<string, string[]>();
+  for (const r of (castRows ?? []) as CastRow[]) {
+    const paths = photoRefs(r.avatar_photos).slice(0, 2);
+    const urls: string[] = [];
+    for (const ph of paths) {
+      if (ph.path.startsWith("external:")) { if (ph.url) urls.push(ph.url); continue; }
+      const { data } = await sb.storage.from("avatar-refs").createSignedUrl(ph.path, 60 * 60 * 2);
+      if (data?.signedUrl) urls.push(data.signedUrl);
+    }
+    fotosBy.set(r.id, urls);
+  }
   const libBy = new Map((lib ?? []).map((l: AnguloRef & { id: string }) => [l.id, l]));
   const refBy = new Map((refs ?? []).map((r: { id: string; titulo: string | null; image_url: string | null }) => [r.id, r]));
 
   // 1. Copy de cada item (sequencial, para não repetir headline).
   const used: string[] = [];
-  const planned: Array<{ idx: number; item: LevaItem; copy: LevaCopy; refImgs: string[]; taskId: string | null }> = [];
+  const planned: Array<{ idx: number; item: LevaItem; copy: LevaCopy; ctx: LevaContext; rosto: number; refImgs: string[]; taskId: string | null }> = [];
   let seguidas = 0;
   for (const { idx, item } of fila) {
     if (seguidas >= 3) { erros.push("copy: parou após 3 falhas seguidas"); break; }
     const itemRefs = item.referencias.map((id) => refBy.get(id)).filter(Boolean) as Array<{ titulo: string | null; image_url: string | null }>;
-    const ctx: LevaContext = { ...ctxBase, angulo: item.copy_lib_id ? libBy.get(item.copy_lib_id) ?? null : null, referencias: itemRefs.map((r) => r.titulo ?? "").filter(Boolean) };
+    const avatar = item.avatar_id ? castBy.get(item.avatar_id) ?? null : null;
+    const ctx: LevaContext = { ...ctxBase, angulo: item.copy_lib_id ? libBy.get(item.copy_lib_id) ?? null : null, referencias: itemRefs.map((r) => r.titulo ?? "").filter(Boolean), persona, avatar: avatarImageLine(avatar) || null };
     const copy = await writeLevaCopy(item, ctx, used);
     if (!copy) { erros.push(`copy item ${idx + 1}`); seguidas++; continue; }
     seguidas = 0;
     used.push(copy.headline_arte);
-    planned.push({ idx, item, copy, refImgs: itemRefs.map((r) => r.image_url ?? "").filter((u) => /^https?:\/\//.test(u)).slice(0, 2), taskId: null });
+    const rosto = avatar ? fotosBy.get(avatar.id) ?? [] : [];
+    const mercado = itemRefs.map((r) => r.image_url ?? "").filter((u) => /^https?:\/\//.test(u)).slice(0, 2);
+    planned.push({ idx, item, copy, ctx, rosto: rosto.length, refImgs: [...rosto, ...mercado].slice(0, 4), taskId: null });
   }
 
   // 2. Uma tarefa na Kie por item.
   seguidas = 0;
   for (const p of planned) {
     if (seguidas >= 3) { erros.push("Kie: parou após 3 falhas seguidas"); break; }
-    p.taskId = await kieCreateImage(levaImagePrompt(p.item, p.copy, ctxBase, formato, p.refImgs.length > 0), p.refImgs, formato);
+    p.taskId = await kieCreateImage(levaImagePrompt(p.item, p.copy, p.ctx, formato, p.refImgs.length > p.rosto), p.refImgs, formato);
     if (!p.taskId) { erros.push(`kie item ${p.idx + 1}`); seguidas++; } else seguidas = 0;
   }
 
@@ -537,7 +557,7 @@ async function processLeva(batchId: string, ctxBase: { oferta: string; publico: 
         image_provider: "kie", headline_copy: p.copy.headline_anuncio, reprovado: revisao.reprova,
         metadata: {
           tipo: "leva", item: p.idx, bloco: p.item.bloco, copy_lib_id: p.item.copy_lib_id, formato_criativo: p.item.formato,
-          porta: p.item.porta, ponto_rota: p.item.ponto_rota, carga: p.item.carga, hipotese: p.item.hipotese,
+          porta: p.item.porta, ponto_rota: p.item.ponto_rota, carga: p.item.carga, hipotese: p.item.hipotese, avatar_id: p.item.avatar_id ?? null, avatar_nome: p.item.avatar_nome ?? null,
           copy: p.copy, texto_anuncio: p.copy.texto_anuncio, referencias: p.item.referencias, kie_task_id: p.taskId,
           modelo_texto: VARIATION_TEXT_MODEL, revisao_rapida: revisao,
         },

@@ -24,7 +24,7 @@ export const CARGA_POR_FORMATO: Record<string, Carga> = {
 
 export interface LibraryAngle { id: string; numero: number; nome: string; categoria: string }
 export interface MarketRef { id: string; copy_lib_id: string | null; formato: string | null; titulo?: string | null }
-export interface TestedAd { copy_lib_id: string | null; formato: string | null; porta: string | null; angulo: string; gasto: number; vendas: number; status: string }
+export interface TestedAd { copy_lib_id: string | null; formato: string | null; porta: string | null; angulo: string; gasto: number; vendas: number; status: string; avatar_id?: string | null }
 
 export interface LevaItem {
   bloco: "variacao" | "angulo_novo" | "formato_novo";
@@ -40,6 +40,9 @@ export interface LevaItem {
   referencias: string[];
   hipotese: string;
   motivo: string;
+  /** Avatar do elenco que aparece na arte (OPS1.5); null quando o formato não tem rosto ou não há elenco. */
+  avatar_id?: string | null;
+  avatar_nome?: string | null;
 }
 
 export interface LevaInput {

@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault, Film, UserSquare2, ScrollText, Layers } from "lucide-react";
+import { Clapperboard, Sparkles, ListChecks, BookOpen, Wand2, Workflow, Zap, Vault, Film, UserSquare2, ScrollText, Layers, Users } from "lucide-react";
 import { ModelagemTab } from "@/components/studio/ModelagemTab";
 import { StudioPrompts } from "@/components/studio/StudioPrompts";
 import { StudioGenerator } from "@/components/studio/StudioGenerator";
@@ -9,12 +10,14 @@ import { HyperPromptGenerator } from "@/components/studio/HyperPromptGenerator";
 import { HyperPromptVault } from "@/components/studio/HyperPromptVault";
 import { VideoPromptGenerator } from "@/components/studio/VideoPromptGenerator";
 import { AvatarStudioTab } from "@/components/studio/AvatarStudioTab";
+import { CastTab } from "@/components/studio/CastTab";
 import { RoteirosTab } from "@/components/studio/RoteirosTab";
 import type { HyperFields } from "@/lib/hyperPromptBuilder";
 import { ProdutoTabs } from "@/components/produto/ProdutoTabs";
 
 export default function Studio() {
-  const [tab, setTab] = useState("generator");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState(params.get("tab") || "generator");
   const [vaultRefresh, setVaultRefresh] = useState(0);
   const [loadedFields, setLoadedFields] = useState<HyperFields | null>(null);
 
@@ -32,7 +35,7 @@ export default function Studio() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-6xl grid-cols-11">
+        <TabsList className="grid w-full max-w-6xl grid-cols-12">
           <TabsTrigger value="generator" className="gap-2">
             <Wand2 className="h-4 w-4" /> Gerar
           </TabsTrigger>
@@ -41,6 +44,9 @@ export default function Studio() {
           </TabsTrigger>
           <TabsTrigger value="roteiros" className="gap-2">
             <ScrollText className="h-4 w-4" /> Roteiros
+          </TabsTrigger>
+          <TabsTrigger value="elenco" className="gap-2">
+            <Users className="h-4 w-4" /> Elenco
           </TabsTrigger>
           <TabsTrigger value="avatar-studio" className="gap-2">
             <UserSquare2 className="h-4 w-4" /> Avatar Studio
@@ -77,6 +83,10 @@ export default function Studio() {
         </TabsContent>
 
 
+
+        <TabsContent value="elenco" className="mt-6">
+          <CastTab />
+        </TabsContent>
 
         <TabsContent value="avatar-studio" className="mt-6">
           <AvatarStudioTab />

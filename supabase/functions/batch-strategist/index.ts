@@ -4,7 +4,8 @@
 // gerar arte é outro passo (fábrica).
 // Body: { modo: "plano" | "salvar" | "aprovar" | "descartar", project_id, tamanho?, so_imagem?, leva_id? }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { planLeva, type LibraryAngle, type MarketRef, type TestedAd } from "../_shared/batch-strategist.ts";
+import { planLeva, winners, type LibraryAngle, type MarketRef, type TestedAd } from "../_shared/batch-strategist.ts";
+import { assignAvatars, castFromRows, type CastRow } from "../_shared/cast.ts";
 import { liveReadings, type LiveOrder, type LiveVariant, type SaleRow, type SpendRow } from "../_shared/test-live.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -18,7 +19,7 @@ async function testedAds(sb: Sb, projectId: string): Promise<TestedAd[]> {
   const { data: orders } = await sb.from("imphq_test_orders").select("*").eq("project_id", projectId).neq("status", "cancelado");
   if (!orders?.length) return [];
   const { data: variants } = await sb.from("imphq_test_variants")
-    .select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, copy_lib_id, formato, porta")
+    .select("order_id, ordem, angulo, hipotese, status, utm_content, meta_ad_id, copy_lib_id, formato, porta, avatar_id")
     .in("order_id", orders.map((o: { id: string }) => o.id));
   const adIds = (variants ?? []).map((v: { meta_ad_id: string | null }) => v.meta_ad_id).filter(Boolean) as string[];
   const [{ data: spend }, { data: sales }] = await Promise.all([
@@ -27,14 +28,14 @@ async function testedAds(sb: Sb, projectId: string): Promise<TestedAd[]> {
   ]);
   const out: TestedAd[] = [];
   for (const o of orders) {
-    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { copy_lib_id: string | null; formato: string | null; porta: string | null }>;
+    const vs = (variants ?? []).filter((v: { order_id: string }) => v.order_id === o.id) as Array<LiveVariant & { copy_lib_id: string | null; formato: string | null; porta: string | null; avatar_id: string | null }>;
     const since = String(o.ativado_em ?? o.created_at).slice(0, 10);
     const sp = ((spend ?? []) as Array<SpendRow & { date: string | null }>).filter((r) => String(r.date ?? "") >= since);
     const readings = liveReadings(o as LiveOrder, vs, sp, (sales ?? []) as SaleRow[]);
     for (const v of vs) {
       const r = readings.find((x) => x.ordem === v.ordem);
       // Testes antigos não têm formato: saíram da fábrica de imagem, então são estáticos.
-      out.push({ copy_lib_id: v.copy_lib_id, formato: v.formato ?? "estatico", porta: v.porta, angulo: v.angulo, gasto: r?.gasto ?? 0, vendas: r?.vendas ?? 0, status: v.status });
+      out.push({ copy_lib_id: v.copy_lib_id, formato: v.formato ?? "estatico", porta: v.porta, avatar_id: v.avatar_id, angulo: v.angulo, gasto: r?.gasto ?? 0, vendas: r?.vendas ?? 0, status: v.status });
     }
   }
   return out;
@@ -61,11 +62,12 @@ Deno.serve(async (req) => {
 
     const projectId = String(body?.project_id ?? "");
     if (!projectId) return json({ error: "project_id é obrigatório" }, 400);
-    const [{ data: lib }, { data: refs }, { data: round }, tested] = await Promise.all([
+    const [{ data: lib }, { data: refs }, { data: round }, tested, { data: castRows }] = await Promise.all([
       sb.from("imphq_copy_library").select("id, numero, nome, categoria").eq("biblioteca", "angulo"),
       sb.from("imphq_referencias").select("id, titulo, copy_lib_id, copy_lib_status, formato").eq("project_id", projectId).limit(2000),
       sb.from("imphq_scale_rounds").select("params").eq("project_id", projectId).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
       testedAds(sb, projectId),
+      sb.from("imphq_avatar_studio_projects").select("id, nome, tipo, papel, ficha, avatar_photos, ativo").eq("project_id", projectId),
     ]);
     // Do mercado, só o ângulo com decisão firme ou revisada conta; o formato vale sempre que foi lido.
     const market: MarketRef[] = (refs ?? []).map((r: { id: string; titulo: string | null; copy_lib_id: string | null; copy_lib_status: string | null; formato: string | null }) => ({
@@ -73,8 +75,13 @@ Deno.serve(async (req) => {
       copy_lib_id: r.copy_lib_id && (r.copy_lib_status === "firme" || r.copy_lib_status === "revisado") ? r.copy_lib_id : null,
     }));
     const payout = Number((round?.params as { payout?: unknown } | null)?.payout) || null;
-    const plan = planLeva({ library: (lib ?? []) as LibraryAngle[], market, tested, payout, tamanho: Number(body?.tamanho) || 20, soImagem: body?.so_imagem !== false });
-    const contexto = { referencias: market.length, testados: tested.length, payout };
+    const base = planLeva({ library: (lib ?? []) as LibraryAngle[], market, tested, payout, tamanho: Number(body?.tamanho) || 20, soImagem: body?.so_imagem !== false });
+    // Elenco (OPS1.5): cada peça com alguém na arte ganha um avatar; quem revisou pode trocar (avatares: { índice: id | null }).
+    const cast = castFromRows((castRows ?? []) as CastRow[]);
+    const overrides = body?.avatares && typeof body.avatares === "object" ? Object.fromEntries(Object.entries(body.avatares as Record<string, unknown>).map(([k, v]) => [Number(k), typeof v === "string" ? v : null])) : undefined;
+    const plan = { ...base, itens: assignAvatars(base.itens, cast, { vencedorAvatarId: winners(tested, payout)[0]?.avatar_id ?? null, overrides }) };
+    if (!cast.some((m) => m.ativo && m.papel !== "publico")) plan.avisos = [...plan.avisos, "Projeto sem elenco: as artes vão sair com pessoas aleatórias. Monte o elenco no Studio → Elenco."];
+    const contexto = { referencias: market.length, testados: tested.length, payout, elenco: cast.filter((m) => m.ativo).map((m) => ({ id: m.id, nome: m.nome, tipo: m.tipo, papel: m.papel, fotos: m.fotos })) };
 
     if (modo === "plano") return json({ ok: true, projeto: projectId, contexto, ...plan });
 
