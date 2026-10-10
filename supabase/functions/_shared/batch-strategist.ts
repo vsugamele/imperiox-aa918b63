@@ -161,17 +161,22 @@ export function planLeva(input: LevaInput): LevaPlan {
   }
   if (escolhidos.length < comp.angulo_novo) avisos.push(`Só ${escolhidos.length} ângulos novos disponíveis (o resto já foi testado ou morreu).`);
 
-  // 3) Formatos novos: o que o mercado roda e nós nunca testamos, com o melhor ângulo que temos.
+  // 3) Formatos novos: primeiro o que o mercado roda e nós nunca testamos; depois formatos de imagem nunca testados
+  // (sem prova de mercado, marcados assim). Pula o formato que as variações deste ângulo já cobriram nesta leva.
   const anguloBase = top[0]?.copy_lib_id ?? escolhidos[0]?.a.id ?? null;
   const nomeBase = anguloBase ? lib.get(anguloBase)?.nome ?? "ângulo base" : "ângulo base";
-  const formatosNovos = [...marketByFormat.entries()].filter(([f]) => !testedFormats.has(f)).sort((a, b) => b[1].length - a[1].length).map(([f]) => f);
-  for (let i = 0; i < comp.formato_novo; i++) {
-    const formato = formatosNovos[i % Math.max(1, formatosNovos.length)] ?? formatoMaisComum;
+  const jaNaLeva = new Set(itens.filter((i) => i.copy_lib_id === anguloBase).map((i) => i.formato));
+  const doMercado = [...marketByFormat.entries()].filter(([f]) => !testedFormats.has(f) && !jaNaLeva.has(f)).sort((a, b) => b[1].length - a[1].length).map(([f]) => f);
+  const semProva = [...FORMATOS_IMAGEM].filter((f) => okFormato(f) && !testedFormats.has(f) && !jaNaLeva.has(f) && !doMercado.includes(f));
+  const formatosNovos = [...doMercado, ...semProva];
+  for (let i = 0; i < comp.formato_novo && formatosNovos.length; i++) {
+    const formato = formatosNovos[i % formatosNovos.length];
+    const noMercado = marketByFormat.get(formato)?.length ?? 0;
     itens.push(make("formato_novo", anguloBase, nomeBase, formato, nextPorta(),
-      `O formato ${FORMATO_LABEL[formato] ?? formato} aparece ${marketByFormat.get(formato)?.length ?? 0}× no mercado e nunca foi testado aqui.`,
-      formatosNovos.length ? "Formato do mercado sem teste" : "Sem formato novo no mercado: repete o mais comum"));
+      noMercado ? `O formato ${FORMATO_LABEL[formato] ?? formato} aparece ${noMercado}× no mercado e nunca foi testado aqui.` : `O formato ${FORMATO_LABEL[formato] ?? formato} nunca foi testado aqui (ainda sem referência no mercado).`,
+      noMercado ? "Formato do mercado sem teste" : "Formato sem teste (sem prova de mercado)"));
   }
-  if (!formatosNovos.length && comp.formato_novo) avisos.push("Nenhum formato novo no mercado minerado: cadastre fontes de mineração do projeto.");
+  if (!doMercado.length && comp.formato_novo) avisos.push("Nenhum formato novo no mercado minerado: os formatos novos desta leva não têm prova de mercado. Cadastre fontes de mineração.");
   if (!input.market.length) avisos.push("Projeto sem referências classificadas: a leva usa só a biblioteca. Cadastre fontes de mineração.");
   else if (input.market.length < 30) avisos.push(`Só ${input.market.length} referências do mercado neste projeto: os ângulos novos vêm mais da biblioteca do que do que o mercado prova. Cadastre fontes de mineração.`);
   if (!soImagem && itens.some((i) => i.precisa_video)) avisos.push("Há itens de vídeo: a fábrica atual gera só imagem.");

@@ -48,10 +48,13 @@ describe("Estrategista: monta a leva", () => {
 
   it("formatos novos vêm do mercado, só de imagem por padrão, e a carga nunca é bloco", () => {
     const plan = planLeva({ library: lib, market, tested: [ad("angulo-2", 3, 90)], payout: 59 });
-    const formatos = plan.itens.filter((i) => i.bloco === "formato_novo").map((i) => i.formato);
-    expect(formatos).toContain("print_conversa");
-    expect(formatos).toContain("carrossel");
-    expect(formatos).not.toContain("ugc_fala");
+    const daLeva = plan.itens.map((i) => i.formato);
+    expect(daLeva).toContain("print_conversa");
+    expect(daLeva).toContain("carrossel");
+    expect(daLeva).not.toContain("ugc_fala");
+    // Formato novo não repete o que as variações do mesmo ângulo já cobriram.
+    const deVariacao = new Set(plan.itens.filter((i) => i.bloco === "variacao").map((i) => i.formato));
+    expect(plan.itens.filter((i) => i.bloco === "formato_novo").every((i) => !deVariacao.has(i.formato))).toBe(true);
     expect(plan.itens.every((i) => i.carga !== "bloco" && [1, 2].includes(i.ponto_rota))).toBe(true);
     const comVideo = planLeva({ library: lib, market, tested: [], soImagem: false });
     expect(comVideo.itens.some((i) => i.formato === "ugc_fala" && i.precisa_video)).toBe(true);
