@@ -120,14 +120,19 @@ export function planLeva(input: LevaInput): LevaPlan {
     hipotese, motivo,
   });
 
-  // 1) Variações dos vencedores: mesmo ângulo, porta e formato diferentes (o gancho muda, o ângulo fica).
+  // 1) Variações dos vencedores: mesmo ângulo, porta e formato diferentes (o gancho muda, o ângulo fica). Cada
+  // vencedor percorre porta × formato sem repetir combinação: primeiro as 4 outras portas no formato dele, depois as
+  // mesmas portas nos formatos do mercado.
+  const formatosDe = (w: TestedAd) => [w.formato, formatoDoAngulo(w.copy_lib_id), ...marketByFormat.keys(), "carrossel", "print_conversa", "estatico"]
+    .filter((f, i, a): f is string => okFormato(f) && a.indexOf(f) === i);
   for (let i = 0; i < comp.variacao && top.length; i++) {
     const w = top[i % top.length];
+    const k = Math.floor(i / top.length);
     const nome = w.copy_lib_id ? lib.get(w.copy_lib_id)?.nome ?? w.angulo : w.angulo;
-    // Gira entre as portas que o vencedor ainda não usou.
     const outras = PORTA_ORDEM.filter((p) => p !== w.porta);
-    const porta = outras[i % outras.length];
-    const formato = i % 2 === 0 && okFormato(w.formato) ? w.formato : formatoDoAngulo(w.copy_lib_id);
+    const porta = outras[k % outras.length];
+    const fs = formatosDe(w);
+    const formato = fs[Math.floor(k / outras.length) % fs.length] ?? "estatico";
     itens.push(make("variacao", w.copy_lib_id, nome, formato, porta,
       `O ângulo "${nome}" já vendeu ${w.vendas}×; com a porta ${PORTAS[porta]} e o formato ${FORMATO_LABEL[formato] ?? formato}, abre outro público.`,
       `Vencedor: ${w.vendas} vendas a CPA ${(w.gasto / w.vendas).toFixed(2)}`));
@@ -168,6 +173,7 @@ export function planLeva(input: LevaInput): LevaPlan {
   }
   if (!formatosNovos.length && comp.formato_novo) avisos.push("Nenhum formato novo no mercado minerado: cadastre fontes de mineração do projeto.");
   if (!input.market.length) avisos.push("Projeto sem referências classificadas: a leva usa só a biblioteca. Cadastre fontes de mineração.");
+  else if (input.market.length < 30) avisos.push(`Só ${input.market.length} referências do mercado neste projeto: os ângulos novos vêm mais da biblioteca do que do que o mercado prova. Cadastre fontes de mineração.`);
   if (!soImagem && itens.some((i) => i.precisa_video)) avisos.push("Há itens de vídeo: a fábrica atual gera só imagem.");
 
   return { tamanho: itens.length, composicao: { variacao: itens.filter((i) => i.bloco === "variacao").length, angulo_novo: itens.filter((i) => i.bloco === "angulo_novo").length, formato_novo: itens.filter((i) => i.bloco === "formato_novo").length }, itens, avisos };

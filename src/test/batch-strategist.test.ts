@@ -39,6 +39,13 @@ describe("Estrategista: monta a leva", () => {
     expect(new Set(plan.itens.map((i) => i.porta)).size).toBe(5);
   });
 
+  it("um vencedor só não gera variações repetidas e mercado pequeno vira aviso", () => {
+    const plan = planLeva({ library: lib, market, tested: [ad("angulo-2", 3, 90, { porta: "voz_dela" })], payout: 59, tamanho: 20 });
+    const combos = plan.itens.filter((i) => i.bloco === "variacao").map((i) => `${i.porta}|${i.formato}`);
+    expect(new Set(combos).size).toBe(combos.length);
+    expect(plan.avisos.join(" ")).toContain("Só 9 referências");
+  });
+
   it("formatos novos vêm do mercado, só de imagem por padrão, e a carga nunca é bloco", () => {
     const plan = planLeva({ library: lib, market, tested: [ad("angulo-2", 3, 90)], payout: 59 });
     const formatos = plan.itens.filter((i) => i.bloco === "formato_novo").map((i) => i.formato);

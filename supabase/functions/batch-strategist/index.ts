@@ -33,7 +33,8 @@ async function testedAds(sb: Sb, projectId: string): Promise<TestedAd[]> {
     const readings = liveReadings(o as LiveOrder, vs, sp, (sales ?? []) as SaleRow[]);
     for (const v of vs) {
       const r = readings.find((x) => x.ordem === v.ordem);
-      out.push({ copy_lib_id: v.copy_lib_id, formato: v.formato, porta: v.porta, angulo: v.angulo, gasto: r?.gasto ?? 0, vendas: r?.vendas ?? 0, status: v.status });
+      // Testes antigos não têm formato: saíram da fábrica de imagem, então são estáticos.
+      out.push({ copy_lib_id: v.copy_lib_id, formato: v.formato ?? "estatico", porta: v.porta, angulo: v.angulo, gasto: r?.gasto ?? 0, vendas: r?.vendas ?? 0, status: v.status });
     }
   }
   return out;
