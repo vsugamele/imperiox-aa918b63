@@ -5,6 +5,9 @@
 > trabalho só, falam por tabelas e agem sozinhos dentro de tetos definidos pelos sócios.
 >
 > Versão 1 · 10/10/2026 · base: inventário do que já roda no Império (seção 5).
+>
+> Critérios de copy e tráfego (Método H&W: portas, cargas, pouso, molde vencedor, escada de cortes CBO): ver
+> [metodo-hw-na-imperio.md](metodo-hw-na-imperio.md).
 
 ---
 
