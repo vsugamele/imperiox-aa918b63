@@ -2,7 +2,6 @@ import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -16,7 +15,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { CONV_COLOR_PRESETS, resolveConvColor, type ConvForColor } from "@/lib/conversationStatusColor";
 import { toast } from "sonner";
 
-interface WaSession {
+export interface WaSession {
   id: string; phone: string; contact_name: string | null;
   session: string; project_id: string; status: string;
   message_count: number; metadata: unknown; created_at: string;
@@ -38,7 +37,7 @@ interface WaSession {
   ai_paused_until?: string | null;
 }
 
-function isUnreadSession(s: WaSession): boolean {
+export function isUnreadSession(s: WaSession): boolean {
   if ((s.unread_count || 0) > 0) return true;
   const dir = s.last_message_direction;
   if (dir !== "in" && dir !== "incoming") return false;
@@ -46,6 +45,44 @@ function isUnreadSession(s: WaSession): boolean {
   if (!lastMsg) return false;
   const lastRead = s.last_read_at ? new Date(s.last_read_at).getTime() : 0;
   return lastRead < lastMsg;
+}
+
+export interface LastSenderInfo {
+  role: "ai" | "user" | "lead";
+  label: string;
+  badgeCls: string;
+}
+
+export function getLastSenderInfo(s: WaSession): LastSenderInfo {
+  const dir = s.last_message_direction;
+  const isOut = dir === "out" || dir === "outgoing";
+
+  if (isOut) {
+    const hasAiLock = !!s.ai_lock_until && new Date(s.ai_lock_until).getTime() > Date.now();
+    const aiTime = s.ai_last_reply_at ? new Date(s.ai_last_reply_at).getTime() : 0;
+    const msgTime = s.last_message_at ? new Date(s.last_message_at).getTime() : 0;
+    const isAiTimeMatch = aiTime > 0 && msgTime > 0 && Math.abs(aiTime - msgTime) < 180000;
+
+    if (hasAiLock || isAiTimeMatch) {
+      return {
+        role: "ai",
+        label: "🤖 IA:",
+        badgeCls: "text-amber-400 font-semibold",
+      };
+    }
+    return {
+      role: "user",
+      label: "✓✓ Você:",
+      badgeCls: "text-blue-400 font-medium",
+    };
+  }
+
+  const unread = isUnreadSession(s);
+  return {
+    role: "lead",
+    label: "↙ Cliente:",
+    badgeCls: unread ? "text-emerald-400 font-bold" : "text-zinc-400 font-medium",
+  };
 }
 
 // SLA: tempo desde a última mensagem do lead aguardando resposta
@@ -188,7 +225,7 @@ export default function ConversationList({
   onMarkUnread,
 }: Props) {
   const [search, setSearch] = useState("");
-  const [viewTab, setViewTab] = useState<"responder" | "todas" | "ia">("responder");
+  const [viewTab, setViewTab] = useState<"todas" | "nao_lidas" | "responder" | "ia">("todas");
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
     () => { const value = typeof window !== "undefined" ? localStorage.getItem("wa-snooze-mode") : null; return value === "show" || value === "only" ? value : "hide"; }
@@ -253,6 +290,7 @@ export default function ConversationList({
     return matchProject && matchProvider;
   });
 
+  const unreadCount = projectSessions.filter(isUnreadSession).length;
   const waitingCount = projectSessions.filter(isAwaitingReply).length;
   const aiCount = projectSessions.filter(isAiHandling).length;
   const snoozedCount = sessions.filter(isSnoozed).length;
@@ -271,6 +309,7 @@ export default function ConversationList({
       s.phone.includes(search);
     
     // Filtro da aba principal
+    if (viewTab === "nao_lidas" && !isUnreadSession(s)) return false;
     if (viewTab === "responder" && !isAwaitingReply(s)) return false;
     if (viewTab === "ia" && !isAiHandling(s)) return false;
 
@@ -478,27 +517,11 @@ export default function ConversationList({
           </div>
         </div>
 
-        {/* 3 Segmented Pill Tabs */}
-        <div className="grid grid-cols-3 gap-1 p-1 bg-muted/40 rounded-lg text-xs font-medium">
-          <button
-            onClick={() => setViewTab("responder")}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all ${
-              viewTab === "responder"
-                ? "bg-background text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-            title="Leads aguardando resposta humana nos últimos 7 dias"
-          >
-            <span>🔥 Responder</span>
-            {waitingCount > 0 && (
-              <span className="text-[10px] font-bold bg-amber-500/25 text-amber-400 border border-amber-500/40 rounded-full px-1.5 py-0.2 leading-tight">
-                {waitingCount}
-              </span>
-            )}
-          </button>
+        {/* 4 Segmented Pill Tabs */}
+        <div className="grid grid-cols-4 gap-1 p-1 bg-muted/40 rounded-lg text-xs font-medium">
           <button
             onClick={() => setViewTab("todas")}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all ${
+            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md transition-all ${
               viewTab === "todas"
                 ? "bg-background text-foreground shadow-sm font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -508,8 +531,41 @@ export default function ConversationList({
             <span>💬 Todas</span>
           </button>
           <button
+            onClick={() => setViewTab("nao_lidas")}
+            className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md transition-all ${
+              viewTab === "nao_lidas"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-emerald-400 hover:bg-muted/50"
+            }`}
+            title="Conversas com mensagens não lidas"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+            <span className="truncate">Não lidas</span>
+            {unreadCount > 0 && (
+              <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none shadow-sm">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setViewTab("responder")}
+            className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md transition-all ${
+              viewTab === "responder"
+                ? "bg-background text-foreground shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+            title="Leads aguardando resposta humana nos últimos 7 dias"
+          >
+            <span className="truncate">⏱ Espera</span>
+            {waitingCount > 0 && (
+              <span className="text-[10px] font-bold bg-amber-500/25 text-amber-400 border border-amber-500/40 rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none">
+                {waitingCount > 99 ? "99+" : waitingCount}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setViewTab("ia")}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all ${
+            className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md transition-all ${
               viewTab === "ia"
                 ? "bg-background text-foreground shadow-sm font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -518,8 +574,8 @@ export default function ConversationList({
           >
             <span>🤖 IA</span>
             {aiCount > 0 && (
-              <span className="text-[10px] font-semibold bg-primary/20 text-primary rounded-full px-1.5 py-0.2 leading-tight">
-                {aiCount}
+              <span className="text-[10px] font-semibold bg-primary/20 text-primary rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none">
+                {aiCount > 99 ? "99+" : aiCount}
               </span>
             )}
           </button>
@@ -596,8 +652,7 @@ export default function ConversationList({
       </div>
 
       {/* List */}
-      {/* O Radix põe o conteúdo em display:table: nome/mensagem longos alargavam a linha e cortavam horário e contagem. */}
-      <ScrollArea className="flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
         {loading ? (
           <div className="p-3 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -621,6 +676,19 @@ export default function ConversationList({
                 <p className="text-xs text-muted-foreground mb-3">Tente outro termo de busca</p>
                 <Button size="sm" variant="ghost" onClick={() => setSearch("")}>
                   Limpar busca
+                </Button>
+              </>
+            ) : viewTab === "nao_lidas" ? (
+              <>
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-semibold text-foreground mb-1">Tudo lido!</p>
+                <p className="text-xs text-muted-foreground mb-3 max-w-[220px]">
+                  Nenhuma mensagem não lida no momento.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setViewTab("todas")}>
+                  Ver todas as conversas
                 </Button>
               </>
             ) : viewTab === "responder" ? (
@@ -676,22 +744,27 @@ export default function ConversationList({
               const convColor = resolveConvColor(s as ConvForColor);
               const displayName = contactDisplayName(s.contact_name, s.phone, s.jid_suffix);
               const phoneDigits = realPhone(s.phone, s.jid_suffix);
+              const sender = getLastSenderInfo(s);
+              const hasLastMessage = Boolean(s.last_message && s.last_message.trim());
+
               return (
                 <ContextMenu key={s.id}>
                   <ContextMenuTrigger asChild>
                 <button
                   onClick={() => onSelect(s)}
-                  className={`group w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all border-b border-border/30 ${
+                  className={`group w-full max-w-full min-w-0 flex items-center gap-3 px-3 py-2.5 text-left transition-all border-b border-border/30 overflow-hidden ${
                     isSelected
-                      ? "bg-accent/90 border-l-[3px] border-l-emerald-500 shadow-xs"
+                      ? hasUnread
+                        ? "bg-emerald-500/20 border-l-[4px] border-l-emerald-400 shadow-sm"
+                        : "bg-accent/90 border-l-[4px] border-l-emerald-500 shadow-xs"
                       : hasUnread
-                        ? "bg-card/90 hover:bg-muted/50 border-l-[3px] border-l-emerald-400"
-                        : "bg-transparent hover:bg-muted/40 border-l-[3px] border-l-transparent"
+                        ? "bg-emerald-500/[0.08] hover:bg-emerald-500/[0.14] border-l-[4px] border-l-emerald-500"
+                        : "bg-transparent hover:bg-muted/40 border-l-[4px] border-l-transparent"
                   }`}
                   title={[provLabel ? `Instância: ${provLabel}` : "", convColor.label ? `Status: ${convColor.label}` : ""].filter(Boolean).join(" · ") || undefined}
                 >
                   <div className="relative shrink-0">
-                    <Avatar className={`h-11 w-11 ${hasUnread && !isSelected ? "ring-2 ring-emerald-500/70" : ""}`}>
+                    <Avatar className={`h-11 w-11 ${hasUnread && !isSelected ? "ring-2 ring-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.3)]" : ""}`}>
                       {s.avatar_url && (
                         <AvatarImage 
                           src={s.avatar_url} 
@@ -712,8 +785,8 @@ export default function ConversationList({
                         )}
                       </AvatarFallback>
                     </Avatar>
-                    {hasUnread && !isSelected && (
-                      <span className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-card" />
+                    {hasUnread && (
+                      <span className="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-background shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse" />
                     )}
                     {provLabel && (
                       <span
@@ -723,11 +796,11 @@ export default function ConversationList({
                       />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    {/* Linha 1: Nome + Canal + Horário */}
+                  <div className="flex-1 min-w-0 max-w-full">
+                    {/* Linha 1: Nome + Canal + SLA + Horário */}
                     <div className="flex items-center justify-between gap-1.5 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/90"} ${displayName === "Contato sem nome" ? "italic text-muted-foreground" : ""}`}>
+                        <span className={`text-sm truncate ${hasUnread ? "font-bold text-white tracking-tight" : "font-medium text-foreground/90"} ${displayName === "Contato sem nome" ? "italic text-muted-foreground" : ""}`}>
                           {displayName}
                         </span>
                         {channel && channel.label !== "WhatsApp" && (
@@ -761,21 +834,29 @@ export default function ConversationList({
                             </span>
                           );
                         })()}
-                        <span className={`text-[11px] font-mono shrink-0 ${hasUnread ? "text-emerald-400 font-bold" : "text-foreground/70 font-medium"}`}>
+                        <span className={`text-[11px] font-mono shrink-0 ${hasUnread ? "text-emerald-400 font-bold" : "text-muted-foreground font-medium"}`}>
                           {formatMessageTime(s.last_message_at || s.updated_at || s.created_at)}
                         </span>
                       </div>
                     </div>
 
-                    {/* Linha 2: Última mensagem + Badge de contagem de msgs */}
-                    <div className="flex items-center justify-between gap-2 mt-0.5 min-w-0">
-                      <div className="flex items-center gap-1 min-w-0 flex-1">
-                        {s.last_message_direction === "out" && !hasUnread && (
-                          <span className="text-[11px] text-muted-foreground/60 shrink-0 select-none">✓✓</span>
+                    {/* Linha 2: Última mensagem com identificação de remetente + Badges */}
+                    <div className="flex items-center justify-between gap-1.5 mt-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {hasLastMessage ? (
+                          <>
+                            <span className={`text-[11px] shrink-0 ${sender.badgeCls}`}>
+                              {sender.label}
+                            </span>
+                            <p className={`text-xs truncate ${hasUnread ? "text-zinc-100 font-medium" : "text-muted-foreground"}`}>
+                              {s.last_message}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs truncate italic text-muted-foreground/60">
+                            Sem mensagens
+                          </p>
                         )}
-                        <p className={`text-xs truncate ${hasUnread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
-                          {s.last_message || <span className="italic opacity-50">Sem mensagens</span>}
-                        </p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-1">
                         {hasUnread ? (
@@ -847,7 +928,7 @@ export default function ConversationList({
             })}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Footer count */}
       <div className="p-2 border-t border-border shrink-0 flex items-center justify-between px-3">

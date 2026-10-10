@@ -29,7 +29,7 @@ import ProviderConfigDialog from "@/components/whatsapp/ProviderConfigDialog";
 import ConnectWhatsAppModal from "@/components/whatsapp/ConnectWhatsAppModal";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
 import HubLocalManager from "@/components/whatsapp/HubLocalManager";
-import ConversationList from "@/components/whatsapp/ConversationList";
+import ConversationList, { isUnreadSession } from "@/components/whatsapp/ConversationList";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 import CampaignManager from "@/components/whatsapp/CampaignManager";
@@ -153,7 +153,7 @@ export default function WhatsApp() {
   // Auto-selecionar primeira conversa ativa se nenhuma selecionada (elimina tela preta vazia)
   useEffect(() => {
     if (!selectedSession && sessions.length > 0) {
-      const firstUnread = sessions.find(s => (s.unread_count || 0) > 0);
+      const firstUnread = sessions.find(s => isUnreadSession(s));
       const target = firstUnread || sessions[0];
       if (target) {
         setSelectedSession(target);
@@ -262,11 +262,12 @@ export default function WhatsApp() {
 
   // Marca como lida ao selecionar
   const markRead = useCallback(async (id: string) => {
+    const nowIso = new Date().toISOString();
     const { error } = await supabase.from("imphq_wa_conversations")
-      .update({ unread_count: 0, last_read_at: new Date().toISOString() })
+      .update({ unread_count: 0, last_read_at: nowIso })
       .eq("id", id);
     if (error) { toast.error("Não foi possível marcar como lida."); return; }
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 0 } : s));
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 0, last_read_at: nowIso } : s));
   }, []);
 
   // Marca como não lida novamente
@@ -280,7 +281,7 @@ export default function WhatsApp() {
       .eq("id", id);
 
     if (error) { toast.error("Não foi possível marcar como não lida."); return; }
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 1 } : s));
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, unread_count: 1, last_read_at: olderReadTime } : s));
     setSelectedSession(null);
     toast.success("Conversa marcada como não lida");
   }, [sessions]);
@@ -842,7 +843,7 @@ export default function WhatsApp() {
                     <div className="p-3 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm text-left">
                       <p className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Não Lidas</p>
                       <p className="text-lg font-bold text-emerald-400 mt-0.5">
-                        {sessions.filter(s => (s.unread_count || 0) > 0).length}
+                        {sessions.filter(isUnreadSession).length}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm text-left">
@@ -857,12 +858,12 @@ export default function WhatsApp() {
                     <Button size="sm" onClick={() => setShowNew(true)} className="gap-1.5 shadow-sm">
                       <Plus className="h-4 w-4" /> Nova Sessão
                     </Button>
-                    {sessions.some(s => (s.unread_count || 0) > 0) && (
+                    {sessions.some(isUnreadSession) && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          const firstUnread = sessions.find(s => (s.unread_count || 0) > 0);
+                          const firstUnread = sessions.find(isUnreadSession);
                           if (firstUnread) setSelectedSession(firstUnread);
                         }}
                         className="gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
