@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { MarketingSources } from "@/components/dashboard/MarketingSources";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,14 +75,14 @@ export default function GrowthDashboard({ projectFilter }: Props) {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editMeta, setEditMeta] = useState("");
+  const [loadError, setLoadError] = useState(false);
   const { user } = useAuth();
   const weeks = getWeeks(4);
 
   // Sync selectedProject with parent filter
   useEffect(() => {
-    if (projectFilter && projectFilter !== "all") {
-      setSelectedProject(projectFilter);
-    }
+    setSelectedProject(projectFilter || "all");
+    setEditingCell(null);
   }, [projectFilter]);
 
   const load = async () => {
@@ -89,6 +90,7 @@ export default function GrowthDashboard({ projectFilter }: Props) {
       supabase.from("imphq_growth_metrics").select("*").order("week_start"),
       supabase.from("imphq_projects").select("id, name, icon"),
     ]);
+    setLoadError(!!metricsRes.error || !!projRes.error);
     setMetrics((metricsRes.data || []) as GrowthMetric[]);
     setProjects(projRes.data || []);
   };
@@ -98,6 +100,8 @@ export default function GrowthDashboard({ projectFilter }: Props) {
   const filteredMetrics = selectedProject === "all" ? metrics : metrics.filter(m => m.project_id === selectedProject);
 
   const getValue = (category: string, metricName: string, weekStart: string): GrowthMetric | undefined => {
+    // There is no valid cross-project aggregation for rates, CPA, LTV or manual measurements.
+    if (selectedProject === "all") return undefined;
     return filteredMetrics.find(m => m.category === category && m.metric_name === metricName && m.week_start === weekStart);
   };
 
@@ -108,8 +112,12 @@ export default function GrowthDashboard({ projectFilter }: Props) {
       toast.error("Selecione um projeto específico");
       return;
     }
-    const valor = parseFloat(editValue) || 0;
-    const meta = editMeta ? parseFloat(editMeta) : null;
+    const valor = Number(editValue);
+    const meta = editMeta.trim() ? Number(editMeta) : null;
+    if (!editValue.trim() || !Number.isFinite(valor) || (meta !== null && !Number.isFinite(meta))) {
+      toast.error("Informe um valor numérico; use 0 somente para um zero medido");
+      return;
+    }
 
     const { error } = await supabase.from("imphq_growth_metrics").upsert({
       project_id: selectedProject,
@@ -131,7 +139,7 @@ export default function GrowthDashboard({ projectFilter }: Props) {
     return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
   };
 
-  if (projects.length === 0) return null;
+  if (projects.length === 0 && !loadError) return null;
 
   return (
     <Card className="bg-card border-border animate-fade-in" style={{ animationDelay: "550ms", animationFillMode: "both" }}>
@@ -141,7 +149,7 @@ export default function GrowthDashboard({ projectFilter }: Props) {
             <TrendingUp className="h-4 w-4 text-primary" />
             Growth Dashboard
           </CardTitle>
-          <Select value={selectedProject} onValueChange={setSelectedProject}>
+          <Select value={selectedProject} onValueChange={value => { setSelectedProject(value); setEditingCell(null); }}>
             <SelectTrigger className="w-[200px] h-8 text-xs">
               <SelectValue placeholder="Filtrar projeto" />
             </SelectTrigger>
@@ -155,6 +163,9 @@ export default function GrowthDashboard({ projectFilter }: Props) {
         </div>
       </CardHeader>
       <CardContent>
+        {loadError && <p role="alert" className="text-xs mb-3">Fonte de métricas manuais ou projetos indisponível.</p>}
+        <MarketingSources key={selectedProject} projectId={selectedProject} />
+        <p className="text-xs text-muted-foreground mb-2">Registro manual semanal · sem dado = — · zero = 0 medido. Selecione um projeto para consultar e editar.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -169,7 +180,7 @@ export default function GrowthDashboard({ projectFilter }: Props) {
             </thead>
             <tbody>
               {Object.entries(CATEGORIES).map(([catKey, cat]) => (
-                <>
+                <Fragment key={catKey}>
                   <tr key={catKey}>
                     <td colSpan={weeks.length + 1} className="pt-3 pb-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -243,7 +254,7 @@ export default function GrowthDashboard({ projectFilter }: Props) {
                       })}
                     </tr>
                   ))}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
