@@ -31,3 +31,9 @@ Pedido aprovado: integrar Habblaud ao Império com acompanhamento, mensagens, pe
 - Guia reprodutível: scripts/office/README.md. Desabilitar o dispositivo no banco revoga o conector; preservar/mover o atalho para fora de Startup desativa início automático.
 - Evidência visual: C:/Users/vsuga/habblaud/imperio-mobile-entrega.png (fora do Git).
 - Para completar a comprovação de perguntas geradas pelo modelo, retestar após a cota Claude voltar; para permissões Codex, usuário revisa hooks. Sem automação de reteste agendada.
+
+## Recuperação do 404 no celular
+- Publicação posterior dpl_AHP1AUvEzzVCAsMFpTWc8o6Z89Xw, commit main 26efe0fa, substituiu o deploy local com Escritório. Confirmado no histórico Vercel e no bundle público; não era apenas cache do celular.
+- Integrado origin/main na branch local, preservando chat, referências e telemetria: merge f1afb3bd [Story OFFICE1.7]. Nenhum push realizado.
+- Nova tentativa da suíte geral: 943 testes passando, 14 falhando, 13 erros (incluindo timeout de worker); lint global mantém 13 erros. Gates impedem push para consolidar em main. A publicação local não resolve essa pendência de integração remota.
+- Deploy de recuperação: dpl_8zcb4w19cWdtckFfQFrDiW6grPKm; verificar READY e alias antes de declarar acesso restaurado.
