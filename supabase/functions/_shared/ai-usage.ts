@@ -24,6 +24,10 @@ const HOSTS: Array<[RegExp, string]> = [
   [/^api\.elevenlabs\.io$/, "elevenlabs"],
   [/^api\.kie\.ai$/, "kie"],
   [/(^|\.)lumalabs\.ai$/, "luma"],
+  [/(^|\.)zernio\.com$/, "zernio"],
+  [/(^|\.)higgsfield\.ai$/, "higgsfield"],
+  [/(^|\.)fal\.(run|ai)$/, "fal"],
+  [/^api\.replicate\.com$/, "replicate"],
 ];
 
 export function providerOf(url: string): string | null {
@@ -46,25 +50,76 @@ export function extractUsage(url: string, requestBody: unknown, responseBody: un
   if (provider === "elevenlabs") {
     if (!/text-to-speech|speech-to-text/.test(path)) return null;
     const text = typeof req.text === "string" ? req.text : "";
-    return { provider, model: typeof req.model_id === "string" ? req.model_id : null, prompt_tokens: null, completion_tokens: null, total_tokens: text ? text.length : null, cost_usd: null, tag: /speech-to-text/.test(path) ? "stt" : "tts_caracteres" };
+    const charCount = text ? text.length : null;
+    // Estimativa ElevenLabs: ~$0.30 por 1.000 caracteres ($0.0003 / char)
+    const estimatedCost = charCount ? Math.round(charCount * 0.0003 * 10000) / 10000 : null;
+    return { 
+      provider, 
+      model: typeof req.model_id === "string" ? req.model_id : "eleven_multilingual_v2", 
+      prompt_tokens: null, 
+      completion_tokens: null, 
+      total_tokens: charCount, 
+      cost_usd: estimatedCost, 
+      tag: /speech-to-text/.test(path) ? "stt" : "tts_caracteres" 
+    };
   }
-  if (provider === "kie" || provider === "luma") {
+
+  if (provider === "kie" || provider === "luma" || provider === "higgsfield") {
     if (/credit|record-info|status/i.test(path)) return null;
-    return { provider, model: typeof req.model === "string" ? req.model : null, prompt_tokens: null, completion_tokens: null, total_tokens: null, cost_usd: null, tag: "midia" };
+    const model = typeof req.model === "string" ? req.model : (typeof req.model_name === "string" ? req.model_name : null);
+    // Estimativa de custo por geração de imagem / vídeo:
+    // Imagem (nano-banana-pro / flux / etc): ~$0.025
+    // Vídeo (kling / veo / seedance): ~$0.15
+    const isVideo = /video|kling|veo|seedance|luma/i.test(String(model)) || /video/i.test(path);
+    const estimatedCost = isVideo ? 0.15 : 0.025;
+    return { 
+      provider, 
+      model: model || (isVideo ? "video-gen" : "image-gen"), 
+      prompt_tokens: null, 
+      completion_tokens: null, 
+      total_tokens: 1, 
+      cost_usd: estimatedCost, 
+      tag: isVideo ? "video_gen" : "image_gen" 
+    };
   }
+
+  if (provider === "zernio") {
+    return {
+      provider,
+      model: "zernio-api",
+      prompt_tokens: null,
+      completion_tokens: null,
+      total_tokens: 1,
+      cost_usd: 0.001,
+      tag: "ads_sync"
+    };
+  }
+
   if (/\/models\/?$|\/key$|\/credits$/.test(path)) return null;
   if (contentType?.includes("text/event-stream")) {
     return { provider, model: typeof req.model === "string" ? req.model : null, prompt_tokens: null, completion_tokens: null, total_tokens: null, cost_usd: null, tag: "stream" };
   }
+
   if (provider === "google") {
     const meta = rec(res.usageMetadata);
-    return { provider, model: path.match(/models\/([^:/]+)/)?.[1] ?? null, prompt_tokens: n(meta.promptTokenCount), completion_tokens: n(meta.candidatesTokenCount), total_tokens: n(meta.totalTokenCount), cost_usd: null, tag: null };
+    const pt = n(meta.promptTokenCount);
+    const ct = n(meta.candidatesTokenCount);
+    const tt = n(meta.totalTokenCount);
+    const model = path.match(/models\/([^:/]+)/)?.[1] ?? null;
+    // Estimativa Gemini: flash ~$0.075 / 1M in, $0.30 / 1M out
+    const cost = (pt !== null && ct !== null) ? Math.round(((pt * 0.000000075) + (ct * 0.0000003)) * 100000) / 100000 : null;
+    return { provider, model, prompt_tokens: pt, completion_tokens: ct, total_tokens: tt, cost_usd: cost, tag: null };
   }
+
   const usage = rec(res.usage);
   if (provider === "anthropic") {
     const pi = n(usage.input_tokens), po = n(usage.output_tokens);
-    return { provider, model: typeof res.model === "string" ? res.model : typeof req.model === "string" ? req.model : null, prompt_tokens: pi, completion_tokens: po, total_tokens: pi !== null && po !== null ? pi + po : null, cost_usd: null, tag: null };
+    const tt = pi !== null && po !== null ? pi + po : null;
+    // Estimativa Claude 3.5 Sonnet: $3/M in, $15/M out
+    const cost = (pi !== null && po !== null) ? Math.round(((pi * 0.000003) + (po * 0.000015)) * 100000) / 100000 : null;
+    return { provider, model: typeof res.model === "string" ? res.model : typeof req.model === "string" ? req.model : null, prompt_tokens: pi, completion_tokens: po, total_tokens: tt, cost_usd: cost, tag: null };
   }
+
   return {
     provider,
     model: typeof res.model === "string" ? res.model : typeof req.model === "string" ? req.model : null,
