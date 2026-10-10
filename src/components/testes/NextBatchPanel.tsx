@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Layers, Loader2, Save, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Check, ImageIcon, Layers, Loader2, Save, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +9,11 @@ import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { CARGAS, PORTAS } from "@shared/hw-taxonomy";
 import type { LevaItem } from "@shared/batch-strategist";
-import { useLevaAction, usePlanLeva, useSavedLevas, type LevaPreview } from "@/hooks/useBatchStrategist";
+import { useGenerateLeva, useLevaAction, usePlanLeva, useSavedLevas, type LevaPreview, type SavedLeva } from "@/hooks/useBatchStrategist";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
 
 const BLOCO_LABEL: Record<LevaItem["bloco"], string> = { variacao: "Variação do vencedor", angulo_novo: "Ângulo novo", formato_novo: "Formato novo" };
-const STATUS_LABEL: Record<string, string> = { planejado: "Aguardando aprovação", aprovado: "Aprovada", descartado: "Descartada" };
+const STATUS_LABEL: Record<string, string> = { planejado: "Aguardando aprovação", aprovado: "Aprovada (pronta para gerar)", descartado: "Descartada", processing: "Gerando artes", completed: "Artes prontas", failed: "Geração falhou" };
 
 /** Estrategista (OPS1.3): monta a próxima leva de criativos a partir da biblioteca, do mercado e do placar. Não gera arte. */
 export function NextBatchPanel() {
@@ -67,7 +68,14 @@ export function NextBatchPanel() {
             <li key={l.id} className="flex flex-wrap items-center gap-2 py-2 text-xs" aria-label={`Leva ${l.nome}`}>
               <span className="rounded border border-border px-1.5 text-[10px] uppercase text-muted-foreground">{projectName(l.project_id)}</span>
               <span className="font-medium text-foreground">{l.nome}</span>
-              <span className={cn("text-muted-foreground", l.status === "aprovado" && "text-success")}>{STATUS_LABEL[l.status] ?? l.status}</span>
+              <span className={cn("text-muted-foreground", (l.status === "aprovado" || l.status === "completed") && "text-success", l.status === "failed" && "text-destructive")} title={l.error_message ?? undefined}>
+                {STATUS_LABEL[l.status] ?? l.status}{l.status === "processing" || l.status === "completed" || l.status === "failed" ? ` · ${l.total_gerado}/${l.total_planejado}` : ""}
+              </span>
+              {l.status === "processing" && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              {(l.status === "completed" || l.status === "failed") && l.total_gerado > 0 && (
+                <Link to={`/criativos/${l.id}`} className="inline-flex items-center gap-1 text-primary hover:underline"><ImageIcon className="h-3.5 w-3.5" /> ver artes</Link>
+              )}
+              {l.status === "aprovado" && <GenerateLeva leva={l} />}
               {l.status === "planejado" && (
                 <span className="ml-auto flex gap-1.5">
                   <Button size="sm" variant="outline" className="h-7 text-xs" disabled={action.isPending} onClick={() => action.mutate({ modo: "aprovar", leva_id: l.id }, { onSuccess: () => toast.success("Leva aprovada"), onError: (e) => toast.error(errorMessage(e)) })}><Check className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>
@@ -79,6 +87,30 @@ export function NextBatchPanel() {
         </ul>
       )}
     </section>
+  );
+}
+
+/** Gerar as artes de uma leva aprovada: pede a oferta (vai na copy) e o público (vai na imagem). */
+function GenerateLeva({ leva }: { leva: SavedLeva }) {
+  const generate = useGenerateLeva();
+  const [aberto, setAberto] = useState(false);
+  const [oferta, setOferta] = useState("");
+  const [publico, setPublico] = useState("");
+  const imagens = leva.itens.filter((i) => !i.precisa_video).length;
+  if (!aberto) return <Button size="sm" className="ml-auto h-7 text-xs" onClick={() => setAberto(true)}><Sparkles className="mr-1 h-3.5 w-3.5" /> Gerar artes</Button>;
+  return (
+    <span className="flex w-full flex-wrap items-center gap-1.5" aria-label="Gerar artes da leva">
+      <Input value={oferta} onChange={(e) => setOferta(e.target.value)} placeholder="Oferta (ex.: Código dos Cortes Perfeitos, R$47)" className="h-8 min-w-[220px] flex-1 text-xs" aria-label="Oferta" />
+      <Input value={publico} onChange={(e) => setPublico(e.target.value)} placeholder="Público (opcional)" className="h-8 w-48 text-xs" aria-label="Público" />
+      <Button size="sm" className="h-8 text-xs" disabled={!oferta.trim() || generate.isPending}
+        onClick={() => generate.mutate({ leva_id: leva.id, oferta: oferta.trim(), publico: publico.trim() || undefined }, {
+          onSuccess: (r) => { toast.success(`Gerando ${r.gerando} artes: leva de 1 a 6 minutos`); setAberto(false); },
+          onError: (e) => toast.error(errorMessage(e)),
+        })}>
+        {generate.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />} Gerar {imagens}
+      </Button>
+      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setAberto(false)}>Cancelar</Button>
+    </span>
   );
 }
 

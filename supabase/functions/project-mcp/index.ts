@@ -1143,6 +1143,22 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "generate_batch",
+    description: "Gera as artes de uma leva APROVADA do Estrategista (plan_batch): para cada item de imagem escreve a copy pelo Método H&W (porta, ponto, hook e pouso, compliance), cria a arte na Kie no formato e com a carga do item, grava no Storage e roda a checagem rápida do Revisor. Até 20 por rodada; leva de 1 a 6 minutos. Gasta Kie + OpenRouter: confirme com quem pediu antes de chamar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        leva_id: { type: "string" },
+        oferta: { type: "string", description: "Produto e preço, vai na copy (ex.: Código dos Cortes Perfeitos, R$47)" },
+        publico: { type: "string" },
+        marca_topo: { type: "string", description: "Texto pequeno no topo da arte (opcional)" },
+        limite: { type: "number", description: "Até 20" },
+        pedido_por: { type: "string", description: "Nome de quem pediu (registra o lote no nome dessa pessoa)" },
+      },
+      required: ["leva_id", "oferta"],
+    },
+  },
+  {
     name: "list_mining_sources",
     description: "Fontes da mineração diária da Biblioteca de Anúncios da Meta (palavra-chave, página de concorrente ou link de busca), por projeto, com o resultado da última rodada (vistos, novos, erro).",
     inputSchema: { type: "object", properties: { project_id: { type: "string" } } },
@@ -1506,6 +1522,23 @@ async function createTestOrder(supabase: Supabase, args: Record<string, unknown>
     image_url: v.image_url, texto: v.texto ?? null, headline: v.headline ?? null, cta: v.cta, utm_content: v.utm_content, link_url: v.link_url,
   })));
   if (vErr) { await db.from("imphq_test_orders").delete().eq("id", order.id); throw vErr; }
+  // OPS1.4: artes de uma leva do Estrategista levam as etiquetas (ângulo da biblioteca, formato, porta, carga, ponto)
+  // para o teste, e o placar já nasce sabendo o que cada anúncio testa.
+  if (args.creative_batch_id) {
+    const { data: tagged } = await supabase.from("imphq_creative_assets").select("id, metadata").eq("batch_id", String(args.creative_batch_id));
+    for (const a of tagged ?? []) {
+      const m = (a.metadata && typeof a.metadata === "object" ? a.metadata : {}) as Record<string, unknown>;
+      if (m.tipo !== "leva") continue;
+      const patch: Record<string, unknown> = { metodo: "estrategista:leva" };
+      if (typeof m.copy_lib_id === "string") patch.copy_lib_id = m.copy_lib_id;
+      if (typeof m.formato_criativo === "string") patch.formato = m.formato_criativo;
+      if (typeof m.porta === "string") patch.porta = m.porta;
+      if (typeof m.carga === "string") patch.carga = m.carga;
+      if (Number(m.ponto_rota) >= 1 && Number(m.ponto_rota) <= 5) patch.ponto_rota = Number(m.ponto_rota);
+      patch.taxonomia = { fonte: "estrategista", em: new Date().toISOString() };
+      await db.from("imphq_test_variants").update(patch).eq("order_id", order.id).eq("creative_asset_id", a.id);
+    }
+  }
   return { success: true, id: order.id, status: order.status, plano: plan, passos };
 }
 
@@ -2949,6 +2982,22 @@ Deno.serve(async (req) => {
             const { data, error } = await supabase.functions.invoke("batch-strategist", { body: args ?? {} });
             if (error) throw error;
             return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] } });
+          }
+
+          if (name === "generate_batch") {
+            if (!args?.leva_id || !args?.oferta) throw new Error("leva_id e oferta são obrigatórios");
+            const team = await loadTeam(supabase);
+            const who = args.pedido_por ? findMember(team, String(args.pedido_por)) : team.find((m) => m.user_id);
+            if (!who?.user_id) throw new Error("Ninguém do time com login para registrar a geração (pedido_por).");
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/creative-factory`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+              body: JSON.stringify({ action: "leva", user_id: who.user_id, leva_id: String(args.leva_id), oferta: String(args.oferta), publico: args.publico ?? null, marca_topo: args.marca_topo ?? null, limite: args.limite ?? 20 }),
+            });
+            const out = await res.json().catch(() => ({}));
+            if (!res.ok || out?.error) throw new Error(out?.error || `creative-factory respondeu ${res.status}`);
+            const result = { ...out, pedido_por: who.name, proximo_passo: "Acompanhe com get_creative_batch (leva_id); depois revise com review_creatives antes de subir." };
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 
           if (name === "list_mining_sources") {

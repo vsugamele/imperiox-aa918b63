@@ -50,10 +50,12 @@ Deno.serve(async (req) => {
     if (modo === "aprovar" || modo === "descartar") {
       if (!body?.leva_id) return json({ error: "leva_id é obrigatório" }, 400);
       const status = modo === "aprovar" ? "aprovado" : "descartado";
+      // Aprovar: planejada ou que falhou (tentar de novo). Descartar: tudo que ainda não está gerando nem gerado.
+      const de = modo === "aprovar" ? ["planejado", "failed"] : ["planejado", "aprovado", "failed"];
       const { data, error } = await sb.from("imphq_creative_batches").update({ status, updated_at: new Date().toISOString() })
-        .eq("id", String(body.leva_id)).eq("briefing->>tipo", "leva").select("id, status").maybeSingle();
+        .eq("id", String(body.leva_id)).eq("briefing->>tipo", "leva").in("status", de).select("id, status").maybeSingle();
       if (error) throw error;
-      if (!data) return json({ error: "leva não encontrada" }, 404);
+      if (!data) return json({ error: `leva não encontrada ou já está em outra etapa (só ${de.join("/")} pode ${modo})` }, 409);
       return json({ ok: true, leva: data });
     }
 

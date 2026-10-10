@@ -28,6 +28,8 @@ import { ANGLE_BY_SLUG } from "../_shared/creativeAngles.ts";
 import { requireUserOrServiceRole } from "../_shared/require-auth.ts";
 import { copyPrompt, imageInstruction, parseCopy, planAxes, type VariationAxis, type VariationCopy, type VariationRequest } from "../_shared/creative-variations.ts";
 import { installAiUsageTracking } from "../_shared/ai-usage.ts";
+import { levaCopyPrompt, levaImagePrompt, levaToGenerate, parseLevaCopy, quickReview, type AnguloRef, type LevaContext, type LevaCopy } from "../_shared/leva-factory.ts";
+import type { LevaItem } from "../_shared/batch-strategist.ts";
 // Custo por automação (OP1.4): registra cada chamada de IA desta function em imphq_ai_usage.
 installAiUsageTracking("creative-factory");
 
@@ -449,6 +451,116 @@ async function processVariations(batchId: string) {
   }).eq("id", batchId);
 }
 
+/** Copy de um item da leva (OPS1.4), no padrão do Método H&W. Duas tentativas, JSON validado. */
+async function writeLevaCopy(item: LevaItem, ctx: LevaContext, used: string[]): Promise<LevaCopy | null> {
+  if (!OPENROUTER_API_KEY) { console.error("[leva] OPENROUTER_API_KEY ausente"); return null; }
+  const { system, user } = levaCopyPrompt(item, ctx, used);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: VARIATION_TEXT_MODEL, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+      });
+      if (!resp.ok) { console.error("[leva] copy", resp.status, (await resp.text()).slice(0, 200)); continue; }
+      const data = await resp.json();
+      const copy = parseLevaCopy(data?.choices?.[0]?.message?.content ?? "");
+      if (copy) return copy;
+    } catch (e) { console.error("[leva] copy ex", e); }
+  }
+  return null;
+}
+
+/**
+ * Gera as artes de uma leva aprovada (OPS1.4): para cada item de imagem, escreve a copy pelo método, cria a arte na Kie
+ * (referências do mercado só como inspiração), grava no Storage com as réguas no metadata e roda a checagem rápida do
+ * Revisor. Anti-loop: para após 3 falhas seguidas em qualquer etapa.
+ */
+async function processLeva(batchId: string, ctxBase: { oferta: string; publico: string | null; marca_topo: string | null; limite: number }) {
+  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: batch } = await sb.from("imphq_creative_batches").select("*").eq("id", batchId).maybeSingle();
+  if (!batch) return;
+  const b = (batch.briefing || {}) as { itens?: LevaItem[] };
+  const fila = levaToGenerate(b.itens ?? [], ctxBase.limite);
+  const formato = "4:5";
+  const erros: string[] = [];
+
+  const libIds = [...new Set(fila.map((x) => x.item.copy_lib_id).filter(Boolean) as string[])];
+  const refIds = [...new Set(fila.flatMap((x) => x.item.referencias))];
+  const [{ data: lib }, { data: refs }] = await Promise.all([
+    libIds.length ? sb.from("imphq_copy_library").select("id, nome, explicacao, exemplo, como_usar").in("id", libIds) : Promise.resolve({ data: [] }),
+    refIds.length ? sb.from("imphq_referencias").select("id, titulo, image_url").in("id", refIds) : Promise.resolve({ data: [] }),
+  ]);
+  const libBy = new Map((lib ?? []).map((l: AnguloRef & { id: string }) => [l.id, l]));
+  const refBy = new Map((refs ?? []).map((r: { id: string; titulo: string | null; image_url: string | null }) => [r.id, r]));
+
+  // 1. Copy de cada item (sequencial, para não repetir headline).
+  const used: string[] = [];
+  const planned: Array<{ idx: number; item: LevaItem; copy: LevaCopy; refImgs: string[]; taskId: string | null }> = [];
+  let seguidas = 0;
+  for (const { idx, item } of fila) {
+    if (seguidas >= 3) { erros.push("copy: parou após 3 falhas seguidas"); break; }
+    const itemRefs = item.referencias.map((id) => refBy.get(id)).filter(Boolean) as Array<{ titulo: string | null; image_url: string | null }>;
+    const ctx: LevaContext = { ...ctxBase, angulo: item.copy_lib_id ? libBy.get(item.copy_lib_id) ?? null : null, referencias: itemRefs.map((r) => r.titulo ?? "").filter(Boolean) };
+    const copy = await writeLevaCopy(item, ctx, used);
+    if (!copy) { erros.push(`copy item ${idx + 1}`); seguidas++; continue; }
+    seguidas = 0;
+    used.push(copy.headline_arte);
+    planned.push({ idx, item, copy, refImgs: itemRefs.map((r) => r.image_url ?? "").filter((u) => /^https?:\/\//.test(u)).slice(0, 2), taskId: null });
+  }
+
+  // 2. Uma tarefa na Kie por item.
+  seguidas = 0;
+  for (const p of planned) {
+    if (seguidas >= 3) { erros.push("Kie: parou após 3 falhas seguidas"); break; }
+    p.taskId = await kieCreateImage(levaImagePrompt(p.item, p.copy, ctxBase, formato, p.refImgs.length > 0), p.refImgs, formato);
+    if (!p.taskId) { erros.push(`kie item ${p.idx + 1}`); seguidas++; } else seguidas = 0;
+  }
+
+  // 3. Acompanha até ficarem prontas e grava no Storage.
+  let gerados = 0;
+  const pending = new Set(planned.filter((p) => p.taskId).map((p) => p.taskId as string));
+  const deadline = Date.now() + KIE_TIMEOUT_MS;
+  while (pending.size && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, KIE_POLL_MS));
+    for (const p of planned) {
+      if (!p.taskId || !pending.has(p.taskId)) continue;
+      const res = await kieTaskResult(p.taskId);
+      if (res.state === "running") continue;
+      pending.delete(p.taskId);
+      if (res.state === "fail") { erros.push(`kie item ${p.idx + 1}: ${res.error}`); continue; }
+      const dataUrl = await fetchAsDataUrl(res.url);
+      const revisao = quickReview(p.copy);
+      const { data: asset, error } = await sb.from("imphq_creative_assets").insert({
+        batch_id: batchId, project_id: batch.project_id, user_id: batch.user_id, angulo: p.item.angulo,
+        prompt_usado: `LEVA [${p.item.bloco}] kie:${VARIATION_IMAGE_MODEL} task:${p.taskId}`, image_url: "pending", formato,
+        image_provider: "kie", headline_copy: p.copy.headline_anuncio, reprovado: revisao.reprova,
+        metadata: {
+          tipo: "leva", item: p.idx, bloco: p.item.bloco, copy_lib_id: p.item.copy_lib_id, formato_criativo: p.item.formato,
+          porta: p.item.porta, ponto_rota: p.item.ponto_rota, carga: p.item.carga, hipotese: p.item.hipotese,
+          copy: p.copy, texto_anuncio: p.copy.texto_anuncio, referencias: p.item.referencias, kie_task_id: p.taskId,
+          modelo_texto: VARIATION_TEXT_MODEL, revisao_rapida: revisao,
+        },
+      }).select("id").single();
+      if (error || !asset) { erros.push(`insert item ${p.idx + 1}`); continue; }
+      const uploaded = dataUrl ? await uploadBase64ToStorage(sb, dataUrl, batch.project_id, batchId, asset.id) : null;
+      if (!uploaded) {
+        await sb.from("imphq_creative_assets").update({ reprovado: true, image_url: "upload-falhou" }).eq("id", asset.id);
+        erros.push(`upload item ${p.idx + 1}`);
+        continue;
+      }
+      await sb.from("imphq_creative_assets").update({ image_url: uploaded.publicUrl, storage_path: uploaded.storagePath }).eq("id", asset.id);
+      gerados++;
+      await sb.from("imphq_creative_batches").update({ total_gerado: gerados }).eq("id", batchId);
+    }
+  }
+  if (pending.size) erros.push(`${pending.size} arte(s) não ficaram prontas a tempo na Kie`);
+  await sb.from("imphq_creative_batches").update({
+    status: gerados === 0 ? "failed" : "completed", total_gerado: gerados,
+    error_message: erros.length ? erros.join("; ").slice(0, 500) : null,
+  }).eq("id", batchId);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -570,6 +682,35 @@ Deno.serve(async (req) => {
       if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(processVariations(batch.id));
       else processVariations(batch.id).catch((e) => console.error("bg variations", e));
       return new Response(JSON.stringify({ ok: true, batch_id: batch.id, quantidade }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "leva") {
+      // OPS1.4: só gera leva APROVADA por alguém do time; uma rodada por vez (status vira "processing").
+      const body = (bodyParsed || {}) as Record<string, unknown>;
+      const levaId = String(body.leva_id || "");
+      const oferta = String(body.oferta || "").trim();
+      if (!levaId || !oferta) {
+        return new Response(JSON.stringify({ error: "leva_id e oferta são obrigatórios" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: leva } = await sb.from("imphq_creative_batches").select("id, status, briefing").eq("id", levaId).maybeSingle();
+      const tipo = (leva?.briefing as { tipo?: string } | null)?.tipo;
+      if (!leva || tipo !== "leva") return new Response(JSON.stringify({ error: "leva não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (leva.status !== "aprovado") {
+        return new Response(JSON.stringify({ error: `a leva está "${leva.status}": só gera leva aprovada` }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const limite = Math.max(1, Math.min(20, Number(body.limite) || 20));
+      const itens = ((leva.briefing as { itens?: LevaItem[] }).itens ?? []);
+      const total = levaToGenerate(itens, limite).length;
+      await sb.from("imphq_creative_batches").update({
+        status: "processing", total_planejado: total, total_gerado: 0, error_message: null,
+        briefing: { ...(leva.briefing as Record<string, unknown>), geracao: { oferta, publico: body.publico ?? null, marca_topo: body.marca_topo ?? null, limite, por: userId, em: new Date().toISOString() } },
+      }).eq("id", levaId);
+      const ctx = { oferta, publico: (body.publico as string) || null, marca_topo: (body.marca_topo as string) || null, limite };
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(processLeva(levaId, ctx));
+      else processLeva(levaId, ctx).catch((e) => console.error("bg leva", e));
+      return new Response(JSON.stringify({ ok: true, leva_id: levaId, gerando: total, sem_video: itens.length - itens.filter((i) => i.precisa_video).length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

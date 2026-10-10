@@ -31,6 +31,7 @@ Referência completa: `docs/architecture/metodo-hw-na-imperio.md` (o que é cada
 | "multiplica o vencedor" | `winner_mold` (`desmontar` → `onda`) | V00 e briefs da próxima onda |
 | "abertura nova para a VSL" | `microlead_draft` | rascunho 7 etapas + checagem + pesos do split |
 | "monta a próxima leva" / "quero volume para testar" | `plan_batch` (`plano` → `salvar`) | leva de N criativos: ângulo da biblioteca × formato do mercado × porta/ponto/carga, com hipótese |
+| "gera as artes da leva" (só leva aprovada, gasta Kie) | `generate_batch` → `get_creative_batch` | copy pelo método + arte na Kie + checagem rápida; depois `create_test_order` com `creative_batch_id` leva as etiquetas para o teste |
 
 ## Roteiros
 
