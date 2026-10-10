@@ -32,6 +32,7 @@ function readCollapsedGroups(): string[] {
 // ── Nav items ──────────────────────────────────────────────────────────
 // Reorganizado em hubs operacionais com colapso persistente por seção.
 const hojeitems = [
+  { title: "Escritório",       url: "/escritorio", icon: Building2 },
   { title: "Hoje",             url: "/hoje",       icon: CalendarCheck },
   { title: "Aprovar",          url: "/aprovar",    icon: CheckCheck,      badge: "aprovar" as const },
   { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },

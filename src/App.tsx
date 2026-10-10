@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages for bundle size optimization and faster page load speeds
 const Login = lazyWithRetry(() => import("./pages/Login"));
+const Escritorio = lazyWithRetry(() => import("@/pages/Escritorio"));
 const RedesignPrototype = lazyWithRetry(() => import("./pages/RedesignPrototype"));
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
 const SaudeSistema = lazyWithRetry(() => import("./pages/SaudeSistema"));
@@ -217,6 +218,7 @@ const App = () => (
                 <Route path="skills" element={<Skills />} />
                 <Route path="equipe" element={<Equipe />} />
                 <Route path="empresa" element={<Empresa />} />
+                <Route path="escritorio" element={<Escritorio />} />
                 <Route path="mapa-empresa" element={<Navigate to="/funis?view=mapa" replace />} />
                 <Route path="configuracoes" element={<Configuracoes />} />
                 <Route path="sala-de-maquinas" element={<SalaMaquinas />} />
