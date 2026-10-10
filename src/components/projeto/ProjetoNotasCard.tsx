@@ -1,4 +1,5 @@
 import type { Tables } from "@/integrations/supabase/types";
+import { seoNoteText } from "@/lib/seo-research";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,7 +92,7 @@ export function ProjetoNotasCard({ projectId }: Props) {
         <div className="space-y-2 max-h-[280px] overflow-auto">
           {notes.map((n) => (
             <div key={n.id} className="bg-muted/30 rounded p-2 group relative">
-              <div className="text-xs text-foreground whitespace-pre-wrap">{n.content}</div>
+              <div className="text-xs text-foreground whitespace-pre-wrap">{seoNoteText(n.content)}</div>
               <div className="flex items-center justify-between mt-1.5">
                 <div className="text-[10px] text-muted-foreground">
                   {n.author_name} · {format(new Date(n.created_at), "dd/MM HH:mm", { locale: ptBR })}
