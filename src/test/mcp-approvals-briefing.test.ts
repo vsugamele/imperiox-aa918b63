@@ -21,6 +21,7 @@ import { adsSyncHealth, liveDelta } from "@shared/live-panel";
 import { brtDay, loadProjectLivePanel } from "@shared/live-panel-load";
 import { PLAYBOOK_LIBRARY } from "@shared/playbook-library";
 import { checkMcpKey } from "@shared/mcp-auth";
+import { loadProjectCycle, recordProjectCycle } from "@shared/project-cycle-load";
 
 type Handler = (req: Request) => Promise<Response>;
 type Row = Record<string, unknown>;
@@ -106,6 +107,7 @@ function runtime(opts: { failInsertOn?: string } = {}) {
       if (actor) actors.push(actor);
       return { from };
     }, Deno: { env: { get: (name: string) => name === "MCP_API_KEYS" ? key : "local-test-only" }, serve: (value: Handler) => { handler = value; } } };
+  Object.assign(dependencies, { loadProjectCycle, recordProjectCycle });
   new Function(...Object.keys(dependencies), output)(...Object.values(dependencies));
   const call = async (name: string, args: Row) => {
     const response = await handler!(new Request("https://local.test/project-mcp", {
@@ -296,6 +298,24 @@ describe("project-mcp approvals and briefing", () => {
     const app = runtime();
     const res = await app.call("evaluate_scale", { fase: "p1", payout: 70, cpa_alvo: 45, concepts: [{ concept: "A", hipotese: "H", gasto: 80, ic: 15, vendas: 0 }] });
     expect(res).toMatchObject({ fase: "p1", qualificados: 1, placar_hipoteses: [{ resultado: "confirmada" }] });
+    expect(app.updates).toHaveLength(0);
+  });
+
+  it("reads a project operating cycle without writing or executing recommendations", async () => {
+    const app = runtime();
+    const res = await app.call("get_project_cycle", { project_id: "p", objective: "Validar oferta e aquisição" });
+    expect(res).toMatchObject({ project: { id: "p" }, objective: "Validar oferta e aquisição", external_actions_executed: false, completed_actions: [] });
+    expect(res.sources.some((s: { key: string }) => s.key === "briefing")).toBe(true);
+    expect(app.updates).toHaveLength(0);
+    expect(app.inserts).toHaveLength(0);
+  });
+
+  it("records the cycle as observation and never claims recommendations were executed", async () => {
+    const app = runtime();
+    const res = await app.call("record_project_cycle", { project_id: "p", objective: "Validar", cycle_id: "11111111-1111-4111-8111-111111111111" });
+    expect(res).toMatchObject({ recorded: true, replay: false, cycle: { external_actions_executed: false } });
+    expect(app.inserts).toHaveLength(1);
+    expect(app.inserts[0]).toMatchObject({ table: "imphq_activity_log", values: { action: "project_cycle", project_id: "p" } });
     expect(app.updates).toHaveLength(0);
   });
 });

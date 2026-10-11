@@ -3,6 +3,7 @@
 // Suporta Claude Desktop, Cursor, Agentes autônomos e scripts externos.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.0";
+import { loadProjectCycle, recordProjectCycle, type CycleDb } from "../_shared/project-cycle-load.ts";
 import { buildProjectMap, readStageContract, readStepStatus } from "../_shared/project-map.ts";
 import { dueState, localDate, writeAgentNotes, type TeamMember } from "../_shared/map-steps.ts";
 import { checkMcpKey } from "../_shared/mcp-auth.ts";
@@ -1246,6 +1247,16 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: "get_project_cycle",
+    description: "Coordena o projeto por objetivo: reúne páginas, referências, conhecimento, metas, mapa, kit, operação, Clarity agregado e economia; propõe próximas ações com dependências e verificação. Leitura sem gasto/publicação. Funciona também antes do lançamento. Informe o ID exato da variante.",
+    inputSchema: { type: "object", properties: { project_id: { type: "string" }, objective: { type: "string", description: "Objetivo/estratégia humana; sem informar, reutiliza o último objetivo registrado." } }, required: ["project_id"] },
+  },
+  {
+    name: "record_project_cycle",
+    description: "Registra no diário uma leitura e suas propostas, preservando o objetivo para consultas futuras. cycle_id UUID é idempotente: repetir não sobrescreve o registro anterior. Não executa as ações propostas.",
+    inputSchema: { type: "object", properties: { project_id: { type: "string" }, objective: { type: "string" }, cycle_id: { type: "string", format: "uuid" } }, required: ["project_id", "cycle_id"] },
+  },
+  {
     name: "get_briefing",
     description: "Resumo do projeto em uma chamada: vendas, faturamento e leads de hoje, faturamento do mês, leads quentes, etapas do dia (revisar, confirmar, esperando o time, prontas para IA, atrasadas, com responsável e prazo) e a fila de aprovações do projeto.",
     inputSchema: {
@@ -2362,6 +2373,24 @@ Deno.serve(async (req) => {
               id,
               result: { content: [{ type: "text", text: JSON.stringify(projects, null, 2) }] },
             });
+          }
+
+          if (name === "get_project_cycle" || name === "record_project_cycle") {
+            const projectId = typeof args?.project_id === "string" ? args.project_id.trim() : "";
+            if (!projectId) throw new Error("project_id é obrigatório");
+            const objective = typeof args?.objective === "string" ? args.objective.trim() : null;
+            if (objective && objective.length > 2000) throw new Error("objective deve ter no máximo 2000 caracteres");
+            const cycle = await loadProjectCycle(supabase as unknown as CycleDb, projectId, {
+              live: () => loadProjectLivePanel(supabase as unknown as LiveDb, projectId),
+              kit: () => loadProjectKit(supabase, projectId, null),
+              briefing: () => loadBriefing(supabase, projectId),
+            }, objective);
+            const result = name === "record_project_cycle"
+              ? await recordProjectCycle(cycle, typeof args?.cycle_id === "string" ? args.cycle_id : "", projectId, {
+                insert: (row) => supabase.from("imphq_activity_log").insert(row),
+                find: (cycleId) => supabase.from("imphq_activity_log").select("project_id,action,details").eq("id", cycleId).maybeSingle(),
+              }) : cycle;
+            return json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] } });
           }
 
           if (name === "get_project_context") {
