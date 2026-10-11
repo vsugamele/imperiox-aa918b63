@@ -13,5 +13,6 @@ Personagem abre Sheet com o AgentCommand existente. Identidade de seleção incl
 ## Limites e próximos passos
 - Teste visual inicial é local com snapshot real capturado; não comprova envio remoto novo. Os comandos usam o mesmo caminho já validado em OFFICE1.7.
 - Lint/testes gerais têm falhas anteriores registradas em OFFICE1.7, bloqueando push; não foi enviado nada ao GitHub. A integração remota com main continua pendente e publicações futuras de main podem substituir esta versão.
-- Deploy em andamento: dpl_AcE5QxiVLKajR9mKArHnh6L28K47. Validar READY, bundle público e tela antes de marcar publicação concluída. Build local em execução no momento deste registro.
+- Deploy dpl_AcE5QxiVLKajR9mKArHnh6L28K47 READY, alias https://imperiox.vercel.app. Bundle público index-B1Gy0ITB.js carrega Escritorio-IT_dtcDx.js, com office-room-scene e painel de sessão. Licença pública HTTP 200 e prévia não publicada. Browser público reconhece /escritorio e redireciona para login; não havia sessão autenticada neste navegador, portanto teste visual com dados reais ficou local. 57 testes originais de arte passaram. Build remoto concluído; build local completo, incluindo PWA, passou.
+- Commit da implementação: 8e2b5fc4. Servidor de prévia local encerrado após verificação. Relay mantém heartbeat (0 segundos no check), 7 agentes reais no snapshot. Arquivos previamente modificados e skill metodo-hw preservados.
 - Reversão visual: restaurar src/pages/Escritorio.tsx da versão anterior; manter conector e banco intactos. Não apagar dados de agentes.

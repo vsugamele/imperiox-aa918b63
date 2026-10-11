@@ -9,7 +9,7 @@ Direção aprovada: opção 3, mapa no computador, navegação por empresa e sal
 - [x] Selecionar personagem abre comandos e pendências existentes, mantendo os bloqueios de segurança.
 - [x] Atualizações posicionam agentes conforme empresa/sala recebida; sem atividade simulada.
 - [x] Navegação por teclado, estados vazios/offline, nomes legíveis e movimento reduzido.
-- [ ] Validar tipos, lint, testes pertinentes, build e página publicada; registrar limites.
+- [x] Validar tipos, lint, testes pertinentes, build e página publicada; registrar limites.
 
 ## Direção visual
 Arte original do Habblaud: escritório claro com madeira, pisos, plantas e personagens pixelados. Moldura e comandos do Império em #0A0B0D / #1B1E23, acento #D6FF4B. Rótulos em fonte existente do Império, sem texto desenhado no canvas. Computador: duas alas lado a lado e painel do agente selecionado. Celular: empresa → sala → personagem → comando. A cena é o elemento visual principal; estatísticas apenas de agentes e pendências reais.
@@ -28,3 +28,5 @@ Arte original do Habblaud: escritório claro com madeira, pisos, plantas e perso
 - Prévia em 390x844, snapshot real: Império com 6 agentes em Tecnologia, Consultoria com Fernanda em Boletins. Seleção validada e nenhuma rolagem horizontal (390/390).
 - Prévia preservada fora do workspace em ~/.habblaud/imperio/previews/office1.8, não publicada. Capturas imperio-office-visual-mobile.png e imperio-office-visual-desktop.png em C:/Users/vsuga/habblaud.
 - Backend, autenticação e conector não alterados. Não repetimos envio real de instruções ou decisões nesta mudança visual.
+- 57 testes da arte Habblaud passaram. Build remoto passou; deploy dpl_AcE5QxiVLKajR9mKArHnh6L28K47 READY no alias imperiox.vercel.app. Bundle público Escritório-IT_dtcDx.js contém mapa e painel; licença pública HTTP 200; prévia ausente. Navegador público reconhece rota e pede login; não havia sessão autenticada para repetir a conferência visual remota.
+- Lint global conserva 13 erros preexistentes. Integração remota com main ainda bloqueada e sem push; publicações de main podem substituir a rota.
