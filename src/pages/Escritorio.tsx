@@ -5,6 +5,9 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { OfficeMap } from '@/components/office/OfficeMap';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { readOffice, sendOfficeCommand, type OfficeAgent, type OfficeAnswer, type OfficeDecision, type OfficeDevice } from '@/lib/office-command';
 
 const STATUS: Record<string,string> = { working: 'Trabalhando', waiting: 'Precisa de você', idle: 'Disponível', shell: 'Processo em execução' };
@@ -82,36 +85,41 @@ export default function Escritorio() {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey:['office-command'], queryFn:readOffice, enabled:isAdmin, refetchInterval:4000, retry:1 });
   const [business, setBusiness] = useState('imperio');
+  const [selected, setSelected] = useState<{deviceId:string;agentId:string;sessionId:string} | null>(null);
+  const mobile = useIsMobile();
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   const devices = query.data?.devices || [];
   // A stale cached heartbeat must never leave command controls enabled.
   const fresh = !query.isError && now - query.dataUpdatedAt < 12000;
-  return <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+  const selectedDevice = devices.find(d=>d.id===selected?.deviceId);
+  const selectedAgent = selectedDevice?.snapshot.agents.find(a=>a.id===selected?.agentId && a.sessionId===selected?.sessionId);
+  return <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
     <header className="space-y-2"><div className="flex items-center gap-2"><Building2 className="text-primary h-6 w-6" /><h1 className="text-2xl font-bold">Escritório</h1></div>
-      <p className="text-sm text-muted-foreground">Acompanhe os agentes e resolva o que precisa de você.</p></header>
+      <p className="text-sm text-muted-foreground">Seu escritório ao vivo. Escolha uma sala e toque em quem está trabalhando.</p></header>
     {!isAdmin ? <p>Acesso reservado ao proprietário autorizado do computador.</p> : <>
-      <nav aria-label="Empresa" className="flex gap-2 flex-wrap">{[['imperio','Império'],['consultoria-bandeiras','Consultoria de Bandeiras']].map(([id,name]) => <Button key={id} variant={business===id?'default':'outline'} onClick={() => setBusiness(id)}>{name}</Button>)}</nav>
       {query.isPending && <p role="status">Conectando ao escritório…</p>}
       {query.isError && <div role="alert" className="rounded-lg border border-destructive p-4">Não foi possível atualizar o escritório. Os comandos estão bloqueados.<Button variant="link" onClick={() => void query.refetch()}>Tentar novamente</Button></div>}
       {!query.isPending && !query.isError && !devices.length && <p>Nenhum computador conectado à sua conta.</p>}
       {devices.map(device => {
         const online = device.online && fresh;
-        const rooms = device.snapshot.rooms.filter(r => r.businessId === business && (r.permanent || device.snapshot.agents.some(a => a.roomId === r.id)));
         return <section key={device.id} className="space-y-5">
           <div className="flex items-center gap-2 text-sm">{online ? <Wifi className="h-4 w-4 text-primary" /> : <WifiOff className="h-4 w-4 text-amber-400" />}<strong>{device.name}</strong><span>{online?'Conectado':'Computador desconectado'}</span></div>
           {!online && <p className="text-sm text-amber-400">Mostrando a última atualização. Novas instruções estão bloqueadas até reconectar.</p>}
-          {rooms.map(room => {
-            const agents = device.snapshot.agents.filter(a => a.roomId === room.id && a.businessId === business);
-            return <section key={room.id} className="space-y-3"><h2 className="text-lg font-semibold">{room.permanent ? room.areaName : room.name} <span className="text-sm font-normal text-muted-foreground">· {agents.length} agentes</span></h2>
-              {agents.length ? <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{agents.map(agent => <AgentCommand key={`${agent.id}:${agent.sessionId}`} agent={agent} device={device} online={online} refresh={() => void queryClient.invalidateQueries({queryKey:['office-command']})} />)}</div>
-                : <p className="text-sm text-muted-foreground">Nenhum agente trabalhando nesta área agora.</p>}</section>;
-          })}
+          <OfficeMap device={device} online={online} business={business} onBusiness={setBusiness} selectedId={selected?.deviceId===device.id?selected.agentId:undefined}
+            onSelect={agent=>setSelected({deviceId:device.id,agentId:agent.id,sessionId:agent.sessionId})} />
           <details className="rounded-lg border p-4"><summary className="cursor-pointer text-sm flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />Últimos envios</summary>
             <ul className="space-y-2 mt-3">{device.commands.filter(c => device.snapshot.agents.some(a => a.id===c.agent_id && a.businessId===business)).map(c => <li key={c.id} className="text-xs break-words">{new Date(c.created_at).toLocaleTimeString('pt-BR')} · {COMMAND[c.status] || c.status}</li>)}</ul>
           </details>
         </section>;
       })}
+      <Sheet open={!!selected} onOpenChange={open=>{if(!open)setSelected(null);}}>
+        <SheetContent side={mobile?'bottom':'right'} className="overflow-y-auto max-h-[90dvh] md:max-h-none w-full sm:max-w-lg">
+          <SheetHeader className="mb-5 text-left"><SheetTitle>{selectedAgent?.name || 'Sessão encerrada'}</SheetTitle><SheetDescription>{selectedAgent ? `${selectedAgent.businessId==='imperio'?'Império':'Consultoria de Bandeiras'} · ${selectedDevice?.snapshot.rooms.find(r=>r.id===selectedAgent.roomId)?.areaName || 'Projeto'}` : 'Este agente saiu do escritório ou iniciou outra sessão. Selecione-o novamente no mapa.'}</SheetDescription></SheetHeader>
+          {selectedAgent && selectedDevice && <AgentCommand key={`${selectedAgent.id}:${selectedAgent.sessionId}`} agent={selectedAgent} device={selectedDevice} online={selectedDevice.online && fresh} refresh={()=>void queryClient.invalidateQueries({queryKey:['office-command']})} />}
+        </SheetContent>
+      </Sheet>
+      <p className="text-xs text-muted-foreground">Arte do <a className="underline underline-offset-4" href="https://github.com/marmottajr/habblaud" target="_blank" rel="noreferrer">Habblaud</a> · Márcio Junior · <a className="underline underline-offset-4" href="/licenses/habblaud.txt" target="_blank" rel="noreferrer">MIT</a></p>
     </>}
   </div>;
 }
