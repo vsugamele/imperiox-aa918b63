@@ -1,0 +1,134 @@
+import fs from 'fs';
+import { execSync } from 'child_process';
+
+const SPIRITUALITY_REVERSE_ENGINEERING = {
+  "The King's Code 2.0": {
+    formula_nome: 'Neuro-Manifestação Sonora com Ângulo de Celebridade Mundial',
+    gatilhos: ['Curiosidade irresistível (Michael Jackson)', 'Autoridade científica (Neurocientista)', 'Facilidade passiva (60 segundos ao dormir)', 'Quebra da lei da atração tradicional'],
+    publico_alvo: 'Homens e mulheres 30-65 anos atraídos por lei da atração, manifestação e prosperidade rápida, cansados de visualizações sem resultado prático.',
+    tom_voz: 'Confidencial, intrigante, científico-espiritual e revelador.',
+    ritmo: 'Abertura chocante com áudio misterioso (0-1m), relato do neurocientista que trabalhou com o Rei do Pop (1-4m), demonstração da frequência das ondas cerebrais (4-8m), pitch de baixo atrito.',
+    observacoes: 'Página minimalista com botão interativo "Click to listen". O uso da imagem/nome de Michael Jackson como ímã de curiosidade gera CTR explosivo no Meta Ads.',
+    esqueleto: {
+      b1_gancho: '“O método de manifestação de 60 segundos que Michael Jackson sussurrava antes de subir aos palcos — revelado pelo seu neurocientista pessoal.”',
+      b2_agitacao: 'A dor de tentar manifestar abundância todos os dias através de pensamentos positivos e continuar vendo a conta bancária no vermelho e dívidas acumulando.',
+      b3_origem: 'O relato do pesquisador em neurociência que teve acesso aos protocolos sonoros confidenciais desenvolvidos para os maiores ícones da música mundial.',
+      b4_mecanismo: 'Sincronização Alfa-Teta 8Hz: o cérebro humano possui um canal de manifestação que fica trancado sob estresse; frequências sonoras binaurais de 60 segundos destravam o subconsciente instantaneamente.',
+      b5_oferta: "Apresentação do The King's Code 2.0: suíte neuroacústica com áudios de 60 segundos para ativação antes de dormir via Digistore24 ($39).",
+      b6_value_stack: 'Trilhas de bônus para atração rápida de dinheiro inesperado + guia digital de reprogramação de crenças limitantes.',
+      b7_garantia_cta: 'Garantia incondicional de 60 dias de reembolso total caso não veja resultados financeiros palpáveis.'
+    }
+  },
+  'The Sacred Prayer': {
+    formula_nome: 'Oração Bíblica Secreta / Fake YouTube Live (Vatican News)',
+    gatilhos: ['Alívio de culpa religiosa', 'Mistério arqueológico sagrado', 'Urgência divina', 'Validação bíblica histórica'],
+    publico_alvo: 'Cristãos, católicos e evangélicos 45+ que oram frequentemente com fervor mas passam por crises financeiras e sentem que Deus não os ouve.',
+    tom_voz: 'Devocional, urgente, pastoral e historiográfico.',
+    ritmo: 'Dois funis: Funil A com ambientação bíblica tradicional; Funil B com falsa live da Vatican News no YouTube revelando uma escavação clandestina no Monte do Templo.',
+    observacoes: 'A falsa transmissão ao vivo da Vatican News aumenta o tempo médio de retenção da VSL em mais de 300% em relação a players convencionais.',
+    esqueleto: {
+      b1_gancho: '“A oração de 30 segundos que o Rei Salomão sussurrava todas as noites e acumulou mais ouro do que qualquer nação na história da humanidade.”',
+      b2_agitacao: 'A dor excruciante de pedir socorro financeiro de joelhos no chão e ver as contas vencendo sem resposta, gerando a dúvida angustiante: "Será que Deus me esqueceu?"',
+      b3_origem: 'A revelação de um pergaminho guardado nos arquivos subterrâneos do Vaticano contendo as palavras litúrgicas hebraicas originais que os reis de Israel usavam para ordenar bênçãos.',
+      b4_mecanismo: 'Código de Oração Salomônico de 7 Frases: a estrutura correta de oração de comando que ativa as promessas da Aliança de Abraão em vez da súplica de desespero que repele a graça.',
+      b5_oferta: 'The Sacred Prayer manuscrito completo em áudio e texto + rotina devocional matinal de 3 minutos.',
+      b6_value_stack: 'Guia dos 7 Salmos de Ouro para quitação acelerada de dívidas + áudios de oração de proteção angelical contra inveja.',
+      b7_garantia_cta: 'Garantia de fé incondicional de 60 dias: sinta a abundância se manifestar ou receba 100% do seu dinheiro de volta.'
+    }
+  },
+  'Divine Script (discount)': {
+    formula_nome: 'Pré-Sell Interativo Bíblico + VSL de Comando de 12 Palavras',
+    gatilhos: ['Ordem divina / Mandamento de Jesus', 'Permissão moral para enriquecer', 'Qualificação prévia (20 Sacred Words)', 'Manifestação 100x mais rápida'],
+    publico_alvo: 'Pessoas religiosas que enfrentam aperto financeiro mas sofrem com o conflito inconsciente de que "querer dinheiro é pecado".',
+    tom_voz: 'Profético, inspirador, teologicamente libertador e afetuoso.',
+    ritmo: 'Pré-sell de engajamento no domínio watch.abundancecaller.com com as "20 sacred words" para elevar o CTR → VSL do script de 12 palavras na buydivinescript.com.',
+    observacoes: 'O gancho agressivo "Jesus ordena que você aceite este milagre financeiro" quebra instantaneamente a timidez do comprador evangélico.',
+    esqueleto: {
+      b1_gancho: '“Jesus ordena que você aceite este milagre financeiro: as 12 palavras sagradas esquecidas pela igreja que ativam prosperidade 100 vezes mais rápido.”',
+      b2_agitacao: 'A luta diária para pagar o aluguel, o medo de faltar o básico para os filhos e o sentimento de culpa espiritual por sonhar com liberdade financeira.',
+      b3_origem: 'Um teólogo e pesquisador das línguas bíblicas originais descobriu que Jesus repetia um código de 12 palavras exatas antes de realizar a multiplicação dos pães e dos peixes.',
+      b4_mecanismo: 'The 12-Word Divine Script: a frequência acústica da língua materna de Cristo que harmoniza a mente humana com o manancial infinito do Reino dos Céus.',
+      b5_oferta: 'Acesso imediato ao manual Divine Script + áudio gravado em frequência sacra com as 12 palavras em aramaico e inglês.',
+      b6_value_stack: 'Desconto promocional especial com bônus de orações de quebra de maldição hereditária e atração de heranças e oportunidades.',
+      b7_garantia_cta: 'Garantia blindada de 60 dias da Providência: risco absolutamente zero para o comprador.'
+    }
+  },
+  'Frequency of Angels': {
+    formula_nome: 'Frequência Sonora Arcangélica / Domínio Institucional Vatican News',
+    gatilhos: ['Respaldo dos 7 Arcanjos', 'Autoridade eclesiástica secreta', 'Ativação sonora sem esforço (só colocar o fone)', 'Urgência vibracional'],
+    publico_alvo: 'Pessoas de fé e devotos de anjos que buscam alívio financeiro, paz interior e proteção familiar contra energias negativas.',
+    tom_voz: 'Místico, solene, angelical e pacificador.',
+    ritmo: 'Página no domínio thevaticannews.online com estética de portal de notícias sacras → áudio demonstrativo da frequência → conversão via VendePay.',
+    observacoes: 'A utilização de frequências angelicais (777Hz) atrai tanto o público religioso cristão quanto os seguidores de New Age e espiritualidade aberta.',
+    esqueleto: {
+      b1_gancho: '“A frequência secreta dos 7 Arcanjos gravada em segredo pelo coro do Vaticano que sintoniza bênçãos de prosperidade em menos de 7 dias.”',
+      b2_agitacao: 'A sensação de peso nos ombros, bloqueio financeiro inexplicável e energia de escassez que parece repelir qualquer chance de prosperar.',
+      b3_origem: 'Um pesquisador de harmônicos sacros revelou gravações acústicas milenares feitas no interior da Basílica de São Pedro com efeitos regeneradores comprovados.',
+      b4_mecanismo: 'Ressonância Harmônica Angélica 777Hz: sintoniza os centros energéticos do corpo com a vibração de abundância do Arcanjo São Miguel e Rafael.',
+      b5_oferta: 'Coleção completa Frequency of Angels em formato digital de alta fidelidade sonora.',
+      b6_value_stack: 'Áudios complementares de frequência noturna para sono profundo e escudo contra inveja.',
+      b7_garantia_cta: 'Garantia total de satisfação ou reembolso rápido em 30 dias.'
+    }
+  },
+  'Seed of Faith': {
+    formula_nome: 'Funil de Quiz em Alta Escala (+2,6M Views) com Apresentação de 2 Minutos',
+    gatilhos: ['Hiper-escala no Meta Ads (+2,6M views)', 'Curiosidade diagnóstica rápida (Quiz de 60 segundos)', 'Micro-pitch de 2 minutos (Zero tédio)', 'Fé em ação imediata'],
+    publico_alvo: 'Público massivo do Meta Ads / Reels (milhões de visualizações), mulheres e homens 35-70 anos que usam redes sociais no celular e consomem conteúdo devocional diário.',
+    tom_voz: 'Acolhedor, dinâmico, interativo e direto ao ponto.',
+    ritmo: 'Criativos em vídeo e reels de 1 a 2,6M views → Quiz dinâmico no planfaith.com → Apresentação curta de 2 minutos no planfaith.com/offer → Checkout KashPay.',
+    observacoes: 'É O MAIOR CAMPEÃO DO NICHO. Não usa VSLs longas de 40 minutos! O quiz qualifica o usuário e a apresentação de 2 minutos fecha a venda com taxa de conversão altíssima.',
+    esqueleto: {
+      b1_gancho: '“Faça o teste de fé de 60 segundos e descubra qual semente de oração bíblica está faltando para Deus abrir as portas da sua vida financeira.”',
+      b2_agitacao: 'O cansaço de esperar anos por um milagre e a angústia de não saber o que fazer para mudar a situação da família.',
+      b3_origem: 'A sabedoria milenar de que a fé não precisa ser gigantesca, mas precisa ser plantada na semente certa para germinar com velocidade.',
+      b4_mecanismo: 'O Princípio da Semente de Mostarda Personalizada: o quiz identifica qual das 4 áreas de fé do usuário está bloqueada e entrega a semente exata para aquele perfil.',
+      b5_oferta: 'Plano Seed of Faith guia de 21 dias com sementes devocionais diárias por um valor simbólico de entrada (R$ 37 a R$ 67).',
+      b6_value_stack: 'Plano de orações de multiplicação de pão + acesso à comunidade de testemunhos de colheita.',
+      b7_garantia_cta: 'Garantia incondicional de 30 dias com devolução sem burocracia.'
+    }
+  },
+  'Manuscript of Miracles': {
+    formula_nome: 'Arqueologia Bíblica / Pergaminho Oculto do Mar Morto (37k Views Recente)',
+    gatilhos: ['Descoberta arqueológica recente', 'Apelo histórico / Documental', 'Atração para o homem cético', 'Quebra de versões adulteradas'],
+    publico_alvo: 'Homens e mulheres que gostam de história bíblica, mistérios antigos e buscam um método sólido com provas materiais documentadas.',
+    tom_voz: 'Investigativo, respeitoso, documental e focado em fatos históricos.',
+    ritmo: 'Criativo vencedor rodando no Meta Ads (+37k views) → Página de vendas divlne.site/T/FRONT/ com VSL rica em imagens de pergaminhos e escavações → Checkout KashPay.',
+    observacoes: 'Excelente oferta para modelar no mercado latino e brasileiro: o apelo arqueológico foge do lugar-comum de promessas de "coach quântico" e gera confiança imediata.',
+    esqueleto: {
+      b1_gancho: '“O manuscrito de 2.000 anos encontrado nas cavernas de Qumran que revela o segredo dos milagres materiais esquecido pelos homens modernos.”',
+      b2_agitacao: 'A sensação de que os ensinamentos práticos de abundância foram apagados ou distorcidos ao longo dos séculos, deixando os crentes dependentes de esmolas.',
+      b3_origem: 'A decifração de fragmentos em pergaminho de couro intactos que revelam as instruções deixadas por Melquisedeque sobre a lei da atração material sagrada.',
+      b4_mecanismo: 'As 3 Invocações de Melquisedeque: o padrão verbal aramaico antigo que alinha a intenção humana à ordem de criação do universo.',
+      b5_oferta: 'Manuscript of Miracles fac-símile digital traduzido e comentado + áudios com a pronúncia original em aramaico.',
+      b6_value_stack: 'Manual de aplicação prática para decisões de negócios e investimentos + garantia estendida de 30 dias.',
+      b7_garantia_cta: 'Garantia de 30 dias: comprove os milagres no seu dia a dia ou receba 100% do valor de volta.'
+    }
+  }
+};
+
+const sqls = [];
+
+for (const [title, re] of Object.entries(SPIRITUALITY_REVERSE_ENGINEERING)) {
+  const fullRe = {
+    __schema: 'vsl7',
+    ...re
+  };
+
+  const escapedJson = "'" + JSON.stringify(fullRe).replace(/'/g, "''") + "'::jsonb";
+  const titlePattern = `%${title.replace(/'/g, "''")}%`;
+
+  sqls.push(`UPDATE imphq_swipes 
+SET reverse_engineering = ${escapedJson}
+WHERE criador = 'SwipeRadar' AND title ILIKE '${titlePattern}';`);
+}
+
+const finalSql = sqls.join('\n\n');
+const outPath = 'C:/Users/vsuga/projects/imperiox/scripts/update_spirituality_reverse_engineering.sql';
+fs.writeFileSync(outPath, finalSql, 'utf8');
+console.log(`Gerado ${outPath} com sucesso!`);
+
+console.log('Executando atualização de engenharia reversa no Supabase...');
+const res = execSync(`npx supabase db query --linked -f ${outPath}`, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+console.log('Resultado do banco:');
+console.log(res.slice(0, 500));
+console.log('🎉 Engenharia reversa dos 6 swipes atualizada com sucesso!');
