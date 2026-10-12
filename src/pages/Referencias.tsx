@@ -72,6 +72,11 @@ function isVideoUrl(url?: string | null): boolean {
   return ["mp4", "webm", "mov", "avi", "mkv"].includes(ext || "");
 }
 
+/** Normalize a segment for use in a path (no slashes) */
+function norm(s?: string | null): string {
+  return (s || "").replace(/\//g, "-").trim();
+}
+
 const UI_PREF_KEY = "referencias.viewMode.v2";
 
 /** 1-click direct download helper for video/image */
@@ -504,8 +509,6 @@ function ReferenciasDesktop() {
     }
   }, [refs, emptyFolders]);
 
-  // Normalize a segment for use in a path (no slashes)
-  const norm = (s?: string | null) => (s || "").replace(/\//g, "-").trim();
 
   // Build full folder path string from breadcrumb
   const currentFolderPath = currentFolder.join("/");
@@ -844,23 +847,34 @@ function ReferenciasDesktop() {
     const Icon = style.icon;
     const isLib = r.source === "library";
 
-    // Has a displayable image
-    if (r.image_url && !isVideoUrl(r.image_url)) {
+    // Has a displayable image or video frame print
+    const displayImg = (r.image_url && !isVideoUrl(r.image_url))
+      ? r.image_url
+      : (r.quadros && r.quadros.length > 0 && r.quadros[0]?.url ? r.quadros[0].url : null);
+
+    if (displayImg) {
       return (
         <div className={`${height} bg-secondary overflow-hidden relative`}>
           <img
-            src={r.image_url}
+            src={displayImg}
             alt={r.titulo}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
+          {r.is_video && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-black/50 rounded-full p-2">
+                <Play className="h-5 w-5 text-white fill-white" />
+              </div>
+            </div>
+          )}
           {/* Download button */}
           <button
             className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10 shadow-md backdrop-blur-sm"
             title="Baixar imagem"
             onClick={(e) => {
               e.stopPropagation();
-              downloadMedia(r.image_url!, r.titulo);
+              downloadMedia(displayImg, r.titulo);
             }}
           >
             <Download className="h-3.5 w-3.5" />
@@ -879,7 +893,7 @@ function ReferenciasDesktop() {
           ) : (
             <button
               className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
-              onClick={(e) => { e.stopPropagation(); setLightboxUrl(r.image_url!); }}
+              onClick={(e) => { e.stopPropagation(); setLightboxUrl(displayImg); }}
             >
               <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
             </button>
@@ -897,13 +911,13 @@ function ReferenciasDesktop() {
       );
     }
 
-    // Video file — show video element or play icon
-    if (r.is_video && (r.url || r.image_url)) {
-      const videoSrc = r.url || r.image_url;
+    // Direct playable video file
+    const directVideoSrc = (isVideoUrl(r.url) ? r.url : null) || (isVideoUrl(r.image_url) ? r.image_url : null);
+    if (r.is_video && directVideoSrc) {
       return (
         <div className={`${height} bg-secondary overflow-hidden relative`}>
           <video
-            src={videoSrc}
+            src={directVideoSrc}
             className="w-full h-full object-cover"
             muted
             preload="metadata"
@@ -916,7 +930,7 @@ function ReferenciasDesktop() {
             title="Baixar vídeo"
             onClick={(e) => {
               e.stopPropagation();
-              downloadMedia(videoSrc!, r.titulo);
+              downloadMedia(directVideoSrc, r.titulo);
             }}
           >
             <Download className="h-3.5 w-3.5" />
@@ -1938,11 +1952,26 @@ function ReferenciasDesktop() {
           )}
           {editing && editing.is_video && (editing.url || editing.image_url) && (
             <>
-              <video
-                src={editing.url || editing.image_url}
-                controls
-                className="w-full max-h-48 rounded-lg border border-border"
-              />
+              {isVideoUrl(editing.url || editing.image_url) ? (
+                <video
+                  src={editing.url || editing.image_url}
+                  controls
+                  className="w-full max-h-48 rounded-lg border border-border"
+                />
+              ) : (
+                <a
+                  href={editing.url || editing.image_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/40 hover:bg-muted/70 transition-colors"
+                >
+                  <div className="flex items-center gap-2 text-sm text-foreground">
+                    <Play className="h-4 w-4 text-violet-400" />
+                    <span>Abrir link do vídeo ({editing.plataforma || "externo"})</span>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </a>
+              )}
               {editing.source === "manual" && (
                 <TranscriptionBlock
                   refItem={editing}

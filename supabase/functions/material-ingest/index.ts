@@ -569,6 +569,30 @@ Deno.serve(async (req) => {
       ids.site_id = site.id;
       landed.push("Sites");
 
+      // Inserir em imphq_referencias para ficar visível na tela de Referências
+      try {
+        const { data: ref } = await admin.from("imphq_referencias").insert({
+          id: crypto.randomUUID(),
+          project_id: projectId,
+          tipo: "landing_page",
+          titulo: title,
+          url: scraped.url,
+          image_url: scraped.screenshot || null,
+          tags: [source, "ingest", "site", tipo],
+          notas: scraped.summary ? scraped.summary.slice(0, 500) : null,
+          plataforma: "Web",
+          pasta: "Landing Pages / Sites",
+          fonte: "ingest",
+          transcribe_status: "done",
+        }).select("id").single();
+        if (ref) {
+          ids.referencia_id = ref.id;
+          landed.push("Referências");
+        }
+      } catch (refErr) {
+        console.warn("[material-ingest] Falha ao espelhar site em imphq_referencias:", refErr);
+      }
+
       const md = (scraped.markdown || scraped.summary || "").trim();
       if (md.length >= 80) {
         const swipe = await extractSwipe(md, title);
@@ -826,6 +850,30 @@ Deno.serve(async (req) => {
         landed.push("Swipe");
       }
       if (raw.length >= 80) {
+        // Inserir também em imphq_referencias
+        try {
+          const { data: ref } = await admin.from("imphq_referencias").insert({
+            id: crypto.randomUUID(),
+            project_id: projectId,
+            tipo: "copy",
+            titulo: title,
+            url: url || null,
+            tags: [source, kind, "ingest"],
+            notas: raw.slice(0, 500),
+            plataforma: "Outro",
+            pasta: "Textos / Copy",
+            fonte: "ingest",
+            transcricao: raw,
+            transcribe_status: "done",
+          }).select("id").single();
+          if (ref) {
+            ids.referencia_id = ref.id;
+            landed.push("Referências");
+          }
+        } catch (refErr) {
+          console.warn("[material-ingest] Falha ao espelhar copy em imphq_referencias:", refErr);
+        }
+
         const sourceId = ids.swipe_id || crypto.randomUUID();
         await indexRag(admin, {
           project_id: projectId,
