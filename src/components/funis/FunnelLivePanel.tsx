@@ -10,6 +10,7 @@ import { useFunnelLive } from "@/hooks/useFunnelLive";
 import { PageSplitsSection } from "@/components/funis/PageSplitsSection";
 import { FunnelCrossStageDiagnostics } from "@/components/funis/FunnelCrossStageDiagnostics";
 import { FunnelWhatIfSimulator } from "@/components/funis/FunnelWhatIfSimulator";
+import { FunnelLeakSentinel } from "@/components/funis/FunnelLeakSentinel";
 
 interface ProjectOption { id: string; name: string }
 
@@ -160,6 +161,13 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
               </li>
             ))}
           </ol>
+
+          {/* Sentinela de Vazamento Proativo: monitoramento de desvios, quedas de chegada e surtos de CPA */}
+          <FunnelLeakSentinel
+            funnel={data}
+            projectId={projectId ?? undefined}
+            projectName={projects.find((p) => p.id === projectId)?.name}
+          />
 
           {/* Diagnóstico Cruzado Inteligente: vazamentos entre etapas, pagespeed, VSL, checkout e recuperação */}
           <FunnelCrossStageDiagnostics funnel={data} projectId={projectId} />

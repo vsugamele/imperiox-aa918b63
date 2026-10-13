@@ -34,6 +34,7 @@ import { runFunnelDiagnostics, type FunnelDiagnosticItem } from "@shared/funnel-
 import { REFERENCIA, type StageId, type StageStatus } from "@shared/funnel-live";
 import { FunnelRemediationModal } from "@/components/funis/FunnelRemediationModal";
 import { FunnelWhatIfSimulator } from "@/components/funis/FunnelWhatIfSimulator";
+import { FunnelLeakSentinel } from "@/components/funis/FunnelLeakSentinel";
 
 interface ProjetoFunnelCockpitProps {
   projectId: string;
@@ -271,6 +272,15 @@ export function ProjetoFunnelCockpit({
       </CardHeader>
 
       <CardContent className="p-4 space-y-4">
+        {/* ───────── BLOCO 0: SENTINELA DE VAZAMENTO PROATIVO ───────── */}
+        <FunnelLeakSentinel
+          funnel={funnel}
+          projectId={projectId}
+          projectName={projectName}
+          onOpenSimulator={() => setShowSimulator(true)}
+          defaultExpanded={false}
+        />
+
         {/* ───────── BLOCO 1: GARGALO ATIVO & CAUSA RAIZ CRUZADA ───────── */}
         {primaryBottleneck ? (
           <div
