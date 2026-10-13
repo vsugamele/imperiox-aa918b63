@@ -89,3 +89,69 @@ export function flowMotion(value: number): { particles: number; durationSec: num
   const durationSec = Math.max(1.2, Math.min(3.2, 3.2 - Math.log10(value + 1) * 0.9));
   return { particles, durationSec: Math.round(durationSec * 10) / 10 };
 }
+
+export interface EdgeTransitionMetrics {
+  conversionRate: number | null;
+  referenceRate: number;
+  status: "ok" | "atencao" | "gargalo" | "sem_dado";
+  labelConversion: string;
+  dropPct?: number;
+}
+
+/** Calcula a taxa de conversão entre dois nós e afere se há gargalo na transição (UX1.5 / Sinergia 2D). */
+export function edgeTransitionMetrics(
+  volumes: ReadonlyMap<string, NodeVolume>,
+  sourceNode?: { id: string; kind?: string | null },
+  targetNode?: { id: string; kind?: string | null }
+): EdgeTransitionMetrics | null {
+  if (!sourceNode || !targetNode) return null;
+  const sVol = volumes.get(sourceNode.id)?.value ?? null;
+  const tVol = volumes.get(targetNode.id)?.value ?? null;
+
+  const sKind = (sourceNode.kind ?? "").toLowerCase();
+  const tKind = (targetNode.kind ?? "").toLowerCase();
+
+  let ref = 50;
+  let label = "Conversão";
+
+  if ((sKind.includes("ads") || sKind.includes("anuncio") || sKind.includes("reels") || sKind.includes("criativo")) &&
+      (tKind.includes("pagina") || tKind.includes("vsl") || tKind.includes("advertorial") || tKind.includes("quiz"))) {
+    ref = 70;
+    label = "Chegada";
+  } else if ((sKind.includes("pagina") || sKind.includes("vsl") || sKind.includes("advertorial") || sKind.includes("quiz")) &&
+             (tKind.includes("checkout") || tKind.includes("oferta"))) {
+    ref = 8;
+    label = "Início Checkout";
+  } else if (sKind.includes("checkout") && (tKind.includes("compra") || tKind.includes("venda") || tKind.includes("obrigado"))) {
+    ref = 50;
+    label = "Aprovação";
+  } else if ((sKind.includes("compra") || sKind.includes("venda")) && (tKind.includes("bump") || tKind.includes("upsell") || tKind.includes("downsell"))) {
+    ref = 15;
+    label = "Aceite Bump";
+  } else if ((sKind.includes("checkout") || sKind.includes("lead")) && tKind.includes("whatsapp")) {
+    ref = 20;
+    label = "Recuperação";
+  }
+
+  if (sVol === null || sVol <= 0 || tVol === null) {
+    return { conversionRate: null, referenceRate: ref, status: "sem_dado", labelConversion: label };
+  }
+
+  const rate = Math.round((tVol / sVol) * 1000) / 10;
+  let status: "ok" | "atencao" | "gargalo" = "ok";
+  if (rate < ref * 0.5) {
+    status = "gargalo";
+  } else if (rate < ref) {
+    status = "atencao";
+  }
+
+  const dropPct = rate < ref ? Math.round(((ref - rate) / ref) * 100) : undefined;
+
+  return {
+    conversionRate: rate,
+    referenceRate: ref,
+    status,
+    labelConversion: label,
+    dropPct,
+  };
+}

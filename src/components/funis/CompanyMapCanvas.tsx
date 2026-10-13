@@ -37,7 +37,7 @@ import { useCompanyMapLiveStats } from "@/hooks/useCompanyMapLiveStats";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useMapFlowVolume } from "@/hooks/useMapFlowVolume";
 import { FlowEdge, type FlowEdgeData } from "@/components/funis/FlowEdge";
-import { edgeVolume, nodeVolumes } from "@shared/flow-volume";
+import { edgeVolume, nodeVolumes, edgeTransitionMetrics } from "@shared/flow-volume";
 import { NodeCopyDialog } from "@/components/funis/NodeCopyDialog";
 import { annotationNodeTypes } from "@/components/funis/map-annotation-registry";
 import { ANNOTATION_DEFAULTS, ANNOTATION_KIND_TO_TYPE, detectReelPlatform, extractReelAuthor, extractReelThumb, type AnnotationKind, type AnnotationData } from "@/components/funis/map-annotation-data";
@@ -767,14 +767,33 @@ function InnerMap({
       pageSessionsByProject: flowData.pageSessionsByProject,
       mapProjectId: liveProjectIds.length === 1 ? liveProjectIds[0] : null,
     }) : new Map();
+    const nodeMap = new Map(rawNodes.map((n) => [n.id, n]));
     setEdges((eds) => {
       let changed = false;
       const next = eds.map((e) => {
         const volume = edgeVolume(volumes, e.source, e.target);
-        const current = (e.data as FlowEdgeData | undefined)?.volume ?? null;
-        if (current?.value === volume?.value && current?.metric === volume?.metric) return e;
+        const sourceNode = nodeMap.get(e.source);
+        const targetNode = nodeMap.get(e.target);
+        const transition = edgeTransitionMetrics(volumes, sourceNode, targetNode);
+        const currentData = e.data as FlowEdgeData | undefined;
+        if (
+          currentData?.volume?.value === volume?.value &&
+          currentData?.volume?.metric === volume?.metric &&
+          currentData?.transition?.conversionRate === transition?.conversionRate &&
+          currentData?.transition?.status === transition?.status
+        ) {
+          return e;
+        }
         changed = true;
-        return { ...e, data: { ...e.data, volume } };
+        return {
+          ...e,
+          data: {
+            ...e.data,
+            volume,
+            transition,
+            status: transition?.status,
+          },
+        };
       });
       return changed ? next : eds;
     });

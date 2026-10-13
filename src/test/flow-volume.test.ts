@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeVolume, flowMetricFor, flowMotion, nodeVolumes, normalizeUrl, sessionsByUrl } from "@shared/flow-volume";
+import { edgeTransitionMetrics, edgeVolume, flowMetricFor, flowMotion, nodeVolumes, normalizeUrl, sessionsByUrl } from "@shared/flow-volume";
 import { newSales } from "@/lib/sale-watch";
 
 describe("volume real nas setas (UX1.4)", () => {
@@ -57,5 +57,45 @@ describe("aviso de venda nova", () => {
     const stale = { ...old, id: "v3", created_at: "2026-10-02T10:00:00Z" };
     expect(newSales([fresh, stale, old], seen, true, now).map((s) => s.id)).toEqual(["v2"]);
     expect(newSales([fresh], seen, true, now)).toEqual([]);
+  });
+});
+
+describe("métricas de transição e vazamento nas setas (UX1.5 / Sinergia 2D)", () => {
+  it("calcula taxa de chegada entre anúncio e página e identifica gargalo", () => {
+    const volumes = new Map([
+      ["ad1", { metric: "sessoes" as const, value: 100 }],
+      ["p1", { metric: "sessoes" as const, value: 30 }],
+    ]);
+
+    const transition = edgeTransitionMetrics(
+      volumes,
+      { id: "ad1", kind: "anuncio" },
+      { id: "p1", kind: "pagina_vendas" }
+    );
+
+    expect(transition).toBeDefined();
+    expect(transition?.conversionRate).toBe(30);
+    expect(transition?.referenceRate).toBe(70);
+    expect(transition?.labelConversion).toBe("Chegada");
+    expect(transition?.status).toBe("gargalo"); // 30% < 35% (70 * 0.5)
+    expect(transition?.dropPct).toBe(57);
+  });
+
+  it("identifica transição saudável quando conversão atinge a referência", () => {
+    const volumes = new Map([
+      ["p1", { metric: "sessoes" as const, value: 1000 }],
+      ["ck1", { metric: "vendas" as const, value: 95 }],
+    ]);
+
+    const transition = edgeTransitionMetrics(
+      volumes,
+      { id: "p1", kind: "vsl" },
+      { id: "ck1", kind: "checkout" }
+    );
+
+    expect(transition).toBeDefined();
+    expect(transition?.conversionRate).toBe(9.5);
+    expect(transition?.referenceRate).toBe(8);
+    expect(transition?.status).toBe("ok"); // 9.5% >= 8%
   });
 });
