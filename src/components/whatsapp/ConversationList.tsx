@@ -5,14 +5,23 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Search, Plus, Mail, SlidersHorizontal, CheckCircle2, Bot, User } from "lucide-react";
+import { MessageSquare, Search, Plus, Mail, SlidersHorizontal, CheckCircle2, Bot, User, Archive, ArchiveRestore } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMessageTime } from "@/lib/formatCompactTime";
 import MergeDuplicatesButton from "./MergeDuplicatesButton";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { CONV_COLOR_PRESETS, resolveConvColor, type ConvForColor } from "@/lib/conversationStatusColor";
+import {
+  isArchivedSession,
+  getArchiveReasonConfig,
+  type ArchiveReason,
+  ARCHIVE_REASONS,
+  archiveConversation,
+  unarchiveConversation,
+} from "@/lib/conversationArchive";
 import { toast } from "sonner";
 
 export interface WaSession {
@@ -131,6 +140,8 @@ interface Props {
   filterProvider?: string;
   onFilterProvider?: (v: string) => void;
   onMarkUnread?: (id: string) => void;
+  onArchive?: (id: string, reason: ArchiveReason, currentMeta?: unknown) => void;
+  onUnarchive?: (id: string, currentMeta?: unknown) => void;
 }
 
 function isPhoneLike(text: string | null | undefined): boolean {
@@ -222,10 +233,10 @@ function channelChip(prov: Provider | undefined): { label: string; icon: string;
 export default function ConversationList({
   sessions, projects, providers, selectedId, loading, onSelect, onNewSession,
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
-  onMarkUnread,
+  onMarkUnread, onArchive, onUnarchive,
 }: Props) {
   const [search, setSearch] = useState("");
-  const [viewTab, setViewTab] = useState<"todas" | "nao_lidas" | "responder" | "ia">("todas");
+  const [viewTab, setViewTab] = useState<"todas" | "nao_lidas" | "responder" | "ia" | "arquivadas">("todas");
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [snoozeMode, setSnoozeMode] = useState<"hide" | "show" | "only">(
     () => { const value = typeof window !== "undefined" ? localStorage.getItem("wa-snooze-mode") : null; return value === "show" || value === "only" ? value : "hide"; }
@@ -283,17 +294,19 @@ export default function ConversationList({
     return (isInbound || unread) && !isAiHandling(s);
   };
 
-  // Contadores para o projeto/provider atual
+  // Contadores para o projeto/provider atual (exclui arquivadas para manter inbox de trabalho limpo)
   const projectSessions = sessions.filter(s => {
     const matchProject = filterProject === "all" || s.project_id === filterProject;
     const matchProvider = filterProvider === "all" || s.provider_id === filterProvider;
     return matchProject && matchProvider;
   });
 
-  const unreadCount = projectSessions.filter(isUnreadSession).length;
-  const waitingCount = projectSessions.filter(isAwaitingReply).length;
-  const aiCount = projectSessions.filter(isAiHandling).length;
-  const snoozedCount = sessions.filter(isSnoozed).length;
+  const activeProjectSessions = projectSessions.filter(s => !isArchivedSession(s));
+  const unreadCount = activeProjectSessions.filter(isUnreadSession).length;
+  const waitingCount = activeProjectSessions.filter(isAwaitingReply).length;
+  const aiCount = activeProjectSessions.filter(isAiHandling).length;
+  const snoozedCount = activeProjectSessions.filter(isSnoozed).length;
+  const archivedCount = projectSessions.filter(isArchivedSession).length;
 
   const activeFiltersCount =
     (assignFilter !== "all" ? 1 : 0) +
@@ -308,10 +321,17 @@ export default function ConversationList({
       (s.contact_name || "").toLowerCase().includes(search.toLowerCase()) ||
       s.phone.includes(search);
     
-    // Filtro da aba principal
-    if (viewTab === "nao_lidas" && !isUnreadSession(s)) return false;
-    if (viewTab === "responder" && !isAwaitingReply(s)) return false;
-    if (viewTab === "ia" && !isAiHandling(s)) return false;
+    const isArch = isArchivedSession(s);
+
+    // Se estiver na aba "arquivadas", mostra apenas arquivadas. Se em qualquer outra, esconde arquivadas!
+    if (viewTab === "arquivadas") {
+      if (!isArch) return false;
+    } else {
+      if (isArch) return false;
+      if (viewTab === "nao_lidas" && !isUnreadSession(s)) return false;
+      if (viewTab === "responder" && !isAwaitingReply(s)) return false;
+      if (viewTab === "ia" && !isAiHandling(s)) return false;
+    }
 
     // Filtros secundários
     const matchUnread = !onlyUnread || isUnreadSession(s);
@@ -517,42 +537,39 @@ export default function ConversationList({
           </div>
         </div>
 
-        {/* 4 Segmented Pill Tabs */}
-        <div className="grid grid-cols-4 gap-1 p-1 bg-muted/40 rounded-lg text-xs font-medium">
+        {/* 5 Segmented Pill Tabs */}
+        <div className="grid grid-cols-5 gap-1 p-1 bg-muted/40 rounded-lg text-xs font-medium">
           <button
             onClick={() => setViewTab("todas")}
-            className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-md transition-all ${
+            className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md transition-all ${
               viewTab === "todas"
                 ? "bg-background text-foreground shadow-sm font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
-            title="Todas as conversas"
+            title="Todas as conversas ativas"
           >
-            <span>💬 Todas</span>
+            <span className="truncate">💬 Todas</span>
           </button>
           <button
             onClick={() => setViewTab("nao_lidas")}
-            className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md transition-all ${
+            className={`flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-md transition-all ${
               viewTab === "nao_lidas"
                 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm font-semibold"
                 : "text-muted-foreground hover:text-emerald-400 hover:bg-muted/50"
             }`}
-            title="Conversas com mensagens não lidas"
+            title="Conversas ativas com mensagens não lidas"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-            <span className="truncate">
-              <span className="hidden xl:inline">Não lidas</span>
-              <span className="xl:hidden">Novas</span>
-            </span>
+            <span className="truncate">Novas</span>
             {unreadCount > 0 && (
-              <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none shadow-sm">
+              <span className="text-[10px] font-bold bg-emerald-500 text-white rounded-full px-1 min-w-[15px] h-3.5 flex items-center justify-center leading-none shadow-sm">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
           </button>
           <button
             onClick={() => setViewTab("responder")}
-            className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md transition-all ${
+            className={`flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-md transition-all ${
               viewTab === "responder"
                 ? "bg-background text-foreground shadow-sm font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -561,24 +578,41 @@ export default function ConversationList({
           >
             <span className="truncate">⏱ Espera</span>
             {waitingCount > 0 && (
-              <span className="text-[10px] font-bold bg-amber-500/25 text-amber-400 border border-amber-500/40 rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none">
+              <span className="text-[10px] font-bold bg-amber-500/25 text-amber-400 border border-amber-500/40 rounded-full px-1 min-w-[15px] h-3.5 flex items-center justify-center leading-none">
                 {waitingCount > 99 ? "99+" : waitingCount}
               </span>
             )}
           </button>
           <button
             onClick={() => setViewTab("ia")}
-            className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-md transition-all ${
+            className={`flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-md transition-all ${
               viewTab === "ia"
                 ? "bg-background text-foreground shadow-sm font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
             title="Conversas sob controle da IA autônoma"
           >
-            <span>🤖 IA</span>
+            <span className="truncate">🤖 IA</span>
             {aiCount > 0 && (
-              <span className="text-[10px] font-semibold bg-primary/20 text-primary rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center leading-none">
+              <span className="text-[10px] font-semibold bg-primary/20 text-primary rounded-full px-1 min-w-[15px] h-3.5 flex items-center justify-center leading-none">
                 {aiCount > 99 ? "99+" : aiCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setViewTab("arquivadas")}
+            className={`flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-md transition-all ${
+              viewTab === "arquivadas"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-semibold"
+                : "text-muted-foreground hover:text-amber-400 hover:bg-muted/50"
+            }`}
+            title="Conversas arquivadas (spam, contatos pessoais, fora do projeto)"
+          >
+            <Archive className="h-3 w-3 shrink-0" />
+            <span className="truncate">Arquivo</span>
+            {archivedCount > 0 && (
+              <span className="text-[10px] font-semibold bg-muted text-muted-foreground rounded-full px-1 min-w-[15px] h-3.5 flex items-center justify-center leading-none">
+                {archivedCount > 99 ? "99+" : archivedCount}
               </span>
             )}
           </button>
@@ -720,6 +754,19 @@ export default function ConversationList({
                   Ver todas as conversas
                 </Button>
               </>
+            ) : viewTab === "arquivadas" ? (
+              <>
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3">
+                  <Archive className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-semibold text-foreground mb-1">Nenhuma conversa arquivada</p>
+                <p className="text-xs text-muted-foreground mb-3 max-w-[220px]">
+                  Contatos marcados como spam, amigos ou fora do projeto aparecerão aqui.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setViewTab("todas")}>
+                  Ver conversas ativas
+                </Button>
+              </>
             ) : (
               <>
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
@@ -749,6 +796,8 @@ export default function ConversationList({
               const phoneDigits = realPhone(s.phone, s.jid_suffix);
               const sender = getLastSenderInfo(s);
               const hasLastMessage = Boolean(s.last_message && s.last_message.trim());
+              const isArch = isArchivedSession(s);
+              const reasonCfg = getArchiveReasonConfig(s);
 
               return (
                 <ContextMenu key={s.id}>
@@ -764,7 +813,7 @@ export default function ConversationList({
                         ? "bg-emerald-500/[0.08] hover:bg-emerald-500/[0.14] border-l-[4px] border-l-emerald-500"
                         : "bg-transparent hover:bg-muted/40 border-l-[4px] border-l-transparent"
                   }`}
-                  title={[provLabel ? `Instância: ${provLabel}` : "", convColor.label ? `Status: ${convColor.label}` : ""].filter(Boolean).join(" · ") || undefined}
+                  title={[provLabel ? `Instância: ${provLabel}` : "", convColor.label ? `Status: ${convColor.label}` : "", isArch ? `Arquivado: ${reasonCfg.label}` : ""].filter(Boolean).join(" · ") || undefined}
                 >
                   <div className="relative shrink-0">
                     <Avatar className={`h-11 w-11 ${hasUnread && !isSelected ? "ring-2 ring-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.3)]" : ""}`}>
@@ -800,12 +849,21 @@ export default function ConversationList({
                     )}
                   </div>
                   <div className="flex-1 min-w-0 max-w-full">
-                    {/* Linha 1: Nome + Canal + SLA + Horário */}
+                    {/* Linha 1: Nome + Canal + Status Arquivo + SLA + Horário */}
                     <div className="flex items-center justify-between gap-1.5 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <span className={`text-sm truncate ${hasUnread ? "font-bold text-white tracking-tight" : "font-medium text-foreground/90"} ${displayName === "Contato sem nome" ? "italic text-muted-foreground" : ""}`}>
                           {displayName}
                         </span>
+                        {isArch && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] h-4 px-1 shrink-0 font-medium ${reasonCfg.badgeCls}`}
+                            title={`Arquivado: ${reasonCfg.description}`}
+                          >
+                            {reasonCfg.icon} {reasonCfg.shortLabel}
+                          </Badge>
+                        )}
                         {channel && channel.label !== "WhatsApp" && (
                           <Badge
                             variant="outline"
@@ -884,6 +942,61 @@ export default function ConversationList({
                             >
                               <Mail className="h-3.5 w-3.5" />
                             </button>
+                            {isArch ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onUnarchive) onUnarchive(s.id, s.metadata);
+                                  else unarchiveConversation(s.id, s.metadata);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 flex items-center justify-center p-0.5 rounded text-muted-foreground hover:text-amber-400 hover:bg-muted transition-all"
+                                title="Desarquivar conversa (Mover para ativas)"
+                              >
+                                <ArchiveRestore className="h-3.5 w-3.5" />
+                              </button>
+                            ) : (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    className="opacity-0 group-hover:opacity-100 flex items-center justify-center p-0.5 rounded text-muted-foreground hover:text-amber-400 hover:bg-muted transition-all"
+                                    title="Arquivar / Ignorar contato"
+                                  >
+                                    <Archive className="h-3.5 w-3.5" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem
+                                    onClick={() => onArchive ? onArchive(s.id, "spam", s.metadata) : archiveConversation(s.id, "spam", s.metadata)}
+                                    className="gap-2 text-xs text-red-400 focus:text-red-300"
+                                  >
+                                    <span>🚫</span>
+                                    <span>Marcar como Spam</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => onArchive ? onArchive(s.id, "amigo", s.metadata) : archiveConversation(s.id, "amigo", s.metadata)}
+                                    className="gap-2 text-xs text-blue-400 focus:text-blue-300"
+                                  >
+                                    <span>👤</span>
+                                    <span>Amigo / Pessoal</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => onArchive ? onArchive(s.id, "fora_projeto", s.metadata) : archiveConversation(s.id, "fora_projeto", s.metadata)}
+                                    className="gap-2 text-xs text-purple-400 focus:text-purple-300"
+                                  >
+                                    <span>📦</span>
+                                    <span>Fora do Projeto</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => onArchive ? onArchive(s.id, "geral", s.metadata) : archiveConversation(s.id, "geral", s.metadata)}
+                                    className="gap-2 text-xs"
+                                  >
+                                    <span>📁</span>
+                                    <span>Arquivar simples</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </>
                         )}
                       </div>
@@ -925,6 +1038,35 @@ export default function ConversationList({
                     <ContextMenuItem onSelect={() => onMarkUnread?.(s.id)}>
                       Marcar como não lida
                     </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    {isArch ? (
+                      <ContextMenuItem onSelect={() => onUnarchive ? onUnarchive(s.id, s.metadata) : unarchiveConversation(s.id, s.metadata)}>
+                        <ArchiveRestore className="h-4 w-4 mr-2 text-amber-400" />
+                        Desarquivar conversa
+                      </ContextMenuItem>
+                    ) : (
+                      <ContextMenuSub>
+                        <ContextMenuSubTrigger>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Arquivar / Ignorar
+                        </ContextMenuSubTrigger>
+                        <ContextMenuSubContent className="w-52">
+                          <ContextMenuItem onSelect={() => onArchive ? onArchive(s.id, "spam", s.metadata) : archiveConversation(s.id, "spam", s.metadata)} className="text-red-400 focus:text-red-300">
+                            <span className="mr-2">🚫</span> Marcar como Spam
+                          </ContextMenuItem>
+                          <ContextMenuItem onSelect={() => onArchive ? onArchive(s.id, "amigo", s.metadata) : archiveConversation(s.id, "amigo", s.metadata)} className="text-blue-400 focus:text-blue-300">
+                            <span className="mr-2">👤</span> Amigo / Pessoal
+                          </ContextMenuItem>
+                          <ContextMenuItem onSelect={() => onArchive ? onArchive(s.id, "fora_projeto", s.metadata) : archiveConversation(s.id, "fora_projeto", s.metadata)} className="text-purple-400 focus:text-purple-300">
+                            <span className="mr-2">📦</span> Fora do Projeto
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem onSelect={() => onArchive ? onArchive(s.id, "geral", s.metadata) : archiveConversation(s.id, "geral", s.metadata)}>
+                            <span className="mr-2">📁</span> Arquivar simples
+                          </ContextMenuItem>
+                        </ContextMenuSubContent>
+                      </ContextMenuSub>
+                    )}
                   </ContextMenuContent>
                 </ContextMenu>
               );

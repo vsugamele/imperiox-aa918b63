@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Upload, FlaskConical, Wand2 } from "lucide-react";
+import { Plus, Upload, FlaskConical, Wand2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SwipeImportDialog } from "@/components/swipe/SwipeImportDialog";
@@ -35,6 +35,30 @@ export default function Swipe() {
 
   const patchSwipe = (id: string, patch: Partial<Tables<"imphq_swipes">>) =>
     setSwipes((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+
+  const [vaultSyncing, setVaultSyncing] = useState(false);
+
+  const handleVaultSyncBatch = async () => {
+    setVaultSyncing(true);
+    toast.info("Iniciando espelhamento de vídeos no Media Vault...");
+    try {
+      const { data, error } = await supabase.functions.invoke("media-vault", {
+        body: { op: "sync_batch", limit: 5, target: "gdrive" },
+      });
+      if (error) throw error;
+      const count = data?.processed_count || 0;
+      if (count > 0) {
+        toast.success(`${count} vídeos de swipes espelhados no Storage próprio!`);
+        await fetchSwipes();
+      } else {
+        toast.info("Todos os vídeos inspecionados já estão no cofre!");
+      }
+    } catch (err) {
+      toast.error(`Erro ao sincronizar cofre: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setVaultSyncing(false);
+    }
+  };
 
 
 
@@ -152,6 +176,17 @@ export default function Swipe() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={vaultSyncing}
+              className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+              onClick={handleVaultSyncBatch}
+              title="Espelhar vídeos e mídias no Storage próprio"
+            >
+              <ShieldCheck className={`h-4 w-4 mr-1 ${vaultSyncing ? "animate-spin" : ""}`} />
+              {vaultSyncing ? "Espelhando..." : "Media Vault CDN"}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4 mr-1" /> Importar
             </Button>

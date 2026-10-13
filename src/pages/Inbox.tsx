@@ -572,7 +572,7 @@ export default function Inbox() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full w-full min-h-0 overflow-hidden">
       <Tabs value={active} onValueChange={handleChange} className="flex flex-col h-full min-h-0">
         {/* Header bar + KPI strip + Tabs List */}
         <div className="bg-background/80 backdrop-blur-xl shrink-0 border-b border-border/60">
@@ -611,7 +611,7 @@ export default function Inbox() {
 
         {/* Tab contents with flex-1 min-h-0 so WhatsApp fills the height */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <TabsContent value="whatsapp" className="mt-0 pt-0 h-full overflow-hidden">
+          <TabsContent value="whatsapp" className="mt-0 pt-0 h-full w-full min-h-0 flex flex-col overflow-hidden data-[state=inactive]:hidden">
             <Suspense fallback={<TabLoader />}>
               <WhatsAppPage />
             </Suspense>

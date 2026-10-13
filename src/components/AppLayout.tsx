@@ -161,7 +161,7 @@ export function AppLayout() {
     return v === null ? true : v === "true";
   });
 
-  const isChatRoute = location.pathname.startsWith("/inbox") || location.pathname.startsWith("/whatsapp");
+  const isChatRoute = location.pathname.startsWith("/inbox") || location.pathname.startsWith("/whatsapp") || location.pathname.startsWith("/instagram");
 
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_LS_KEY, String(open)); } catch { /* Optional browser storage can be unavailable; keep the current in-memory preference/default. */ }
@@ -175,11 +175,11 @@ export function AppLayout() {
   }, []);
 
   return (
-    <SidebarProvider open={open} onOpenChange={setOpen}>
-      <div className="min-h-screen flex w-full bg-background text-foreground">
+    <SidebarProvider open={open} onOpenChange={setOpen} className={isChatRoute ? "h-screen max-h-screen overflow-hidden" : ""}>
+      <div className={`flex w-full bg-background text-foreground ${isChatRoute ? "h-screen max-h-screen overflow-hidden" : "min-h-screen"}`}>
         <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="relative h-14 flex items-center px-3 md:px-5 shrink-0 bg-background/85 backdrop-blur-md border-b border-border sticky top-0 z-20 gap-2 md:gap-3" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className={`flex-1 flex flex-col min-w-0 ${isChatRoute ? "h-screen max-h-screen overflow-hidden" : ""}`}>
+          <header className={`relative h-14 flex items-center px-3 md:px-5 shrink-0 bg-background/85 backdrop-blur-md border-b border-border ${isChatRoute ? "" : "sticky top-0"} z-20 gap-2 md:gap-3`} style={{ paddingTop: "env(safe-area-inset-top)" }}>
             <SidebarTrigger className="text-muted-foreground hover:text-primary hover:bg-[#14161A] transition-colors h-8 w-8 rounded" />
             <div className="shrink-0">
               <EditorialBreadcrumb />
@@ -218,7 +218,7 @@ export function AppLayout() {
           </header>
           {isMobile && <MobilePushNudge />}
           <main
-            className={`flex-1 ${isChatRoute ? "overflow-hidden p-0" : "overflow-auto p-3 md:p-6"}`}
+            className={`flex-1 min-h-0 ${isChatRoute ? "h-[calc(100dvh-3.5rem)] max-h-[calc(100dvh-3.5rem)] overflow-hidden p-0" : "overflow-auto p-3 md:p-6"}`}
             style={{
               paddingBottom: isChatRoute
                 ? 0

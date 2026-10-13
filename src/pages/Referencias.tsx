@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare, Copy } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare, Copy, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { ReferenceDossierModal, type Analise } from "@/components/referencias/ReferenceDossierModal";
 import { CriarRoteiroModal } from "@/components/referencias/CriarRoteiroModal";
@@ -78,6 +78,16 @@ function norm(s?: string | null): string {
 }
 
 const UI_PREF_KEY = "referencias.viewMode.v2";
+
+/** Helper para verificar se a mídia já foi espelhada no Storage próprio do Supabase */
+function isVaultSynced(url?: string | null, image_url?: string | null): boolean {
+  const hasUrl = !!url;
+  const hasImg = !!image_url;
+  if (!hasUrl && !hasImg) return true;
+  const urlSynced = !hasUrl || url.includes(".supabase.co/storage/v1/object/public/") || url.startsWith("storage://");
+  const imgSynced = !hasImg || image_url.includes(".supabase.co/storage/v1/object/public/") || image_url.startsWith("storage://");
+  return urlSynced && imgSynced;
+}
 
 /** 1-click direct download helper for video/image */
 async function downloadMedia(url: string, filename?: string) {
@@ -209,6 +219,43 @@ function ReferenciasDesktop() {
   const [newPastaName, setNewPastaName] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string[]>([]); // breadcrumb path
   const [syncing, setSyncing] = useState(false);
+  const [vaultSyncing, setVaultSyncing] = useState(false);
+
+  const handleVaultSyncBatch = async () => {
+    setVaultSyncing(true);
+    toast.info("Iniciando espelhamento de mídias no Media Vault...");
+    try {
+      const { data, error } = await supabase.functions.invoke("media-vault", {
+        body: { op: "sync_batch", limit: 5 },
+      });
+      if (error) throw error;
+      const count = data?.processed_count || 0;
+      if (count > 0) {
+        toast.success(`${count} mídias espelhadas com sucesso no Storage próprio!`);
+        await load();
+      } else {
+        toast.info("Todas as mídias inspecionadas já estão salvas no cofre!");
+      }
+    } catch (err) {
+      toast.error(`Erro ao sincronizar cofre: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setVaultSyncing(false);
+    }
+  };
+
+  const handleSyncSingleToVault = async (id: string) => {
+    toast.info("Espelhando mídia no Storage próprio...");
+    try {
+      const { data, error } = await supabase.functions.invoke("media-vault", {
+        body: { op: "sync_one", id, entity: "referencia" },
+      });
+      if (error) throw error;
+      toast.success("Mídia salva no Storage próprio com link CDN permanente!");
+      await load();
+    } catch (err) {
+      toast.error(`Falha ao salvar no cofre: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
   const [sidebarHidden, setSidebarHidden] = useState<boolean>(() => {
     try { return localStorage.getItem("referencias.sidebar.hidden.v1") === "1"; } catch { return false; }
   });
@@ -1115,6 +1162,23 @@ function ReferenciasDesktop() {
             {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
             {r.pasta && <Badge variant="outline" className="text-[9px]">📁 {r.pasta}</Badge>}
             {r.produto && <Badge variant="outline" className="text-[9px]">📦 {r.produto}</Badge>}
+            {isVaultSynced(r.url, r.image_url) ? (
+              <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1" title="Mídia permanente na CDN própria">
+                <ShieldCheck className="h-2.5 w-2.5" /> No Cofre
+              </Badge>
+            ) : (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-[9px] text-amber-400 hover:text-amber-300 font-medium px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                title="Mídia em link externo. Clique para salvar no Storage próprio."
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSyncSingleToVault(r.id);
+                }}
+              >
+                <ShieldAlert className="h-2.5 w-2.5" /> Salvar no Cofre
+              </button>
+            )}
           </div>
           {r.score && r.score > 0 && <ScoreStars score={r.score} />}
           {r.tags && r.tags.length > 0 && (
@@ -1223,6 +1287,23 @@ function ReferenciasDesktop() {
             {r.project_id && <span className="text-[9px] text-muted-foreground">📁 {r.project_name || projectName(r.project_id)}</span>}
             {r.pasta && <span className="text-[9px] text-muted-foreground">📂 {r.pasta}</span>}
             {r.produto && <span className="text-[9px] text-muted-foreground">📦 {r.produto}</span>}
+            {isVaultSynced(r.url, r.image_url) ? (
+              <span className="inline-flex items-center gap-1 text-[8px] text-emerald-400 font-medium px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20" title="No Storage próprio">
+                <ShieldCheck className="h-2.5 w-2.5" /> No Cofre
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-[8px] text-amber-400 hover:text-amber-300 font-medium px-1.5 py-0.2 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                title="Salvar no Storage próprio"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSyncSingleToVault(r.id);
+                }}
+              >
+                <ShieldAlert className="h-2.5 w-2.5" /> Salvar no Cofre
+              </button>
+            )}
           </div>
         </div>
         {r.score && r.score > 0 && <ScoreStars score={r.score} />}
@@ -1583,6 +1664,17 @@ function ReferenciasDesktop() {
           >
             <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Sincronizando..." : "Atualizar"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={vaultSyncing}
+            className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+            onClick={handleVaultSyncBatch}
+            title="Baixar e salvar cópias permanentes no Supabase Storage"
+          >
+            <ShieldCheck className={`h-4 w-4 mr-1 ${vaultSyncing ? "animate-spin" : ""}`} />
+            {vaultSyncing ? "Espelhando no Cofre..." : "Media Vault CDN"}
           </Button>
           <FileUpload
             bucket="project-media"

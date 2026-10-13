@@ -261,7 +261,7 @@ export function LeadIntelPanel({ leadId, phone, projectId }: LeadIntelPanelProps
   ];
 
   return (
-    <div className="w-64 border-l border-border bg-card flex flex-col text-xs overflow-y-auto flex-shrink-0">
+    <div className="w-full h-full max-h-full min-h-0 border-l border-border bg-card flex flex-col text-xs overflow-y-auto flex-shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-border/80 bg-secondary/15 flex items-center justify-between">
         <div className="flex items-center gap-2">

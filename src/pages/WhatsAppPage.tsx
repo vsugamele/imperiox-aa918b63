@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose, Sparkles } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose, Sparkles, Archive, ArchiveRestore } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -30,6 +30,13 @@ import ConnectWhatsAppModal from "@/components/whatsapp/ConnectWhatsAppModal";
 import BulkSendDialog from "@/components/whatsapp/BulkSendDialog";
 import HubLocalManager from "@/components/whatsapp/HubLocalManager";
 import ConversationList, { isUnreadSession } from "@/components/whatsapp/ConversationList";
+import {
+  archiveConversation,
+  unarchiveConversation,
+  isArchivedSession,
+  getArchiveReasonConfig,
+  type ArchiveReason,
+} from "@/lib/conversationArchive";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 import CampaignManager from "@/components/whatsapp/CampaignManager";
@@ -153,8 +160,9 @@ export default function WhatsApp() {
   // Auto-selecionar primeira conversa ativa se nenhuma selecionada (elimina tela preta vazia)
   useEffect(() => {
     if (!selectedSession && sessions.length > 0) {
-      const firstUnread = sessions.find(s => isUnreadSession(s));
-      const target = firstUnread || sessions[0];
+      const activeSessions = sessions.filter(s => !isArchivedSession(s));
+      const firstUnread = activeSessions.find(s => isUnreadSession(s));
+      const target = firstUnread || activeSessions[0] || sessions[0];
       if (target) {
         setSelectedSession(target);
         setChatTab("chat");
@@ -286,6 +294,46 @@ export default function WhatsApp() {
     toast.success("Conversa marcada como não lida");
   }, [sessions]);
 
+  // Arquivar / Ignorar contato (Spam, Amigo, Fora do projeto, Geral)
+  const handleArchive = useCallback(async (id: string, reason: ArchiveReason = "geral") => {
+    const target = sessions.find(s => s.id === id);
+    if (!target) return;
+    const ok = await archiveConversation(id, reason, target.metadata);
+    if (!ok) {
+      toast.error("Erro ao arquivar conversa.");
+      return;
+    }
+    const reasonCfg = getArchiveReasonConfig(reason);
+    const updatedMeta = {
+      ...(typeof target.metadata === "object" && target.metadata ? (target.metadata as Record<string, unknown>) : {}),
+      archived: true,
+      archive_reason: reason,
+      archived_at: new Date().toISOString(),
+    };
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, status: "archived", metadata: updatedMeta } : s));
+    setSelectedSession(prev => prev && prev.id === id ? { ...prev, status: "archived", metadata: updatedMeta } : prev);
+    toast.success(`Conversa arquivada (${reasonCfg.label}). Lista principal limpa!`);
+  }, [sessions]);
+
+  // Restaurar / Desarquivar conversa
+  const handleUnarchive = useCallback(async (id: string) => {
+    const target = sessions.find(s => s.id === id);
+    if (!target) return;
+    const ok = await unarchiveConversation(id, target.metadata);
+    if (!ok) {
+      toast.error("Erro ao desarquivar conversa.");
+      return;
+    }
+    const currentMeta = typeof target.metadata === "object" && target.metadata ? { ...(target.metadata as Record<string, unknown>) } : {};
+    delete currentMeta.archived;
+    delete currentMeta.archive_reason;
+    delete currentMeta.archived_at;
+    const updatedMeta = currentMeta;
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, status: "active", metadata: updatedMeta } : s));
+    setSelectedSession(prev => prev && prev.id === id ? { ...prev, status: "active", metadata: updatedMeta } : prev);
+    toast.success("Conversa restaurada para a caixa principal!");
+  }, [sessions]);
+
   // ── Atalhos de teclado (J/K navegar, R focar resposta, U marcar não lida, Esc fechar) ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -295,7 +343,7 @@ export default function WhatsApp() {
       if (isTyping) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      const list = sessions.filter(s => filterProject === "all" || s.project_id === filterProject);
+      const list = sessions.filter(s => (filterProject === "all" || s.project_id === filterProject) && !isArchivedSession(s));
       const idx = selectedSession ? list.findIndex(s => s.id === selectedSession.id) : -1;
 
       if (e.key === "j" || e.key === "ArrowDown") {
@@ -464,7 +512,7 @@ export default function WhatsApp() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full w-full min-h-0 flex flex-col overflow-hidden">
       {/* Unified Atendimento Top Bar */}
       {activeTab === "sessoes" ? (
         <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-border shrink-0 bg-card/90 backdrop-blur-sm min-h-[40px]">
@@ -629,9 +677,9 @@ export default function WhatsApp() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 w-full overflow-hidden">
         {activeTab === "sessoes" && (
-          <ResizablePanelGroup direction="horizontal" className="h-full">
+          <ResizablePanelGroup direction="horizontal" className="h-full w-full min-h-0">
             {/* Left: conversation list */}
             <ResizablePanel defaultSize={listDefaultSize} minSize={20} maxSize={45}>
               <ConversationList
@@ -647,6 +695,8 @@ export default function WhatsApp() {
                 filterProvider={filterProvider}
                 onFilterProvider={setFilterProvider}
                 onMarkUnread={markUnread}
+                onArchive={handleArchive}
+                onUnarchive={handleUnarchive}
               />
             </ResizablePanel>
 
@@ -655,7 +705,7 @@ export default function WhatsApp() {
             {/* Right: chat or empty */}
             <ResizablePanel defaultSize={70}>
               {selectedSession ? (
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col h-full w-full min-h-0 overflow-hidden">
                   {/* Chat header */}
                   <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card shrink-0">
                     <Avatar className="h-9 w-9 shrink-0">
@@ -674,6 +724,12 @@ export default function WhatsApp() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h2 className="text-sm font-semibold truncate">{selectedSession.contact_name || selectedSession.phone}</h2>
+                        {isArchivedSession(selectedSession) && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 gap-1 font-medium">
+                            <span>{getArchiveReasonConfig(selectedSession).icon}</span>
+                            <span>{getArchiveReasonConfig(selectedSession).label}</span>
+                          </Badge>
+                        )}
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground font-medium shrink-0">
                           {selectedSession.message_count && selectedSession.message_count > 0 ? `${selectedSession.message_count} msgs` : "1 msg"}
                         </span>
@@ -754,6 +810,81 @@ export default function WhatsApp() {
                         <span className="hidden sm:inline">Não lida</span>
                       </Button>
 
+                      {/* Archive / Ignore dropdown or Unarchive button */}
+                      {isArchivedSession(selectedSession) ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[10px] text-amber-400 border-amber-500/40 hover:bg-amber-500/10 gap-1 font-medium"
+                          onClick={() => handleUnarchive(selectedSession.id)}
+                          title="Restaurar para a caixa de entrada"
+                        >
+                          <ArchiveRestore className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Desarquivar</span>
+                        </Button>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[10px] text-muted-foreground hover:text-amber-400 hover:bg-secondary/40 gap-1"
+                              title="Arquivar ou ignorar conversa (Spam, Amigo, Fora do projeto)"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Arquivar</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel className="text-[10px] text-muted-foreground font-semibold">
+                              Arquivar / Ignorar contato
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleArchive(selectedSession.id, "spam")}
+                              className="text-xs gap-2.5 text-rose-400 hover:text-rose-300 focus:text-rose-300 cursor-pointer"
+                            >
+                              <span className="text-sm">🚫</span>
+                              <div>
+                                <p className="font-semibold">Spam / Bot</p>
+                                <p className="text-[10px] text-muted-foreground">Ignorar ofertas e robôs</p>
+                              </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleArchive(selectedSession.id, "amigo")}
+                              className="text-xs gap-2.5 cursor-pointer"
+                            >
+                              <span className="text-sm">👤</span>
+                              <div>
+                                <p className="font-semibold">Amigo / Pessoal</p>
+                                <p className="text-[10px] text-muted-foreground">Contato pessoal fora do negócio</p>
+                              </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleArchive(selectedSession.id, "fora_projeto")}
+                              className="text-xs gap-2.5 cursor-pointer"
+                            >
+                              <span className="text-sm">📦</span>
+                              <div>
+                                <p className="font-semibold">Fora do Projeto</p>
+                                <p className="text-[10px] text-muted-foreground">Outro projeto ou assunto</p>
+                              </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleArchive(selectedSession.id, "geral")}
+                              className="text-xs gap-2.5 cursor-pointer"
+                            >
+                              <span className="text-sm">📁</span>
+                              <div>
+                                <p className="font-semibold">Arquivar Conversa</p>
+                                <p className="text-[10px] text-muted-foreground">Atendimento concluído</p>
+                              </div>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+
                       {selectedProvider && (
                         <Badge variant="outline" className="text-[9px] flex items-center gap-1.5" title={selectedProvider.instance_name || ""}>
                           <span className="inline-block w-2 h-2 rounded-full" style={{ background: `hsl(${[...selectedProvider.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % 360}, 65%, 55%)` }} />
@@ -782,15 +913,34 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Chat content */}
-                  <div className="flex-1 min-h-0">
+                  <div className="flex-1 min-h-0 w-full overflow-hidden">
                     {chatTab === "chat" && (
-                      <div className="flex flex-col h-full">
+                      <div className="flex flex-col h-full w-full min-h-0 overflow-hidden">
+                        {isArchivedSession(selectedSession) && (
+                          <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-200">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{getArchiveReasonConfig(selectedSession).icon}</span>
+                              <span>
+                                Esta conversa está <strong>arquivada ({getArchiveReasonConfig(selectedSession).label})</strong> e não aparece na caixa principal.
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[11px] border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+                              onClick={() => handleUnarchive(selectedSession.id)}
+                            >
+                              <ArchiveRestore className="h-3 w-3 mr-1" />
+                              Mover para Caixa Principal
+                            </Button>
+                          </div>
+                        )}
                         {filterProvider !== "all" && selectedSession.provider_id && selectedSession.provider_id !== filterProvider && (
                           <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/30 text-[11px] text-amber-200">
                             ⚠️ Esta conversa pertence ao chip <strong>{providers.find(p => p.id === selectedSession.provider_id)?.instance_name || "outro"}</strong>. A resposta sairá por esse chip, não pelo filtro atual.
                           </div>
                         )}
-                        <div className="flex-1 min-h-0">
+                        <div className="flex-1 min-h-0 w-full overflow-hidden">
                           <ChatView
                             conversationId={selectedSession.id}
                             phone={selectedSession.phone}

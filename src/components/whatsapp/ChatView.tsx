@@ -3,7 +3,7 @@ import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, FileText, ChevronUp, ChevronDown, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock, MoreHorizontal, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Send, Loader2, FileText, ChevronUp, ChevronDown, Check, CheckCheck, Image, Paperclip, Smile, Download, Pencil, X, Brain, Sparkles, Mic, Square, Trash2, Play, Pause, Volume2, Bot, BotOff, Layers, Activity, ThumbsUp, ThumbsDown, Zap, Star, Clock, MoreHorizontal, PanelRightOpen, PanelRightClose, Bold, Italic, Strikethrough, List, Maximize2, Minimize2, CornerDownLeft } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -332,6 +332,153 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
       isAtBottomRef.current = distFromBottom < 120;
       setShowScrollBottom(distFromBottom > 200);
     }, []);
+
+    const [sendOnEnter, setSendOnEnter] = useState<boolean>(() => {
+      if (typeof window === "undefined") return true;
+      const val = localStorage.getItem("wa.sendOnEnter");
+      return val !== null ? val === "true" : true;
+    });
+    const [isExpanded, setIsExpanded] = useState<boolean>(() => {
+      if (typeof window === "undefined") return false;
+      return localStorage.getItem("wa.composerExpanded") === "true";
+    });
+    const prevConvIdRef = useRef<string>(conversationId);
+
+    // Ajuste dinâmico de altura do editor de texto (modo normal 52px-220px, modo expandido 140px-380px)
+    const adjustTextareaHeight = useCallback((forcedVal?: string) => {
+      const el = textareaRef.current;
+      if (!el) return;
+      const val = forcedVal !== undefined ? forcedVal : el.value;
+      const minH = isExpanded ? 140 : 52;
+      const maxH = isExpanded ? 380 : 220;
+      el.style.height = "auto";
+      if (!val && !isExpanded) {
+        el.style.height = `${minH}px`;
+        return;
+      }
+      el.style.height = `${Math.max(minH, Math.min(el.scrollHeight, maxH))}px`;
+    }, [isExpanded]);
+
+    useEffect(() => {
+      adjustTextareaHeight();
+    }, [isExpanded, adjustTextareaHeight]);
+
+    // Preserva rascunho por conversa — nunca perde mensagem ao trocar de contato
+    useEffect(() => {
+      if (prevConvIdRef.current && prevConvIdRef.current !== conversationId) {
+        if (text.trim()) {
+          localStorage.setItem(`wa_draft_${prevConvIdRef.current}`, text);
+        } else {
+          localStorage.removeItem(`wa_draft_${prevConvIdRef.current}`);
+        }
+      }
+      prevConvIdRef.current = conversationId;
+      const saved = typeof window !== "undefined" ? localStorage.getItem(`wa_draft_${conversationId}`) || "" : "";
+      setText(saved);
+      setTimeout(() => adjustTextareaHeight(saved), 50);
+    }, [conversationId]);
+
+    // Helpers de formatação do WhatsApp (*negrito*, _itálico_, ~tachado~, • lista)
+    const applyFormatting = (prefix: string, suffix: string = prefix, defaultPlaceholder: string = "") => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const currentVal = textarea.value;
+      const selectedText = currentVal.substring(start, end);
+      const replacement = selectedText ? `${prefix}${selectedText}${suffix}` : `${prefix}${defaultPlaceholder}${suffix}`;
+      const newVal = currentVal.substring(0, start) + replacement + currentVal.substring(end);
+      setText(newVal);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`wa_draft_${conversationId}`, newVal);
+      }
+      setTimeout(() => {
+        textarea.focus();
+        if (selectedText) {
+          textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+        } else {
+          const cursor = start + prefix.length;
+          textarea.setSelectionRange(cursor, cursor);
+        }
+        adjustTextareaHeight(newVal);
+      }, 0);
+    };
+
+    const insertBulletList = () => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const currentVal = textarea.value;
+      const selectedText = currentVal.substring(start, end);
+      let replacement = "";
+      if (selectedText) {
+        replacement = selectedText
+          .split("\n")
+          .map(line => line.startsWith("• ") ? line : `• ${line}`)
+          .join("\n");
+      } else {
+        const before = currentVal.substring(0, start);
+        const needsNewline = before.length > 0 && !before.endsWith("\n");
+        replacement = (needsNewline ? "\n" : "") + "• ";
+      }
+      const newVal = currentVal.substring(0, start) + replacement + currentVal.substring(end);
+      setText(newVal);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`wa_draft_${conversationId}`, newVal);
+      }
+      setTimeout(() => {
+        textarea.focus();
+        const cursor = start + replacement.length;
+        textarea.setSelectionRange(cursor, cursor);
+        adjustTextareaHeight(newVal);
+      }, 0);
+    };
+
+    const toggleSendOnEnter = () => {
+      setSendOnEnter(prev => {
+        const next = !prev;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("wa.sendOnEnter", String(next));
+        }
+        toast.info(next ? "Modo de envio: Enter envia (Shift+Enter quebra linha)" : "Modo de envio: Ctrl+Enter envia (Enter quebra linha livremente)");
+        return next;
+      });
+    };
+
+    const toggleExpanded = () => {
+      setIsExpanded(prev => {
+        const next = !prev;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("wa.composerExpanded", String(next));
+        }
+        return next;
+      });
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        applyFormatting("*");
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "i" || e.key === "I")) {
+        e.preventDefault();
+        applyFormatting("_");
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        send();
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        if (sendOnEnter) {
+          e.preventDefault();
+          send();
+        }
+      }
+    };
 
     const [draft, setDraft] = useState<{ id: string; suggested_text: string; model?: string } | null>(null);
     const [iaAtiva, setIaAtiva] = useState<boolean>(true);
@@ -1292,9 +1439,10 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value;
       setText(val);
-      const el = e.target;
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 120) + "px";
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`wa_draft_${conversationId}`, val);
+      }
+      adjustTextareaHeight(val);
 
       if (val.startsWith("/") && val.length > 0) {
         const query = val.substring(1).toLowerCase();
@@ -1452,6 +1600,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
 
       const msgText = text;
       setText("");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`wa_draft_${conversationId}`);
+      }
       setShowCommands(false);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
@@ -1479,6 +1630,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
           toast.error(data.error || "Erro ao enviar mensagem");
           setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
           setText(msgText);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`wa_draft_${conversationId}`, msgText);
+          }
           setSending(false);
           return;
         }
@@ -1495,6 +1649,9 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
         toast.error("Erro ao enviar: " + errorMessage(err));
         setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
         setText(msgText);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`wa_draft_${conversationId}`, msgText);
+        }
       } finally {
         setSending(false);
       }
@@ -1515,37 +1672,40 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     let lastDateLabel = "";
 
     return (
-      <div ref={ref} className="flex h-full w-full overflow-hidden bg-background">
-        <div className="flex-1 flex flex-col h-full min-w-0 border-r border-border">
-          <ContactTagsPanel projectId={projectId} phone={phone} />
-          <AssignAndNotesBar conversationId={conversationId} />
-          {conversationId && (
-            <div className="px-3 pt-2">
-              <ConversationIntelCard conversationId={conversationId} />
-            </div>
-          )}
-          {(() => {
-            const last = messages[messages.length - 1];
-            if (!last || last.direction !== "incoming") return null;
-            const min = Math.max(0, Math.floor((Date.now() - new Date(last.created_at).getTime()) / 60000));
-            const label = min < 1 ? "agora" : min < 60 ? `${min}min` : min < 1440 ? `${Math.floor(min/60)}h${min % 60 ? ` ${min%60}min` : ""}` : `${Math.floor(min/1440)}d`;
-            const cls = min < 5 ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-              : min < 30 ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
-              : min < 120 ? "bg-orange-500/10 text-orange-300 border-orange-500/30"
-              : "bg-red-500/15 text-red-300 border-red-500/40 animate-pulse";
-            return (
-              <div className={`px-3 py-1.5 text-[11px] border-b ${cls} flex items-center gap-2 font-medium`}>
-                <span>⏱</span>
-                <span>Aguardando sua resposta há <strong>{label}</strong></span>
+      <div ref={ref} className="flex h-full w-full min-h-0 max-h-full overflow-hidden bg-background">
+        <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 border-r border-border overflow-hidden">
+          {/* Top meta & context bar - pinned and shrink-0 */}
+          <div className="shrink-0 flex flex-col border-b border-border/40 bg-card/40">
+            <ContactTagsPanel projectId={projectId} phone={phone} />
+            <AssignAndNotesBar conversationId={conversationId} />
+            {conversationId && (
+              <div className="px-3 pt-2">
+                <ConversationIntelCard conversationId={conversationId} />
               </div>
-            );
-          })()}
+            )}
+            {(() => {
+              const last = messages[messages.length - 1];
+              if (!last || last.direction !== "incoming") return null;
+              const min = Math.max(0, Math.floor((Date.now() - new Date(last.created_at).getTime()) / 60000));
+              const label = min < 1 ? "agora" : min < 60 ? `${min}min` : min < 1440 ? `${Math.floor(min/60)}h${min % 60 ? ` ${min%60}min` : ""}` : `${Math.floor(min/1440)}d`;
+              const cls = min < 5 ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                : min < 30 ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                : min < 120 ? "bg-orange-500/10 text-orange-300 border-orange-500/30"
+                : "bg-red-500/15 text-red-300 border-red-500/40 animate-pulse";
+              return (
+                <div className={`px-3 py-1.5 text-[11px] border-b ${cls} flex items-center gap-2 font-medium`}>
+                  <span>⏱</span>
+                  <span>Aguardando sua resposta há <strong>{label}</strong></span>
+                </div>
+              );
+            })()}
+          </div>
           {/* Chat area with WhatsApp-like pattern background */}
-          <div className="flex-1 min-h-0 relative">
+          <div className="flex-1 min-h-0 relative overflow-hidden">
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="h-full overflow-y-auto"
+              className="h-full overflow-y-auto overscroll-contain"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
               }}
@@ -1969,340 +2129,456 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                 </div>
               </div>
             ) : (
-              <div className={`flex items-end gap-2 ${maxWidthClass} mx-auto w-full`}>
-                {/* Temperature badge */}
-                <div className={`shrink-0 h-9 flex items-center px-2 rounded-full text-[11px] font-bold transition-all ${
-                  temperature === "hot" ? "bg-red-500/20 text-red-400 animate-pulse" :
-                  temperature === "warm" ? "bg-amber-500/20 text-amber-400" :
-                  "bg-blue-500/10 text-blue-400/70"
-                }`} title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}>
-                  {temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}
-                </div>
-                {/* Toggle IA */}
-                <Button
-                  size="icon"
-                  variant={iaAtiva ? "ghost" : "destructive"}
-                  className={`shrink-0 h-9 w-9 rounded-full transition-colors ${iaAtiva ? "text-emerald-500 hover:text-emerald-600" : "opacity-80"}`}
-                  title={iaAtiva ? "IA ativa — clique para pausar atendimento manual" : "IA pausada — clique para reativar"}
-                  onClick={toggleIa}
-                  disabled={togglingIa}
-                >
-                  {togglingIa ? <Loader2 className="h-4 w-4 animate-spin" /> : iaAtiva ? <Bot className="h-4 w-4" /> : <BotOff className="h-4 w-4" />}
-                </Button>
-
-                {/* Toggle Intel Panel (desktop only — header controls it on compact) */}
-                <Button
-                  size="icon"
-                  variant={showIntelPanel ? "secondary" : "ghost"}
-                  className={`hidden lg:flex shrink-0 h-9 w-9 rounded-full transition-colors ${showIntelPanel ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-                  title={showIntelPanel ? "Ocultar Intel do Lead" : "Mostrar Intel do Lead"}
-                  onClick={() => onToggleIntelPanel ? onToggleIntelPanel() : setShowIntelPanel(prev => !prev)}
-                >
-                  <Activity className="h-4 w-4" />
-                </Button>
-
-                <div className="hidden lg:flex items-end gap-2">
-                  {/* Emoji picker */}
-                <Popover open={showEmoji} onOpenChange={setShowEmoji}>
-                  <PopoverTrigger asChild>
-                    <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Emojis">
-                      <Smile className="h-5 w-5 text-muted-foreground" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-52 p-2" align="start" side="top">
-                    <div className="grid grid-cols-8 gap-0.5">
-                      {EMOJI_LIST.map(e => (
-                        <button key={e} className="text-lg hover:bg-muted rounded p-0.5 transition-colors"
-                          onClick={() => { setText(prev => prev + e); setShowEmoji(false); textareaRef.current?.focus(); }}>
-                          {e}
-                        </button>
-                      ))}
+              <div className={`flex flex-col gap-1.5 ${maxWidthClass} mx-auto w-full`}>
+                {/* Upper Utility Strip: AI, Actions, Objections, Formatting, and Mode Toggle */}
+                <div className="flex items-center justify-between gap-2 px-1 py-0.5 text-xs select-none">
+                  {/* Left: AI & Productivity Tools */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Temperature indicator */}
+                    <div
+                      className={`h-7 px-2 rounded-md flex items-center gap-1 text-[11px] font-bold border transition-all ${
+                        temperature === "hot"
+                          ? "bg-red-500/15 border-red-500/30 text-red-400 animate-pulse"
+                          : temperature === "warm"
+                          ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                          : "bg-blue-500/10 border-blue-500/20 text-blue-400/80"
+                      }`}
+                      title={temperature === "hot" ? "Lead QUENTE — intenção de compra detectada!" : temperature === "warm" ? "Lead ativo" : "Lead frio"}
+                    >
+                      <span>{temperature === "hot" ? "🔥" : temperature === "warm" ? "🟡" : "🔵"}</span>
+                      <span className="hidden sm:inline font-mono uppercase text-[9px]">
+                        {temperature === "hot" ? "Quente" : temperature === "warm" ? "Ativo" : "Frio"}
+                      </span>
                     </div>
-                  </PopoverContent>
-                </Popover>
 
-                {/* Attach media */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="shrink-0 h-9 w-9 rounded-full"
-                  title="Enviar mídia"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4 text-muted-foreground" />}
-                </Button>
-
-                {/* Templates */}
-                {templates.length > 0 && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Templates">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-1" align="start" side="top">
-                      <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold">Templates</p>
-                      {templates.map(t => (
-                        <button key={t.id} className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded transition-colors truncate"
-                          onClick={() => { setText(t.content); textareaRef.current?.focus(); }}>
-                          {t.name}
-                        </button>
-                      ))}
-                    </PopoverContent>
-                  </Popover>
-                )}
-
-                {/* Interactive Actions (Buttons / Lists) */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="icon" variant="ghost" className="shrink-0 h-9 w-9 rounded-full" title="Mensagens Interativas">
-                      <Layers className="h-4 w-4 text-muted-foreground" />
+                    {/* Bot IA Toggle */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={iaAtiva ? "ghost" : "destructive"}
+                      className={`h-7 px-2 text-[11px] gap-1 rounded-md transition-colors ${
+                        iaAtiva ? "text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10" : "opacity-90"
+                      }`}
+                      title={iaAtiva ? "IA ativa nesta conversa — clique para pausar" : "IA pausada — clique para reativar"}
+                      onClick={toggleIa}
+                      disabled={togglingIa}
+                    >
+                      {togglingIa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : iaAtiva ? <Bot className="h-3.5 w-3.5" /> : <BotOff className="h-3.5 w-3.5" />}
+                      <span className="hidden md:inline font-medium">{iaAtiva ? "IA Ativa" : "IA Off"}</span>
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-3 bg-card border border-border/50 text-xs shadow-xl rounded-xl" align="start" side="top">
-                    <p className="font-bold text-foreground mb-2 flex items-center gap-1">⚡ Mensagens Interativas</p>
-                    <Tabs defaultValue="buttons" className="w-full">
-                      <TabsList className="grid grid-cols-2 bg-secondary/35 border border-border/20 p-0.5 rounded-lg mb-3">
-                        <TabsTrigger value="buttons" className="py-1 text-[10px]">Botões</TabsTrigger>
-                        <TabsTrigger value="list" className="py-1 text-[10px]">Menu/Lista</TabsTrigger>
-                      </TabsList>
-                      
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Texto da Mensagem</label>
-                          <Textarea
-                            placeholder="Digite o texto explicativo..."
-                            value={interactiveText}
-                            onChange={e => setInteractiveText(e.target.value)}
-                            className="min-h-[50px] text-[11px] bg-secondary/40 border border-border/30 resize-none leading-relaxed"
-                          />
-                        </div>
-                        
-                        <TabsContent value="buttons" className="mt-0 space-y-2.5">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-muted-foreground font-semibold block">Texto dos Botões (até 3)</label>
-                            <Input placeholder="Botão 1 (ex: Falar com Humano)" value={btn1} onChange={e => setBtn1(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border border-border/30" />
-                            <Input placeholder="Botão 2 (ex: Ver Depoimentos)" value={btn2} onChange={e => setBtn2(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border border-border/30" />
-                            <Input placeholder="Botão 3 (ex: Cancelar)" value={btn3} onChange={e => setBtn3(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border-border/30" />
-                          </div>
-                          <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow" onClick={sendInteractiveButtons}>
-                            Enviar Botões
+
+                    {/* AI Copilot Suggestion */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-[11px] gap-1 rounded-md text-primary hover:text-primary/90 hover:bg-primary/10"
+                      title="Sugerir resposta com IA (Copilot)"
+                      onClick={generateCopilotSuggestion}
+                      disabled={loadingCopilot || messages.length === 0}
+                    >
+                      {loadingCopilot ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5 text-primary" />}
+                      <span className="hidden md:inline font-medium">Sugerir IA</span>
+                    </Button>
+
+                    {/* 3 Quick Options */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className={`h-7 px-2 text-[11px] gap-1 rounded-md hover:bg-amber-500/10 ${
+                        showQuickSuggest ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground hover:text-amber-400"
+                      }`}
+                      title="3 opções rápidas de resposta (empática, técnica, fechamento)"
+                      onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()}
+                      disabled={loadingQuick || messages.length === 0}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span className="hidden md:inline font-medium">3 Opções</span>
+                    </Button>
+
+                    {/* Templates */}
+                    {templates.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] gap-1 rounded-md text-muted-foreground hover:text-foreground" title="Templates de resposta">
+                            <FileText className="h-3.5 w-3.5" />
+                            <span className="hidden md:inline font-medium">Templates</span>
                           </Button>
-                        </TabsContent>
-                        
-                        <TabsContent value="list" className="mt-0 space-y-2.5">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-muted-foreground font-semibold block">Título do Menu de Opções</label>
-                            <Input placeholder="ex: Ver opções" value={listBtnText} onChange={e => setListBtnText(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border-border/30" />
-                            
-                            <label className="text-[10px] text-muted-foreground font-semibold block mt-2">Linhas do Menu (até 5)</label>
-                            {listRows.map((row, idx) => (
-                              <div key={idx} className="flex gap-1">
-                                <Input
-                                  placeholder={`Opção ${idx + 1}`}
-                                  value={row.title}
-                                  onChange={e => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, title: e.target.value } : r))}
-                                  className="h-8 text-[11px] bg-secondary/40 border-border/30 flex-1"
-                                />
-                                <Input
-                                  placeholder="Descrição"
-                                  value={row.description}
-                                  onChange={e => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
-                                  className="h-8 text-[11px] bg-secondary/40 border-border/30 flex-1"
-                                />
-                              </div>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-1.5" align="start" side="top">
+                          <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold uppercase tracking-wider">Templates salvos</p>
+                          <div className="max-h-56 overflow-y-auto space-y-0.5">
+                            {templates.map(t => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-secondary/60 rounded-md transition-colors truncate block"
+                                onClick={() => {
+                                  setText(t.content);
+                                  if (typeof window !== "undefined") {
+                                    localStorage.setItem(`wa_draft_${conversationId}`, t.content);
+                                  }
+                                  setTimeout(() => {
+                                    textareaRef.current?.focus();
+                                    adjustTextareaHeight(t.content);
+                                  }, 0);
+                                }}
+                              >
+                                <p className="font-semibold text-foreground truncate">{t.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{t.content}</p>
+                              </button>
                             ))}
                           </div>
-                          <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow" onClick={sendInteractiveList}>
-                            Enviar Lista
-                          </Button>
-                        </TabsContent>
-                      </div>
-                    </Tabs>
-                  </PopoverContent>
-                </Popover>
+                        </PopoverContent>
+                      </Popover>
+                    )}
 
-                {/* AI Copilot Suggestion */}
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="shrink-0 h-9 w-9 rounded-full text-primary hover:text-primary/80 hover:bg-primary/5"
-                  title="Pedir sugestão da IA (Copilot)"
-                  onClick={generateCopilotSuggestion}
-                  disabled={loadingCopilot || messages.length === 0}
-                >
-                  {loadingCopilot ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  ) : (
-                    <Brain className="h-4 w-4 text-primary" />
-                  )}
-                </Button>
+                    {/* Interactive buttons/menu */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] gap-1 rounded-md text-muted-foreground hover:text-foreground" title="Mensagens interativas (botões / listas)">
+                          <Layers className="h-3.5 w-3.5" />
+                          <span className="hidden lg:inline font-medium">Interativo</span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-3 bg-card border border-border/50 text-xs shadow-xl rounded-xl" align="start" side="top">
+                        <p className="font-bold text-foreground mb-2 flex items-center gap-1">⚡ Mensagens Interativas</p>
+                        <Tabs defaultValue="buttons" className="w-full">
+                          <TabsList className="grid grid-cols-2 bg-secondary/35 border border-border/20 p-0.5 rounded-lg mb-3">
+                            <TabsTrigger value="buttons" className="py-1 text-[10px]">Botões</TabsTrigger>
+                            <TabsTrigger value="list" className="py-1 text-[10px]">Menu/Lista</TabsTrigger>
+                          </TabsList>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Texto da Mensagem</label>
+                              <Textarea
+                                placeholder="Digite o texto explicativo..."
+                                value={interactiveText}
+                                onChange={e => setInteractiveText(e.target.value)}
+                                className="min-h-[50px] text-[11px] bg-secondary/40 border border-border/30 resize-none leading-relaxed"
+                              />
+                            </div>
+                            <TabsContent value="buttons" className="mt-0 space-y-2.5">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-muted-foreground font-semibold block">Texto dos Botões (até 3)</label>
+                                <Input placeholder="Botão 1 (ex: Falar com Humano)" value={btn1} onChange={e => setBtn1(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border border-border/30" />
+                                <Input placeholder="Botão 2 (ex: Ver Depoimentos)" value={btn2} onChange={e => setBtn2(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border border-border/30" />
+                                <Input placeholder="Botão 3 (ex: Cancelar)" value={btn3} onChange={e => setBtn3(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border-border/30" />
+                              </div>
+                              <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow" onClick={sendInteractiveButtons}>
+                                Enviar Botões
+                              </Button>
+                            </TabsContent>
+                            <TabsContent value="list" className="mt-0 space-y-2.5">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-muted-foreground font-semibold block">Título do Menu de Opções</label>
+                                <Input placeholder="ex: Ver opções" value={listBtnText} onChange={e => setListBtnText(e.target.value)} className="h-8 text-[11px] bg-secondary/40 border-border/30" />
+                                <label className="text-[10px] text-muted-foreground font-semibold block mt-2">Linhas do Menu (até 5)</label>
+                                {listRows.map((row, idx) => (
+                                  <div key={idx} className="flex gap-1">
+                                    <Input
+                                      placeholder={`Opção ${idx + 1}`}
+                                      value={row.title}
+                                      onChange={e => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, title: e.target.value } : r))}
+                                      className="h-8 text-[11px] bg-secondary/40 border-border/30 flex-1"
+                                    />
+                                    <Input
+                                      placeholder="Descrição"
+                                      value={row.description}
+                                      onChange={e => setListRows(prev => prev.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
+                                      className="h-8 text-[11px] bg-secondary/40 border-border/30 flex-1"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow" onClick={sendInteractiveList}>
+                                Enviar Lista
+                              </Button>
+                            </TabsContent>
+                          </div>
+                        </Tabs>
+                      </PopoverContent>
+                    </Popover>
 
-                {/* 3 opções rápidas (empática, técnica, fechamento) */}
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className={`shrink-0 h-9 w-9 rounded-full hover:bg-amber-500/10 ${
-                    showQuickSuggest ? "bg-amber-500/15 text-amber-400" : "text-muted-foreground"
-                  }`}
-                  title="3 sugestões de resposta (empática, técnica, fechamento)"
-                  onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()}
-                  disabled={loadingQuick || messages.length === 0}
-                >
-                  <Sparkles className="h-4 w-4" />
-                </Button>
+                    {/* Agendar envio */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px] gap-1 rounded-md text-muted-foreground hover:text-sky-400 hover:bg-sky-500/10"
+                          title="Agendar envio"
+                          disabled={!text.trim()}
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          <span className="hidden lg:inline font-medium">Agendar</span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-3 bg-popover" align="start" side="top">
+                        <p className="text-xs font-semibold mb-2">Agendar envio</p>
+                        <Input
+                          type="datetime-local"
+                          value={scheduleAt}
+                          onChange={e => setScheduleAt(e.target.value)}
+                          min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                          className="h-9 text-xs mb-2"
+                        />
+                        <div className="flex gap-1 mb-2">
+                          {[
+                            { label: "+15min", min: 15 },
+                            { label: "+1h", min: 60 },
+                            { label: "Amanhã 9h", min: -1 },
+                          ].map(p => (
+                            <Button key={p.label} size="sm" variant="outline" className="h-7 text-[10px] flex-1"
+                              onClick={() => {
+                                const d = new Date();
+                                if (p.min === -1) { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
+                                else d.setMinutes(d.getMinutes() + p.min);
+                                setScheduleAt(d.toISOString().slice(0, 16));
+                              }}>{p.label}</Button>
+                          ))}
+                        </div>
+                        <Button size="sm" className="w-full bg-sky-600 hover:bg-sky-700 text-white"
+                          onClick={async () => {
+                            if (!scheduleAt || !text.trim()) { toast.error("Defina data e texto"); return; }
+                            const when = new Date(scheduleAt);
+                            if (when.getTime() < Date.now() + 30000) { toast.error("Escolha um horário futuro"); return; }
+                            const { error } = await supabase.from("imphq_wa_scheduled").insert({
+                              conversation_id: conversationId, project_id: projectId, provider_id: providerId,
+                              phone, content: text, scheduled_at: when.toISOString(),
+                            });
+                            if (error) { toast.error("Falha ao agendar: " + error.message); return; }
+                            toast.success(`Agendado para ${when.toLocaleString("pt-BR")}`);
+                            if (typeof window !== "undefined") {
+                              localStorage.removeItem(`wa_draft_${conversationId}`);
+                            }
+                            setText(""); setScheduleAt("");
+                          }}>Agendar</Button>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-                {/* Agendar mensagem */}
-                <Popover>
-                  <PopoverTrigger asChild>
+                  {/* Right: Formatting Tools & Mode Controls */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* Formatting buttons */}
+                    <div className="flex items-center bg-secondary/40 rounded-md border border-border/40 p-0.5">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-background/80"
+                        title="Negrito: *texto* (Ctrl+B)"
+                        onClick={() => applyFormatting("*")}
+                      >
+                        <Bold className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-background/80"
+                        title="Itálico: _texto_ (Ctrl+I)"
+                        onClick={() => applyFormatting("_")}
+                      >
+                        <Italic className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-background/80"
+                        title="Tachado: ~texto~"
+                        onClick={() => applyFormatting("~")}
+                      >
+                        <Strikethrough className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-background/80"
+                        title="Marcador de lista: • item"
+                        onClick={insertBulletList}
+                      >
+                        <List className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Send mode switch (Enter vs Ctrl+Enter) */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={toggleSendOnEnter}
+                      className="h-7 px-2 text-[10px] font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-md border border-border/30 gap-1"
+                      title={sendOnEnter ? "Enter envia a mensagem. Clique para alternar para Ctrl+Enter (permite quebrar linhas livremente com Enter)." : "Ctrl+Enter envia a mensagem. Enter apenas quebra linha. Clique para alternar."}
+                    >
+                      <CornerDownLeft className="h-3 w-3 text-muted-foreground" />
+                      <span>{sendOnEnter ? "Enter envia" : "Ctrl+Enter envia"}</span>
+                    </Button>
+
+                    {/* Expand/Collapse composer button */}
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="shrink-0 h-9 w-9 rounded-full text-muted-foreground hover:text-sky-400 hover:bg-sky-500/10"
-                      title="Agendar mensagem"
-                      disabled={!text.trim()}
+                      onClick={toggleExpanded}
+                      className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 border border-border/30"
+                      title={isExpanded ? "Reduzir editor" : "Expandir editor (mais espaço para escrever)"}
                     >
-                      <Clock className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-3 bg-popover" align="end" side="top">
-                    <p className="text-xs font-semibold mb-2">Agendar envio</p>
-                    <Input
-                      type="datetime-local"
-                      value={scheduleAt}
-                      onChange={e => setScheduleAt(e.target.value)}
-                      min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                      className="h-9 text-xs mb-2"
-                    />
-                    <div className="flex gap-1 mb-2">
-                      {[
-                        { label: "+15min", min: 15 },
-                        { label: "+1h", min: 60 },
-                        { label: "Amanhã 9h", min: -1 },
-                      ].map(p => (
-                        <Button key={p.label} size="sm" variant="outline" className="h-7 text-[10px] flex-1"
-                          onClick={() => {
-                            const d = new Date();
-                            if (p.min === -1) { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
-                            else d.setMinutes(d.getMinutes() + p.min);
-                            setScheduleAt(d.toISOString().slice(0, 16));
-                          }}>{p.label}</Button>
-                      ))}
-                    </div>
-                    <Button size="sm" className="w-full bg-sky-600 hover:bg-sky-700 text-white"
-                      onClick={async () => {
-                        if (!scheduleAt || !text.trim()) { toast.error("Defina data e texto"); return; }
-                        const when = new Date(scheduleAt);
-                        if (when.getTime() < Date.now() + 30000) { toast.error("Escolha um horário futuro"); return; }
-                        const { error } = await supabase.from("imphq_wa_scheduled").insert({
-                          conversation_id: conversationId, project_id: projectId, provider_id: providerId,
-                          phone, content: text, scheduled_at: when.toISOString(),
-                        });
-                        if (error) { toast.error("Falha ao agendar: " + error.message); return; }
-                        toast.success(`Agendado para ${when.toLocaleString("pt-BR")}`);
-                        setText(""); setScheduleAt("");
-                      }}>Agendar</Button>
-                  </PopoverContent>
-                </Popover>
-                </div>
-
-                {/* Compact more actions menu */}
-                <div className="flex lg:hidden items-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full shrink-0" title="Mais ações">
-                        <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" side="top" className="w-48">
-                      <DropdownMenuItem onClick={() => setShowEmoji(true)} className="gap-2">
-                        <Smile className="h-4 w-4" /> Emojis
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="gap-2">
-                        <Paperclip className="h-4 w-4" /> Enviar mídia
-                      </DropdownMenuItem>
-                      {templates.length > 0 && (
-                        <DropdownMenuItem onClick={() => { setText(templates[0]?.content || ""); textareaRef.current?.focus(); }} className="gap-2">
-                          <FileText className="h-4 w-4" /> Template {templates[0]?.name}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => { generateCopilotSuggestion(); }} className="gap-2" disabled={loadingCopilot || messages.length === 0}>
-                        <Brain className="h-4 w-4 text-primary" /> Sugestão IA
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => showQuickSuggest ? setShowQuickSuggest(false) : generateQuickOptions()} className="gap-2" disabled={loadingQuick || messages.length === 0}>
-                        <Sparkles className="h-4 w-4" /> 3 opções rápidas
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {/* Message input */}
-                <Textarea
-                  ref={textareaRef}
-                  value={text}
-                  onChange={handleTextChange}
-                  placeholder="Digite sua mensagem... (/ para comandos)"
-                  onFocus={() => { isComposingRef.current = true; }}
-                  onBlur={() => { isComposingRef.current = false; }}
-                  onPaste={handlePaste}
-
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-                  }}
-                  disabled={sending}
-                  className="min-h-[36px] max-h-[120px] resize-none py-2 rounded-2xl bg-background border-border/50 text-sm"
-                  rows={1}
-                />
-
-                {/* Send or Record button */}
-                {!text.trim() ? (
-                  <Button
-                    size="icon"
-                    onClick={startRecording}
-                    type="button"
-                    className="shrink-0 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow"
-                    title="Gravar áudio"
-                  >
-                    <Mic className="h-4.5 w-4.5" />
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={sendAsVoice}
-                      disabled={sending || sendingVoice || !text.trim()}
-                      className="shrink-0 h-9 w-9 rounded-full text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
-                      title="Sintetizar áudio e enviar"
-                    >
-                      {sendingVoice ? <Loader2 className="h-4 w-4 animate-spin text-amber-500" /> : <Volume2 className="h-4.5 w-4.5" />}
-                    </Button>
-                    <Button
-                      size="icon"
-                      onClick={send}
-                      disabled={sending || !text.trim()}
-                      className="shrink-0 h-9 w-9 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow text-white"
-                    >
-                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                     </Button>
                   </div>
-                )}
+                </div>
+
+                {/* Main Composer Box */}
+                <div className={`rounded-xl border border-border/70 bg-background/95 focus-within:border-emerald-500/60 focus-within:ring-1 focus-within:ring-emerald-500/25 transition-all shadow-sm flex flex-col p-2.5 gap-2 ${isExpanded ? "ring-1 ring-primary/20" : ""}`}>
+                  {/* Spacious Textarea */}
+                  <Textarea
+                    ref={textareaRef}
+                    data-wa-composer="true"
+                    value={text}
+                    onChange={handleTextChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      sendOnEnter
+                        ? "Digite sua mensagem com conforto... (Enter envia, Shift+Enter quebra linha, / para comandos)"
+                        : "Digite sua mensagem... (Enter quebra linha, Ctrl+Enter envia, / para comandos)"
+                    }
+                    onFocus={() => { isComposingRef.current = true; }}
+                    onBlur={() => { isComposingRef.current = false; }}
+                    onPaste={handlePaste}
+                    disabled={sending}
+                    className={`w-full resize-none border-0 p-1 text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 leading-relaxed font-normal ${
+                      isExpanded ? "min-h-[140px] max-h-[380px]" : "min-h-[52px] max-h-[220px]"
+                    }`}
+                    rows={isExpanded ? 6 : 2}
+                  />
+
+                  {/* Bottom Action Footer inside the Box */}
+                  <div className="flex items-center justify-between pt-1 border-t border-border/30 text-xs">
+                    {/* Left: Attachments & Emoji */}
+                    <div className="flex items-center gap-1">
+                      {/* Emoji Picker */}
+                      <Popover open={showEmoji} onOpenChange={setShowEmoji}>
+                        <PopoverTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60" title="Inserir emojis">
+                            <Smile className="h-4.5 w-4.5" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2" align="start" side="top">
+                          <div className="grid grid-cols-8 gap-0.5">
+                            {EMOJI_LIST.map(e => (
+                              <button
+                                key={e}
+                                type="button"
+                                className="text-lg hover:bg-muted rounded p-1 transition-colors text-center"
+                                onClick={() => {
+                                  const newVal = text + e;
+                                  setText(newVal);
+                                  if (typeof window !== "undefined") {
+                                    localStorage.setItem(`wa_draft_${conversationId}`, newVal);
+                                  }
+                                  setShowEmoji(false);
+                                  textareaRef.current?.focus();
+                                  adjustTextareaHeight(newVal);
+                                }}
+                              >
+                                {e}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {/* Attach Media */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                        title="Enviar imagem, vídeo, áudio ou documento"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4.5 w-4.5" />}
+                      </Button>
+
+                      {/* Text length counter when typing */}
+                      {text.length > 0 && (
+                        <span className="text-[10px] font-mono text-muted-foreground/70 ml-2 select-none">
+                          {text.length} caracteres
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Right: Audio synthesize / Record / Send */}
+                    <div className="flex items-center gap-1.5">
+                      {!text.trim() ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={startRecording}
+                          className="h-8 px-3 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-medium shadow-none gap-1.5 transition-all"
+                          title="Gravar mensagem de voz"
+                        >
+                          <Mic className="h-4 w-4 text-emerald-400" />
+                          <span className="text-[11px] hidden sm:inline">Gravar áudio</span>
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={sendAsVoice}
+                            disabled={sending || sendingVoice || !text.trim()}
+                            className="h-8 px-2.5 rounded-lg text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 gap-1.5 text-[11px]"
+                            title="Sintetizar texto em áudio e enviar como voz humana"
+                          >
+                            {sendingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" /> : <Volume2 className="h-4 w-4" />}
+                            <span className="hidden md:inline font-medium">Áudio sintetizado</span>
+                          </Button>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={send}
+                            disabled={sending || !text.trim()}
+                            className="h-8 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-all gap-1.5 active:scale-95"
+                            title={sendOnEnter ? "Enviar mensagem (Enter)" : "Enviar mensagem (Ctrl+Enter)"}
+                          >
+                            {sending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <>
+                                <Send className="h-3.5 w-3.5" />
+                                <span className="text-xs font-semibold">Enviar</span>
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
         {showIntelPanel && (
-          <LeadIntelPanel phone={phone} projectId={projectId} />
+          <div className="w-64 h-full max-h-full shrink-0 min-h-0 overflow-hidden">
+            <LeadIntelPanel phone={phone} projectId={projectId} />
+          </div>
         )}
       </div>
     );
