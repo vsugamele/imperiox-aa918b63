@@ -44,4 +44,10 @@ describe("MapNodeCard", () => {
     renderCard(node({ notes: "[agent_status:ready_review]" }));
     expect(screen.getByText("Revisar")).toBeInTheDocument();
   });
+
+  it("renders traffic temperature badge and marketing action for checkout", () => {
+    renderCard(node({ kind: "checkout", label: "Checkout Principal" }));
+    expect(screen.getByText("🔥 Quente")).toBeInTheDocument();
+    expect(screen.getByText("CRO Checkout & PIX")).toBeInTheDocument();
+  });
 });

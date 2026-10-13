@@ -11,6 +11,7 @@ import { KIND_PRESETS } from "@/components/funis/map-element-presets";
 import { extractAgentData } from "@/components/funis/map-agent-data";
 import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNodeData } from "@/components/funis/map-node-model";
 import { StepOwnerChips } from "@/components/funis/StepOwnerChips";
+import { classifyNodeTemperature } from "@shared/funnel-diagnostics";
 
 const EXECUTOR_ICON: Record<ExecutorGroup, typeof Bot> = { ia: Bot, automatico: Zap, ferramenta: Wrench, humano: User };
 
@@ -53,6 +54,56 @@ function readableOn(hex: string): string {
 const openImage = (url: string, label: string) =>
   window.dispatchEvent(new CustomEvent("open-image-lightbox", { detail: { url, label } }));
 
+function getMarketingActionForKind(kind: string, label: string): { label: string; action: () => void } | null {
+  const k = kind.toLowerCase();
+  if (k.includes("ads") || k.includes("anuncio") || k.includes("reels") || k.includes("stories") || k.includes("tiktok") || k.includes("youtube")) {
+    return {
+      label: "Ganchos IA",
+      action: () => {
+        navigator.clipboard.writeText(`[BRIEFING ADS]: Criar 3 ganchos (Hooks P1 a P5) com quebra de padrão para a etapa: ${label}.`);
+        toast.success("Prompt de ganchos de anúncio copiado!");
+      },
+    };
+  }
+  if (k.includes("vsl") || k.includes("pagina_vendas") || k.includes("advertorial") || k.includes("quiz")) {
+    return {
+      label: "Auditar Velocidade & VSL",
+      action: () => {
+        window.open("https://pagespeed.web.dev/", "_blank");
+        toast.info("Abrindo Google PageSpeed Insights para auditar a velocidade da LP!");
+      },
+    };
+  }
+  if (k.includes("checkout")) {
+    return {
+      label: "CRO Checkout & PIX",
+      action: () => {
+        navigator.clipboard.writeText(`[CHECKOUT CRO]: Verificar campos obrigatórios mínimos (Nome/Email/CPF/Telefone), PIX 1 clique e contingência de gateway.`);
+        toast.success("Diretrizes de checkout de alta conversão copiadas!");
+      },
+    };
+  }
+  if (k.includes("orderbump") || k.includes("upsell") || k.includes("downsell")) {
+    return {
+      label: "Otimizar LTV & Bump",
+      action: () => {
+        navigator.clipboard.writeText(`[MONETIZAÇÃO LTV]: Precificar bump em 20-30% do ticket principal como acelerador de resultados.`);
+        toast.success("Diretrizes de aceleração de Order Bump copiadas!");
+      },
+    };
+  }
+  if (k.includes("whatsapp") || k.includes("recuperacao")) {
+    return {
+      label: "Régua 5min WhatsApp",
+      action: () => {
+        navigator.clipboard.writeText(`[RÉGUA WHATSAPP]: Disparar áudio gravado ou mensagem de suporte 5-10 min após o abandono do PIX.`);
+        toast.success("Script humanizado de recuperação copiado!");
+      },
+    };
+  }
+  return null;
+}
+
 export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: boolean }) {
   const preset = KIND_PRESETS[data.kind] || KIND_PRESETS.canal;
   const Icon = preset.icon;
@@ -79,6 +130,8 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
   const skill = agent.skill !== "none" ? agent.skill : null;
   const summary = isImageNode ? null : whatItDoes(data);
   const kpi = pickKpiForKind(data.kind, data.liveStats);
+  const tempInfo = !isImageNode ? classifyNodeTemperature(data.kind, data.stage_role, data.label) : null;
+  const marketingAction = !isImageNode ? getMarketingActionForKind(data.kind, data.label) : null;
 
   return (
     <div
@@ -88,6 +141,8 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
         !isLensMatch && "opacity-20 grayscale pointer-events-none scale-95",
         isLensMatch && activeLens !== "all" && "ring-2 ring-primary shadow-[0_0_24px_hsl(var(--primary)/0.35)]",
         isSimulated && "ring-4 ring-warning scale-105 z-30 animate-pulse",
+        kpi?.tone === "bad" && "border-destructive/60 shadow-[0_0_16px_hsl(var(--destructive)/0.12)]",
+        kpi?.tone === "good" && "border-success/40",
       )}
       style={hasCustomSize ? { width: "100%", height: "100%" } : hasCustomWidth ? { width: "100%" } : { minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
     >
@@ -159,8 +214,8 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
       </div>
 
       <div className={cn("flex flex-1 flex-col gap-2 p-3", hasCustomSize && "min-h-0")}>
-        {/* Cabeçalho: número, tipo, status */}
-        <div className="flex items-center gap-2 pr-1">
+        {/* Cabeçalho: número, tipo, temperatura, status */}
+        <div className="flex items-center gap-1.5 pr-1">
           {data.stepNumber ? (
             <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 font-mono text-xs font-bold" style={{ background: data.color, color: readableOn(data.color) }}>
               {data.stepNumber}
@@ -170,6 +225,14 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
             <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: data.color }} />
             <span className="truncate">{preset.label}</span>
           </span>
+          {tempInfo && tempInfo.temp !== "operacao" && (
+            <span
+              className={cn("shrink-0 rounded-full border px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-tight", tempInfo.cls)}
+              title={`Temperatura: ${tempInfo.label}`}
+            >
+              {tempInfo.shortLabel}
+            </span>
+          )}
           {!isImageNode && (
             <span className={cn("ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium", status.cls)}
               title="Status declarado na etapa; checklist e print não provam que está funcionando.">
@@ -271,6 +334,25 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" /> {kpi.primary}
             </span>
             <span className="text-muted-foreground">{kpi.secondary}</span>
+          </div>
+        )}
+
+        {/* Ação prescritiva de marketing */}
+        {marketingAction && (
+          <div className="nodrag mt-0.5 flex items-center justify-between border-t border-border/70 pt-1.5 text-[11px]">
+            <span className="text-muted-foreground text-[10px] uppercase tracking-wider">Ação Recomendada:</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                marketingAction.action();
+              }}
+              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary transition-all hover:bg-primary hover:text-primary-foreground"
+              title="Executar ação prescritiva de marketing"
+            >
+              <Zap className="h-3 w-3" />
+              <span>{marketingAction.label}</span>
+            </button>
           </div>
         )}
 

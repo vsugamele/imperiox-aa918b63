@@ -8,6 +8,7 @@ import { errorMessage } from "@/lib/error-message";
 import { REFERENCIA, type Metric, type Stage, type StageId, type StageStatus } from "@shared/funnel-live";
 import { useFunnelLive } from "@/hooks/useFunnelLive";
 import { PageSplitsSection } from "@/components/funis/PageSplitsSection";
+import { FunnelCrossStageDiagnostics } from "@/components/funis/FunnelCrossStageDiagnostics";
 
 interface ProjectOption { id: string; name: string }
 
@@ -159,6 +160,9 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             ))}
           </ol>
 
+          {/* Diagnóstico Cruzado Inteligente: vazamentos entre etapas, pagespeed, VSL, checkout e recuperação */}
+          <FunnelCrossStageDiagnostics funnel={data} projectId={projectId} />
+
           {projectId && <PageSplitsSection projectId={projectId} />}
 
           {data.paginas.length > 0 && (
@@ -195,10 +199,18 @@ function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?
 function Connector({ stage }: { stage: Stage }) {
   const c = stage.conversao;
   const style = STATUS_STYLE[stage.status];
+  const isProblem = stage.status === "gargalo" || stage.status === "atencao";
   return (
     <div className="flex items-center justify-center gap-1 xl:flex-col" aria-label={c ? `${c.label}: ${c.value === null ? "sem dado" : `${c.value}%`}` : undefined}>
-      <ArrowRight className="h-4 w-4 rotate-90 text-muted-foreground xl:rotate-0" />
-      {c && <span className={cn("whitespace-nowrap rounded-full border px-1.5 py-px font-mono text-[10px]", style.pill)}>{c.value === null ? "—" : `${c.value.toLocaleString("pt-BR")}%`}</span>}
+      <ArrowRight className={cn("h-4 w-4 rotate-90 xl:rotate-0 transition-colors", isProblem ? "text-destructive" : "text-muted-foreground")} />
+      {c && (
+        <span
+          className={cn("whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[10px] font-medium shadow-2xs", style.pill)}
+          title={`Conversão ${c.label}: ${c.value === null ? "—" : `${c.value}%`} (ref: ${c.referencia}%)`}
+        >
+          {c.value === null ? "—" : `${c.value.toLocaleString("pt-BR")}%`}
+        </span>
+      )}
     </div>
   );
 }
