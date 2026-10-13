@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
     const { data: conv } = await supabase
       .from("imphq_wa_conversations")
-      .select("id, ai_summary, ai_summary_updated_at, intent_tags, lead_id, last_incoming_at, contact_name, contact_phone")
+      .select("id, ai_summary, ai_summary_updated_at, intent_tags, lead_id, last_incoming_at, contact_name, contact_phone, ia_ativa, metadata")
       .eq("id", conversation_id)
       .maybeSingle();
 
@@ -40,6 +40,16 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ summary: "", intent_tags: [], not_found: true }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const meta = typeof conv.metadata === "object" && conv.metadata !== null ? (conv.metadata as Record<string, unknown>) : null;
+    if (conv.ia_ativa === false || meta?.ai_ignored === true) {
+      return new Response(JSON.stringify({
+        summary: "",
+        intent_tags: [],
+        skipped: "ia_desativada",
+        reason: "IA bloqueada/ignorada para este contato",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // cache 10 min se não forçar

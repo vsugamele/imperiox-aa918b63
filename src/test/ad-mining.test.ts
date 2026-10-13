@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adScore, libraryUrl, mapAd, pickAds, refNotes } from "@shared/ad-mining";
+import { adScore, libraryUrl, mapAd, pickAds, refNotes, detectNicho, parseRefDetails, groupReferencesByOffer } from "@shared/ad-mining";
 
 const now = Date.parse("2026-10-07T12:00:00Z");
 const item = (id: string, inicio: string, extra: Record<string, unknown> = {}) => ({
@@ -34,5 +34,76 @@ describe("mineração da Biblioteca de Anúncios", () => {
     ];
     expect(adScore(ads[2])).toBeGreaterThan(adScore(ads[0]));
     expect(pickAds(ads, new Set(["ja-tenho"]), 5).map((a) => a.external_id)).toEqual(["escala", "velho"]);
+  });
+
+  it("detecta nicho com base em vocabulário e palavras-chave", () => {
+    expect(detectNicho({ titulo: "The Quiet Habits That Support Healthy Blood Pressure" })).toBe("Pressão Alta / Hipertensão");
+    expect(detectNicho({ titulo: "Drink this simple oat trick for weight loss", link: "https://salzhack.com/hafer-trick" })).toBe("Emagrecimento / Nutra");
+    expect(detectNicho({ titulo: "Drenagem linfática caseira" })).toBe("Saúde Linfática");
+    expect(detectNicho({ titulo: "Tire uma carta de tarot online" })).toBe("Espiritualidade");
+  });
+
+  it("extrai os 4 pilares (página, copy, imagem, nicho) de forma estruturada", () => {
+    const ref = {
+      id: "meta-123",
+      titulo: "Emilia Rosana Pontes — The Quiet Habits That Support Healthy Blood Pressure",
+      notas: "Página: Emilia Rosana Pontes · no ar há 14 dias (desde 2026-09-29) · 1 variação(ões)\nTítulo: The Quiet Habits That Support Healthy Blood Pressure\nCopy: 3 simple morning habits to protect your heart.\nCTA: Learn more\nDestino: https://jj.thefluffyjello.online/page1",
+      image_url: "https://cdn.example.com/wellness.jpg",
+      pipeline: {
+        mineracao: {
+          pagina: "Emilia Rosana Pontes",
+          destino: "https://jj.thefluffyjello.online/page1",
+          dias_no_ar: 14,
+          ativo: true,
+        },
+      },
+    };
+
+    const details = parseRefDetails(ref);
+    expect(details.paginaNome).toBe("Emilia Rosana Pontes");
+    expect(details.destinoHost).toBe("jj.thefluffyjello.online");
+    expect(details.diasNoAr).toBe(14);
+    expect(details.headline).toBe("The Quiet Habits That Support Healthy Blood Pressure");
+    expect(details.copyTexto).toBe("3 simple morning habits to protect your heart.");
+    expect(details.cta).toBe("Learn more");
+    expect(details.nicho).toBe("Pressão Alta / Hipertensão");
+    expect(details.formato).toBe("estatico");
+  });
+
+  it("agrupa múltiplas fanpages que anunciam o mesmo criativo/oferta", () => {
+    const refs = [
+      {
+        id: "meta-1",
+        titulo: "Emilia Rosana — Quiet Habits For Blood Pressure",
+        notas: "Página: Emilia Rosana · no ar há 14 dias\nTítulo: Quiet Habits For Blood Pressure\nDestino: https://jj.thefluffyjello.online/p1",
+      },
+      {
+        id: "meta-2",
+        titulo: "Roberta Soares — Quiet Habits For Blood Pressure",
+        notas: "Página: Roberta Soares · no ar há 18 dias\nTítulo: Quiet Habits For Blood Pressure\nDestino: https://jj.thefluffyjello.online/p2",
+      },
+      {
+        id: "meta-3",
+        titulo: "Lua de la Garza — Quiet Habits For Blood Pressure",
+        notas: "Página: Lua de la Garza · no ar há 16 dias\nTítulo: Quiet Habits For Blood Pressure\nDestino: https://jj.thefluffyjello.online/p3",
+      },
+      {
+        id: "outro-ad",
+        titulo: "Outro Produto — Emagrecimento Rápido",
+        notas: "Página: Outro · no ar há 5 dias\nTítulo: Emagrecimento Rápido\nDestino: https://outro.com/lp",
+      },
+    ];
+
+    const clusters = groupReferencesByOffer(refs);
+    expect(clusters.length).toBe(2);
+
+    const quietHabits = clusters.find((c) => c.details.destinoHost === "jj.thefluffyjello.online");
+    expect(quietHabits).toBeDefined();
+    expect(quietHabits?.isCluster).toBe(true);
+    expect(quietHabits?.totalPages).toBe(3);
+    expect(quietHabits?.uniquePages).toContain("Roberta Soares");
+    expect(quietHabits?.uniquePages).toContain("Emilia Rosana");
+    expect(quietHabits?.uniquePages).toContain("Lua de la Garza");
+    expect(quietHabits?.maxDiasNoAr).toBe(18);
   });
 });

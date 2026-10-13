@@ -15,10 +15,12 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
     const filters: Record<string, string> = {};
     const query = {
       select: () => query, order: () => query,
+      eq: () => query, limit: () => query,
       gte: (column: string, value: string) => { filters[`gte:${column}`] = value; return query; },
       lte: (column: string, value: string) => { filters[`lte:${column}`] = value; return query; },
       lt: (column: string, value: string) => { filters[`lt:${column}`] = value; return query; },
       range: (from: number, to: number) => mocks.range(table, from, to, filters),
+      then: (resolve: (val: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve),
     };
     return query;
   },

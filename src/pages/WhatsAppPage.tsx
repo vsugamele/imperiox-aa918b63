@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose, Sparkles, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Settings2, Megaphone, FileText, Radio, RefreshCw, Wifi, WifiOff, Loader2, Copy, Info, X as XIcon, Rocket, Bell, BellOff, MoreVertical, FolderOpen, QrCode, Power, AlertTriangle, History, MailOpen, PanelRightOpen, PanelRightClose, Sparkles, Archive, ArchiveRestore, BotOff } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -37,6 +37,7 @@ import {
   getArchiveReasonConfig,
   type ArchiveReason,
 } from "@/lib/conversationArchive";
+import { isChatAiIgnored, toggleChatAiIgnore } from "@/lib/whatsappAiIgnore";
 import TemplateManager from "@/components/whatsapp/TemplateManager";
 import SessionDetailView from "@/components/whatsapp/SessionDetailView";
 import CampaignManager from "@/components/whatsapp/CampaignManager";
@@ -303,17 +304,101 @@ export default function WhatsApp() {
       toast.error("Erro ao arquivar conversa.");
       return;
     }
+
+    // Se arquivar como spam, amigo ou fora do projeto, também bloqueia a IA para não analisar nem responder
+    const shouldBlockAi = reason === "spam" || reason === "amigo" || reason === "fora_projeto";
+    if (shouldBlockAi) {
+      toggleChatAiIgnore({
+        conversationId: id,
+        phone: target.phone,
+        projectId: target.project_id,
+        providerId: target.provider_id,
+        ignore: true,
+        currentMetadata: target.metadata,
+      }).catch(err => console.warn("[handleArchive] toggleChatAiIgnore warning:", err));
+    }
+
     const reasonCfg = getArchiveReasonConfig(reason);
     const updatedMeta = {
       ...(typeof target.metadata === "object" && target.metadata ? (target.metadata as Record<string, unknown>) : {}),
       archived: true,
       archive_reason: reason,
       archived_at: new Date().toISOString(),
+      ...(shouldBlockAi ? { ai_ignored: true, ai_ignored_at: new Date().toISOString() } : {}),
     };
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, status: "archived", metadata: updatedMeta } : s));
-    setSelectedSession(prev => prev && prev.id === id ? { ...prev, status: "archived", metadata: updatedMeta } : prev);
+    setSessions(prev => prev.map(s => s.id === id ? {
+      ...s,
+      status: "archived",
+      ia_ativa: shouldBlockAi ? false : s.ia_ativa,
+      ai_paused: shouldBlockAi ? true : s.ai_paused,
+      metadata: updatedMeta
+    } : s));
+    setSelectedSession(prev => prev && prev.id === id ? {
+      ...prev,
+      status: "archived",
+      ia_ativa: shouldBlockAi ? false : prev.ia_ativa,
+      ai_paused: shouldBlockAi ? true : prev.ai_paused,
+      metadata: updatedMeta
+    } : prev);
     toast.success(`Conversa arquivada (${reasonCfg.label}). Lista principal limpa!`);
   }, [sessions]);
+
+  // Bloquear / Ignorar IA para uma conversa (não analisa nem responde)
+  const handleToggleAiIgnoreForSession = useCallback(async (session: { id: string; phone: string; project_id: string; provider_id?: string | null; metadata?: unknown }, ignore: boolean) => {
+    const res = await toggleChatAiIgnore({
+      conversationId: session.id,
+      phone: session.phone,
+      projectId: session.project_id,
+      providerId: session.provider_id,
+      ignore,
+      currentMetadata: session.metadata,
+    });
+
+    if (!res.success) {
+      toast.error("Erro ao alterar status da IA: " + (res.error || "falha"));
+      return;
+    }
+
+    const currentMeta = typeof session.metadata === "object" && session.metadata
+      ? { ...(session.metadata as Record<string, unknown>) }
+      : {};
+
+    if (ignore) {
+      currentMeta.ai_ignored = true;
+      currentMeta.ai_ignored_at = new Date().toISOString();
+    } else {
+      delete currentMeta.ai_ignored;
+      delete currentMeta.ai_ignored_at;
+    }
+
+    setSessions(prev => prev.map(s => s.id === session.id ? {
+      ...s,
+      ia_ativa: !ignore,
+      ai_paused: ignore,
+      ai_paused_until: ignore ? "2099-01-01T00:00:00.000Z" : null,
+      metadata: currentMeta,
+    } : s));
+
+    setSelectedSession(prev => prev && prev.id === session.id ? {
+      ...prev,
+      ia_ativa: !ignore,
+      ai_paused: ignore,
+      ai_paused_until: ignore ? "2099-01-01T00:00:00.000Z" : null,
+      metadata: currentMeta,
+    } : prev);
+
+    if (ignore) {
+      toast.success("🚫 IA desativada para este chat! A IA não analisará nem responderá mensagens deste contato.");
+    } else {
+      toast.success("✅ IA reativada com sucesso para este contato.");
+    }
+  }, []);
+
+  const handleToggleAiIgnore = useCallback(() => {
+    if (!selectedSession) return;
+    const currentlyIgnored = isChatAiIgnored(selectedSession);
+    handleToggleAiIgnoreForSession(selectedSession, !currentlyIgnored);
+  }, [selectedSession, handleToggleAiIgnoreForSession]);
 
   // Restaurar / Desarquivar conversa
   const handleUnarchive = useCallback(async (id: string) => {
@@ -697,6 +782,7 @@ export default function WhatsApp() {
                 onMarkUnread={markUnread}
                 onArchive={handleArchive}
                 onUnarchive={handleUnarchive}
+                onToggleAiIgnore={handleToggleAiIgnoreForSession}
               />
             </ResizablePanel>
 
@@ -754,8 +840,9 @@ export default function WhatsApp() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      {/* AI Pause/Resume controls */}
+                      {/* AI Status & Ignore Quick Button */}
                       {(() => {
+                        const isAiIgnored = isChatAiIgnored(selectedSession);
                         const isAiPaused = selectedSession.ai_paused_until && new Date(selectedSession.ai_paused_until) > new Date();
                         const remainingMinutes = selectedSession.ai_paused_until
                           ? Math.max(0, Math.ceil((new Date(selectedSession.ai_paused_until).getTime() - Date.now()) / 60000))
@@ -778,24 +865,52 @@ export default function WhatsApp() {
                           toast.success(isAiPaused ? "IA retomada com sucesso!" : "IA pausada por 30 minutos.");
                         };
 
+                        if (isAiIgnored) {
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[10px] bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20 hover:text-red-300 gap-1 font-semibold transition-all"
+                              onClick={handleToggleAiIgnore}
+                              title="A IA está bloqueada neste chat: não analisa histórico e não envia respostas automáticas. Clique para reativar."
+                            >
+                              <BotOff className="h-3.5 w-3.5 text-red-400" />
+                              <span>IA Bloqueada (Ignorada)</span>
+                            </Button>
+                          );
+                        }
+
                         return (
-                          <Button
-                            size="sm"
-                            variant={isAiPaused ? "secondary" : "ghost"}
-                            className={`h-7 text-[10px] gap-1 transition-all ${
-                              isAiPaused 
-                                ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400" 
-                                : "text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
-                            }`}
-                            onClick={toggleAiPause}
-                            title={isAiPaused ? "Retomar a resposta automática da IA" : "Pausar a IA nesta conversa por 30 minutos"}
-                          >
-                            <span className="relative flex h-2 w-2 shrink-0">
-                              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isAiPaused ? "bg-amber-400" : "bg-emerald-400"}`}></span>
-                              <span className={`relative inline-flex rounded-full h-2 w-2 ${isAiPaused ? "bg-amber-500" : "bg-emerald-500"}`}></span>
-                            </span>
-                            <span>{isAiPaused ? `IA Pausada (${remainingMinutes}m)` : "IA Ativa"}</span>
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant={isAiPaused ? "secondary" : "ghost"}
+                              className={`h-7 text-[10px] gap-1 transition-all ${
+                                isAiPaused 
+                                  ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400" 
+                                  : "text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
+                              }`}
+                              onClick={toggleAiPause}
+                              title={isAiPaused ? "Retomar a resposta automática da IA" : "Pausar a IA nesta conversa por 30 minutos"}
+                            >
+                              <span className="relative flex h-2 w-2 shrink-0">
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isAiPaused ? "bg-amber-400" : "bg-emerald-400"}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${isAiPaused ? "bg-amber-500" : "bg-emerald-500"}`}></span>
+                              </span>
+                              <span>{isAiPaused ? `IA Pausada (${remainingMinutes}m)` : "IA Ativa"}</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[10px] text-muted-foreground hover:text-red-400 hover:bg-red-500/10 gap-1 transition-colors"
+                              onClick={handleToggleAiIgnore}
+                              title="Bloquear IA: Não analisa nem responde mais este chat (adiciona à lista de Contatos Ignorados das configurações)"
+                            >
+                              <BotOff className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Ignorar na IA</span>
+                            </Button>
+                          </div>
                         );
                       })()}
 

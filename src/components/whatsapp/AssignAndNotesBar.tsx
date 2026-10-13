@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UserCircle2, StickyNote, Trash2, Plus, BellOff, Bot, BotOff } from "lucide-react";
 import { toast } from "sonner";
+import { isChatAiIgnored, toggleChatAiIgnore } from "@/lib/whatsappAiIgnore";
 
 interface Member { id: string; user_id: string | null; name: string | null; email: string | null; avatar_url: string | null; }
 interface Note { id: string; content: string; author_id: string | null; author_name: string | null; created_at: string; }
@@ -14,6 +15,13 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
   const [aiPausedUntil, setAiPausedUntil] = useState<string | null>(null);
   const [convStatus, setConvStatus] = useState<string | null>(null);
+  const [convData, setConvData] = useState<{
+    ia_ativa?: boolean | null;
+    metadata?: unknown;
+    phone?: string | null;
+    project_id?: string | null;
+    provider_id?: string | null;
+  } | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -41,12 +49,23 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
   useEffect(() => {
     if (!conversationId) return;
-    supabase.from("imphq_wa_conversations").select("assigned_to,snoozed_until,ai_paused_until,status").eq("id", conversationId).maybeSingle()
+    supabase
+      .from("imphq_wa_conversations")
+      .select("assigned_to,snoozed_until,ai_paused_until,status,ia_ativa,metadata,phone,project_id,provider_id")
+      .eq("id", conversationId)
+      .maybeSingle()
       .then(({ data }) => {
         setAssignedTo(data?.assigned_to || null);
         setSnoozedUntil(data?.snoozed_until || null);
         setAiPausedUntil(data?.ai_paused_until || null);
         setConvStatus(data?.status || null);
+        setConvData(data ? {
+          ia_ativa: data.ia_ativa,
+          metadata: data.metadata,
+          phone: data.phone,
+          project_id: data.project_id,
+          provider_id: data.provider_id,
+        } : null);
       });
     const load = () =>
       supabase.from("imphq_wa_internal_notes")
@@ -102,6 +121,50 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
     const { error } = await supabase.from("imphq_wa_conversations").update({ ai_paused_until: until }).eq("id", conversationId);
     if (error) { toast.error("Falha ao pausar IA"); return; }
     toast.success(until ? `IA pausada por ${mins! < 60 ? mins + "min" : Math.round(mins!/60) + "h"}` : "IA reativada");
+  };
+
+  const isAiIgnored = isChatAiIgnored(convData);
+
+  const handleToggleAiIgnore = async (ignore: boolean) => {
+    if (!convData) return;
+    const res = await toggleChatAiIgnore({
+      conversationId,
+      phone: convData.phone || "",
+      projectId: convData.project_id,
+      providerId: convData.provider_id,
+      ignore,
+      currentMetadata: convData.metadata,
+    });
+
+    if (!res.success) {
+      toast.error("Erro ao alterar status da IA: " + (res.error || "falha"));
+      return;
+    }
+
+    const currentMeta = typeof convData.metadata === "object" && convData.metadata
+      ? { ...(convData.metadata as Record<string, unknown>) }
+      : {};
+
+    if (ignore) {
+      currentMeta.ai_ignored = true;
+      currentMeta.ai_ignored_at = new Date().toISOString();
+    } else {
+      delete currentMeta.ai_ignored;
+      delete currentMeta.ai_ignored_at;
+    }
+
+    setConvData(prev => prev ? {
+      ...prev,
+      ia_ativa: !ignore,
+      metadata: currentMeta,
+    } : null);
+    setAiPausedUntil(ignore ? "2099-01-01T00:00:00.000Z" : null);
+
+    if (ignore) {
+      toast.success("🚫 IA desativada para este chat! A IA não analisará nem responderá mensagens deste contato.");
+    } else {
+      toast.success("✅ IA reativada com sucesso para este contato.");
+    }
   };
 
   const isAiPaused = aiPausedUntil && new Date(aiPausedUntil).getTime() > Date.now();
@@ -213,39 +276,74 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
 
       <div className="w-px h-4 bg-border" />
 
-      {/* Pausar IA */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button size="sm" variant="ghost" className={`h-7 px-2 gap-1.5 ${isAiPaused ? "text-orange-300" : ""}`}>
-            {isAiPaused ? <BotOff className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-            {isAiPaused ? (
-              <span>IA pausada até {new Date(aiPausedUntil!).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</span>
-            ) : (
-              <span>Pausar IA</span>
-            )}
+      {/* Pausar / Bloquear IA */}
+      {isAiIgnored ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 gap-1.5 border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-semibold"
+          onClick={() => handleToggleAiIgnore(false)}
+          title="A IA está bloqueada neste chat (não analisa nem responde). Clique para reativar."
+        >
+          <BotOff className="h-3.5 w-3.5 text-red-400" />
+          <span>IA Bloqueada (não analisa)</span>
+        </Button>
+      ) : (
+        <>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="ghost" className={`h-7 px-2 gap-1.5 ${isAiPaused ? "text-orange-300" : ""}`}>
+                {isAiPaused ? <BotOff className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+                {isAiPaused ? (
+                  <span>IA pausada até {new Date(aiPausedUntil!).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</span>
+                ) : (
+                  <span>Pausar IA</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1 bg-popover" align="start">
+              <p className="text-[10px] text-muted-foreground px-2 py-1 font-semibold uppercase">Pausa temporária</p>
+              {[
+                { label: "1 hora", min: 60 },
+                { label: "4 horas", min: 240 },
+                { label: "Até amanhã 8h", min: -1 },
+                { label: "24 horas", min: 1440 },
+              ].map(o => (
+                <button key={o.label} className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-xs"
+                  onClick={() => {
+                    if (o.min === -1) {
+                      const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0);
+                      pauseAi(Math.round((d.getTime() - Date.now()) / 60000));
+                    } else pauseAi(o.min);
+                  }}>{o.label}</button>
+              ))}
+              {isAiPaused && (
+                <button className="w-full text-left px-2 py-1.5 rounded hover:bg-emerald-500/20 text-xs text-emerald-400 border-t border-border mt-1"
+                  onClick={() => pauseAi(null)}>Reativar IA agora</button>
+              )}
+              <div className="border-t border-border/40 my-1" />
+              <button
+                className="w-full text-left px-2 py-1.5 rounded hover:bg-red-500/15 text-xs text-red-400 font-medium flex items-center gap-1.5"
+                onClick={() => handleToggleAiIgnore(true)}
+              >
+                <BotOff className="h-3 w-3" />
+                <span>Bloquear IA (não analisa nem responde)</span>
+              </button>
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 gap-1 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 text-xs transition-colors"
+            onClick={() => handleToggleAiIgnore(true)}
+            title="Bloquear IA: Não analisa nem responde mais este chat (adiciona à lista de Contatos Ignorados das configurações)"
+          >
+            <BotOff className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Ignorar na IA</span>
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-44 p-1 bg-popover" align="start">
-          {[
-            { label: "1 hora", min: 60 },
-            { label: "4 horas", min: 240 },
-            { label: "Até amanhã 8h", min: -1 },
-            { label: "24 horas", min: 1440 },
-          ].map(o => (
-            <button key={o.label} className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-xs"
-              onClick={() => {
-                if (o.min === -1) {
-                  const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0);
-                  pauseAi(Math.round((d.getTime() - Date.now()) / 60000));
-                } else pauseAi(o.min);
-              }}>{o.label}</button>
-          ))}
-          {isAiPaused && (
-            <button className="w-full text-left px-2 py-1.5 rounded hover:bg-emerald-500/20 text-xs text-emerald-400 border-t border-border mt-1"
-              onClick={() => pauseAi(null)}>Reativar IA agora</button>
-          )}
-        </PopoverContent>
-      </Popover>
+        </>
+      )}
 
       <div className="w-px h-4 bg-border" />
       <Popover>

@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, RefreshCw, Loader2, AlertTriangle, Target, Heart, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, RefreshCw, Loader2, AlertTriangle, Target, Heart, ChevronDown, ChevronUp, BotOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isChatAiIgnored, toggleChatAiIgnore } from "@/lib/whatsappAiIgnore";
 
 interface Props {
   conversationId: string;
@@ -47,6 +48,8 @@ const emotionEmoji: Record<string, string> = {
 
 export default function ConversationIntelCard({ conversationId }: Props) {
   const [loading, setLoading] = useState(false);
+  const [isIgnored, setIsIgnored] = useState(false);
+  const [convDetails, setConvDetails] = useState<{ phone?: string | null; project_id?: string | null; provider_id?: string | null; metadata?: unknown } | null>(null);
   const [summary, setSummary] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -97,10 +100,24 @@ export default function ConversationIntelCard({ conversationId }: Props) {
     if (!force) {
       const { data } = await supabase
         .from("imphq_wa_conversations")
-        .select("ai_summary, ai_summary_updated_at, intent_tags, current_intent, intent_updated_at, handoff_summary, handoff_at, lead_id")
+        .select("ai_summary, ai_summary_updated_at, intent_tags, current_intent, intent_updated_at, handoff_summary, handoff_at, lead_id, ia_ativa, metadata, phone, project_id, provider_id")
         .eq("id", conversationId)
         .maybeSingle();
       if (data) {
+        setConvDetails({
+          phone: data.phone,
+          project_id: data.project_id,
+          provider_id: data.provider_id,
+          metadata: data.metadata,
+        });
+
+        const ignored = isChatAiIgnored(data);
+        setIsIgnored(ignored);
+        if (ignored) {
+          setLoading(false);
+          return;
+        }
+
         setSummary(data.ai_summary || "");
         setTags(data.intent_tags || []);
         setUpdatedAt(data.ai_summary_updated_at || null);
@@ -127,13 +144,48 @@ export default function ConversationIntelCard({ conversationId }: Props) {
     }
   };
 
+  const handleReactivate = async () => {
+    if (!convDetails) return;
+    const res = await toggleChatAiIgnore({
+      conversationId,
+      phone: convDetails.phone || "",
+      projectId: convDetails.project_id,
+      providerId: convDetails.provider_id,
+      ignore: false,
+      currentMetadata: convDetails.metadata,
+    });
+    if (res.success) {
+      setIsIgnored(false);
+      load(true);
+    }
+  };
+
   useEffect(() => {
     setSummary(""); setTags([]); setUpdatedAt(null);
     setCurrentIntent(null); setHandoffSummary(null); setHandoffAt(null);
-    setEmotional(null); setLastObjection(null);
+    setEmotional(null); setLastObjection(null); setIsIgnored(false);
     load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
+
+  if (isIgnored) {
+    return (
+      <div className="rounded-lg border border-red-500/25 bg-red-500/5 px-3 py-2 flex items-center justify-between gap-3 text-xs text-red-200">
+        <div className="flex items-center gap-2 min-w-0">
+          <BotOff className="h-4 w-4 text-red-400 shrink-0" />
+          <span className="truncate"><strong>IA Bloqueada:</strong> A IA não analisa nem responde mensagens deste contato.</span>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 text-[11px] border-red-500/30 text-red-300 hover:bg-red-500/20 shrink-0"
+          onClick={handleReactivate}
+        >
+          Reativar IA
+        </Button>
+      </div>
+    );
+  }
 
   const scoreColor = handoffSummary?.score === "quente" ? "bg-red-500/20 text-red-300 border-red-500/40"
     : handoffSummary?.score === "morno" ? "bg-amber-500/20 text-amber-300 border-amber-500/40"

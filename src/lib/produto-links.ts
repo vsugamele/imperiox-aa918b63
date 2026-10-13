@@ -35,41 +35,82 @@ export const PRIORIDADES: { value: ProductLinkPrioridade; label: string; tone: s
   { value: "evitar", label: "Evitar", tone: "text-destructive" },
 ];
 
+function isLikelyCheckoutUrl(url: string): boolean {
+  return /checkout\.ticto\.app|payment\.ticto\.app|pay\.hotmart|kiwify\.com\.br\/checkout|checkout|payment/i.test(url);
+}
+
 /** Aceita formato antigo (string[]) ou novo (ProductLink[]) e devolve normalizado. */
 export function normalizeProductLinks(produto: unknown): ProductLink[] {
   if (!produto || typeof produto !== "object") return [];
-  if (!("links" in produto)) {
-    return "link" in produto && typeof produto.link === "string" && produto.link
-      ? [{ url: produto.link, tipo: "outro", prioridade_ia: "alternativo", ativo: true }]
-      : [];
+  const p = produto as Record<string, unknown>;
+
+  const collected: ProductLink[] = [];
+  const seenUrls = new Set<string>();
+
+  const addLink = (link: ProductLink) => {
+    const normUrl = link.url.trim().toLowerCase();
+    if (!normUrl || seenUrls.has(normUrl)) return;
+    seenUrls.add(normUrl);
+    collected.push(link);
+  };
+
+  // 1. Explicit link_checkout / checkout_url no nível raiz do objeto
+  const rootCheckout = typeof p.link_checkout === "string" && p.link_checkout.trim()
+    ? p.link_checkout.trim()
+    : (typeof p.checkout_url === "string" && p.checkout_url.trim() ? p.checkout_url.trim() : null);
+
+  if (rootCheckout) {
+    addLink({
+      url: rootCheckout,
+      label: "Checkout",
+      tipo: "checkout",
+      prioridade_ia: "preferido",
+      ativo: true,
+    });
   }
-  const raw = produto.links;
-  if (!Array.isArray(raw)) {
-    if ("link" in produto && typeof produto.link === "string" && produto.link) {
-      return [{ url: produto.link, tipo: "outro", prioridade_ia: "alternativo", ativo: true }];
+
+  // 2. Extrai de p.links ou fallback para p.link
+  const raw = Array.isArray(p.links) ? p.links : (typeof p.link === "string" && p.link ? [p.link] : []);
+
+  for (const l of raw) {
+    if (typeof l === "string") {
+      if (!l.trim()) continue;
+      const url = l.trim();
+      const isCheckout = isLikelyCheckoutUrl(url);
+      addLink({
+        url,
+        label: isCheckout ? "Checkout" : "",
+        tipo: isCheckout ? "checkout" : "outro",
+        prioridade_ia: isCheckout ? "preferido" : "alternativo",
+        ativo: true,
+      });
+    } else if (l && typeof l === "object" && "url" in l && typeof (l as Record<string, unknown>).url === "string") {
+      const obj = l as Record<string, unknown>;
+      const url = (obj.url as string).trim();
+      if (!url) continue;
+
+      const explicitTipo = "tipo" in obj && typeof obj.tipo === "string" ? LINK_TIPOS.find((t) => t.value === obj.tipo)?.value : undefined;
+      const isCheckout = explicitTipo === "checkout" || (!explicitTipo && isLikelyCheckoutUrl(url));
+      const tipo = explicitTipo ?? (isCheckout ? "checkout" : "outro");
+
+      const label = "label" in obj && typeof obj.label === "string" ? obj.label : (isCheckout ? "Checkout" : "");
+      const prioridade_ia = "prioridade_ia" in obj && typeof obj.prioridade_ia === "string"
+        ? (PRIORIDADES.find((pr) => pr.value === obj.prioridade_ia)?.value ?? "alternativo")
+        : (isCheckout ? "preferido" : "alternativo");
+
+      addLink({
+        url,
+        label,
+        tipo,
+        observacao: "observacao" in obj && typeof obj.observacao === "string" ? obj.observacao : "",
+        prioridade_ia,
+        contexto_ia: "contexto_ia" in obj && Array.isArray(obj.contexto_ia) ? obj.contexto_ia.filter((c): c is string => typeof c === "string") : [],
+        ativo: !("ativo" in obj) || obj.ativo !== false,
+      });
     }
-    return [];
   }
-  return raw
-    .map((l: unknown): ProductLink | null => {
-      if (typeof l === "string") {
-        if (!l) return null;
-        return { url: l, tipo: "outro", prioridade_ia: "alternativo", ativo: true };
-      }
-      if (l && typeof l === "object" && "url" in l && typeof l.url === "string") {
-        return {
-          url: l.url,
-          label: "label" in l && typeof l.label === "string" ? l.label : "",
-          tipo: "tipo" in l ? LINK_TIPOS.find((t) => t.value === l.tipo)?.value ?? "outro" : "outro",
-          observacao: "observacao" in l && typeof l.observacao === "string" ? l.observacao : "",
-          prioridade_ia: "prioridade_ia" in l ? PRIORIDADES.find((p) => p.value === l.prioridade_ia)?.value ?? "alternativo" : "alternativo",
-          contexto_ia: "contexto_ia" in l && Array.isArray(l.contexto_ia) ? l.contexto_ia.filter((c): c is string => typeof c === "string") : [],
-          ativo: !("ativo" in l) || l.ativo !== false,
-        };
-      }
-      return null;
-    })
-    .filter((x): x is ProductLink => !!x);
+
+  return collected;
 }
 
 /** Escolhe o melhor link dado um contexto opcional (ex.: "pix", "objeção-preço"). */

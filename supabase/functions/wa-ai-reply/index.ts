@@ -108,11 +108,12 @@ Deno.serve(async (req) => {
       try {
         const { data: convEarly } = await supabase
           .from("imphq_wa_conversations")
-          .select("ia_ativa, phone, jid_suffix")
+          .select("ia_ativa, phone, jid_suffix, metadata")
           .eq("id", conversation_id)
           .maybeSingle();
 
-        if (convEarly?.ia_ativa === false && !body.message?.toLowerCase().includes("#testeia")) {
+        const metaEarly = typeof convEarly?.metadata === "object" && convEarly?.metadata !== null ? (convEarly.metadata as Record<string, unknown>) : null;
+        if ((convEarly?.ia_ativa === false || metaEarly?.ai_ignored === true) && !body.message?.toLowerCase().includes("#testeia")) {
           return new Response(JSON.stringify({ ok: true, skipped: "ia_desativada" }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -595,13 +596,14 @@ Deno.serve(async (req) => {
     // 2. Verifica cooldown e se a conversa está sob atendimento humano
     const { data: conv } = await supabase
       .from("imphq_wa_conversations")
-      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa, phone, current_intent, emotional_state, last_objection, handoff_at, ai_pending_since, buy_intent_detected")
+      .select("ai_last_reply_at, ai_lock_until, message_count, contact_name, status, ai_paused_until, ia_ativa, phone, current_intent, emotional_state, last_objection, handoff_at, ai_pending_since, buy_intent_detected, metadata")
       .eq("id", conversation_id)
       .maybeSingle();
 
-    // ia_ativa === false = toggle manual permanente (diferente de ai_paused_until que é temporário)
-    if (conv?.ia_ativa === false && !isTestMode) {
-      console.log(`[wa-ai-reply] ia_ativa=false para conversa ${conversation_id}, ignorando IA`);
+    // ia_ativa === false ou metadata.ai_ignored === true = toggle manual permanente (diferente de ai_paused_until que é temporário)
+    const convMeta = typeof conv?.metadata === "object" && conv?.metadata !== null ? (conv.metadata as Record<string, unknown>) : null;
+    if ((conv?.ia_ativa === false || convMeta?.ai_ignored === true) && !isTestMode) {
+      console.log(`[wa-ai-reply] ia_ativa=false ou ai_ignored=true para conversa ${conversation_id}, ignorando IA`);
       return new Response(JSON.stringify({ skipped: "ia_desativada" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -16,6 +16,7 @@ import { LeadIntelPanel } from "@/components/whatsapp/LeadIntelPanel";
 import ConversationIntelCard from "@/components/whatsapp/ConversationIntelCard";
 import { extractFilename } from "@/components/whatsapp/chat-media";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
+import { toggleChatAiIgnore } from "@/lib/whatsappAiIgnore";
 
 const PAGE_SIZE = 50;
 const EDIT_WINDOW_MIN = 15;
@@ -700,6 +701,7 @@ const ChatView = React.forwardRef<HTMLDivElement, Props>(
 
     // Dynamic Objection Detection Banner
     const detectedObjection = (() => {
+      if (!iaAtiva) return null;
       const lastIncoming = [...messages].reverse().find(m => m.direction === "incoming");
       if (!lastIncoming || !lastIncoming.content) return null;
       const content = lastIncoming.content.toLowerCase();
@@ -1113,10 +1115,16 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     useEffect(() => {
       if (!conversationId) return;
       supabase.from("imphq_wa_conversations")
-        .select("ia_ativa")
+        .select("ia_ativa, metadata")
         .eq("id", conversationId)
         .maybeSingle()
-        .then(({ data }) => { if (data != null) setIaAtiva(data.ia_ativa ?? true); });
+        .then(({ data }) => {
+          if (data != null) {
+            const meta = typeof data.metadata === "object" && data.metadata !== null ? (data.metadata as Record<string, unknown>) : null;
+            const isIgnored = data.ia_ativa === false || meta?.ai_ignored === true;
+            setIaAtiva(!isIgnored);
+          }
+        });
     }, [conversationId]);
 
     // Carrega o último intent real desta conversa (classificador de triagem)
@@ -1143,15 +1151,23 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     const toggleIa = async () => {
       if (togglingIa) return;
       setTogglingIa(true);
-      const next = !iaAtiva;
-      const { error } = await supabase.from("imphq_wa_conversations")
-        .update({ ia_ativa: next })
-        .eq("id", conversationId);
-      if (!error) {
-        setIaAtiva(next);
-        toast.success(next ? "IA ativada para esta conversa" : "IA pausada — atendimento manual");
+      const willIgnore = iaAtiva;
+      const res = await toggleChatAiIgnore({
+        conversationId,
+        phone,
+        projectId,
+        providerId,
+        ignore: willIgnore,
+      });
+      if (res.success) {
+        setIaAtiva(!willIgnore);
+        toast.success(
+          willIgnore
+            ? "IA bloqueada para este contato (não analisa nem responde)"
+            : "IA reativada para esta conversa"
+        );
       } else {
-        toast.error("Erro ao alterar IA: " + error.message);
+        toast.error("Erro ao alterar IA: " + (res.error || "falha"));
       }
       setTogglingIa(false);
     };
@@ -2157,14 +2173,14 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
                       size="sm"
                       variant={iaAtiva ? "ghost" : "destructive"}
                       className={`h-7 px-2 text-[11px] gap-1 rounded-md transition-colors ${
-                        iaAtiva ? "text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10" : "opacity-90"
+                        iaAtiva ? "text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10" : "bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25"
                       }`}
-                      title={iaAtiva ? "IA ativa nesta conversa — clique para pausar" : "IA pausada — clique para reativar"}
+                      title={iaAtiva ? "IA ativa nesta conversa — clique para bloquear (não analisa nem responde)" : "IA bloqueada/ignorada — clique para reativar"}
                       onClick={toggleIa}
                       disabled={togglingIa}
                     >
-                      {togglingIa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : iaAtiva ? <Bot className="h-3.5 w-3.5" /> : <BotOff className="h-3.5 w-3.5" />}
-                      <span className="hidden md:inline font-medium">{iaAtiva ? "IA Ativa" : "IA Off"}</span>
+                      {togglingIa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : iaAtiva ? <Bot className="h-3.5 w-3.5" /> : <BotOff className="h-3.5 w-3.5 text-red-400" />}
+                      <span className="hidden md:inline font-medium">{iaAtiva ? "IA Ativa" : "IA Bloqueada"}</span>
                     </Button>
 
                     {/* AI Copilot Suggestion */}

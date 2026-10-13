@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Search, Plus, Mail, SlidersHorizontal, CheckCircle2, Bot, User, Archive, ArchiveRestore } from "lucide-react";
+import { MessageSquare, Search, Plus, Mail, SlidersHorizontal, CheckCircle2, Bot, BotOff, User, Archive, ArchiveRestore } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   archiveConversation,
   unarchiveConversation,
 } from "@/lib/conversationArchive";
+import { isChatAiIgnored, toggleChatAiIgnore } from "@/lib/whatsappAiIgnore";
 import { toast } from "sonner";
 
 export interface WaSession {
@@ -44,6 +45,8 @@ export interface WaSession {
   ai_last_reply_at?: string | null;
   ai_lock_until?: string | null;
   ai_paused_until?: string | null;
+  ia_ativa?: boolean | null;
+  ai_paused?: boolean | null;
 }
 
 export function isUnreadSession(s: WaSession): boolean {
@@ -142,6 +145,7 @@ interface Props {
   onMarkUnread?: (id: string) => void;
   onArchive?: (id: string, reason: ArchiveReason, currentMeta?: unknown) => void;
   onUnarchive?: (id: string, currentMeta?: unknown) => void;
+  onToggleAiIgnore?: (session: WaSession, ignore: boolean) => void;
 }
 
 function isPhoneLike(text: string | null | undefined): boolean {
@@ -233,8 +237,32 @@ function channelChip(prov: Provider | undefined): { label: string; icon: string;
 export default function ConversationList({
   sessions, projects, providers, selectedId, loading, onSelect, onNewSession,
   filterProject, onFilterProject, filterProvider = "all", onFilterProvider,
-  onMarkUnread, onArchive, onUnarchive,
+  onMarkUnread, onArchive, onUnarchive, onToggleAiIgnore,
 }: Props) {
+  const handleToggleIgnore = async (session: WaSession, ignore: boolean) => {
+    if (onToggleAiIgnore) {
+      onToggleAiIgnore(session, ignore);
+      return;
+    }
+    const res = await toggleChatAiIgnore({
+      conversationId: session.id,
+      phone: session.phone,
+      projectId: session.project_id,
+      providerId: session.provider_id,
+      ignore,
+      currentMetadata: session.metadata,
+    });
+    if (res.success) {
+      toast.success(
+        ignore
+          ? "IA bloqueada para este contato (não analisa nem responde)"
+          : "IA reativada para este contato"
+      );
+    } else {
+      toast.error("Erro: " + res.error);
+    }
+  };
+
   const [search, setSearch] = useState("");
   const [viewTab, setViewTab] = useState<"todas" | "nao_lidas" | "responder" | "ia" | "arquivadas">("todas");
   const [onlyUnread, setOnlyUnread] = useState(false);
@@ -864,6 +892,15 @@ export default function ConversationList({
                             {reasonCfg.icon} {reasonCfg.shortLabel}
                           </Badge>
                         )}
+                        {isChatAiIgnored(s) && (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] h-4 px-1 shrink-0 font-medium bg-red-500/10 text-red-400 border-red-500/30 gap-0.5"
+                            title="IA Bloqueada: Não analisa nem responde mensagens deste contato"
+                          >
+                            <BotOff className="h-2.5 w-2.5" /> IA Off
+                          </Badge>
+                        )}
                         {channel && channel.label !== "WhatsApp" && (
                           <Badge
                             variant="outline"
@@ -1066,6 +1103,24 @@ export default function ConversationList({
                           </ContextMenuItem>
                         </ContextMenuSubContent>
                       </ContextMenuSub>
+                    )}
+                    <ContextMenuSeparator />
+                    {isChatAiIgnored(s) ? (
+                      <ContextMenuItem
+                        onSelect={() => handleToggleIgnore(s, false)}
+                        className="text-emerald-400 focus:text-emerald-300"
+                      >
+                        <Bot className="h-4 w-4 mr-2 text-emerald-400" />
+                        Reativar IA neste contato
+                      </ContextMenuItem>
+                    ) : (
+                      <ContextMenuItem
+                        onSelect={() => handleToggleIgnore(s, true)}
+                        className="text-red-400 focus:text-red-300"
+                      >
+                        <BotOff className="h-4 w-4 mr-2 text-red-400" />
+                        Bloquear IA (não analisa/responde)
+                      </ContextMenuItem>
                     )}
                   </ContextMenuContent>
                 </ContextMenu>

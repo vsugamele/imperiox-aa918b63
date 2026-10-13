@@ -14,4 +14,23 @@ describe("product link boundaries", () => {
     expect(() => pickBestLink(links, { contexto: "pix" })).not.toThrow();
     expect(normalizeProductLinks(false)).toEqual([]);
   });
+  it("detects root link_checkout and automatically identifies checkout platform URLs", () => {
+    const withRoot = normalizeProductLinks({
+      nome: "O Código dos Cortes Perfeitos",
+      link_checkout: "https://checkout.ticto.app/O854B666F",
+      links: ["https://codigodoscortesperfeitos.vercel.app"],
+    });
+    expect(withRoot).toHaveLength(2);
+    expect(withRoot[0]).toMatchObject({
+      url: "https://checkout.ticto.app/O854B666F",
+      tipo: "checkout",
+      prioridade_ia: "preferido",
+    });
+    expect(withRoot[1].tipo).toBe("outro");
+
+    const withRawStringTicto = normalizeProductLinks({
+      links: ["https://payment.ticto.app/O854B666F"],
+    });
+    expect(withRawStringTicto[0].tipo).toBe("checkout");
+  });
 });

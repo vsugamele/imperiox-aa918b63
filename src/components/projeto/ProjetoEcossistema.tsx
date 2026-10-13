@@ -117,13 +117,24 @@ function inferCluster(p: Record<string, unknown>): ValueTier {
   if (tipo.includes("tripwire") || tipo.includes("isca") || tipo.includes("aquisicao") || nome.includes("grátis") || (preco > 0 && preco <= 97 && (tipo.includes("ebook") || nome.includes("starter")))) {
     return "aquisicao";
   }
-  if (tipo.includes("upsell") || tipo.includes("bump") || tipo.includes("ascensao") || tipo.includes("orderbump")) {
+  if (tipo.includes("upsell") || tipo.includes("bump") || tipo.includes("ascensao") || tipo.includes("orderbump") || nome.includes("finalização express") || nome.includes("finalizacao express")) {
     return "ascensao";
   }
-  if (tipo.includes("premium") || tipo.includes("mentoria") || tipo.includes("high ticket") || tipo.includes("assinatura") || preco >= 997) {
+  if (tipo.includes("premium") || tipo.includes("mentoria") || tipo.includes("high ticket") || tipo.includes("assinatura") || nome.includes("mentoria") || nome.includes("master cuts") || preco >= 997) {
     return "premium";
   }
   return "core";
+}
+
+function normalizeForMatch(str?: string | null): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^(o|a|os|as)\s+/i, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
 }
 
 export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigateTab }: Props) {
@@ -501,12 +512,16 @@ export function ProjetoEcossistema({ projectId, project, onUpdateData, onNavigat
                     };
 
                     // Checkouts
-                    const checkoutLink = prod.links.find((l) => l.tipo === "checkout")?.url;
+                    const checkoutLink = prod.links.find((l) => l.tipo === "checkout")?.url
+                      || (prod.raw && typeof prod.raw === "object" ? ((prod.raw as Record<string, unknown>).link_checkout as string || (prod.raw as Record<string, unknown>).checkout_url as string) : undefined);
 
                     // Linked OpenFlow automations
-                    const prodAutomacoes = automacoes.filter(
-                      (a) => a.produto?.toLowerCase() === prod.nome.toLowerCase()
-                    );
+                    const prodAutomacoes = automacoes.filter((a) => {
+                      if (!a.produto) return false;
+                      const aNorm = normalizeForMatch(a.produto);
+                      const pNorm = normalizeForMatch(prod.nome);
+                      return aNorm === pNorm || aNorm.includes(pNorm) || pNorm.includes(aNorm);
+                    });
 
                     return (
                       <Card
