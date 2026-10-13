@@ -1,16 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   ExternalLink,
   Flame,
   Gauge,
-  HelpCircle,
   LifeBuoy,
   RefreshCw,
   SlidersHorizontal,
@@ -18,29 +14,40 @@ import {
   Sparkles,
   Sun,
   TrendingUp,
+  TrendingDown,
   Zap,
+  CheckCircle2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import { useFunnelLive } from "@/hooks/useFunnelLive";
 import { runFunnelDiagnostics, type FunnelDiagnosticItem } from "@shared/funnel-diagnostics";
-import { REFERENCIA, type StageId, type StageStatus } from "@shared/funnel-live";
+import {
+  FUNNEL_ARCHETYPES,
+  REFERENCIA,
+  type FunnelArchetypeId,
+  type StageId,
+  type StageStatus,
+} from "@shared/funnel-live";
+import { mapBottleneckToProjectTab, type ProjectTabPriority } from "@shared/funnel-sentinel";
 import { FunnelRemediationModal } from "@/components/funis/FunnelRemediationModal";
 import { FunnelWhatIfSimulator } from "@/components/funis/FunnelWhatIfSimulator";
 import { FunnelLeakSentinel } from "@/components/funis/FunnelLeakSentinel";
 import { FunnelSafeScalePanel } from "@/components/funis/FunnelSafeScalePanel";
+import { FunnelCxRadar } from "@/components/funis/FunnelCxRadar";
+import { FunnelImpactMemory } from "@/components/funis/FunnelImpactMemory";
+import { StageDrillDownDrawer } from "@/components/funis/StageDrillDownDrawer";
 
 interface ProjetoFunnelCockpitProps {
   projectId: string;
   projectName?: string;
   onNavigateTab?: (tab: string) => void;
+  onPriorityDetected?: (priority: ProjectTabPriority | null) => void;
   className?: string;
 }
 
@@ -87,24 +94,37 @@ export function ProjetoFunnelCockpit({
   projectId,
   projectName = "Projeto",
   onNavigateTab,
+  onPriorityDetected,
   className,
 }: ProjetoFunnelCockpitProps) {
   const [days, setDays] = useState<number>(7);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [archetype, setArchetype] = useState<FunnelArchetypeId>("low_ticket_vsl");
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [showSimulator, setShowSimulator] = useState<boolean>(false);
   const [activeRemediation, setActiveRemediation] = useState<FunnelDiagnosticItem | null>(null);
+  const [inspectStageId, setInspectStageId] = useState<StageId | null>(null);
 
   const { data: funnel, isLoading, error, refetch, isRefetching } = useFunnelLive({
     projectId,
     produto: selectedProduct,
     days,
+    archetype,
   });
 
   const report = useMemo(() => {
     if (!funnel) return null;
     return runFunnelDiagnostics(funnel);
   }, [funnel]);
+
+  useEffect(() => {
+    if (!onPriorityDetected) return;
+    if (!funnel) {
+      onPriorityDetected(null);
+      return;
+    }
+    onPriorityDetected(mapBottleneckToProjectTab(funnel));
+  }, [funnel, onPriorityDetected]);
 
   if (isLoading) {
     return (
@@ -151,6 +171,8 @@ export function ProjetoFunnelCockpit({
   const extra = stageMap.get("extra");
   const recuperacao = stageMap.get("recuperacao");
 
+  const activeBench = FUNNEL_ARCHETYPES[funnel.archetype ?? archetype] ?? REFERENCIA;
+
   // Conversões chave
   const ctrVal = anuncio?.conversao?.value ?? null;
   const chegadaVal = pagina?.conversao?.value ?? null;
@@ -192,8 +214,25 @@ export function ProjetoFunnelCockpit({
             </span>
           </div>
 
-          {/* Controles de Período, Produto e Ações */}
+          {/* Controles de Período, Arquétipo, Produto e Ações */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Seletor de Arquétipo */}
+            <Select
+              value={archetype}
+              onValueChange={(v) => setArchetype(v as FunnelArchetypeId)}
+            >
+              <SelectTrigger className="h-7 text-[11px] w-[155px] bg-secondary/30 border-border/80" aria-label="Arquétipo do funil">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(FUNNEL_ARCHETYPES).map((arch) => (
+                  <SelectItem key={arch.id} value={arch.id}>
+                    {arch.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Seletor de Período */}
             <div className="flex items-center rounded-md border border-border/80 bg-secondary/30 p-0.5">
               {PERIOD_OPTIONS.map((p) => (
@@ -364,7 +403,7 @@ export function ProjetoFunnelCockpit({
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
               <span>
-                <strong>Funil em Operação Harmoniosa:</strong> Todas as conversões medidas estão saudáveis em relação às referências de mercado.
+                <strong>Funil em Operação Harmoniosa:</strong> Todas as conversões medidas estão saudáveis em relação às referências de mercado ({funnel.archetypeLabel}).
               </span>
             </div>
             <Button
@@ -381,9 +420,9 @@ export function ProjetoFunnelCockpit({
         {/* ───────── BLOCO 2: MINI-MAPA DAS 6 ETAPAS INTERCONECTADAS ───────── */}
         {isExpanded && (
           <div className="space-y-3 pt-1">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2">
               <span className="font-semibold uppercase tracking-wider text-[10px] text-muted-foreground/80 flex items-center gap-1.5">
-                <Gauge className="h-3.5 w-3.5 text-primary" /> Mapa de Conversão Passo a Passo ({days}d)
+                <Gauge className="h-3.5 w-3.5 text-primary" /> Mapa de Conversão Passo a Passo ({days}d · clique em uma etapa para inspecionar)
               </span>
               <span className="text-[11px]">
                 Gasto: <strong className="text-foreground">{fmtBRL(funnel.totais.gasto)}</strong> ·
@@ -412,8 +451,11 @@ export function ProjetoFunnelCockpit({
                 conversion={{
                   label: "CTR",
                   value: ctrVal,
-                  reference: REFERENCIA.ctr,
+                  reference: activeBench.ctr,
+                  deltaPp: anuncio?.conversao?.deltaPp ?? null,
+                  trend: anuncio?.conversao?.trend,
                 }}
+                onInspect={() => setInspectStageId("anuncio")}
                 onNavigate={() => onNavigateTab?.("midia")}
               />
 
@@ -435,9 +477,12 @@ export function ProjetoFunnelCockpit({
                 conversion={{
                   label: "Chegada",
                   value: chegadaVal,
-                  reference: REFERENCIA.chegada,
+                  reference: activeBench.chegada,
                   hint: "Cliques ➔ Visitas",
+                  deltaPp: pagina?.conversao?.deltaPp ?? null,
+                  trend: pagina?.conversao?.trend,
                 }}
+                onInspect={() => setInspectStageId("pagina")}
                 onNavigate={() => onNavigateTab?.("sites")}
               />
 
@@ -461,9 +506,12 @@ export function ProjetoFunnelCockpit({
                 conversion={{
                   label: "Início",
                   value: inicioVal,
-                  reference: REFERENCIA.inicio_checkout,
+                  reference: activeBench.inicio_checkout,
                   hint: "Visitas ➔ Checkout",
+                  deltaPp: checkout?.conversao?.deltaPp ?? null,
+                  trend: checkout?.conversao?.trend,
                 }}
+                onInspect={() => setInspectStageId("checkout")}
                 onNavigate={() => onNavigateTab?.("identidade")}
               />
 
@@ -485,9 +533,12 @@ export function ProjetoFunnelCockpit({
                 conversion={{
                   label: "Aprovação",
                   value: aprovacaoVal,
-                  reference: REFERENCIA.aprovacao,
+                  reference: activeBench.aprovacao,
                   hint: "Pedidos ➔ Pagos",
+                  deltaPp: venda?.conversao?.deltaPp ?? null,
+                  trend: venda?.conversao?.trend,
                 }}
+                onInspect={() => setInspectStageId("venda")}
                 onNavigate={() => onNavigateTab?.("financas")}
               />
 
@@ -511,9 +562,12 @@ export function ProjetoFunnelCockpit({
                 conversion={{
                   label: "Aceite",
                   value: extraVal,
-                  reference: REFERENCIA.extra,
+                  reference: activeBench.extra,
                   hint: "Extras / Vendas",
+                  deltaPp: extra?.conversao?.deltaPp ?? null,
+                  trend: extra?.conversao?.trend,
                 }}
+                onInspect={() => setInspectStageId("extra")}
                 onNavigate={() => onNavigateTab?.("ecossistema")}
               />
 
@@ -535,19 +589,36 @@ export function ProjetoFunnelCockpit({
                 conversion={{
                   label: "Recup.",
                   value: recupVal,
-                  reference: REFERENCIA.recuperacao,
+                  reference: activeBench.recuperacao,
                   hint: "Recup. / Régua",
+                  deltaPp: recuperacao?.conversao?.deltaPp ?? null,
+                  trend: recuperacao?.conversao?.trend,
                 }}
+                onInspect={() => setInspectStageId("recuperacao")}
                 onNavigate={() => onNavigateTab?.("comando")}
               />
             </div>
           </div>
         )}
 
+        {/* ───────── BLOCO 2.5: RADAR DE CX, REEMBOLSOS & FRICÇÃO CARTÃO ➔ PIX ───────── */}
+        <FunnelCxRadar
+          funnel={funnel}
+          projectId={projectId}
+          projectName={projectName}
+        />
+
         {/* ───────── BLOCO 3: MOTOR DE ESCALA SEGURA (PROTOCOLO DE FUNIL VERDE) ───────── */}
         <FunnelSafeScalePanel
           funnel={funnel}
           days={days}
+          projectId={projectId}
+          projectName={projectName}
+        />
+
+        {/* ───────── BLOCO 3.5: MEMÓRIA DE IMPACTO (ANTES VS. DEPOIS) ───────── */}
+        <FunnelImpactMemory
+          funnel={funnel}
           projectId={projectId}
           projectName={projectName}
         />
@@ -573,6 +644,20 @@ export function ProjetoFunnelCockpit({
           </div>
         )}
       </CardContent>
+
+      {/* Gaveta Lateral de Inspeção por Etapa */}
+      <StageDrillDownDrawer
+        open={Boolean(inspectStageId)}
+        onOpenChange={(open) => {
+          if (!open) setInspectStageId(null);
+        }}
+        stageId={inspectStageId}
+        funnel={funnel}
+        projectId={projectId}
+        projectName={projectName}
+        onOpenRemediation={(item) => setActiveRemediation(item)}
+        onNavigateTab={onNavigateTab}
+      />
 
       {/* Modal de Remediação Autônoma com Playbooks de 1 Clique */}
       <FunnelRemediationModal
@@ -606,7 +691,10 @@ interface StageNodeCardProps {
     value: number | null;
     reference: number;
     hint?: string;
+    deltaPp?: number | null;
+    trend?: "up" | "down" | "flat";
   } | null;
+  onInspect?: () => void;
   onNavigate?: () => void;
 }
 
@@ -619,6 +707,7 @@ function StageNodeCard({
   secondaryMetric,
   tertiaryMetric,
   conversion,
+  onInspect,
   onNavigate,
 }: StageNodeCardProps) {
   const meta = STAGE_ICONS[stageId];
@@ -627,15 +716,14 @@ function StageNodeCard({
 
   return (
     <div
-      onClick={onNavigate}
+      onClick={onInspect ?? onNavigate}
       className={cn(
-        "rounded-lg border p-2.5 flex flex-col justify-between transition-all bg-card/60 hover:bg-secondary/30 select-none group",
+        "rounded-lg border p-2.5 flex flex-col justify-between transition-all bg-card/60 hover:bg-secondary/30 select-none group cursor-pointer",
         status === "gargalo"
           ? "border-rose-500/40 shadow-xs ring-1 ring-rose-500/20"
           : status === "atencao"
           ? "border-amber-500/40"
-          : "border-border/60 hover:border-border",
-        onNavigate && "cursor-pointer"
+          : "border-border/60 hover:border-border"
       )}
     >
       {/* Top Header do Card */}
@@ -680,20 +768,38 @@ function StageNodeCard({
             <span className="text-muted-foreground/90 font-medium">
               {conversion.label}
             </span>
-            <span
-              className={cn(
-                "font-mono font-semibold",
-                conversion.value === null
-                  ? "text-muted-foreground"
-                  : conversion.value >= conversion.reference
-                  ? "text-emerald-400"
-                  : conversion.value >= conversion.reference * 0.5
-                  ? "text-amber-400"
-                  : "text-rose-400"
+            <div className="flex items-center gap-1">
+              <span
+                className={cn(
+                  "font-mono font-semibold",
+                  conversion.value === null
+                    ? "text-muted-foreground"
+                    : conversion.value >= conversion.reference
+                    ? "text-emerald-400"
+                    : conversion.value >= conversion.reference * 0.5
+                    ? "text-amber-400"
+                    : "text-rose-400"
+                )}
+              >
+                {conversion.value !== null ? `${conversion.value}%` : "—"}
+              </span>
+              {conversion.deltaPp !== null && conversion.deltaPp !== undefined && (
+                <span
+                  className={cn(
+                    "inline-flex items-center font-mono text-[9px] font-semibold",
+                    conversion.trend === "up"
+                      ? "text-emerald-400"
+                      : conversion.trend === "down"
+                      ? "text-rose-400"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {conversion.trend === "up" && <TrendingUp className="h-2.5 w-2.5" />}
+                  {conversion.trend === "down" && <TrendingDown className="h-2.5 w-2.5" />}
+                  {conversion.deltaPp >= 0 ? `+${conversion.deltaPp}` : conversion.deltaPp}pp
+                </span>
               )}
-            >
-              {conversion.value !== null ? `${conversion.value}%` : "—"}
-            </span>
+            </div>
           </div>
           <div className="flex items-center justify-between text-[9px] text-muted-foreground/60 mt-0.5">
             <span>Ref: {conversion.reference}%</span>
@@ -704,3 +810,4 @@ function StageNodeCard({
     </div>
   );
 }
+

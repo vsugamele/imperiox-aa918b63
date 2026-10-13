@@ -567,3 +567,227 @@ export function calculateSafeScaleProtocol(
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM 4 (FASE 3): MEMÓRIA DE IMPACTO ("ANTES VS. DEPOIS" DAS INTERVENÇÕES)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FunnelInterventionSnapshot {
+  id: string;
+  projectId: string;
+  title: string;
+  stageId: StageId;
+  actionType: ActionType;
+  createdAt: string;
+  baseline: {
+    score: number;
+    ctr: number | null;
+    chegada: number | null;
+    inicioCheckout: number | null;
+    aprovacao: number | null;
+    roas: number | null;
+    cpa: number | null;
+    bruto: number;
+  };
+}
+
+export interface FunnelInterventionAttribution {
+  snapshot: FunnelInterventionSnapshot;
+  currentScore: number;
+  scoreDelta: number;
+  targetMetricLabel: string;
+  beforeVal: number | null;
+  afterVal: number | null;
+  deltaVal: number | null;
+  verdict: "positivo" | "neutro" | "negativo";
+  summaryText: string;
+}
+
+export function createInterventionSnapshot(
+  funnel: FunnelLive,
+  params: {
+    projectId: string;
+    title: string;
+    stageId: StageId;
+    actionType: ActionType;
+    createdAt?: string;
+  }
+): FunnelInterventionSnapshot {
+  const diag = runFunnelDiagnostics(funnel);
+  const stageMap = new Map(funnel.etapas.map((e) => [e.id, e]));
+
+  return {
+    id: `intv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    projectId: params.projectId,
+    title: params.title,
+    stageId: params.stageId,
+    actionType: params.actionType,
+    createdAt: params.createdAt ?? new Date().toISOString(),
+    baseline: {
+      score: diag.score,
+      ctr: stageMap.get("anuncio")?.conversao?.value ?? null,
+      chegada: stageMap.get("pagina")?.conversao?.value ?? null,
+      inicioCheckout: stageMap.get("checkout")?.conversao?.value ?? null,
+      aprovacao: stageMap.get("venda")?.conversao?.value ?? null,
+      roas: funnel.totais.roas,
+      cpa: funnel.totais.cpa,
+      bruto: funnel.totais.bruto,
+    },
+  };
+}
+
+export function evaluateInterventionImpact(
+  snapshot: FunnelInterventionSnapshot,
+  currentFunnel: FunnelLive
+): FunnelInterventionAttribution {
+  const currentDiag = runFunnelDiagnostics(currentFunnel);
+  const stageMap = new Map(currentFunnel.etapas.map((e) => [e.id, e]));
+  const scoreDelta = currentDiag.score - snapshot.baseline.score;
+
+  let targetMetricLabel = "Score de Fluidez";
+  let beforeVal: number | null = snapshot.baseline.score;
+  let afterVal: number | null = currentDiag.score;
+
+  if (snapshot.stageId === "anuncio" || snapshot.actionType === "creatives") {
+    targetMetricLabel = "CTR do Anúncio";
+    beforeVal = snapshot.baseline.ctr;
+    afterVal = stageMap.get("anuncio")?.conversao?.value ?? null;
+  } else if (snapshot.stageId === "pagina" || snapshot.actionType === "pagespeed") {
+    targetMetricLabel = "Taxa de Chegada";
+    beforeVal = snapshot.baseline.chegada;
+    afterVal = stageMap.get("pagina")?.conversao?.value ?? null;
+  } else if (snapshot.stageId === "checkout" || snapshot.actionType === "copy_vsl") {
+    targetMetricLabel = "Início de Checkout";
+    beforeVal = snapshot.baseline.inicioCheckout;
+    afterVal = stageMap.get("checkout")?.conversao?.value ?? null;
+  } else if (snapshot.stageId === "venda" || snapshot.actionType === "checkout_friction") {
+    targetMetricLabel = "Taxa de Aprovação";
+    beforeVal = snapshot.baseline.aprovacao;
+    afterVal = stageMap.get("venda")?.conversao?.value ?? null;
+  } else if (snapshot.actionType === "scale") {
+    targetMetricLabel = "ROAS";
+    beforeVal = snapshot.baseline.roas;
+    afterVal = currentFunnel.totais.roas;
+  }
+
+  const deltaVal =
+    beforeVal !== null && afterVal !== null ? round(afterVal - beforeVal, 1) : null;
+
+  const verdict: "positivo" | "neutro" | "negativo" =
+    (deltaVal !== null && deltaVal >= 1) || scoreDelta >= 3
+      ? "positivo"
+      : (deltaVal !== null && deltaVal <= -1) || scoreDelta <= -3
+      ? "negativo"
+      : "neutro";
+
+  const unit = targetMetricLabel === "ROAS" ? "x" : targetMetricLabel === "Score de Fluidez" ? "pts" : "%";
+  const summaryText =
+    beforeVal !== null && afterVal !== null
+      ? `${targetMetricLabel}: ${beforeVal}${unit} ➔ ${afterVal}${unit} (${deltaVal !== null && deltaVal > 0 ? `+${deltaVal}` : deltaVal}${unit})`
+      : `Score de Fluidez: ${snapshot.baseline.score} ➔ ${currentDiag.score} (${scoreDelta >= 0 ? `+${scoreDelta}` : scoreDelta} pts)`;
+
+  return {
+    snapshot,
+    currentScore: currentDiag.score,
+    scoreDelta,
+    targetMetricLabel,
+    beforeVal,
+    afterVal,
+    deltaVal,
+    verdict,
+    summaryText,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM 5 (FASE 3): MAPA DE PRIORIDADE VIVA PARA AS 23 ABAS DO PROJETO
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProjectTabPriority {
+  pillarId: "comando" | "inteligencia" | "performance" | "producao" | "infra";
+  tabValue: string;
+  tabLabel: string;
+  severity: "critico" | "alerta" | "escala";
+  reason: string;
+}
+
+export function mapBottleneckToProjectTab(funnel: FunnelLive): ProjectTabPriority | null {
+  const diag = runFunnelDiagnostics(funnel);
+  const sentinel = scanFunnelAnomalies(funnel);
+
+  const primary = diag.primaryBottleneck;
+  const topAnomaly = sentinel.activeAnomalies[0];
+
+  if (topAnomaly?.type === "queda_chegada_pagespeed" || primary?.action.type === "pagespeed") {
+    return {
+      pillarId: "infra",
+      tabValue: "sites",
+      tabLabel: "Sites",
+      severity: "critico",
+      reason: "PageSpeed / Chegada abaixo da meta na Landing Page",
+    };
+  }
+
+  if (topAnomaly?.type === "surto_cpa_fatiga" || primary?.action.type === "creatives" || funnel.gargalo === "anuncio") {
+    return {
+      pillarId: "producao",
+      tabValue: "midia",
+      tabLabel: "Mídia",
+      severity: "critico",
+      reason: "Fadiga de Criativo / CTR ou CPA exigindo novos Ganchos P1–P5",
+    };
+  }
+
+  if (primary?.action.type === "copy_vsl" || funnel.gargalo === "checkout") {
+    return {
+      pillarId: "comando",
+      tabValue: "raiox",
+      tabLabel: "Raio-X & Funil",
+      severity: "alerta",
+      reason: "Retenção da VSL / Início de Checkout abaixo da referência",
+    };
+  }
+
+  if (primary?.action.type === "checkout_friction" || funnel.gargalo === "venda") {
+    return {
+      pillarId: "comando",
+      tabValue: "identidade",
+      tabLabel: "Setup, Pixels & Links",
+      severity: "critico",
+      reason: "Atrito no Checkout / Recusa de Pagamento",
+    };
+  }
+
+  if (primary?.action.type === "bumps" || funnel.gargalo === "extra") {
+    return {
+      pillarId: "comando",
+      tabValue: "ecossistema",
+      tabLabel: "Ecossistema & Produtos",
+      severity: "alerta",
+      reason: "Oportunidade de elevar LTV em Order Bumps / Upsell",
+    };
+  }
+
+  if (primary?.action.type === "recovery_wa" || funnel.gargalo === "recuperacao") {
+    return {
+      pillarId: "comando",
+      tabValue: "comando",
+      tabLabel: "Comando",
+      severity: "alerta",
+      reason: "Recuperação de WhatsApp abaixo de 20%",
+    };
+  }
+
+  if (diag.score >= 80 && (funnel.totais.roas ?? 0) >= 1.5) {
+    return {
+      pillarId: "performance",
+      tabValue: "financas",
+      tabLabel: "Finanças",
+      severity: "escala",
+      reason: "Janela de Escala Ativa (Funil Verde)",
+    };
+  }
+
+  return null;
+}
+
+

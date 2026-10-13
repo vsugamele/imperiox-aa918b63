@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildFunnelLive } from "@shared/funnel-live";
+import { buildFunnelLive, inferFunnelArchetype } from "@shared/funnel-live";
 import {
   scanFunnelAnomalies,
   buildKanbanCardFromDiagnostic,
   generateAntiFatigueHooks,
   calculateSafeScaleProtocol,
+  createInterventionSnapshot,
+  evaluateInterventionImpact,
+  mapBottleneckToProjectTab,
 } from "@shared/funnel-sentinel";
 import { evaluateProjectExecutiveHealth } from "@/components/projeto/SemaforoProjetos";
 import type { Tables } from "@/integrations/supabase/types";
@@ -193,4 +196,94 @@ describe("Sentinela de Vazamento Proativo & Motores de Execução (funnel-sentin
     expect(lockedProtocol.scaleTier).toBe("bloqueado");
     expect(lockedProtocol.blockReason).toBeDefined();
   });
+
+  it("Fase 3.1: infere arquétipo corretamente e calcula tendência temporal (deltaPp) vs. período anterior", () => {
+    expect(inferFunnelArchetype("Nutra / Suplemento", "LinfaFlow")).toBe("dtc_nutra_pdp");
+    expect(inferFunnelArchetype("Mentoria High Ticket", "Mentoria Elite")).toBe("high_ticket");
+    expect(inferFunnelArchetype("Infoproduto", "Protocolo VSL")).toBe("low_ticket_vsl");
+
+    const funnel = buildFunnelLive({
+      archetype: "dtc_nutra_pdp",
+      ads: [{ spend: 200, impressoes: 10000, link_clicks: 300 }], // CTR 3.0%
+      pages: [{ url: "https://nutra.com", values: { sessoes_pagina: 240 } }], // Chegada 80%
+      sales: [{ status: "aprovado", valor: 197, tipo_venda: "principal" }],
+      prevAds: [{ spend: 200, impressoes: 10000, link_clicks: 150 }], // Prev CTR 1.5%
+      prevPages: [{ url: "https://nutra.com", values: { sessoes_pagina: 90 } }], // Prev Chegada 60%
+      prevSales: [{ status: "aprovado", valor: 97, tipo_venda: "principal" }],
+    });
+
+    expect(funnel.archetype).toBe("dtc_nutra_pdp");
+    const anuncioStage = funnel.etapas.find((e) => e.id === "anuncio");
+    expect(anuncioStage?.conversao?.value).toBe(3);
+    expect(anuncioStage?.conversao?.prevValue).toBe(1.5);
+    expect(anuncioStage?.conversao?.deltaPp).toBe(1.5);
+    expect(anuncioStage?.conversao?.trend).toBe("up");
+    expect(funnel.totais.brutoDeltaPct).toBeGreaterThan(0);
+  });
+
+  it("Fase 3.2: calcula métricas do Radar de CX (cartão recusado recuperável via PIX e reembolsos)", () => {
+    const funnel = buildFunnelLive({
+      ads: [{ spend: 100 }],
+      pages: [],
+      sales: [
+        { status: "aprovado", valor: 150, tipo_venda: "principal" },
+        { status: "aprovado", valor: 150, tipo_venda: "principal" },
+        { status: "recusado", valor: 150, tipo_venda: "principal" },
+        { status: "negado", valor: 150, tipo_venda: "principal" },
+        { status: "reembolsado", valor: 150, tipo_venda: "principal" },
+      ],
+    });
+
+    expect(funnel.cx.recusadasCartaoCount).toBe(2);
+    expect(funnel.cx.valorRecusadoRecuperavel).toBe(300);
+    expect(funnel.cx.reembolsadasCount).toBe(1);
+    expect(funnel.cx.valorReembolsado).toBe(150);
+    expect(funnel.cx.taxaReembolsoPct).toBeGreaterThan(10);
+    expect(funnel.cx.cxStatus).toBe("critico");
+  });
+
+  it("Fase 3.4: registra snapshot de intervenção e calcula evolução Antes vs. Depois", () => {
+    const beforeFunnel = buildFunnelLive({
+      ads: [{ spend: 500, link_clicks: 200 }],
+      pages: [{ url: "https://lp.com", values: { sessoes_pagina: 80 } }], // 40% chegada
+      sales: [{ status: "aprovado", valor: 250, tipo_venda: "principal" }], // ROAS 0.5x
+    });
+
+    const snapshot = createInterventionSnapshot(beforeFunnel, {
+      projectId: "proj_1",
+      stageId: "pagina",
+      actionType: "pagespeed",
+      title: "Otimização de WebP + Defer GTM",
+    });
+
+    const afterFunnel = buildFunnelLive({
+      ads: [{ spend: 500, link_clicks: 200 }],
+      pages: [{ url: "https://lp.com", values: { sessoes_pagina: 160 } }], // 80% chegada (+40pp)
+      sales: [
+        { status: "aprovado", valor: 500, tipo_venda: "principal" },
+        { status: "aprovado", valor: 500, tipo_venda: "principal" },
+      ], // ROAS 2.0x (+1.5x)
+    });
+
+    const evaluation = evaluateInterventionImpact(snapshot, afterFunnel);
+    expect(evaluation.verdict).toBe("positivo");
+    expect(evaluation.deltaVal).toBe(40);
+    expect(evaluation.beforeVal).toBe(40);
+    expect(evaluation.afterVal).toBe(80);
+  });
+
+  it("Fase 3.5: mapeia o gargalo ativo para o Pilar e Aba prioritária do projeto", () => {
+    const leakyPageFunnel = buildFunnelLive({
+      ads: [{ spend: 300, impressoes: 15000, link_clicks: 300 }],
+      pages: [{ url: "https://lp.com", values: { sessoes_pagina: 90 } }], // chegada 30% -> gargalo em pagina
+      sales: [],
+    });
+
+    const priority = mapBottleneckToProjectTab(leakyPageFunnel);
+    expect(priority).not.toBeNull();
+    expect(priority?.pillarId).toBe("infra");
+    expect(priority?.tabValue).toBe("sites");
+    expect(priority?.severity).toBe("critico");
+  });
 });
+

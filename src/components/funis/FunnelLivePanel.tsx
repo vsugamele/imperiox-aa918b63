@@ -1,19 +1,32 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, HelpCircle, MousePointerClick, Radar, ShoppingCart, Sparkles, Target, MessageCircle, Megaphone } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Gauge, HelpCircle, MousePointerClick, Radar, ShoppingCart, Sparkles, Target, MessageCircle, Megaphone, TrendingUp, TrendingDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
-import { REFERENCIA, type Metric, type Stage, type StageId, type StageStatus } from "@shared/funnel-live";
+import {
+  FUNNEL_ARCHETYPES,
+  inferFunnelArchetype,
+  type FunnelArchetypeId,
+  type Metric,
+  type Stage,
+  type StageId,
+  type StageStatus,
+} from "@shared/funnel-live";
 import { useFunnelLive } from "@/hooks/useFunnelLive";
 import { PageSplitsSection, type PageSplitPresetDraft } from "@/components/funis/PageSplitsSection";
 import { FunnelCrossStageDiagnostics } from "@/components/funis/FunnelCrossStageDiagnostics";
 import { FunnelWhatIfSimulator } from "@/components/funis/FunnelWhatIfSimulator";
 import { FunnelLeakSentinel } from "@/components/funis/FunnelLeakSentinel";
 import { FunnelSafeScalePanel } from "@/components/funis/FunnelSafeScalePanel";
+import { FunnelCxRadar } from "@/components/funis/FunnelCxRadar";
+import { FunnelImpactMemory } from "@/components/funis/FunnelImpactMemory";
+import { StageDrillDownDrawer } from "@/components/funis/StageDrillDownDrawer";
+import { FunnelRemediationModal } from "@/components/funis/FunnelRemediationModal";
+import type { FunnelDiagnosticItem } from "@shared/funnel-diagnostics";
 
-interface ProjectOption { id: string; name: string }
+interface ProjectOption { id: string; name: string; category?: string | null }
 
 const STAGE_ICON: Record<StageId, typeof Megaphone> = { anuncio: Megaphone, pagina: MousePointerClick, checkout: ShoppingCart, venda: Target, extra: Sparkles, recuperacao: MessageCircle };
 
@@ -45,7 +58,10 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
   });
   const [produto, setProduto] = useState<string | null>(null);
   const [days, setDays] = useState(7);
+  const [archetype, setArchetype] = useState<FunnelArchetypeId>("low_ticket_vsl");
   const [splitPreset, setSplitPreset] = useState<PageSplitPresetDraft | null>(null);
+  const [inspectStageId, setInspectStageId] = useState<StageId | null>(null);
+  const [activeRemediation, setActiveRemediation] = useState<FunnelDiagnosticItem | null>(null);
 
   useEffect(() => {
     if (!projectId && projects.length) {
@@ -54,6 +70,10 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
       const fallback = projects.find((p) => p.id === "jp_freitas")?.id ?? projects[0].id;
       const chosen = matched ? matched.id : fallback;
       setProjectId(chosen);
+      const proj = projects.find((p) => p.id === chosen);
+      if (proj) {
+        setArchetype(inferFunnelArchetype(proj.category, proj.name));
+      }
       if (typeof window !== "undefined" && chosen) {
         localStorage.setItem("imphq_last_selected_project", chosen);
       }
@@ -63,12 +83,18 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
   const handleSelectProject = (v: string) => {
     setProjectId(v);
     setProduto(null);
+    const proj = projects.find((p) => p.id === v);
+    if (proj) {
+      setArchetype(inferFunnelArchetype(proj.category, proj.name));
+    }
     if (typeof window !== "undefined") {
       localStorage.setItem("imphq_last_selected_project", v);
     }
   };
 
-  const { data, isLoading, error } = useFunnelLive({ projectId, produto, days });
+  const { data, isLoading, error } = useFunnelLive({ projectId, produto, days, archetype });
+  const currentProjectName = projects.find((p) => p.id === projectId)?.name;
+  const activeBenchmark = FUNNEL_ARCHETYPES[data?.archetype ?? archetype] ?? FUNNEL_ARCHETYPES.low_ticket_vsl;
 
   return (
     <section className="space-y-5" aria-label="Painel ao vivo do funil">
@@ -83,10 +109,21 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
         <div className="space-y-1">
           <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Produto</div>
           <Select value={produto ?? "todos"} onValueChange={(v) => setProduto(v === "todos" ? null : v)}>
-            <SelectTrigger className="h-9 w-64 border-border/80 bg-card/60" aria-label="Produto"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-56 border-border/80 bg-card/60" aria-label="Produto"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os produtos</SelectItem>
               {(data?.produtos ?? []).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Arquétipo (Benchmark)</div>
+          <Select value={archetype} onValueChange={(v) => setArchetype(v as FunnelArchetypeId)}>
+            <SelectTrigger className="h-9 w-56 border-border/80 bg-card/60" aria-label="Arquétipo"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.values(FUNNEL_ARCHETYPES).map((arch) => (
+                <SelectItem key={arch.id} value={arch.id}>{arch.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -140,10 +177,20 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" aria-label="Resultado do período">
             <Kpi label="Gasto" value={data.totais.gasto === null ? "—" : brl(data.totais.gasto)} hint={data.adsDoProjetoInteiro ? "projeto inteiro" : undefined} />
-            <Kpi label="Faturamento" value={brl(data.totais.bruto)} />
+            <Kpi
+              label="Faturamento"
+              value={brl(data.totais.bruto)}
+              delta={data.totais.brutoDeltaPct !== null && data.totais.brutoDeltaPct !== undefined ? `${data.totais.brutoDeltaPct >= 0 ? "+" : ""}${data.totais.brutoDeltaPct}% vs. ant.` : undefined}
+              deltaPositive={(data.totais.brutoDeltaPct ?? 0) >= 0}
+            />
             <Kpi label="Líquido" value={brl(data.totais.liquido)} />
             <Kpi label="Saldo" value={data.totais.saldo === null ? "—" : brl(data.totais.saldo)} tone={data.totais.saldo === null ? undefined : data.totais.saldo >= 0 ? "good" : "bad"} />
-            <Kpi label="ROAS" value={data.totais.roas === null ? "—" : `${data.totais.roas.toLocaleString("pt-BR")}x`} />
+            <Kpi
+              label="ROAS"
+              value={data.totais.roas === null ? "—" : `${data.totais.roas.toLocaleString("pt-BR")}x`}
+              delta={data.totais.roasDelta !== null && data.totais.roasDelta !== undefined ? `${data.totais.roasDelta >= 0 ? "+" : ""}${data.totais.roasDelta}x vs. ant.` : undefined}
+              deltaPositive={(data.totais.roasDelta ?? 0) >= 0}
+            />
             <Kpi label="CPA" value={data.totais.cpa === null ? "—" : brl(data.totais.cpa)} />
           </div>
 
@@ -151,7 +198,7 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
               className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground" role="status">
               <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-              <span>Gargalo agora: <strong>{data.etapas.find((e) => e.id === data.gargalo)?.label}</strong>. É a etapa mais abaixo da referência; é onde uma melhora rende mais.</span>
+              <span>Gargalo agora: <strong>{data.etapas.find((e) => e.id === data.gargalo)?.label}</strong>. É a etapa mais abaixo da referência ({data.archetypeLabel}); clique em qualquer etapa para inspecionar em detalhe.</span>
             </motion.div>
           )}
 
@@ -159,7 +206,7 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             {data.etapas.map((e, i) => (
               <li key={e.id} className="flex flex-col items-stretch gap-2 xl:flex-1 xl:flex-row xl:items-center">
                 {i > 0 && <Connector stage={e} />}
-                <StageCard stage={e} index={i} isGargalo={data.gargalo === e.id} />
+                <StageCard stage={e} index={i} isGargalo={data.gargalo === e.id} onClick={() => setInspectStageId(e.id)} />
               </li>
             ))}
           </ol>
@@ -168,7 +215,14 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
           <FunnelLeakSentinel
             funnel={data}
             projectId={projectId ?? undefined}
-            projectName={projects.find((p) => p.id === projectId)?.name}
+            projectName={currentProjectName}
+          />
+
+          {/* Radar de CX, Fricção Cartão ➔ PIX, Reembolsos & Blindagem Pós-Compra */}
+          <FunnelCxRadar
+            funnel={data}
+            projectId={projectId}
+            projectName={currentProjectName}
           />
 
           {/* Motor de Escala Segura: protocolo prescritivo de verba quando o funil atinge saúde verde */}
@@ -176,7 +230,7 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             funnel={data}
             days={days}
             projectId={projectId}
-            projectName={projects.find((p) => p.id === projectId)?.name}
+            projectName={currentProjectName}
           />
 
           {/* Diagnóstico Cruzado Inteligente: vazamentos entre etapas, pagespeed, VSL, checkout e recuperação */}
@@ -185,6 +239,13 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             projectId={projectId}
             controlUrl={data.paginas[0]?.url ?? null}
             onLaunchAbTest={(preset) => setSplitPreset(preset)}
+          />
+
+          {/* Memória de Impacto (Antes vs. Depois das Intervenções) */}
+          <FunnelImpactMemory
+            funnel={data}
+            projectId={projectId}
+            projectName={currentProjectName}
           />
 
           {/* Simulador de Alavancagem Financeira What-If: projeção de faturamento ao destravar gargalos */}
@@ -201,7 +262,7 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
               recommendation: "",
               action: { type: "copy_vsl", label: "", hint: "" },
             } : null}
-            projectName={projects.find((p) => p.id === projectId)?.name}
+            projectName={currentProjectName}
           />
 
           {projectId && (
@@ -225,19 +286,51 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
 
           <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
             <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Referências usadas para apontar o gargalo (infoproduto low ticket): CTR {REFERENCIA.ctr}%, chegada na página {REFERENCIA.chegada}%, início de checkout {REFERENCIA.inicio_checkout}%,
-            aprovação {REFERENCIA.aprovacao}%, bump/upsell {REFERENCIA.extra}%, recuperação {REFERENCIA.recuperacao}%. Gasto e cliques vêm do Zernio; vendas da plataforma; páginas do rastreador.
+            Referências usadas para apontar o gargalo ({data.archetypeLabel}): CTR {activeBenchmark.ctr}%, chegada na página {activeBenchmark.chegada}%, início de checkout {activeBenchmark.inicio_checkout}%,
+            aprovação {activeBenchmark.aprovacao}%, bump/upsell {activeBenchmark.extra}%, recuperação {activeBenchmark.recuperacao}%. Gasto e cliques vêm do Zernio; vendas da plataforma; páginas do rastreador.
           </p>
+
+          <StageDrillDownDrawer
+            open={Boolean(inspectStageId)}
+            onOpenChange={(open) => {
+              if (!open) setInspectStageId(null);
+            }}
+            stageId={inspectStageId}
+            funnel={data}
+            projectId={projectId}
+            projectName={currentProjectName}
+            onOpenRemediation={(item) => setActiveRemediation(item)}
+            onLaunchAbTest={(preset) => setSplitPreset(preset)}
+          />
+
+          <FunnelRemediationModal
+            open={Boolean(activeRemediation)}
+            onOpenChange={(open) => {
+              if (!open) setActiveRemediation(null);
+            }}
+            diagnostic={activeRemediation}
+            projectName={currentProjectName}
+            projectId={projectId}
+            controlUrl={data.paginas[0]?.url ?? null}
+            onLaunchAbTest={(preset) => setSplitPreset(preset)}
+          />
         </>
       )}
     </section>
   );
 }
 
-function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "good" | "bad" }) {
+function Kpi({ label, value, hint, tone, delta, deltaPositive }: { label: string; value: string; hint?: string; tone?: "good" | "bad"; delta?: string; deltaPositive?: boolean }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
-      <div className="text-[11px] uppercase text-muted-foreground">{label}{hint && <span className="normal-case"> · {hint}</span>}</div>
+      <div className="flex items-center justify-between gap-1 text-[11px] uppercase text-muted-foreground">
+        <span>{label}{hint && <span className="normal-case"> · {hint}</span>}</span>
+        {delta && (
+          <span className={cn("font-mono text-[10px] font-semibold normal-case", deltaPositive ? "text-emerald-400" : "text-rose-400")}>
+            {delta}
+          </span>
+        )}
+      </div>
       <div className={cn("font-mono text-lg font-semibold", tone === "good" ? "text-success" : tone === "bad" ? "text-destructive" : "text-foreground")}>{value}</div>
     </div>
   );
@@ -262,12 +355,23 @@ function Connector({ stage }: { stage: Stage }) {
   );
 }
 
-function StageCard({ stage, index, isGargalo }: { stage: Stage; index: number; isGargalo: boolean }) {
+function StageCard({ stage, index, isGargalo, onClick }: { stage: Stage; index: number; isGargalo: boolean; onClick?: () => void }) {
   const Icon = STAGE_ICON[stage.id];
   const style = STATUS_STYLE[stage.status];
+  const deltaPp = stage.conversao?.deltaPp ?? null;
+  const trend = stage.conversao?.trend;
   return (
-    <motion.article initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
-      className={cn("flex-1 space-y-2 rounded-lg border-2 bg-card p-3", isGargalo ? "border-destructive shadow-[0_0_0_3px_hsl(var(--destructive)/0.15)]" : style.ring)} aria-label={`Etapa ${stage.label}`}>
+    <motion.article
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      onClick={onClick}
+      className={cn(
+        "flex-1 space-y-2 rounded-lg border-2 bg-card p-3 transition-colors hover:bg-secondary/20 cursor-pointer",
+        isGargalo ? "border-destructive shadow-[0_0_0_3px_hsl(var(--destructive)/0.15)]" : style.ring
+      )}
+      aria-label={`Etapa ${stage.label}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Icon className="h-4 w-4 text-primary" /> {stage.label}</span>
         <span className={cn("rounded-full border px-1.5 py-px text-[10px] uppercase", isGargalo ? STATUS_STYLE.gargalo.pill : style.pill)}>
@@ -283,9 +387,27 @@ function StageCard({ stage, index, isGargalo }: { stage: Stage; index: number; i
         ))}
       </dl>
       {stage.conversao && (
-        <p className="text-[11px] text-muted-foreground">{stage.conversao.label}: <span className="font-mono text-foreground">{stage.conversao.value === null ? "—" : `${stage.conversao.value}%`}</span> · ref. {stage.conversao.referencia}%</p>
+        <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+          <span>
+            {stage.conversao.label}: <span className="font-mono text-foreground">{stage.conversao.value === null ? "—" : `${stage.conversao.value}%`}</span> · ref. {stage.conversao.referencia}%
+          </span>
+          {deltaPp !== null && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-0.5 font-mono text-[10px] font-semibold",
+                trend === "up" ? "text-emerald-400" : trend === "down" ? "text-rose-400" : "text-muted-foreground"
+              )}
+              title={`Variação vs. período anterior (${stage.conversao.prevValue ?? "—"}%)`}
+            >
+              {trend === "up" && <TrendingUp className="h-2.5 w-2.5" />}
+              {trend === "down" && <TrendingDown className="h-2.5 w-2.5" />}
+              {deltaPp >= 0 ? `+${deltaPp}` : deltaPp}pp
+            </span>
+          )}
+        </div>
       )}
       {stage.nota && <p className="text-[11px] text-warning">{stage.nota}</p>}
     </motion.article>
   );
 }
+

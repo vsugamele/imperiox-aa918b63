@@ -35,6 +35,7 @@ import { LivePanel } from "@/components/projeto/LivePanel";
 import { ProjetoAtivosMestresCard } from "@/components/projeto/ProjetoAtivosMestresCard";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
 import { useAutoSave } from "@/components/projeto/useAutoSave";
+import type { ProjectTabPriority } from "@shared/funnel-sentinel";
 import { Pencil, Copy, Check, ChevronDown, ExternalLink, TestTube2, CheckCircle2, XCircle, Download, Eye, EyeOff, Zap, Trash2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -129,6 +130,7 @@ export default function ProjetoDetalhe() {
   const [editingCategory, setEditingCategory] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [tabPriority, setTabPriority] = useState<ProjectTabPriority | null>(null);
   const save = useAutoSave(id);
 
   const handleDeleteProject = async () => {
@@ -445,6 +447,7 @@ export default function ProjetoDetalhe() {
           projectId={id!}
           projectName={project.name}
           onNavigateTab={goToTab}
+          onPriorityDetected={setTabPriority}
         />
       </div>
 
@@ -460,13 +463,14 @@ export default function ProjetoDetalhe() {
         />
       )}
 
-      {/* ───────── Pillar Navigation (2-tier) ───────── */}
+      {/* ───────── Pillar Navigation (2-tier) com Prioridade Viva do Gargalo ───────── */}
       <Tabs value={activeTab} onValueChange={goToTab}>
         <div className="space-y-3">
           {/* Pillars */}
           <div className="flex flex-wrap items-center gap-2">
             {PILLARS.map((p) => {
               const isActive = activePillar === p.id;
+              const isPriorityPillar = tabPriority?.pillarId === p.id;
               return (
                 <button
                   key={p.id}
@@ -476,16 +480,43 @@ export default function ProjetoDetalhe() {
                     const firstTab = p.tabs[0]?.value;
                     if (firstTab && !p.tabs.some(t => t.value === activeTab)) goToTab(firstTab);
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-sans tracking-wide transition-all border ${
+                  title={isPriorityPillar && tabPriority ? `Prioridade ativa: ${tabPriority.reason}` : undefined}
+                  className={`relative px-4 py-2 rounded-md text-sm font-sans tracking-wide transition-all border ${
                     isActive
                       ? "bg-primary/15 border-primary/50 text-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]"
+                      : isPriorityPillar
+                      ? "bg-rose-500/10 border-rose-500/40 text-foreground hover:border-rose-500/60"
                       : "bg-secondary/40 border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
                   }`}
                 >
                   <span className="mr-1.5">{p.emoji}</span>{p.label}
+                  {isPriorityPillar && (
+                    <span
+                      className={`ml-1.5 inline-flex h-2 w-2 rounded-full ${
+                        tabPriority?.severity === "critico" ? "bg-rose-500 animate-ping" : "bg-amber-400 animate-pulse"
+                      }`}
+                    />
+                  )}
                 </button>
               );
             })}
+
+            {tabPriority && activeTab !== tabPriority.tabValue && (
+              <button
+                type="button"
+                onClick={() => goToTab(tabPriority.tabValue)}
+                title={tabPriority.reason}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all border ${
+                  tabPriority.severity === "critico"
+                    ? "bg-rose-500/15 border-rose-500/50 text-rose-300 hover:bg-rose-500/25"
+                    : "bg-amber-500/15 border-amber-500/50 text-amber-300 hover:bg-amber-500/25"
+                }`}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span>Prioridade Agora: {tabPriority.tabLabel}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
@@ -502,18 +533,28 @@ export default function ProjetoDetalhe() {
           <div className="flex flex-wrap gap-1 border-b border-border/40 pb-1">
             {PILLARS.find(p => p.id === activePillar)?.tabs.map((t) => {
               const isActive = activeTab === t.value;
+              const isPriorityTab = tabPriority?.tabValue === t.value;
               return (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => goToTab(t.value)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-sans transition-colors ${
+                  title={isPriorityTab && tabPriority ? tabPriority.reason : undefined}
+                  className={`px-3 py-1.5 rounded-md text-xs font-sans transition-colors flex items-center gap-1 ${
                     isActive
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : isPriorityTab
+                      ? "bg-rose-500/15 text-rose-300 border border-rose-500/40 font-semibold"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
                   }`}
                 >
-                  <span className="mr-1">{t.emoji}</span>{t.label}
+                  <span>{t.emoji}</span>
+                  <span>{t.label}</span>
+                  {isPriorityTab && (
+                    <span className="ml-1 rounded bg-rose-500/30 px-1 py-0 text-[9px] uppercase tracking-wider text-rose-200">
+                      Foco
+                    </span>
+                  )}
                 </button>
               );
             })}
