@@ -9,6 +9,7 @@ import { REFERENCIA, type Metric, type Stage, type StageId, type StageStatus } f
 import { useFunnelLive } from "@/hooks/useFunnelLive";
 import { PageSplitsSection } from "@/components/funis/PageSplitsSection";
 import { FunnelCrossStageDiagnostics } from "@/components/funis/FunnelCrossStageDiagnostics";
+import { FunnelWhatIfSimulator } from "@/components/funis/FunnelWhatIfSimulator";
 
 interface ProjectOption { id: string; name: string }
 
@@ -162,6 +163,23 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
 
           {/* Diagnóstico Cruzado Inteligente: vazamentos entre etapas, pagespeed, VSL, checkout e recuperação */}
           <FunnelCrossStageDiagnostics funnel={data} projectId={projectId} />
+
+          {/* Simulador de Alavancagem Financeira What-If: projeção de faturamento ao destravar gargalos */}
+          <FunnelWhatIfSimulator
+            funnel={data}
+            primaryBottleneck={data.gargalo ? {
+              id: `bottleneck-${data.gargalo}`,
+              stagePair: [data.gargalo],
+              severity: "critico",
+              title: `Gargalo em ${data.etapas.find((e) => e.id === data.gargalo)?.label}`,
+              badge: "Gargalo Ativo",
+              metricComparison: "",
+              rootCause: "",
+              recommendation: "",
+              action: { type: "copy_vsl", label: "", hint: "" },
+            } : null}
+            projectName={projects.find((p) => p.id === projectId)?.name}
+          />
 
           {projectId && <PageSplitsSection projectId={projectId} />}
 

@@ -18,6 +18,9 @@ vi.mock("@/hooks/useFunnelLive", () => ({
   useFunnelLive: () => ({ isLoading: false, error: null, data: { ...live, produtos: ["Código dos Cortes Perfeitos"], paginas: [], adsDoProjetoInteiro: false } }),
 }));
 
+// jsdom não tem ResizeObserver (@radix-ui/react-slider usa para medir tamanho)
+globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+
 describe("Painel ao vivo do funil", () => {
   it("mostra totais, etapas em ordem e destaca o gargalo", () => {
     render(<FunnelLivePanel projects={[{ id: "jp_freitas", name: "JP Freitas" }]} />);
@@ -29,5 +32,7 @@ describe("Painel ao vivo do funil", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Gargalo agora: Anúncio");
     expect(within(etapas[0]).getByText("Gargalo")).toBeInTheDocument();
     expect(within(etapas[1]).getByText("A página não tem o rastreador do Império.")).toBeInTheDocument();
+    expect(screen.getByText("Simulador de Alavancagem Financeira (What-If)")).toBeInTheDocument();
+    expect(screen.getByText("Diagnóstico Cruzado do Funil & Gargalos de Marketing")).toBeInTheDocument();
   });
 });

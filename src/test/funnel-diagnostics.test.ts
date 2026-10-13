@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFunnelLive } from "@shared/funnel-live";
-import { runFunnelDiagnostics, classifyNodeTemperature } from "@shared/funnel-diagnostics";
+import { runFunnelDiagnostics, classifyNodeTemperature, simulateFunnelImpact } from "@shared/funnel-diagnostics";
 
 describe("motor de diagnósticos cruzados do funil", () => {
   it("detecta vazamento crítico entre anúncio e página (lentidão de carregamento)", () => {
@@ -65,5 +65,43 @@ describe("motor de diagnósticos cruzados do funil", () => {
     expect(classifyNodeTemperature("orderbump", "Oferta", "Bump 1").temp).toBe("quente");
     expect(classifyNodeTemperature("whatsapp", "Recuperação", "Disparo Pix").temp).toBe("retencao");
     expect(classifyNodeTemperature("supabase", "Infra", "Banco de dados").temp).toBe("operacao");
+  });
+
+  it("simula o impacto financeiro (What-If) de otimizar a velocidade da página", () => {
+    // 100 cliques, 35 visitas (35% chegada), 5 vendas (R$ 500 faturamento), R$ 200 de gasto
+    const ads = [{ spend: 200, impressoes: 5000, link_clicks: 100 }];
+    const pages = [{ url: "https://site.com/vsl", values: { sessoes_pagina: 35, cliques_cta: 5 } }];
+    const sales = [
+      { status: "aprovado", valor: 100, tipo_venda: "principal" },
+      { status: "aprovado", valor: 100, tipo_venda: "principal" },
+      { status: "aprovado", valor: 100, tipo_venda: "principal" },
+      { status: "aprovado", valor: 100, tipo_venda: "principal" },
+      { status: "aprovado", valor: 100, tipo_venda: "principal" },
+    ];
+
+    const f = buildFunnelLive({ ads, pages, sales });
+    // Simular que a chegada sobe de 35% para 70% (o dobro!)
+    const sim = simulateFunnelImpact(f, "chegada", 70);
+
+    expect(sim.currentRate).toBe(35);
+    expect(sim.simulatedRate).toBe(70);
+    expect(sim.simulatedSales).toBeGreaterThan(sim.currentSales);
+    expect(sim.deltaRevenue).toBeGreaterThan(0);
+    expect(sim.simulatedRoas).toBeGreaterThan(sim.currentRoas ?? 0);
+    expect(sim.simulatedCpa).toBeLessThan(sim.currentCpa ?? 999);
+    expect(sim.actionPlan.length).toBe(3);
+  });
+
+  it("simula o efeito composto de alavancagem em todas as etapas", () => {
+    const ads = [{ spend: 300, impressoes: 10000, link_clicks: 200 }];
+    const pages = [{ url: "https://site.com", values: { sessoes_pagina: 140, cliques_cta: 20 } }];
+    const sales = [{ status: "aprovado", valor: 97, tipo_venda: "principal" }];
+
+    const f = buildFunnelLive({ ads, pages, sales });
+    const sim = simulateFunnelImpact(f, "composto", 100, 15);
+
+    expect(sim.stage).toBe("composto");
+    expect(sim.simulatedSales).toBeGreaterThanOrEqual(1);
+    expect(sim.actionPlan).toBeDefined();
   });
 });

@@ -371,3 +371,181 @@ export function runFunnelDiagnostics(funnel: FunnelLive): FunnelHealthReport {
     totalStagesCount: funnel.etapas.length,
   };
 }
+
+export type SimulatableStage = "chegada" | "inicio_checkout" | "aprovacao" | "extra" | "recuperacao" | "composto";
+
+export interface SimulationResult {
+  stage: SimulatableStage;
+  stageLabel: string;
+  currentRate: number;
+  simulatedRate: number;
+  deltaRatePct: number;
+  // Totais financeiros
+  spend: number | null;
+  currentRevenue: number;
+  simulatedRevenue: number;
+  deltaRevenue: number;
+  currentSales: number;
+  simulatedSales: number;
+  deltaSales: number;
+  currentCpa: number | null;
+  simulatedCpa: number | null;
+  currentRoas: number | null;
+  simulatedRoas: number | null;
+  deltaLiquidRevenue: number;
+  actionPlan: string[];
+}
+
+const STAGE_LABELS: Record<SimulatableStage, string> = {
+  chegada: "Chegada na Página (PageSpeed)",
+  inicio_checkout: "Início de Checkout (Retenção VSL)",
+  aprovacao: "Aprovação de Pagamento (Fricção Checkout/PIX)",
+  extra: "Aceite de Bump & Upsell (LTV)",
+  recuperacao: "Recuperação no WhatsApp",
+  composto: "Efeito Composto Multi-Etapas (Jay Abraham)",
+};
+
+const ACTION_PLANS: Record<SimulatableStage, string[]> = {
+  chegada: [
+    "Compactar todas as imagens da LP e poster da VSL para WebP com no máximo 150KB.",
+    "Adiar carregamento de scripts secundários (pixels de remarketing, GTM) para após a renderização inicial.",
+    "Ativar cache de borda e compressão Brotli na CDN (Cloudflare ou Vercel).",
+  ],
+  inicio_checkout: [
+    "Auditar a curva de retenção no VTurb/Panda e identificar minuto exato da maior evasão.",
+    "Antecipar a liberação do botão de compra em 30 a 60 segundos ou exibir botão de fallback visível.",
+    "Adicionar resumo persuasivo dos benefícios, bônus e garantia logo abaixo do player após o pitch.",
+  ],
+  aprovacao: [
+    "Enxugar os campos do formulário para apenas Nome, Email, WhatsApp e CPF.",
+    "Definir o PIX com QR Code instantâneo como método padrão pré-selecionado.",
+    "Ativar contingência de gateway com roteamento automático em caso de recusa de cartão.",
+  ],
+  extra: [
+    "Adicionar um Order Bump de aceleração rápida ('Protocolo 7 Dias') precificado em 20% a 30% do principal.",
+    "Criar uma página OTO de Upsell 1-Click com vídeo rápido de 60 segundos antes do obrigado.",
+    "Garantir que a promessa do complemento seja um acelerador do resultado, nunca mais do mesmo.",
+  ],
+  recuperacao: [
+    "Ajustar o 1º disparo da régua do WhatsApp para 5 a 10 minutos após o abandono do PIX.",
+    "Usar tom pessoal e humanizado de suporte ('Oi [Nome], vi que tentou o PIX... precisa de ajuda?').",
+    "Disparar áudio gravado realista no 2º toque tirando a principal dúvida de segurança do cliente.",
+  ],
+  composto: [
+    "Pequenas melhorias de +15% em cada etapa geram um salto de +52% no faturamento com o mesmo tráfego.",
+    "Priorizar simultaneamente: 1 otimização de velocidade de LP, 1 antecipação de pitch e 1 ajuste de PIX.",
+    "Estabilizar o novo patamar por 7 dias antes de escalar o orçamento de mídia.",
+  ],
+};
+
+const roundVal = (v: number, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
+
+/**
+ * Simula o impacto financeiro (What-If) de otimizar um gargalo do funil ou aplicar o efeito composto.
+ */
+export function simulateFunnelImpact(
+  funnel: FunnelLive,
+  stage: SimulatableStage,
+  simulatedRate: number,
+  compoundBoostPct: number = 15
+): SimulationResult {
+  const spend = funnel.totais.gasto;
+  const currentRevenue = funnel.totais.bruto;
+  const currentLiquid = funnel.totais.liquido;
+  const currentSales = funnel.totais.vendas;
+  const currentCpa = funnel.totais.cpa;
+  const currentRoas = funnel.totais.roas;
+
+  const stageMap = new Map(funnel.etapas.map((e) => [e.id, e]));
+  const pagina = stageMap.get("pagina");
+  const checkout = stageMap.get("checkout");
+  const venda = stageMap.get("venda");
+  const extra = stageMap.get("extra");
+  const recuperacao = stageMap.get("recuperacao");
+
+  const currentChegada = pagina?.conversao?.value ?? 0;
+  const currentInicio = checkout?.conversao?.value ?? 0;
+  const currentAprovacao = venda?.conversao?.value ?? 0;
+  const currentExtra = extra?.conversao?.value ?? 0;
+  const currentRecup = recuperacao?.conversao?.value ?? 0;
+
+  // Ticket médio total por venda
+  const ticketMedio = currentSales > 0 ? currentRevenue / currentSales : 47;
+  const liquidRatio = currentRevenue > 0 ? currentLiquid / currentRevenue : 0.85;
+
+  let currentRate = 0;
+  let simulatedSales = currentSales;
+  let simulatedRevenue = currentRevenue;
+
+  if (stage === "composto") {
+    currentRate = 100;
+    const boostFactor = 1 + compoundBoostPct / 100;
+    // Efeito de 3 alavancas simultâneas: Tráfego/Chegada x Conversão/Checkout x Fechamento/Aprovação
+    const compoundMultiplier = boostFactor ** 3;
+    simulatedSales = Math.max(1, Math.round(currentSales * compoundMultiplier));
+    simulatedRevenue = roundVal(currentRevenue > 0 ? currentRevenue * compoundMultiplier : simulatedSales * ticketMedio);
+  } else if (stage === "chegada") {
+    currentRate = currentChegada;
+    const baseline = currentChegada > 0 ? currentChegada : REFERENCIA.chegada * 0.5;
+    const multiplier = baseline > 0 ? simulatedRate / baseline : 1.2;
+    simulatedSales = Math.max(1, Math.round(currentSales * multiplier));
+    simulatedRevenue = roundVal(currentRevenue > 0 ? currentRevenue * multiplier : simulatedSales * ticketMedio);
+  } else if (stage === "inicio_checkout") {
+    currentRate = currentInicio;
+    const baseline = currentInicio > 0 ? currentInicio : REFERENCIA.inicio_checkout * 0.5;
+    const multiplier = baseline > 0 ? simulatedRate / baseline : 1.2;
+    simulatedSales = Math.max(1, Math.round(currentSales * multiplier));
+    simulatedRevenue = roundVal(currentRevenue > 0 ? currentRevenue * multiplier : simulatedSales * ticketMedio);
+  } else if (stage === "aprovacao") {
+    currentRate = currentAprovacao;
+    const baseline = currentAprovacao > 0 ? currentAprovacao : REFERENCIA.aprovacao * 0.5;
+    const multiplier = baseline > 0 ? simulatedRate / baseline : 1.2;
+    simulatedSales = Math.max(1, Math.round(currentSales * multiplier));
+    simulatedRevenue = roundVal(currentRevenue > 0 ? currentRevenue * multiplier : simulatedSales * ticketMedio);
+  } else if (stage === "extra") {
+    currentRate = currentExtra;
+    // Extra aumenta a receita média por cliente sem necessariamente alterar a contagem de clientes
+    const deltaRate = Math.max(0, simulatedRate - currentExtra);
+    const extraTicket = 27; // Ticket médio padrão de bump
+    const additionalExtras = Math.round(currentSales * (deltaRate / 100));
+    const extraRevenue = additionalExtras * extraTicket;
+    simulatedSales = currentSales;
+    simulatedRevenue = roundVal(currentRevenue + extraRevenue);
+  } else if (stage === "recuperacao") {
+    currentRate = currentRecup;
+    const reguaCount = recuperacao?.metrics.find((m) => m.label === "Pedidos com régua")?.value ?? Math.max(5, currentSales);
+    const deltaRate = Math.max(0, simulatedRate - currentRecup);
+    const additionalRecovered = Math.round(reguaCount * (deltaRate / 100));
+    simulatedSales = currentSales + additionalRecovered;
+    simulatedRevenue = roundVal(currentRevenue + additionalRecovered * ticketMedio);
+  }
+
+  const deltaRevenue = roundVal(Math.max(0, simulatedRevenue - currentRevenue));
+  const deltaSales = Math.max(0, simulatedSales - currentSales);
+  const deltaLiquidRevenue = roundVal(deltaRevenue * liquidRatio);
+  const deltaRatePct = currentRate > 0 ? roundVal(((simulatedRate - currentRate) / currentRate) * 100, 1) : simulatedRate;
+
+  const simulatedCpa = spend !== null && simulatedSales > 0 ? roundVal(spend / simulatedSales) : null;
+  const simulatedRoas = spend !== null && spend > 0 ? roundVal(simulatedRevenue / spend) : null;
+
+  return {
+    stage,
+    stageLabel: STAGE_LABELS[stage],
+    currentRate,
+    simulatedRate,
+    deltaRatePct,
+    spend,
+    currentRevenue,
+    simulatedRevenue,
+    deltaRevenue,
+    currentSales,
+    simulatedSales,
+    deltaSales,
+    currentCpa,
+    simulatedCpa,
+    currentRoas,
+    simulatedRoas,
+    deltaLiquidRevenue,
+    actionPlan: ACTION_PLANS[stage],
+  };
+}
