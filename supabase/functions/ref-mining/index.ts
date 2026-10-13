@@ -55,11 +55,13 @@ async function saveAd(sb: Sb, ad: MinedAd, src: Source, lote: string) {
   const media = isVideo ? await store(sb, String(ad.video_url), base, MAX_VIDEO) : null;
   const image = ad.imagem_url ? await store(sb, ad.imagem_url, `${base}-img`, MAX_IMAGE) : ad.preview_url ? await store(sb, ad.preview_url, `${base}-capa`, MAX_IMAGE) : null;
   if (!media && !image) return { ok: false, motivo: "mídia não baixou" };
+
+  const nicho = ad.nicho_sugerido || "Saúde e Bem-estar";
   const row = {
     id: `meta-${ad.external_id}`,
     project_id: src.project_id,
     tipo: media ? "video" : "criativo",
-    titulo: `${ad.pagina} — ${(ad.titulo || ad.copy || "anúncio").slice(0, 90)}`,
+    titulo: ad.titulo ? ad.titulo : `${ad.pagina} — ${(ad.copy || "anúncio").slice(0, 90)}`,
     url: media ?? ad.biblioteca_url,
     image_url: image,
     notas: refNotes(ad),
@@ -68,7 +70,32 @@ async function saveAd(sb: Sb, ad: MinedAd, src: Source, lote: string) {
     external_id: ad.external_id,
     lote,
     transcribe_status: "idle",
-    pipeline: { mineracao: { fonte_id: src.id, busca: `${src.tipo}:${src.valor}`, pais: src.pais, pagina: ad.pagina, pagina_id: ad.pagina_id, inicio: ad.inicio, dias_no_ar: ad.dias_no_ar, variacoes: ad.variacoes, ativo: ad.ativo, biblioteca_url: ad.biblioteca_url, destino: ad.link } },
+    formato: isVideo ? "video" : "estatico",
+    leitura: {
+      nicho,
+      gancho: ad.titulo || (ad.copy ? ad.copy.slice(0, 80) : null),
+      formato: isVideo ? "video" : "estatico",
+    },
+    tags: [nicho, "Meta Ads", ad.dias_no_ar >= 14 ? "Escalado" : null].filter(Boolean),
+    pipeline: {
+      mineracao: {
+        fonte_id: src.id,
+        busca: `${src.tipo}:${src.valor}`,
+        pais: src.pais,
+        pagina: ad.pagina,
+        pagina_id: ad.pagina_id,
+        inicio: ad.inicio,
+        dias_no_ar: ad.dias_no_ar,
+        variacoes: ad.variacoes,
+        ativo: ad.ativo,
+        biblioteca_url: ad.biblioteca_url,
+        destino: ad.link,
+        headline: ad.titulo,
+        copy: ad.copy,
+        cta: ad.cta,
+        nicho,
+      },
+    },
   };
   const { error } = await sb.from("imphq_referencias").insert(row);
   if (error) return { ok: false, motivo: error.code === "23505" ? "já existia" : error.message };
