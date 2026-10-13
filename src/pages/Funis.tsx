@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileUpload } from "@/components/FileUpload";
 import { FunilPipelineWizard } from "@/components/funis/FunilPipelineWizard";
-import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History, Building2, Zap, Gauge } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, Eye, ShoppingCart, ArrowRight, Save, ExternalLink, Image, ZoomIn, ZoomOut, GripVertical, Facebook, Instagram, Video, Mail, MessageSquare, FileText, Box, Type, Megaphone, Linkedin, Music, PenLine, Search, X, Activity, Layers, Network, PanelRightOpen, PanelRightClose, Link2, Package, TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2, History, Building2, Zap, Gauge, MoreHorizontal } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ProductHubCanvas } from "@/components/funis/ProductHubCanvas";
@@ -1517,53 +1517,123 @@ export default function Funis() {
   // List view
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-primary">🔗 Funis</h1>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-secondary rounded-md p-0.5">
-            <Button size="sm" variant={viewMode === "hub" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("hub")}>
-              <Sparkles className="h-3 w-3" /> Hub
+      {/* Top Header & Navigation Bar */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-border/40 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span className="text-primary">🔗</span> Funis & Operações
+            </h1>
+            <Badge variant="outline" className="text-[10px] uppercase font-mono tracking-wider border-border/80 text-muted-foreground">
+              {funis.length} {funis.length === 1 ? "Funil" : "Funis"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Telemetria em tempo real, fluxo de conversão e esteira de produtos por projeto.
+          </p>
+        </div>
+
+        {/* Action and Mode Bar */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Segmented Mode Selector */}
+          <div className="flex items-center rounded-lg border border-border/80 bg-secondary/30 p-1 shadow-xs">
+            <Button
+              size="sm"
+              variant={viewMode === "painel" ? "default" : "ghost"}
+              className="h-7 text-xs gap-1.5 px-3 font-medium transition-all"
+              onClick={() => setViewMode("painel")}
+            >
+              <Gauge className="h-3.5 w-3.5" /> Painel ao vivo
             </Button>
-            <Button size="sm" variant={viewMode === "painel" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("painel")}>
-              <Gauge className="h-3 w-3" /> Painel ao vivo
+            <Button
+              size="sm"
+              variant={viewMode === "funis" ? "default" : "ghost"}
+              className="h-7 text-xs gap-1.5 px-3 font-medium transition-all"
+              onClick={() => setViewMode("funis")}
+            >
+              <Layers className="h-3.5 w-3.5" /> Funis & Canvas
             </Button>
-            <Button size="sm" variant={viewMode === "funis" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("funis")}>
-              <Layers className="h-3 w-3" /> Funis
+            <Button
+              size="sm"
+              variant={viewMode === "ecossistema" ? "default" : "ghost"}
+              className="h-7 text-xs gap-1.5 px-3 font-medium transition-all"
+              onClick={() => setViewMode("ecossistema")}
+            >
+              <Network className="h-3.5 w-3.5" /> Esteira & LTV
             </Button>
-            <Button size="sm" variant={viewMode === "ecossistema" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("ecossistema")}>
-              <Network className="h-3 w-3" /> Ecossistema
+            <Button
+              size="sm"
+              variant={viewMode === "jornada" ? "default" : "ghost"}
+              className="h-7 text-xs gap-1.5 px-3 font-medium transition-all"
+              onClick={() => setViewMode("jornada")}
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Jornada
             </Button>
-            <Button size="sm" variant={viewMode === "mapa" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("mapa")}>
-              <Building2 className="h-3 w-3" /> Mapa da Empresa
+            <Button
+              size="sm"
+              variant={viewMode === "mapa" ? "default" : "ghost"}
+              className="h-7 text-xs gap-1.5 px-3 font-medium transition-all"
+              onClick={() => setViewMode("mapa")}
+            >
+              <Building2 className="h-3.5 w-3.5" /> Mapa Geral
             </Button>
-            <Button size="sm" variant={viewMode === "jornada" ? "default" : "ghost"} className="h-7 text-xs gap-1" onClick={() => setViewMode("jornada")}>
-              <Sparkles className="h-3 w-3" /> Jornada
+            <Button
+              size="sm"
+              variant={viewMode === "hub" ? "default" : "ghost"}
+              className="h-7 text-xs gap-1.5 px-3 font-medium transition-all"
+              onClick={() => setViewMode("hub")}
+            >
+              <Box className="h-3.5 w-3.5" /> Hub
             </Button>
           </div>
-          <Button size="sm" onClick={() => setShowCorteExpress(true)} className="gap-1 bg-primary hover:bg-primary/90">
-            <Zap className="h-4 w-4" /> One Click
+
+          <div className="h-6 w-px bg-border/60 hidden sm:block" />
+
+          {/* Quick Actions */}
+          <Button
+            size="sm"
+            onClick={() => setShowCorteExpress(true)}
+            className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-xs shadow-xs"
+            title="Criar novo funil a partir de templates rápidos One Click"
+          >
+            <Zap className="h-3.5 w-3.5" /> One Click
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowEcosystem(true)} className="gap-1">
-            <Network className="h-4 w-4" /> Ecossistema do Produto
+
+          <Button
+            size="sm"
+            onClick={() => window.dispatchEvent(new CustomEvent("imphq:open-funnel-architect"))}
+            className="h-8 gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-xs"
+            title="Abrir o Arquiteto de Funis IA"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-emerald-200" /> Arquiteto Funil
           </Button>
-          {viewMode === "funis" && (
-            <>
-              <Button size="sm" variant="outline" asChild className="gap-1">
-                <RouterLink to="/funis/simulador"><Calculator className="h-4 w-4" /> Simulador</RouterLink>
+
+          {/* More actions dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 w-8 p-0" title="Mais ferramentas">
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setShowTemplates(true)} className="gap-1">
-                <Sparkles className="h-4 w-4" /> Templates
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => window.dispatchEvent(new CustomEvent("imphq:open-funnel-architect"))}
-                className="gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium shadow-sm"
-              >
-                <Sparkles className="h-4 w-4 text-emerald-200" /> Arquiteto de Funil IA
-              </Button>
-              <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" /> Novo Funil</Button>
-            </>
-          )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Ferramentas de Funil</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setShowNew(true)} className="gap-2 cursor-pointer">
+                <Plus className="h-3.5 w-3.5 text-primary" /> Novo Funil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowTemplates(true)} className="gap-2 cursor-pointer">
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Templates Prontos
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowEcosystem(true)} className="gap-2 cursor-pointer">
+                <Network className="h-3.5 w-3.5 text-blue-400" /> Auditar Ecossistema
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+                <RouterLink to="/funis/simulador">
+                  <Calculator className="h-3.5 w-3.5 text-emerald-400" /> Simulador de Métricas
+                </RouterLink>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

@@ -165,10 +165,10 @@ export function CommandPalette({ onCreateWACampaign }: CommandPaletteProps) {
     [],
   );
 
-  // Cmd+K / Ctrl+K hotkey
+  // Cmd+J / Ctrl+J hotkey for quick actions
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "j" || e.key === "J")) {
         e.preventDefault();
         setOpen(v => !v);
       }
@@ -183,12 +183,12 @@ export function CommandPalette({ onCreateWACampaign }: CommandPaletteProps) {
       {/* Trigger button — discrete, top bar */}
       <button
         onClick={() => setOpen(true)}
-        className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/60 bg-secondary/20 hover:bg-secondary/50 text-xs text-muted-foreground transition-colors"
-        title="Abrir paleta de comandos (Cmd+K)"
+        className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/60 bg-secondary/30 hover:bg-secondary/70 text-xs text-muted-foreground transition-colors"
+        title="Abrir ações rápidas (Cmd+J)"
       >
-        <Search className="h-3.5 w-3.5" />
-        <span>Ação rápida</span>
-        <kbd className="ml-1 text-[9px] bg-muted px-1.5 py-0.5 rounded font-mono border border-border/40">⌘K</kbd>
+        <Zap className="h-3.5 w-3.5 text-amber-400" />
+        <span>Ações</span>
+        <kbd className="ml-0.5 text-[9px] bg-muted px-1.5 py-0.5 rounded font-mono border border-border/40">⌘J</kbd>
       </button>
 
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setQuery(""); }}>

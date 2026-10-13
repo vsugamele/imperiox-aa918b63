@@ -31,36 +31,64 @@ function fmt(m: Pick<Metric, "value" | "fmt">): string {
 
 /** Painel ao vivo: o funil do produto em linha, com os números reais de cada etapa e o gargalo destacado. */
 export function FunnelLivePanel({ projects, initialProjectId }: { projects: ProjectOption[]; initialProjectId?: string | null }) {
-  const [projectId, setProjectId] = useState<string | null>(initialProjectId ?? null);
+  const [projectId, setProjectId] = useState<string | null>(() => {
+    if (initialProjectId) return initialProjectId;
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("imphq_last_selected_project");
+      if (saved) return saved;
+    }
+    return null;
+  });
   const [produto, setProduto] = useState<string | null>(null);
   const [days, setDays] = useState(7);
-  useEffect(() => { if (!projectId && projects.length) setProjectId(projects.find((p) => p.id === "jp_freitas")?.id ?? projects[0].id); }, [projects, projectId]);
+
+  useEffect(() => {
+    if (!projectId && projects.length) {
+      const stored = typeof window !== "undefined" ? localStorage.getItem("imphq_last_selected_project") : null;
+      const matched = stored ? projects.find((p) => p.id === stored) : null;
+      const fallback = projects.find((p) => p.id === "jp_freitas")?.id ?? projects[0].id;
+      const chosen = matched ? matched.id : fallback;
+      setProjectId(chosen);
+      if (typeof window !== "undefined" && chosen) {
+        localStorage.setItem("imphq_last_selected_project", chosen);
+      }
+    }
+  }, [projects, projectId]);
+
+  const handleSelectProject = (v: string) => {
+    setProjectId(v);
+    setProduto(null);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("imphq_last_selected_project", v);
+    }
+  };
+
   const { data, isLoading, error } = useFunnelLive({ projectId, produto, days });
 
   return (
     <section className="space-y-5" aria-label="Painel ao vivo do funil">
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <div className="text-[11px] uppercase text-muted-foreground">Projeto</div>
-          <Select value={projectId ?? undefined} onValueChange={(v) => { setProjectId(v); setProduto(null); }}>
-            <SelectTrigger className="h-9 w-56" aria-label="Projeto"><SelectValue placeholder="Escolha o projeto" /></SelectTrigger>
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Projeto</div>
+          <Select value={projectId || ""} onValueChange={handleSelectProject}>
+            <SelectTrigger className="h-9 w-56 border-border/80 bg-card/60" aria-label="Projeto"><SelectValue placeholder="Escolha o projeto" /></SelectTrigger>
             <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
-          <div className="text-[11px] uppercase text-muted-foreground">Produto</div>
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Produto</div>
           <Select value={produto ?? "todos"} onValueChange={(v) => setProduto(v === "todos" ? null : v)}>
-            <SelectTrigger className="h-9 w-64" aria-label="Produto"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-64 border-border/80 bg-card/60" aria-label="Produto"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os produtos</SelectItem>
               {(data?.produtos ?? []).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
-        <div className="inline-flex rounded-md border border-border p-0.5" role="tablist" aria-label="Período">
+        <div className="inline-flex rounded-md border border-border/80 bg-card/60 p-0.5" role="tablist" aria-label="Período">
           {[1, 7, 14, 30].map((d) => (
             <button key={d} role="tab" aria-selected={days === d} onClick={() => setDays(d)}
-              className={cn("rounded px-2.5 py-1 text-xs font-medium", days === d ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
+              className={cn("rounded px-2.5 py-1 text-xs font-medium transition-colors", days === d ? "bg-primary text-primary-foreground font-semibold shadow-xs" : "text-muted-foreground hover:text-foreground")}>
               {d === 1 ? "Hoje" : `${d} dias`}
             </button>
           ))}
@@ -69,6 +97,39 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
 
       {isLoading && <PageSkeleton variant="cards" label="Somando o funil" />}
       {error && <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {errorMessage(error)}</div>}
+
+      {!projectId && !isLoading && (
+        <div className="rounded-xl border border-dashed border-border/80 bg-card/40 p-8 text-center sm:p-12 animate-fade-in">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Gauge className="h-6 w-6" />
+          </div>
+          <h3 className="mt-4 text-base font-semibold text-foreground">
+            Selecione um projeto para ver a telemetria ao vivo
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-xs text-muted-foreground">
+            Acompanhe em tempo real as taxas de conversão de cada nó do funil, telemetria de tráfego, vendas e detecção automática de gargalos operacionais.
+          </p>
+          {projects.length > 0 ? (
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <span className="w-full text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Selecione um projeto rápido:
+              </span>
+              {projects.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleSelectProject(p.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 px-3 py-1.5 text-xs font-medium text-foreground transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                >
+                  <Target className="h-3.5 w-3.5 text-primary" />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-muted-foreground">Nenhum projeto cadastrado no momento.</p>
+          )}
+        </div>
+      )}
 
       {data && (
         <>
