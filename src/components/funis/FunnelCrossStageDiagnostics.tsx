@@ -25,6 +25,7 @@ import {
   type DiagnosticSeverity,
   type ActionType,
 } from "@shared/funnel-diagnostics";
+import { FunnelRemediationModal } from "@/components/funis/FunnelRemediationModal";
 
 const SEVERITY_CONFIG: Record<
   DiagnosticSeverity,
@@ -69,6 +70,7 @@ export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: Fun
   const report = runFunnelDiagnostics(funnel);
   const [filter, setFilter] = useState<"todos" | "criticos" | "oportunidades">("todos");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [remediationItem, setRemediationItem] = useState<FunnelDiagnosticItem | null>(null);
 
   const filteredItems = report.diagnostics.filter((d) => {
     if (filter === "criticos") return d.severity === "critico" || d.severity === "alerta";
@@ -97,35 +99,7 @@ export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: Fun
   };
 
   const handleAction = (item: FunnelDiagnosticItem) => {
-    switch (item.action.type) {
-      case "pagespeed":
-        // Abre PageSpeed Insights em nova aba ou copia recomendação técnica
-        window.open("https://pagespeed.web.dev/", "_blank");
-        toast.info("Abrindo Google PageSpeed Insights. Verifique o LCP e peso dos assets da sua LP!");
-        break;
-      case "copy_vsl":
-        navigator.clipboard.writeText(
-          `[AUDITORIA VSL]: ${item.title}\nCausa: ${item.rootCause}\nRecomendação: ${item.recommendation}`
-        );
-        toast.success("Diretriz de revisão de VSL copiada para colar na IA!");
-        break;
-      case "checkout_friction":
-        navigator.clipboard.writeText(
-          `[CHECKOUT CRO]: ${item.title}\nAções:\n1. Deixar apenas Nome, Email, Telefone e CPF.\n2. Colocar PIX como aba padrão.\n3. Testar gateway reserva.`
-        );
-        toast.success("Checklist de otimização de checkout copiado!");
-        break;
-      case "recovery_wa":
-        navigator.clipboard.writeText(
-          `[RÉGUA WHATSAPP]: Enviar mensagem após 5-10 min do abandono:\n"Oi [Nome], vi que deu uma instabilidade no seu PIX, quer que eu te mande a chave direta?"`
-        );
-        toast.success("Script humanizado de recuperação copiado!");
-        break;
-      default:
-        navigator.clipboard.writeText(`${item.title}\n${item.recommendation}`);
-        toast.success("Recomendação copiada!");
-        break;
-    }
+    setRemediationItem(item);
   };
 
   return (
@@ -298,6 +272,14 @@ export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: Fun
           })}
         </AnimatePresence>
       </div>
+
+      {/* Modal de Remediação Autônoma 1-Clique */}
+      <FunnelRemediationModal
+        open={!!remediationItem}
+        onOpenChange={(open) => !open && setRemediationItem(null)}
+        diagnostic={remediationItem}
+        projectName={projectId ?? undefined}
+      />
     </section>
   );
 }
