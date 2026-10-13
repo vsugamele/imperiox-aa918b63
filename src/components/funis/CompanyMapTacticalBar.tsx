@@ -15,7 +15,9 @@ import {
   SlidersHorizontal,
   Flame,
   Wrench,
-  Bot
+  Bot,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -213,8 +215,58 @@ export function CompanyMapTacticalBar({
 
   const currentStep = activeScenario?.steps[currentStepIndex];
 
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("imphq_tactical_bar_collapsed") === "true";
+    }
+    return false;
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("imphq_tactical_bar_collapsed", String(next));
+      }
+      return next;
+    });
+  };
+
+  if (isCollapsed && !isSimulating) {
+    return (
+      <div className="absolute top-3 right-3 z-20 pointer-events-auto flex items-center gap-2 bg-[#0A0B0D]/90 backdrop-blur-md border border-[#1B1E23] rounded-lg px-2.5 py-1.5 shadow-xl transition-all animate-fade-in">
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+            <SlidersHorizontal className="h-3 w-3 text-lime-400" /> Lente:
+          </span>
+          <span className="font-semibold text-lime-400">
+            {activeLens === "all" ? "Master 360°" : activeLens === "jp" ? "JP Freitas" : activeLens === "bifi" ? "DTC Bifi" : activeLens === "geelark" ? "GeeLark" : "APIs"}
+          </span>
+        </div>
+        <div className="h-3.5 w-px bg-white/10" />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onStartSimulation(JOURNEY_SCENARIOS[0])}
+          className="h-6 px-2 text-[11px] text-amber-300 hover:bg-amber-500/10 gap-1 font-medium"
+          title="Simular Jornada do Lead"
+        >
+          <Play className="h-2.5 w-2.5 fill-amber-300" /> Simular
+        </Button>
+        <button
+          onClick={toggleCollapse}
+          className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors"
+          title="Expandir barra tática de lentes e telemetria"
+        >
+          <span>Expandir</span>
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute top-16 left-3 right-3 z-20 flex flex-col gap-2 pointer-events-none">
+    <div className="absolute top-16 left-3 right-3 z-20 flex flex-col gap-2 pointer-events-none animate-fade-in">
       {/* Barra Principal de Telemetria e Lentes Táticas */}
       <div className="pointer-events-auto flex items-center justify-between gap-3 bg-[#0A0B0D]/90 backdrop-blur-md border border-[#1B1E23] rounded-xl px-3 py-2 shadow-2xl overflow-x-auto">
         {/* Esquerda: Seletor de Lentes Táticas */}
@@ -345,6 +397,16 @@ export function CompanyMapTacticalBar({
             <Zap className="h-3 w-3 fill-[#0A0B0D]" />
             <span>Alocar Verba (R$)</span>
           </Button>
+
+          {/* Botão Recolher Barra */}
+          <button
+            onClick={toggleCollapse}
+            className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white px-2 py-1 rounded-md hover:bg-white/10 transition-colors ml-0.5 border border-white/5"
+            title="Recolher barra tática para liberar espaço vertical no canvas"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+            <span className="hidden xl:inline text-xs">Recolher</span>
+          </button>
         </div>
       </div>
 

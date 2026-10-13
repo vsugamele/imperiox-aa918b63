@@ -25,7 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Archive, Maximize2, Minimize2, MoreHorizontal, Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, type LucideIcon } from "lucide-react";
+import { Archive, Maximize2, Minimize2, MoreHorizontal, Plus, Trash2, Save, Building2, Target, Users, Megaphone, ShoppingCart, Wrench, FileText, Link2, X, Check, Wand2, LayoutGrid, Download, Sparkles, TrendingUp, ListChecks, Copy, MousePointer, Pencil, Instagram, Facebook, Youtube, Twitter, Linkedin, Music2, GraduationCap, Smartphone, MessageCircle, Square, StickyNote, Type, ArrowUpRight, ChevronsUp, ChevronsDown, ChevronsLeft, ChevronsRight, Film, Globe, MousePointerClick, Mail, CreditCard, TrendingDown, PackagePlus, Palette, ExternalLink, Image as ImageIcon, Upload, MessageSquare, AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, CalendarClock, Share2, Rocket, Calendar, CheckCircle2, Workflow, Bot, Brain, Eye, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FlowBrainDrawer } from "@/components/funis/FlowBrainDrawer";
 import { CompanyInfraToolsModal } from "@/components/funis/CompanyInfraToolsModal";
@@ -388,6 +388,7 @@ function InnerMap({
   };
 
   const [checklistPanel, setChecklistPanel] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
   const [checklistFilter, setChecklistFilter] = useState<"pending" | "done" | "all">("pending");
   const [copyDialog, setCopyDialog] = useState<{ nodeId: string; label: string; kind: string; projectId: string } | null>(null);
   const [annotations, _setAnnotations] = useState<MapAnnotation[]>([]);
@@ -2084,13 +2085,32 @@ function InnerMap({
   };
 
   return (
-    <div className={cn("overflow-hidden bg-[#0a0809]", presenting ? "fixed inset-0 z-[70] h-screen" : "relative h-[calc(100vh-200px)] border border-border/40 rounded-lg")}>
+    <div className={cn("overflow-hidden bg-[#0a0809] transition-all", isMaximized ? "fixed inset-0 z-[65] h-screen w-screen p-0" : presenting ? "fixed inset-0 z-[70] h-screen" : "relative h-[calc(100vh-200px)] border border-border/40 rounded-lg")}>
       {/* Top toolbar: o essencial à vista; criação, ferramentas e ações do mapa no menu "Mais". */}
       <div className={cn("absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-card/90 backdrop-blur border border-border rounded-lg p-1.5 shadow-sm", presenting && "hidden")}>
         <Select value={mapId || ""} onValueChange={setMapId}>
           <SelectTrigger className="h-8 w-[240px] border-0 text-xs font-medium"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {maps.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+          <SelectContent className="max-h-80">
+            {(() => {
+              const bookmaps = maps.filter(m => (m.name || "").toLowerCase().includes("bookmap") || (m.name || "").toLowerCase().includes("secrets") || (m.name || "").toLowerCase().includes("estudo"));
+              const opMaps = maps.filter(m => !bookmaps.includes(m));
+              return (
+                <>
+                  {opMaps.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Operações da Empresa</div>
+                      {opMaps.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                    </>
+                  )}
+                  {bookmaps.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold border-t border-border/40 mt-1 pt-1">📚 Acervo & Estudos</div>
+                      {bookmaps.map(m => <SelectItem key={m.id} value={m.id}>📖 {m.name}</SelectItem>)}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </SelectContent>
         </Select>
         <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={createMap} title="Criar um mapa novo">
@@ -2105,8 +2125,12 @@ function InnerMap({
             </button>
           ))}
         </div>
+        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setIsMaximized(!isMaximized)} title={isMaximized ? "Restaurar tamanho normal" : "Maximizar canvas na tela cheia"}>
+          {isMaximized ? <Minimize2 className="h-3.5 w-3.5 text-primary" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {isMaximized ? "Restaurar" : "Maximizar"}
+        </Button>
         <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setPresenting(true)} title="Só o mapa, em tela cheia" disabled={view === "caminho"}>
-          <Maximize2 className="h-3.5 w-3.5" /> Apresentar
+          <Eye className="h-3.5 w-3.5" /> Apresentar
         </Button>
         <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => setChecklistPanel(true)} title="Itens de checklist do mapa">
           <ListChecks className="h-3.5 w-3.5" /> Checklist

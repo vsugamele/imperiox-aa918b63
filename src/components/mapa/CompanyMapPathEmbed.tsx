@@ -55,12 +55,15 @@ export function CompanyMapPathEmbed({
         // 1. Check if known from operationMapIdsByProject
         let targetMapId = operationMapIdsByProject[activeProjectId] || null;
 
-        // 2. If not known, search imphq_company_maps by project name
+        // 2. If not known, search imphq_company_maps by project name (excluding bookmaps/studies)
         if (!targetMapId && activeProject) {
           const { data: maps } = await supabase
             .from("imphq_company_maps")
             .select("id, name, updated_at")
             .is("archived_at", null)
+            .not("name", "ilike", "%bookmap%")
+            .not("name", "ilike", "%[estudo]%")
+            .not("name", "ilike", "%dotcom secrets%")
             .ilike("name", `%${activeProject.name}%`)
             .order("updated_at", { ascending: false })
             .limit(1);
@@ -70,17 +73,16 @@ export function CompanyMapPathEmbed({
           }
         }
 
-        // 3. Fallback: most recently updated map
-        if (!targetMapId) {
-          const { data: maps } = await supabase
-            .from("imphq_company_maps")
-            .select("id, name, updated_at")
-            .is("archived_at", null)
-            .order("updated_at", { ascending: false })
+        // 3. Check if any map has nodes explicitly linked to this project
+        if (!targetMapId && activeProjectId) {
+          const { data: linkedNodes } = await supabase
+            .from("imphq_company_map_nodes")
+            .select("map_id")
+            .eq("linked_project_id", activeProjectId)
             .limit(1);
 
-          if (maps && maps.length > 0) {
-            targetMapId = maps[0].id;
+          if (linkedNodes && linkedNodes.length > 0 && linkedNodes[0].map_id) {
+            targetMapId = linkedNodes[0].map_id;
           }
         }
 
