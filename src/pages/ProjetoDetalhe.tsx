@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 
 import { ProjetoMcpDialog } from "@/components/projeto/ProjetoMcpDialog";
 import { ProjectKPIStrip } from "@/components/projeto/ProjectKPIStrip";
+import { ProjetoFunnelCockpit } from "@/components/projeto/ProjetoFunnelCockpit";
 import { LivePanel } from "@/components/projeto/LivePanel";
 import { ProjetoAtivosMestresCard } from "@/components/projeto/ProjetoAtivosMestresCard";
 import { SalesPathButton } from "@/components/projeto/SalesPathButton";
@@ -437,6 +438,15 @@ export default function ProjetoDetalhe() {
 
       {/* ───────── Live KPI Strip ───────── */}
       <ProjectKPIStrip projectId={id!} onNavigate={goToTab} />
+
+      {/* ───────── Cockpit de Saúde & Telemetria do Funil (Ao Vivo) ───────── */}
+      <div className="mt-4">
+        <ProjetoFunnelCockpit
+          projectId={id!}
+          projectName={project.name}
+          onNavigateTab={goToTab}
+        />
+      </div>
 
       {/* ───────── Painel ao vivo: funil, parcial com fonte de cada número, ritmo e alertas (LIVE1.1) ───────── */}
       <div className="mt-4"><LivePanel projectId={id!} /></div>

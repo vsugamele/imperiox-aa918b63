@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { jsonFields, jsonText } from "@/lib/json-fields";
 import { useNavigate } from "react-router-dom";
 import { errorMessage } from "@/lib/error-message";
+import { ProjetoFunnelCockpit } from "@/components/projeto/ProjetoFunnelCockpit";
 
 interface Props {
   projectId: string;
@@ -632,6 +633,12 @@ export function ProjetoRaioXFunil({ projectId, project, onRefresh, onNavigateTab
         {/* ABA 2: FUNIL & ONDE ESTÁ TRAVANDO                        */}
         {/* ======================================================== */}
         <TabsContent value="funil" className="mt-4 space-y-4">
+          <ProjetoFunnelCockpit
+            projectId={projectId}
+            projectName={project.name}
+            onNavigateTab={onNavigateTab}
+          />
+
           <Card className="bg-card border-border">
             <CardHeader className="p-4 pb-2">
               <div className="flex items-center justify-between">
