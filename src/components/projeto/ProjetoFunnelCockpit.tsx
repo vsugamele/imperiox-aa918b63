@@ -35,6 +35,7 @@ import { REFERENCIA, type StageId, type StageStatus } from "@shared/funnel-live"
 import { FunnelRemediationModal } from "@/components/funis/FunnelRemediationModal";
 import { FunnelWhatIfSimulator } from "@/components/funis/FunnelWhatIfSimulator";
 import { FunnelLeakSentinel } from "@/components/funis/FunnelLeakSentinel";
+import { FunnelSafeScalePanel } from "@/components/funis/FunnelSafeScalePanel";
 
 interface ProjetoFunnelCockpitProps {
   projectId: string;
@@ -543,7 +544,15 @@ export function ProjetoFunnelCockpit({
           </div>
         )}
 
-        {/* ───────── BLOCO 3: SIMULADOR WHAT-IF INTEGRADO (EXPANSÍVEL) ───────── */}
+        {/* ───────── BLOCO 3: MOTOR DE ESCALA SEGURA (PROTOCOLO DE FUNIL VERDE) ───────── */}
+        <FunnelSafeScalePanel
+          funnel={funnel}
+          days={days}
+          projectId={projectId}
+          projectName={projectName}
+        />
+
+        {/* ───────── BLOCO 4: SIMULADOR WHAT-IF INTEGRADO (EXPANSÍVEL) ───────── */}
         {showSimulator && (
           <div className="pt-2 border-t border-border/40">
             <div className="flex items-center justify-between mb-2">
@@ -573,6 +582,8 @@ export function ProjetoFunnelCockpit({
         }}
         diagnostic={activeRemediation}
         projectName={projectName}
+        projectId={projectId}
+        controlUrl={funnel.paginas?.[0]?.url ?? null}
       />
     </Card>
   );

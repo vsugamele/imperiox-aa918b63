@@ -5,7 +5,7 @@
 
 import type { FunnelLive, StageId } from "./funnel-live";
 import { REFERENCIA } from "./funnel-live";
-import type { ActionType } from "./funnel-diagnostics";
+import { runFunnelDiagnostics, type ActionType, type FunnelDiagnosticItem } from "./funnel-diagnostics";
 
 export type AnomalyType =
   | "queda_chegada_pagespeed"
@@ -257,3 +257,313 @@ export function scanFunnelAnomalies(funnel: FunnelLive, projectId?: string): Sen
     status,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM 2: DESPACHO DE TAREFA EM 1 CLIQUE (GARGALO ➔ KANBAN DA EQUIPE)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface KanbanDiagnosticPayload {
+  title: string;
+  description: string;
+  priority: "urgent" | "high" | "medium";
+  project_id: string | null;
+  board: string;
+  ai_generated: boolean;
+  tags: string[];
+}
+
+const PLAYBOOK_CHECKLISTS: Record<ActionType, string[]> = {
+  pagespeed: [
+    "[ ] Converter imagens da LP/VSL para WebP (<120KB por asset)",
+    "[ ] Adiar scripts de terceiros (GTM, Clarity, pixels secundários) em 2000ms",
+    "[ ] Habilitar compressão Brotli e Edge Cache na CDN",
+    "[ ] Validar tempo de carregamento mobile < 2.2s no PageSpeed Insights",
+  ],
+  copy_vsl: [
+    "[ ] Antecipar o delay do botão de compra em 45 a 60 segundos",
+    "[ ] Inserir loop aberto de curiosidade nos primeiros 90 segundos da VSL",
+    "[ ] Espelhar a headline da primeira dobra com a promessa do anúncio vencedor",
+    "[ ] Lançar Teste A/B (50/50) desafiando a página controle",
+  ],
+  checkout_friction: [
+    "[ ] Reduzir formulário de checkout para 4 campos (Nome, E-mail, WhatsApp, CPF)",
+    "[ ] Pré-selecionar PIX instantâneo com destaque visual na abertura",
+    "[ ] Ativar fallback/contingência automática de gateway para cartões recusados",
+  ],
+  bumps: [
+    "[ ] Configurar Order Bump Acelerador (R$ 19,90) com 1 clique no checkout",
+    "[ ] Configurar Order Bump de Blindagem/Suporte VIP (R$ 14,90)",
+    "[ ] Revisar copy do box tracejado para destacar ganho de velocidade",
+  ],
+  recovery_wa: [
+    "[ ] Configurar Toque 1 em 5 minutos pós-abandono (suporte humanizado PIX/Cartão)",
+    "[ ] Gravar e anexar áudio humanizado de 25s para o Toque 2 (45 minutos)",
+    "[ ] Ativar disparo de fechamento de lote em 24 horas",
+  ],
+  creatives: [
+    "[ ] Pausar conjuntos/criativos com CTR < 1,2% ou CPA acima do teto",
+    "[ ] Gravar/subir lote de 5 Ganchos Anti-Fadiga (P1 a P5) gerados pela Sentinela",
+    "[ ] Testar nova 1ª linha de texto principal focada no mecanismo único",
+  ],
+  scale: [
+    "[ ] Aumentar orçamento diário em +20% mantendo janela de aprendizado de 48h",
+    "[ ] Duplicar conjunto vencedor para lookalike aberto (escala horizontal)",
+    "[ ] Monitorar teto de CPA (circuit breaker) a cada 12h",
+  ],
+};
+
+/**
+ * Constrói o card estruturado do Kanban a partir de um diagnóstico ou anomalia do funil.
+ */
+export function buildKanbanCardFromDiagnostic(
+  diagnostic: FunnelDiagnosticItem,
+  projectId?: string | null,
+  projectName?: string
+): KanbanDiagnosticPayload {
+  const priority: "urgent" | "high" | "medium" =
+    diagnostic.severity === "critico"
+      ? "urgent"
+      : diagnostic.severity === "alerta"
+      ? "high"
+      : "medium";
+
+  const checklist = PLAYBOOK_CHECKLISTS[diagnostic.action.type] ?? [
+    `[ ] Executar: ${diagnostic.recommendation}`,
+  ];
+
+  const descriptionLines = [
+    `🎯 **Projeto:** ${projectName || projectId || "Geral"}`,
+    `🔗 **Transição Afetada:** ${diagnostic.stagePair.join(" ➔ ")}`,
+    `📊 **Métrica Detectada:** ${diagnostic.metricComparison}`,
+    diagnostic.estimatedLeak ? `💸 **Impacto / Vazamento Estimado:** ${diagnostic.estimatedLeak}` : null,
+    "",
+    `### 🔍 Causa-Raiz Identificada`,
+    diagnostic.rootCause,
+    "",
+    `### ⚡ Playbook Técnico de Execução`,
+    ...checklist,
+  ].filter((line): line is string => line !== null);
+
+  const tags = [
+    projectId || "geral",
+    "sentinela-funil",
+    diagnostic.action.type,
+  ];
+
+  return {
+    title: `[${diagnostic.badge.toUpperCase()}] ${diagnostic.title}`,
+    description: descriptionLines.join("\n"),
+    priority,
+    project_id: projectId ?? null,
+    board: "operacional",
+    ai_generated: true,
+    tags,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM 4: PONTE SENTINELA DE TRÁFEGO ➔ GERADOR ANTI-FADIGA DE GANCHOS (P1–P5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AntiFatigueHookInput {
+  projectName?: string;
+  avatarNome?: string;
+  dorPrincipal?: string;
+  desejoPrincipal?: string;
+  mecanismoNome?: string;
+  cpaCurrent?: number | null;
+}
+
+export interface AntiFatigueHookItem {
+  code: "P1" | "P2" | "P3" | "P4" | "P5";
+  angle: string;
+  hook0to3s: string;
+  primaryTextFirstLine: string;
+  visualDirection: string;
+  whyItWorks: string;
+}
+
+/**
+ * Gera 5 ganchos anti-fadiga (P1 a P5) ancorados no Avatar e Mecanismo Único do projeto
+ * quando a Sentinela detecta queda de CTR ou surto de CPA.
+ */
+export function generateAntiFatigueHooks(input: AntiFatigueHookInput): AntiFatigueHookItem[] {
+  const produto = input.projectName?.trim() || "Protocolo";
+  const dor = input.dorPrincipal?.trim() || "travar no meio do caminho sem ver resultado";
+  const desejo = input.desejoPrincipal?.trim() || "destravar resultados visíveis em poucos dias";
+  const mecanismo = input.mecanismoNome?.trim() || `Mecanismo ${produto}`;
+
+  return [
+    {
+      code: "P1",
+      angle: "Quebra de Padrão / Erro Invisível",
+      hook0to3s: `"Pare de tentar resolver ${dor} do jeito tradicional — é exatamente isso que está bloqueando você."`,
+      primaryTextFirstLine: `9 em cada 10 pessoas que tentam ${desejo} cometem este erro silencioso logo nos primeiros 3 minutos.`,
+      visualDirection: "Corte seco nos primeiros 1.5s mostrando o erro comum riscado em vermelho + close no rosto.",
+      whyItWorks: "Interrompe o scroll atacando a tentativa frustrada que o avatar já fez hoje.",
+    },
+    {
+      code: "P2",
+      angle: "Revelação do Mecanismo Único",
+      hook0to3s: `"Não é falta de esforço: enquanto você não ativar o ${mecanismo}, o problema de ${dor} sempre volta."`,
+      primaryTextFirstLine: `Descubra por que o ${mecanismo} está substituindo os métodos antigos para quem busca ${desejo}.`,
+      visualDirection: "Comparação lado a lado (Método Antigo Lento vs. ${mecanismo} Direto) com legenda dinâmica.",
+      whyItWorks: "Remove a culpa do avatar e transfere a responsabilidade para a ausência do mecanismo novo.",
+    },
+    {
+      code: "P3",
+      angle: "Especificidade & Prova Direta",
+      hook0to3s: `"Eu cronometrei quanto tempo leva para aplicar o ${mecanismo} na prática e o resultado me assustou."`,
+      primaryTextFirstLine: `Sem teoria enrolada: veja o passo a passo exato do ${produto} funcionando em tempo real.`,
+      visualDirection: " Demonstração de tela ou prova física nos primeiros 2 segundos com cronômetro ou antes/depois real.",
+      whyItWorks: "Destrói o ceticismo ('yeah, sure') substituindo promessa abstrata por demonstração mensurável.",
+    },
+    {
+      code: "P4",
+      angle: "Pergunta de Diagnóstico (Sintoma Ignorado)",
+      hook0to3s: `"Se você sente ${dor} toda semana, faça este teste rápido de 10 segundos agora."`,
+      primaryTextFirstLine: `Você reconhece algum destes 3 sinais? O 2º é o maior indicador de que você precisa do ${mecanismo}.`,
+      visualDirection: "Avatar apontando para 3 itens na tela que acendem conforme são falados.",
+      whyItWorks: "Gera autodiagnóstico imediato e micro-comprometimento antes do clique para a VSL.",
+    },
+    {
+      code: "P5",
+      angle: "Contraste de Inimigo Comum / Anti-Hype",
+      hook0to3s: `"Ninguém no mercado quer te contar isso sobre ${dor}, porque o jeito simples não vende mensalidade cara."`,
+      primaryTextFirstLine: `A verdade nua e crua sobre como ${desejo} usando o protocolo ${produto} sem depender de sorte.`,
+      visualDirection: "Estilo UGC orgânico nativo, sem cara de anúncio de estúdio, legenda simples estilo Stories.",
+      whyItWorks: "Fura a cegueira de banner (ad blindness) parecendo conteúdo orgânico de bastidor.",
+    },
+  ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM 5: MOTOR DE ESCALA SEGURA (PROTOCOLO DE FUNIL VERDE)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SafeScaleProtocol {
+  isScaleReady: boolean;
+  scaleTier: "bloqueado" | "cauteloso" | "agressivo_controlado";
+  fluencyScore: number;
+  currentDailySpend: number;
+  recommendedDailySpend: number;
+  budgetIncreasePct: number;
+  projectedDailyRevenue: number;
+  currentRoas: number | null;
+  projectedRoasAfterElasticity: number | null;
+  cpaCeilingBreaker: number;
+  verticalVsHorizontalSplit: {
+    verticalPct: number;
+    horizontalPct: number;
+    guidance: string;
+  };
+  steps: string[];
+  blockReason?: string;
+}
+
+/**
+ * Calcula o protocolo prescritivo de escala segura quando o funil atinge saúde verde,
+ * ou informa o bloqueio técnico caso ainda existam vazamentos críticos.
+ */
+export function calculateSafeScaleProtocol(
+  funnel: FunnelLive,
+  days = 7,
+  targetRoas = 1.4
+): SafeScaleProtocol {
+  const periodDays = Math.max(1, days);
+  const diag = runFunnelDiagnostics(funnel);
+  const sentinel = scanFunnelAnomalies(funnel);
+
+  const totalSpend = funnel.totais.gasto ?? 0;
+  const totalBruto = funnel.totais.bruto ?? 0;
+  const currentRoas = funnel.totais.roas;
+  const currentCpa = funnel.totais.cpa;
+
+  const currentDailySpend = round(totalSpend / periodDays, 2);
+  const baseCpa = currentCpa && currentCpa > 0 ? currentCpa : 45;
+  const cpaCeilingBreaker = round(baseCpa * 1.25, 2);
+
+  // Critério de prontidão para escala: Score >= 75, sem anomalias críticas e ROAS >= targetRoas
+  const hasCriticalLeak = sentinel.criticalCount > 0 || diag.score < 70;
+  const roasOk = currentRoas !== null && currentRoas >= targetRoas;
+
+  if (hasCriticalLeak || !roasOk || totalSpend <= 0) {
+    const blockReason =
+      totalSpend <= 0
+        ? "Sem investimento de tráfego medido no período para calcular elasticidade."
+        : hasCriticalLeak
+        ? `Existem vazamentos ativos (Score ${diag.score}/100). Corrija o gargalo antes de injetar mais verba.`
+        : `ROAS atual (${currentRoas ?? 0}x) está abaixo da margem de segurança (${targetRoas}x).`;
+
+    return {
+      isScaleReady: false,
+      scaleTier: "bloqueado",
+      fluencyScore: diag.score,
+      currentDailySpend,
+      recommendedDailySpend: currentDailySpend,
+      budgetIncreasePct: 0,
+      projectedDailyRevenue: round(totalBruto / periodDays, 2),
+      currentRoas,
+      projectedRoasAfterElasticity: currentRoas,
+      cpaCeilingBreaker,
+      verticalVsHorizontalSplit: {
+        verticalPct: 0,
+        horizontalPct: 100,
+        guidance: "Mantenha o orçamento travado e rode testes A/B na etapa gargalo antes de escalar.",
+      },
+      steps: [
+        "1. Trave o orçamento atual para não amplificar o vazamento detectado.",
+        `2. Execute o Playbook de correção na etapa em alerta (${diag.primaryBottleneck?.stagePair.join(" ➔ ") || "Funil"}).`,
+        "3. Destrave a escala assim que o Score atingir ≥ 75 e o ROAS superar 1.4x.",
+      ],
+      blockReason,
+    };
+  }
+
+  // Se ROAS >= 2.2 e Score >= 85 -> Escala Agressiva Controlada (+30%)
+  // Caso contrário -> Escala Cautelosa (+20% regra clássica sem resetar aprendizado)
+  const isHighRoas = (currentRoas ?? 0) >= 2.2 && diag.score >= 82;
+  const budgetIncreasePct = isHighRoas ? 30 : 20;
+  const recommendedDailySpend = round(currentDailySpend * (1 + budgetIncreasePct / 100), 2);
+
+  // Elasticidade de CPA na escala: ~5% a 7% de compressão natural de ROAS ao subir orçamento
+  const elasticityFactor = isHighRoas ? 0.93 : 0.95;
+  const projectedRoasAfterElasticity =
+    currentRoas !== null ? round(currentRoas * elasticityFactor, 2) : null;
+  const projectedDailyRevenue =
+    projectedRoasAfterElasticity !== null
+      ? round(recommendedDailySpend * projectedRoasAfterElasticity, 2)
+      : round((totalBruto / periodDays) * (1 + budgetIncreasePct / 100), 2);
+
+  return {
+    isScaleReady: true,
+    scaleTier: isHighRoas ? "agressivo_controlado" : "cauteloso",
+    fluencyScore: diag.score,
+    currentDailySpend,
+    recommendedDailySpend,
+    budgetIncreasePct,
+    projectedDailyRevenue,
+    currentRoas,
+    projectedRoasAfterElasticity,
+    cpaCeilingBreaker,
+    verticalVsHorizontalSplit: isHighRoas
+      ? {
+          verticalPct: 60,
+          horizontalPct: 40,
+          guidance:
+            "60% via aumento direto de +20% nos conjuntos vencedores + 40% duplicando em novos públicos abertos/Lookalike.",
+        }
+      : {
+          verticalPct: 80,
+          horizontalPct: 20,
+          guidance:
+            "80% via incremento gradual de +20% no orçamento a cada 48h (sem reiniciar fase de aprendizado) + 20% em variação de gancho.",
+        },
+    steps: [
+      `1. Subir orçamento diário de R$ ${currentDailySpend.toFixed(0)} para R$ ${recommendedDailySpend.toFixed(0)} (+${budgetIncreasePct}%) pela manhã.`,
+      `2. Configurar regra de segurança (Circuit Breaker): pausar aumento se o CPA ultrapassar R$ ${cpaCeilingBreaker.toFixed(2)}.`,
+      "3. Manter pelo menos 2 variações de criativo ativas para absorver a nova entrega sem saturar a frequência.",
+    ],
+  };
+}
+

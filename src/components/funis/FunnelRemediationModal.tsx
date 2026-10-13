@@ -1,31 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
-  Sparkles,
   Zap,
   Copy,
-  CheckCircle2,
   ExternalLink,
-  MessageCircle,
-  Megaphone,
-  Globe,
-  ShoppingCart,
-  TrendingUp,
-  FileText,
   Loader2,
   Check,
+  KanbanSquare,
+  FlaskConical,
+  Sparkles,
+  Megaphone,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { jsonFields } from "@/lib/json-fields";
+import { errorMessage } from "@/lib/error-message";
+import { normalizeVariants, slugify } from "@shared/page-split";
+import type { Json } from "@/integrations/supabase/types";
 import type { FunnelDiagnosticItem } from "@shared/funnel-diagnostics";
+import {
+  buildKanbanCardFromDiagnostic,
+  generateAntiFatigueHooks,
+  type AntiFatigueHookInput,
+} from "@shared/funnel-sentinel";
+import { SPLIT_BASE_URL } from "@/hooks/usePageSplits";
 
 interface FunnelRemediationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   diagnostic: FunnelDiagnosticItem | null;
   projectName?: string;
+  projectId?: string | null;
+  controlUrl?: string | null;
+  onLaunchAbTest?: (preset: { nome: string; controlUrl: string; challengerUrl: string }) => void;
 }
 
 export function FunnelRemediationModal({
@@ -33,9 +43,85 @@ export function FunnelRemediationModal({
   onOpenChange,
   diagnostic,
   projectName,
+  projectId,
+  controlUrl,
+  onLaunchAbTest,
 }: FunnelRemediationModalProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"solucao" | "ativos" | "diretriz">("solucao");
+  const [activeView, setActiveView] = useState<"playbook" | "hooks" | "abtest">("playbook");
+  const [dispatchingKanban, setDispatchingKanban] = useState(false);
+  const [kanbanDispatched, setKanbanDispatched] = useState(false);
+
+  // Contexto real do projeto (avatar + mecanismo) para o Gerador Anti-Fadiga P1-P5
+  const [hookContext, setHookContext] = useState<AntiFatigueHookInput>({
+    projectName: projectName || "Produto",
+  });
+
+  // Estado do Lançador de Teste A/B 50/50
+  const [splitNome, setSplitNome] = useState("");
+  const [urlA, setUrlA] = useState("");
+  const [urlB, setUrlB] = useState("");
+  const [creatingSplit, setCreatingSplit] = useState(false);
+  const [createdSplitLink, setCreatedSplitLink] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!diagnostic) return;
+    setKanbanDispatched(false);
+    setCreatedSplitLink(null);
+    setActiveView(diagnostic.action.type === "creatives" ? "hooks" : "playbook");
+
+    const baseControl = controlUrl || "https://seudominio.com/pv";
+    setSplitNome(`Desafio A/B · ${diagnostic.badge}`);
+    setUrlA(baseControl);
+    setUrlB(baseControl.includes("?") ? `${baseControl}&v=b` : `${baseControl}?v=b-desafiante`);
+  }, [diagnostic, controlUrl]);
+
+  useEffect(() => {
+    if (!open || !projectId) {
+      setHookContext({ projectName: projectName || "Protocolo" });
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("imphq_projects")
+      .select("name, avatar, data")
+      .eq("id", projectId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const av = jsonFields(data.avatar);
+        const pData = jsonFields(data.data);
+        setHookContext({
+          projectName: data.name || projectName || "Protocolo",
+          avatarNome: typeof av.nome === "string" ? av.nome : undefined,
+          dorPrincipal:
+            typeof av.dor_principal === "string"
+              ? av.dor_principal
+              : typeof av.dores === "string"
+              ? av.dores
+              : undefined,
+          desejoPrincipal:
+            typeof av.desejo_principal === "string"
+              ? av.desejo_principal
+              : typeof av.desejos === "string"
+              ? av.desejos
+              : undefined,
+          mecanismoNome:
+            typeof pData.mecanismo_unico === "string"
+              ? pData.mecanismo_unico
+              : typeof pData.mecanismo === "string"
+              ? pData.mecanismo
+              : undefined,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, projectId, projectName]);
+
+  const hooksList = useMemo(() => {
+    return generateAntiFatigueHooks(hookContext);
+  }, [hookContext]);
 
   if (!diagnostic) return null;
 
@@ -44,6 +130,85 @@ export function FunnelRemediationModal({
     setCopiedKey(key);
     toast.success(label);
     setTimeout(() => setCopiedKey(null), 2500);
+  };
+
+  // ITEM 2: Despacho em 1 Clique para o Kanban da Equipe
+  const handleDispatchToKanban = async () => {
+    setDispatchingKanban(true);
+    try {
+      const cardPayload = buildKanbanCardFromDiagnostic(
+        diagnostic,
+        projectId,
+        hookContext.projectName || projectName
+      );
+
+      // Tenta localizar a primeira coluna do quadro operacional
+      let firstColId: string | null = null;
+      const { data: cols } = await supabase
+        .from("imphq_kanban_columns")
+        .select("id")
+        .in("board", ["operacional", "geral"])
+        .order("position", { ascending: true })
+        .limit(1);
+      if (cols && cols.length > 0) {
+        firstColId = cols[0].id;
+      }
+
+      const { error } = await supabase.from("imphq_kanban_cards").insert({
+        ...cardPayload,
+        column_id: firstColId,
+      });
+
+      if (error) throw error;
+      setKanbanDispatched(true);
+      toast.success("Card urgente despachado para o Kanban da equipe!");
+    } catch (err) {
+      toast.error("Não foi possível despachar para o Kanban: " + errorMessage(err));
+    } finally {
+      setDispatchingKanban(false);
+    }
+  };
+
+  // ITEM 3: Lançador de Teste A/B 50/50 direto do Gargalo
+  const handleCreateAbSplit = async () => {
+    if (!projectId) {
+      if (onLaunchAbTest) {
+        onLaunchAbTest({ nome: splitNome, controlUrl: urlA, challengerUrl: urlB });
+        onOpenChange(false);
+      }
+      return;
+    }
+
+    setCreatingSplit(true);
+    try {
+      const list = normalizeVariants([
+        { key: "A", url: urlA.trim(), peso: 1 },
+        { key: "B", url: urlB.trim(), peso: 1 },
+      ]);
+      if (list.length < 2) {
+        throw new Error("Informe URLs completas (https://...) para a Página A (Controle) e Página B (Desafiante).");
+      }
+      const slug = `${slugify(splitNome)}-${Math.random().toString(36).slice(2, 6)}`;
+      const { error } = await supabase.from("imphq_page_splits").insert({
+        project_id: projectId,
+        slug,
+        nome: splitNome.trim() || "Teste A/B de Gargalo",
+        variantes: list as unknown as Json,
+      });
+      if (error) throw error;
+
+      const finalLink = SPLIT_BASE_URL + slug;
+      setCreatedSplitLink(finalLink);
+      navigator.clipboard.writeText(finalLink);
+      toast.success("Teste A/B (50/50) criado! Link único copiado para a área de transferência.");
+      if (onLaunchAbTest) {
+        onLaunchAbTest({ nome: splitNome, controlUrl: urlA, challengerUrl: urlB });
+      }
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setCreatingSplit(false);
+    }
   };
 
   // Conteúdo gerado conforme o tipo de gargalo
@@ -70,7 +235,7 @@ export function FunnelRemediationModal({
                   {
                     title: "2. Adiar Scripts de Terceiros e Pixels Secundários",
                     desc: "Configurar o GTM ou tags de TikTok/Google/Clarity com carregamento assíncrono atrasado (delay de 2000ms após o evento DOMContentLoaded), garantindo que a página abra instantaneamente.",
-                    code: "<script defer src=\"https://...\"></script>",
+                    code: '<script defer src="https://..."></script>',
                   },
                   {
                     title: "3. Cache de Borda na CDN (Cloudflare / Vercel)",
@@ -360,26 +525,211 @@ export function FunnelRemediationModal({
           </div>
         );
 
+      case "creatives":
       default:
-        return (
-          <div className="space-y-3 text-xs text-muted-foreground">
-            <p>{diagnostic.recommendation}</p>
-          </div>
-        );
+        return renderHooksGenerator();
     }
+  };
+
+  // ITEM 4: Gerador Anti-Fadiga de Ganchos (P1–P5) conectado ao Avatar e Mecanismo
+  const renderHooksGenerator = () => {
+    const fullHooksText = hooksList
+      .map(
+        (h) =>
+          `[${h.code} · ${h.angle}]\n• Gancho (0-3s): ${h.hook0to3s}\n• 1ª Linha (Primary Text): ${h.primaryTextFirstLine}\n• Direção Visual: ${h.visualDirection}`
+      )
+      .join("\n\n");
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs text-primary flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            🎯 <strong>Fábrica Anti-Fadiga de Ganchos (P1–P5):</strong> 5 variações de abertura ancoradas no mecanismo e avatar de{" "}
+            <strong>{hookContext.projectName}</strong> para recuperar CTR acima de 1,5% e derrubar o CPA.
+          </div>
+          {hookContext.mecanismoNome && (
+            <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
+              Mecanismo: {hookContext.mecanismoNome}
+            </Badge>
+          )}
+        </div>
+
+        <div className="space-y-2.5 text-xs">
+          {hooksList.map((h) => (
+            <div key={h.code} className="rounded-lg border border-border bg-card p-3 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-primary/20 text-primary border-primary/30 font-mono text-[10px]">
+                    {h.code}
+                  </Badge>
+                  <span className="font-semibold text-foreground">{h.angle}</span>
+                </div>
+                <button
+                  onClick={() =>
+                    copyToClipboard(
+                      `[${h.code} - ${h.angle}]\nGancho 0-3s: ${h.hook0to3s}\n1ª Linha: ${h.primaryTextFirstLine}\nVisual: ${h.visualDirection}`,
+                      `hook-${h.code}`,
+                      `Gancho ${h.code} copiado!`
+                    )
+                  }
+                  className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  {copiedKey === `hook-${h.code}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  Copiar {h.code}
+                </button>
+              </div>
+
+              <div className="rounded bg-background/60 border border-border/60 p-2 space-y-1">
+                <p className="text-foreground font-medium text-[11px]">
+                  🎙️ <span className="text-primary font-mono text-[10px]">GANCHO 0-3s:</span> {h.hook0to3s}
+                </p>
+                <p className="text-muted-foreground text-[11px]">
+                  📝 <span className="font-mono text-[10px] text-foreground/80">1ª LINHA DO ANÚNCIO:</span> {h.primaryTextFirstLine}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 flex-wrap gap-1">
+                <span>🎬 {h.visualDirection}</span>
+                <span className="text-emerald-400/90">💡 {h.whyItWorks}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="pt-2 border-t border-border flex justify-end">
+          <Button
+            size="sm"
+            onClick={() => copyToClipboard(fullHooksText, "hooks-all", "Lote P1–P5 copiado com sucesso!")}
+            className="gap-1.5"
+          >
+            <Copy className="h-3.5 w-3.5" /> Copiar Lote P1–P5 Completo
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // ITEM 3: Lançador de Teste A/B 50/50 direto do Gargalo
+  const renderAbTestLauncher = () => {
+    return (
+      <div className="space-y-4 text-xs">
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-sky-300">
+          🧪 <strong>Lançador de Teste A/B Desafiante (50/50):</strong> Divida o tráfego ao meio entre a sua página atual (Controle A) e uma página otimizada (Desafiante B) para validar a melhora de conversão com rigor estatístico.
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-border bg-card p-3.5">
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">Nome do Experimento A/B</label>
+            <Input
+              value={splitNome}
+              onChange={(e) => setSplitNome(e.target.value)}
+              placeholder="Ex.: Desafio VSL Curta vs Controle"
+              className="h-8 text-xs"
+            />
+          </div>
+
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-[11px] font-mono text-primary font-semibold">
+                Variante A · Página Controle (50%)
+              </label>
+              <Input
+                value={urlA}
+                onChange={(e) => setUrlA(e.target.value)}
+                placeholder="https://seudominio.com/pv-atual"
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-mono text-emerald-400 font-semibold">
+                Variante B · Página Desafiante (50%)
+              </label>
+              <Input
+                value={urlB}
+                onChange={(e) => setUrlB(e.target.value)}
+                placeholder="https://seudominio.com/pv-otimizada"
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          {createdSplitLink && (
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2.5 flex items-center justify-between gap-2">
+              <div className="truncate font-mono text-[11px] text-emerald-300">
+                ✓ Link Divisor Ativo: <strong>{createdSplitLink}</strong>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={() => copyToClipboard(createdSplitLink, "split-link", "Link do Teste A/B copiado!")}
+              >
+                <Copy className="h-3 w-3 mr-1" /> Copiar Link
+              </Button>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-1">
+            <Button
+              size="sm"
+              onClick={handleCreateAbSplit}
+              disabled={creatingSplit}
+              className="gap-1.5"
+            >
+              {creatingSplit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
+              Criar Teste A/B (50/50) e Copiar Link
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
-              <Zap className="h-4 w-4" />
-            </span>
-            <DialogTitle className="text-base font-semibold">
-              Remediação Autônoma: {diagnostic.badge}
-            </DialogTitle>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <Zap className="h-4 w-4" />
+              </span>
+              <DialogTitle className="text-base font-semibold">
+                Remediação Autônoma: {diagnostic.badge}
+              </DialogTitle>
+            </div>
+
+            {/* Seletor Rápido entre Playbook, Ganchos P1-P5 e Teste A/B */}
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-secondary/40 p-0.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setActiveView("playbook")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  activeView === "playbook" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                ⚡ Playbook
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("hooks")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1 ${
+                  activeView === "hooks" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Megaphone className="h-3 w-3" /> Ganchos P1–P5
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("abtest")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1 ${
+                  activeView === "abtest" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FlaskConical className="h-3 w-3" /> Teste A/B
+              </button>
+            </div>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
             {diagnostic.title} · Transição: {diagnostic.stagePair.join(" ➔ ")}
@@ -387,7 +737,48 @@ export function FunnelRemediationModal({
         </DialogHeader>
 
         <div className="pt-2">
-          {renderRemediationContent()}
+          {activeView === "playbook" && renderRemediationContent()}
+          {activeView === "hooks" && renderHooksGenerator()}
+          {activeView === "abtest" && renderAbTestLauncher()}
+        </div>
+
+        {/* Barra Executiva de Despacho (Gargalo ➔ Kanban & A/B) */}
+        <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2">
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>Transforme este diagnóstico em tarefa rastreável para a equipe:</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {activeView !== "abtest" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setActiveView("abtest")}
+                className="h-8 text-xs gap-1.5"
+              >
+                <FlaskConical className="h-3.5 w-3.5 text-sky-400" />
+                Desafiar em Teste A/B
+              </Button>
+            )}
+
+            <Button
+              size="sm"
+              variant={kanbanDispatched ? "outline" : "default"}
+              disabled={dispatchingKanban || kanbanDispatched}
+              onClick={handleDispatchToKanban}
+              className="h-8 text-xs gap-1.5 font-semibold"
+            >
+              {dispatchingKanban ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : kanbanDispatched ? (
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+              ) : (
+                <KanbanSquare className="h-3.5 w-3.5" />
+              )}
+              {kanbanDispatched ? "Despachado ao Kanban ✓" : "Despachar para o Kanban"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

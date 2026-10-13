@@ -7,10 +7,11 @@ import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { REFERENCIA, type Metric, type Stage, type StageId, type StageStatus } from "@shared/funnel-live";
 import { useFunnelLive } from "@/hooks/useFunnelLive";
-import { PageSplitsSection } from "@/components/funis/PageSplitsSection";
+import { PageSplitsSection, type PageSplitPresetDraft } from "@/components/funis/PageSplitsSection";
 import { FunnelCrossStageDiagnostics } from "@/components/funis/FunnelCrossStageDiagnostics";
 import { FunnelWhatIfSimulator } from "@/components/funis/FunnelWhatIfSimulator";
 import { FunnelLeakSentinel } from "@/components/funis/FunnelLeakSentinel";
+import { FunnelSafeScalePanel } from "@/components/funis/FunnelSafeScalePanel";
 
 interface ProjectOption { id: string; name: string }
 
@@ -44,6 +45,7 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
   });
   const [produto, setProduto] = useState<string | null>(null);
   const [days, setDays] = useState(7);
+  const [splitPreset, setSplitPreset] = useState<PageSplitPresetDraft | null>(null);
 
   useEffect(() => {
     if (!projectId && projects.length) {
@@ -169,8 +171,21 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             projectName={projects.find((p) => p.id === projectId)?.name}
           />
 
+          {/* Motor de Escala Segura: protocolo prescritivo de verba quando o funil atinge saúde verde */}
+          <FunnelSafeScalePanel
+            funnel={data}
+            days={days}
+            projectId={projectId}
+            projectName={projects.find((p) => p.id === projectId)?.name}
+          />
+
           {/* Diagnóstico Cruzado Inteligente: vazamentos entre etapas, pagespeed, VSL, checkout e recuperação */}
-          <FunnelCrossStageDiagnostics funnel={data} projectId={projectId} />
+          <FunnelCrossStageDiagnostics
+            funnel={data}
+            projectId={projectId}
+            controlUrl={data.paginas[0]?.url ?? null}
+            onLaunchAbTest={(preset) => setSplitPreset(preset)}
+          />
 
           {/* Simulador de Alavancagem Financeira What-If: projeção de faturamento ao destravar gargalos */}
           <FunnelWhatIfSimulator
@@ -189,7 +204,13 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             projectName={projects.find((p) => p.id === projectId)?.name}
           />
 
-          {projectId && <PageSplitsSection projectId={projectId} />}
+          {projectId && (
+            <PageSplitsSection
+              projectId={projectId}
+              presetDraft={splitPreset}
+              onClearPreset={() => setSplitPreset(null)}
+            />
+          )}
 
           {data.paginas.length > 0 && (
             <section className="space-y-2 rounded-lg border border-border bg-card p-4" aria-label="Páginas medidas">

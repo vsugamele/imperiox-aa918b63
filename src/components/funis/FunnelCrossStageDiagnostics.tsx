@@ -66,7 +66,17 @@ const STAGE_NAMES: Record<StageId, string> = {
   recuperacao: "WhatsApp",
 };
 
-export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: FunnelLive; projectId?: string | null }) {
+export function FunnelCrossStageDiagnostics({
+  funnel,
+  projectId,
+  controlUrl,
+  onLaunchAbTest,
+}: {
+  funnel: FunnelLive;
+  projectId?: string | null;
+  controlUrl?: string | null;
+  onLaunchAbTest?: (preset: { nome: string; controlUrl: string; challengerUrl: string }) => void;
+}) {
   const report = runFunnelDiagnostics(funnel);
   const [filter, setFilter] = useState<"todos" | "criticos" | "oportunidades">("todos");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -100,6 +110,22 @@ export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: Fun
 
   const handleAction = (item: FunnelDiagnosticItem) => {
     setRemediationItem(item);
+  };
+
+  const handleQuickAbTest = (item: FunnelDiagnosticItem) => {
+    const baseControl = controlUrl || "https://seudominio.com/pv";
+    const challenger = baseControl.includes("?") ? `${baseControl}&v=b` : `${baseControl}?v=b-desafiante`;
+    if (onLaunchAbTest) {
+      onLaunchAbTest({
+        nome: `Desafio A/B · ${item.badge}`,
+        controlUrl: baseControl,
+        challengerUrl: challenger,
+      });
+      const el = typeof document !== "undefined" ? document.getElementById("page-splits-section") : null;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      setRemediationItem(item);
+    }
   };
 
   return (
@@ -189,7 +215,10 @@ export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: Fun
           {filteredItems.map((item, index) => {
             const config = SEVERITY_CONFIG[item.severity];
             const SeverityIcon = config.icon;
-            const isExpanded = expandedId === item.id;
+            const supportsAbTest =
+              item.action.type === "pagespeed" ||
+              item.action.type === "copy_vsl" ||
+              item.action.type === "checkout_friction";
 
             return (
               <motion.article
@@ -258,14 +287,27 @@ export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: Fun
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleAction(item)}
-                    className="nodrag inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all hover:bg-primary hover:text-primary-foreground shadow-xs"
-                    title={item.action.hint}
-                  >
-                    <Zap className="h-3.5 w-3.5" />
-                    <span>{item.action.label}</span>
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {supportsAbTest && (
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAbTest(item)}
+                        className="nodrag inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs font-medium text-foreground transition-all hover:border-primary/40 hover:text-primary"
+                        title="Desafiar a página atual criando um Teste A/B 50/50 neste ponto do funil"
+                      >
+                        <span>🧪 Criar Teste A/B (50/50)</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleAction(item)}
+                      className="nodrag inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all hover:bg-primary hover:text-primary-foreground shadow-xs"
+                      title={item.action.hint}
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                      <span>{item.action.label}</span>
+                    </button>
+                  </div>
                 </div>
               </motion.article>
             );
@@ -279,6 +321,9 @@ export function FunnelCrossStageDiagnostics({ funnel, projectId }: { funnel: Fun
         onOpenChange={(open) => !open && setRemediationItem(null)}
         diagnostic={remediationItem}
         projectName={projectId ?? undefined}
+        projectId={projectId}
+        controlUrl={controlUrl}
+        onLaunchAbTest={onLaunchAbTest}
       />
     </section>
   );

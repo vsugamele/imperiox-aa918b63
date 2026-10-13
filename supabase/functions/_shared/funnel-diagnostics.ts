@@ -8,7 +8,7 @@ import type { FunnelLive, StageId } from "./funnel-live";
 import { REFERENCIA } from "./funnel-live";
 
 export type DiagnosticSeverity = "critico" | "alerta" | "oportunidade" | "saudavel";
-export type ActionType = "pagespeed" | "copy_vsl" | "checkout_friction" | "bumps" | "recovery_wa" | "creatives";
+export type ActionType = "pagespeed" | "copy_vsl" | "checkout_friction" | "bumps" | "recovery_wa" | "creatives" | "scale";
 
 export interface FunnelDiagnosticItem {
   id: string;

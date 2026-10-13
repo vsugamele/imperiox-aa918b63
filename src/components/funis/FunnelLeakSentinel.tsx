@@ -234,7 +234,8 @@ export function FunnelLeakSentinel({
                   className="h-7 text-xs gap-1.5 bg-primary text-black font-semibold hover:bg-primary/90 shadow-xs"
                   onClick={() => handleOpenPlaybook(anomaly)}
                 >
-                  <Zap className="h-3 w-3" /> Playbook ⚡
+                  <Zap className="h-3 w-3" />
+                  {anomaly.type === "surto_cpa_fatiga" ? "Ganchos P1–P5 ⚡" : "Playbook ⚡"}
                 </Button>
 
                 {onOpenSimulator && (
@@ -271,6 +272,7 @@ export function FunnelLeakSentinel({
         }}
         diagnostic={activeRemediation}
         projectName={projectName}
+        projectId={projectId}
       />
     </Card>
   );
