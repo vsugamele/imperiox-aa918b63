@@ -441,6 +441,7 @@ ${dossier.ad_angles}
     try {
       const newId = crypto.randomUUID();
       const initialData = {
+        status: "em_construcao",
         produto: dossier.nome,
         precos: { principal: dossier.preco, garantia: dossier.garantia },
         produtos_bonus: dossier.bonus,
@@ -466,7 +467,7 @@ ${dossier.ad_angles}
         id: newId,
         name: newProjectName,
         category: newProjectCategory,
-        status: "em_construcao",
+        active: true,
         icon: "🧠",
         color: "#d4a843",
         data: initialData,

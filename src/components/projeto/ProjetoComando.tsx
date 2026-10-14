@@ -1,5 +1,6 @@
 import type { Tables } from "@/integrations/supabase/types";
 import { jsonFields, jsonText } from "@/lib/json-fields";
+import { PAID_SALE_STATUSES, isPaidSaleStatus } from "@/lib/revenueMode";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,11 +78,11 @@ export function ProjetoComando({ projectId, project }: Props) {
       sb.from("imphq_leads").select("criado_em").eq("project_id", projectId).gte("criado_em", sevenDaysAgo).then(({ data, count }): { data: Array<Pick<Tables<"imphq_leads">,"criado_em">> | null; count: number | null } => ({ data, count })),
       sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr).then(({ data, count }): { data: Array<Pick<Tables<"imphq_ads_spend">,"valor">> | null; count: number | null } => ({ data, count })),
       sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr.slice(0, 8) + String(Number(todayStr.slice(8, 10)) - 1).padStart(2, "0")).then(({ data, count }): { data: Array<Pick<Tables<"imphq_ads_spend">,"valor">> | null; count: number | null } => ({ data, count })),
-      sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"produto_nome"|"valor"|"status">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_vendas").select("produto_nome, valor, status").eq("project_id", projectId).in("status", [...PAID_SALE_STATUSES]).gte("created_at", monthStart).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"produto_nome"|"valor"|"status">> | null; count: number | null } => ({ data, count })),
       sb.from("imphq_calendar_events").select("*").eq("project_id", projectId).gte("event_date", todayStr).lte("event_date", in48h).order("event_date", { ascending: true }).then(({ data, count }): { data: Array<Tables<"imphq_calendar_events">> | null; count: number | null } => ({ data, count })),
       sb.from("imphq_ads_spend").select("valor").eq("project_id", projectId).gte("data_ref", monthStart.slice(0, 10)).then(({ data, count }): { data: Array<Pick<Tables<"imphq_ads_spend">,"valor">> | null; count: number | null } => ({ data, count })),
       sb.from("imphq_leads").select("id, criado_em").eq("project_id", projectId).gte("criado_em", monthStart).then(({ data, count }): { data: Array<Pick<Tables<"imphq_leads">,"id"|"criado_em">> | null; count: number | null } => ({ data, count })),
-      sb.from("imphq_vendas").select("id, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString()).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"id"|"status">> | null; count: number | null } => ({ data, count })),
+      sb.from("imphq_vendas").select("id, status").eq("project_id", projectId).in("status", [...PAID_SALE_STATUSES]).gte("created_at", new Date(new Date(dayStart).getTime() - 7 * 86400000).toISOString()).then(({ data, count }): { data: Array<Pick<Tables<"imphq_vendas">,"id"|"status">> | null; count: number | null } => ({ data, count })),
       sb.from("imphq_content_library").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("created_at", new Date(new Date(dayStart).getTime() - 14 * 86400000).toISOString()).then(({ data, count }): { data: Array<Pick<Tables<"imphq_content_library">,"id">> | null; count: number | null } => ({ data, count })),
     ] as const;
     const [cardsRes, leadsRes, vendasPendRes, vendasHojeRes, calEventsRes, vendasOntemRes, leads7dRes, adsHojeRes, adsOntemRes, vendasMesRes, events48hRes, adsMesRes, leadsMesRes, vendas7dRes, conteudos14dRes] = await Promise.all(promises);
@@ -164,7 +165,7 @@ export function ProjetoComando({ projectId, project }: Props) {
     const s = (v.status || "").toLowerCase();
     return s.includes("carrinho");
   }).length;
-  const salesToday = vendasHoje.filter(v => (v.status || "").toLowerCase() === "aprovado").length;
+  const salesToday = vendasHoje.filter(v => isPaidSaleStatus(v.status)).length;
   const pendingTotal = pendingVendas.length;
 
   const briefing = jsonFields(project.data);
@@ -173,12 +174,12 @@ export function ProjetoComando({ projectId, project }: Props) {
 
   // Valor total vendas do dia
   const totalVendasHojeValor = vendasHoje
-    .filter(v => (v.status || "").toLowerCase() === "aprovado")
+    .filter(v => isPaidSaleStatus(v.status))
     .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
 
   // ===== Pulso de Hoje =====
   const receitaOntem = useMemo(() => vendasOntem
-    .filter((v) => (v.status || "").toLowerCase() === "aprovado")
+    .filter((v) => isPaidSaleStatus(v.status))
     .reduce((s: number, v) => s + (Number(v.valor) || 0), 0), [vendasOntem]);
 
   const leads7dAvg = useMemo(() => {

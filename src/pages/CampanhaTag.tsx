@@ -230,7 +230,7 @@ export default function CampanhaTag() {
         <Button variant="ghost" size="sm" onClick={() => navigate("/leads")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
         </Button>
-        <h1 className="font-cormorant text-3xl">
+        <h1 className="font-editorial text-3xl">
           Campanha: <span className="text-gold">{tag}</span>
         </h1>
         {projectName && <Badge variant="outline">{projectName}</Badge>}
@@ -241,11 +241,11 @@ export default function CampanhaTag() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Total de leads</div><div className="text-2xl font-cormorant">{kpis.total}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Preencheu form</div><div className="text-2xl font-cormorant">{kpis.preencheuForm}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground flex items-center gap-1"><HelpCircle className="h-3 w-3" />Respondeu pesquisa</div><div className="text-2xl font-cormorant text-gold">{kpis.respondeuQuiz}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Respondeu WhatsApp</div><div className="text-2xl font-cormorant">{kpis.respondeuWa}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Compradores</div><div className="text-2xl font-cormorant text-gold">{kpis.compradores}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Total de leads</div><div className="text-2xl font-editorial">{kpis.total}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Preencheu form</div><div className="text-2xl font-editorial">{kpis.preencheuForm}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground flex items-center gap-1"><HelpCircle className="h-3 w-3" />Respondeu pesquisa</div><div className="text-2xl font-editorial text-gold">{kpis.respondeuQuiz}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Respondeu WhatsApp</div><div className="text-2xl font-editorial">{kpis.respondeuWa}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Compradores</div><div className="text-2xl font-editorial text-gold">{kpis.compradores}</div></Card>
       </div>
 
       {quizAggregate.length > 0 && (

@@ -20,6 +20,8 @@ import { ptBR } from "date-fns/locale";
 import { MobileChat } from "@/components/mobile/MobileChat";
 import { MobileKpiCarousel } from "@/components/mobile/MobileKpiCarousel";
 import { MobileLeadCard } from "@/components/mobile/MobileLeadCard";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
+import { toLocalDateStr } from "@/lib/periodUtils";
 
 interface Conversation {
   id: string;
@@ -104,21 +106,23 @@ export default function MobileCockpit() {
     try {
       const { data: sales } = await supabase
         .from("imphq_vendas")
-        .select("valor, data, status")
+        .select("valor, data_venda, created_at, status")
         .eq("project_id", selectedProjectId)
-        .in("status", ["aprovado", "approved", "paid", "completed", "Aprovada", "aprovada", "Aprovado"]);
+        .in("status", [...PAID_SALE_STATUSES]);
 
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = toLocalDateStr();
       const y = new Date(); y.setDate(y.getDate() - 1);
-      const yesterdayStr = y.toISOString().split("T")[0];
+      const yesterdayStr = toLocalDateStr(y);
       const seven = new Date(); seven.setDate(seven.getDate() - 7);
 
       let today = 0, yesterday = 0, sevenDays = 0;
       (sales || []).forEach((s) => {
-        const d = String(s.data || ""); const v = Number(s.valor) || 0;
-        if (d.startsWith(todayStr)) today += v;
-        if (d.startsWith(yesterdayStr)) yesterday += v;
-        if (d && new Date(d) >= seven) sevenDays += v;
+        const rawDate = s.data_venda || s.created_at || "";
+        const dStr = rawDate ? toLocalDateStr(new Date(rawDate)) : "";
+        const v = Number(s.valor) || 0;
+        if (dStr === todayStr) today += v;
+        if (dStr === yesterdayStr) yesterday += v;
+        if (rawDate && new Date(rawDate) >= seven) sevenDays += v;
       });
       setSalesStats({ today, yesterday, sevenDays });
     } finally {
@@ -217,7 +221,7 @@ export default function MobileCockpit() {
 
   const goDesktop = () => {
     localStorage.setItem("imphq_force_desktop", "1");
-    window.location.href = "/dashboard";
+    navigate("/dashboard");
   };
 
   // Filtered inbox
@@ -333,7 +337,7 @@ export default function MobileCockpit() {
             setStatus={setLeadStatus}
             statuses={leadStatuses}
             onRefresh={loadLeads}
-            onOpen={(id) => navigate(`/lead/${id}`)}
+            onOpen={(id) => navigate(`/leads/${id}`)}
             onWhats={handleOpenWaDirect}
           />
         )}

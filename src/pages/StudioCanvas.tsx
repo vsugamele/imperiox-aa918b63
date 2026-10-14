@@ -4,6 +4,7 @@ import type { Tables, TablesUpdate, Json } from "@/integrations/supabase/types";
 import type { ComponentProps } from "react";
 import { errorMessage } from "@/lib/error-message";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   useNodesState, useEdgesState, addEdge, Connection, Edge, type Node as FlowNode,
@@ -31,6 +32,7 @@ type Node = FlowNode<Record<string, unknown> & { tipo?: string; titulo?: string;
 const nodeTypes = { block: CanvasBlockNode };
 
 function InnerCanvas() {
+  const navigate = useNavigate();
   const { data: projects = [] } = useProjectList();
   const [projectId, setProjectId] = useState<string>("");
   const [productIdx, setProductIdx] = useState(0);
@@ -728,7 +730,7 @@ function InnerCanvas() {
           <Button size="sm" variant="outline" onClick={() => setModelagemOpen(true)} className="h-8 text-xs gap-1.5" title="Modelar a partir de referências">
             <Layers className="h-3.5 w-3.5" /> Modelagem
           </Button>
-          <Button size="sm" variant="outline" onClick={() => window.location.assign("/studio/legado")} className="h-8 text-xs">
+          <Button size="sm" variant="outline" onClick={() => navigate("/studio/legado")} className="h-8 text-xs">
             Studio legado
           </Button>
           {nodes.some(n => n.data.status === "erro") && runStatus !== "running" && (

@@ -221,7 +221,7 @@ export default function Recuperacao() {
         .from("imphq_wa_providers")
         .select("id, project_id")
         .eq("is_active", true)
-        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(5);
 
       const matchProvider =

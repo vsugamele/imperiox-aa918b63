@@ -74,6 +74,13 @@ export const PAID_SALE_STATUSES = [
   "completed",
 ] as const;
 
+/** Verifica se o status de uma venda corresponde a pagamento aprovado/pago em qualquer gateway. */
+export function isPaidSaleStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return (PAID_SALE_STATUSES as readonly string[]).includes(status.trim().toLowerCase());
+}
+
 /** Taxa de câmbio padrão USD → BRL compartilhada entre Finanças, Custos IA e Gerenciador. */
 export const USD_BRL_RATE = 5.6;
+
 

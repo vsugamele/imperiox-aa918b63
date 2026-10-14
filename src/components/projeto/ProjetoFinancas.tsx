@@ -1,5 +1,6 @@
 import type { Json, Tables } from "@/integrations/supabase/types";
 import { jsonFields, jsonText } from "@/lib/json-fields";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
 import { campaignDraftsSchema, adsAnalysisSchema, parseCreatives, parseProducts, type AdsAnalysis, type CampaignDrafts, type FacebookCreative } from "@/components/projeto/financas-schema";
 import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -149,7 +150,7 @@ export function ProjetoFinancas({ projectId, project, onRefresh }: { projectId: 
       supabase.from("imphq_project_costs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("imphq_project_revenue").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("imphq_ads_spend").select("*").eq("project_id", projectId).not("ad_id", "ilike", "CAMP:%").order("data_ref", { ascending: false }),
-      supabase.from("imphq_vendas").select("*").eq("project_id", projectId).eq("status", "aprovado").order("data_venda", { ascending: false }),
+      supabase.from("imphq_vendas").select("*").eq("project_id", projectId).in("status", [...PAID_SALE_STATUSES]).order("data_venda", { ascending: false }),
       supabase.from("imphq_projects").select("id, name").order("name"),
       supabase.from("imphq_events").select("id, event_name, created_at, page_url").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1000),
     ]);

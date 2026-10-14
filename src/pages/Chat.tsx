@@ -127,7 +127,7 @@ export default function Chat() {
 
     if (cmd === "/tarefa" && args) {
       const { data, error } = await supabase.from("imphq_tasks").insert({
-        id: crypto.randomUUID(), title: args, status: "todo", user_id: user.id, project_id: activeProject,
+        id: crypto.randomUUID(), title: args, status: "todo", created_by: user.id, project_id: activeProject,
       }).select().single();
       if (error) { toast.error("Erro ao criar tarefa"); return null; }
       await logActivity("task_created", "task", data.id, args);
@@ -162,7 +162,7 @@ export default function Chat() {
       const nome = leadParts.slice(0, -1).join(" ") || leadParts[0];
       const telefone = leadParts.length > 1 ? leadParts[leadParts.length - 1] : "";
       const { data, error } = await supabase.from("imphq_leads").insert({
-        id: crypto.randomUUID(), nome, telefone, origem: "chat", project_id: activeProject, user_id: user.id,
+        id: crypto.randomUUID(), nome, phone: telefone, plataforma: "chat", project_id: activeProject,
       }).select().single();
       if (error) { toast.error("Erro ao criar lead"); return null; }
       await logActivity("lead_created", "lead", data.id, nome);

@@ -165,6 +165,14 @@ export default function ConversationIntelCard({ conversationId }: Props) {
     setCurrentIntent(null); setHandoffSummary(null); setHandoffAt(null);
     setEmotional(null); setLastObjection(null); setIsIgnored(false);
     load(false);
+    if (!conversationId) return;
+    const ch = supabase
+      .channel(`wa-intel-conv-${conversationId}`)
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "imphq_wa_conversations", filter: `id=eq.${conversationId}` },
+        () => { load(false); })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 

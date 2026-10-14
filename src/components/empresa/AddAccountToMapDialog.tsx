@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ interface Props {
  * O usuário é levado para o mapa após a inserção.
  */
 export function AddAccountToMapDialog({ accountId, accountLabel, open, onOpenChange }: Props) {
+  const navigate = useNavigate();
   const [maps, setMaps] = useState<{ id: string; name: string }[]>([]);
   const [mapId, setMapId] = useState<string>("");
   const [viewMode, setViewMode] = useState<"compact" | "expanded">("compact");
@@ -52,7 +54,7 @@ export function AddAccountToMapDialog({ accountId, accountLabel, open, onOpenCha
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Adicionado ao mapa");
     onOpenChange(false);
-    window.location.href = `/funis?view=mapa&map=${mapId}`;
+    navigate(`/funis?view=mapa&map=${mapId}`);
   };
 
   return (

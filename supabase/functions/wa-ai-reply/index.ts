@@ -32,7 +32,7 @@ interface VoiceLogInsert { project_id: string | null; conversation_id: string | 
 interface LeadRow { id: string; email?: string | null; nome?: string | null; name?: string | null; phone?: string | null; campanha_id?: string | null; tags?: string[] | null; score?: number | null; dor_principal?: string | null; objecao_atual?: string | null; nivel_qualificacao?: string | null; lead_memory?: Record<string, unknown> | null; data?: Record<string, unknown> | null }
 interface ProjectRule { id: string; rule_text: string; rule_type: string; ab_group_id: string | null; ab_status: string | null }
 interface KnowledgeMatch { pergunta: string; resposta: string }
-interface ConversationUpdate { ai_last_reply_at: string; ai_lock_until: null; last_message: string; last_message_at: string; last_message_direction: string; message_count: number; last_pitch_at?: string; last_pitch_link?: string | null; pitch_followup_stage?: number; pitch_followup_last_at?: null; status?: string; ia_ativa?: boolean }
+interface ConversationUpdate { ai_last_reply_at: string; ai_lock_until: null; last_message: string; last_message_at: string; last_message_direction: string; message_count: number; last_pitch_at?: string; last_pitch_link?: string | null; pitch_followup_stage?: number; pitch_followup_last_at?: null; status?: string; ia_ativa?: boolean; handoff_at?: string }
 const activeStepSchema = z.object({ tipo: z.string(), mensagem: z.string().nullish(), template: z.string().nullish(), texto: z.string().nullish(), template_b: z.string().nullish(), mensagem_b: z.string().nullish(), personality: z.string().nullish(), ia_model: z.string().nullish(), ia_routes: z.array(z.object({ name: z.string(), jump_steps: z.number().optional() }).passthrough()).nullish(), ia_search_web: z.boolean().nullish(), ia_search_files: z.boolean().nullish(), ia_vision: z.boolean().nullish(), ia_voice_response: z.boolean().nullish(), voice_provider: z.string().nullish(), voice_id: z.string().nullish(), voice_stability: z.number().nullish(), voice_clarity: z.number().nullish() }).passthrough();
 
 const corsHeaders = {
@@ -626,7 +626,8 @@ Deno.serve(async (req) => {
         }).eq("id", conversation_id);
       } else {
         // Auto-resume: se nenhum humano respondeu após o handoff dentro do timeout configurado, IA reassume
-        const autoResumeMinutes = Number(aiConfig?.handoff_auto_resume_minutes ?? 30);
+        // Em projetos JP Freitas, handoff aguarda ação humana (autoResumeMinutes = 0 por padrão) sem bloquear ia_ativa.
+        const autoResumeMinutes = Number(aiConfig?.handoff_auto_resume_minutes ?? (isJPProject(project_id) ? 0 : 30));
         let autoResumeHandoff = false;
         if (autoResumeMinutes > 0) {
           try {
@@ -682,6 +683,7 @@ Deno.serve(async (req) => {
           try {
             await supabase.from("imphq_wa_conversations").update({
               status: "needs_human",
+              handoff_at: new Date().toISOString(),
               ai_paused_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
             }).eq("id", conversation_id);
             await supabase.from("imphq_notifications").insert({
@@ -2731,7 +2733,7 @@ ${ctx ? `\nCONTEXTO DO PROJETO:\n${ctx}` : ""}${projectRulesBlock}${productFocus
 
         if (shouldTransitionToHuman) {
           updatePayload.status = "needs_human";
-          if (isJPProject(project_id)) updatePayload.ia_ativa = false;
+          updatePayload.handoff_at = new Date().toISOString();
         }
 
         await supabase.from("imphq_wa_conversations")

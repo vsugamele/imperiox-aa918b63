@@ -103,7 +103,7 @@ export function FunnelByAvatarDialog({ open, onClose, projectId, product }: Prop
                 </div>
               )}
               {result.estrategia_central && (
-                <p className="text-base font-cormorant text-foreground leading-7">"{result.estrategia_central}"</p>
+                <p className="text-base font-editorial text-foreground leading-7">"{result.estrategia_central}"</p>
               )}
 
               {Array.isArray(result.jornada_recomendada) && result.jornada_recomendada.length > 0 && (

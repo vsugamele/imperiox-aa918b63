@@ -144,7 +144,7 @@ export default function OpenRouterCustos() {
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-cormorant text-foreground">Custos OpenRouter</h1>
+          <h1 className="text-3xl font-editorial text-foreground">Custos OpenRouter</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Auditoria de tokens e custo das chamadas de IA do WhatsApp/Instagram (Gemini Flash via OpenRouter).
           </p>

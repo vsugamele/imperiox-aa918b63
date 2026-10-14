@@ -219,7 +219,7 @@ export function MobileChat<T extends ConversationLite>({ conversation, onClose, 
           </div>
           {conv.lead_id && (
             <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0"
-                    onClick={() => navigate(`/lead/${conv.lead_id}`)}>
+                    onClick={() => navigate(`/leads/${conv.lead_id}`)}>
               <ExternalLink className="h-4 w-4" />
             </Button>
           )}

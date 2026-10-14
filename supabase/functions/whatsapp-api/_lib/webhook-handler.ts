@@ -13,6 +13,85 @@ const IMPERIO_X_JID = "120363409438175766@g.us";
 declare const EdgeRuntime: { waitUntil(task: Promise<unknown>): void } | undefined;
 interface Conversation { id: string; message_count: number | null; contact_name?: string | null }
 
+/** Gera todas as variações possíveis do identificador do remetente (com/sem 9º dígito BR, com/sem DDI 55 e @lid). */
+function buildSenderCandidateIds(...values: Array<string | null | undefined>): string[] {
+  const ids = new Set<string>();
+  for (const v of values) {
+    if (!v || typeof v !== "string") continue;
+    const trimmed = v.trim();
+    if (!trimmed) continue;
+    ids.add(trimmed);
+    const digits = trimmed.split("@")[0].replace(/\D/g, "");
+    if (digits.length >= 8) {
+      ids.add(digits);
+      // Sem DDI 55 -> adiciona com 55
+      if (digits.length === 10 || digits.length === 11) {
+        ids.add(`55${digits}`);
+      }
+      // Normalização 9º dígito Brasil (55 + DDD + 9 + 8 dígitos <-> 55 + DDD + 8 dígitos)
+      if (digits.startsWith("55") && digits.length === 13 && digits[4] === "9") {
+        const without9 = digits.slice(0, 4) + digits.slice(5);
+        ids.add(without9);
+        ids.add(digits.slice(2));
+        ids.add(without9.slice(2));
+      } else if (digits.startsWith("55") && digits.length === 12) {
+        const with9 = digits.slice(0, 4) + "9" + digits.slice(4);
+        ids.add(with9);
+        ids.add(digits.slice(2));
+        ids.add(with9.slice(2));
+      }
+    }
+  }
+  return [...ids];
+}
+
+const AUTOMATED_REPORT_PREFIXES = [
+  "*📊",
+  "📊",
+  "🧭 *Operador",
+  "🧭",
+  "🤖",
+  "⏳",
+  "✅ *",
+  "⚠️ *",
+  "✋ *",
+  "❔ Sem decisão",
+  "🎨",
+  "🚨 *ALERTA",
+  "Decidir:",
+];
+
+const GROUP_TRIVIAL_REACTIONS = new Set([
+  "ok", "blz", "beleza", "show", "top", "valeu", "boa", "tmj",
+  "👍", "👏", "🔥", "❤️", "🙏", "kk", "kkk", "kkkk", "sim", "não", "nao",
+]);
+
+/** Trava anti-loop #3: ignora relatórios automáticos do sistema, figurinhas/mídias vazias e reações curtas no grupo. */
+function isAutomatedOrNoiseMessage(content: string, messageType: string, isGroup: boolean): boolean {
+  const trimmed = (content || "").trim();
+  if (!trimmed) return true;
+  for (const prefix of AUTOMATED_REPORT_PREFIXES) {
+    if (trimmed.startsWith(prefix)) return true;
+  }
+  // Mídias sem legenda (exceto áudio, que é transcrito antes de ir pro Copilot)
+  if (messageType !== "text" && messageType !== "audio") {
+    if (
+      trimmed === "📷 Imagem" ||
+      trimmed === "🎬 Vídeo" ||
+      trimmed === "🏷️ Sticker" ||
+      trimmed === "📍 Localização" ||
+      trimmed.startsWith("👤 Contato:")
+    ) {
+      return true;
+    }
+  }
+  if (isGroup && messageType === "text") {
+    const cleanLower = trimmed.toLowerCase().replace(/[.!?,]+$/g, "");
+    if (GROUP_TRIVIAL_REACTIONS.has(cleanLower)) return true;
+  }
+  return false;
+}
+
 export type WebhookDeps = {
   supabase: SupabaseClient;
   corsHeaders: Record<string, string>;
@@ -451,26 +530,170 @@ export async function handleWebhook(req: Request, url: URL, deps: WebhookDeps): 
         console.log(`[webhook] Saved ${messageType} from ${phone} (conv=${conv.id}) media=${!!mediaUrl}`);
       }
 
-      // Comando do operador no grupo Imperio X ("ok 1", "não 2"...): repassa sem esperar; o resto segue igual.
-      if (!isFromMe && rawJid === IMPERIO_X_JID && parseOperatorCommand(content)) {
+      // Comando do operador no grupo Imperio X ("ok 1", "não 2"...): repassa para operator-decide e encerra.
+      const isOperatorDecideCmd = !isFromMe && rawJid === IMPERIO_X_JID && parseOperatorCommand(content) !== null;
+      if (isOperatorDecideCmd) {
         supabase.functions.invoke("operator-decide", {
           body: {
             text: content, provider_message_id: providerMsgId, push_name: pushName || null,
             participant: key?.participant ?? body?.data?.participant ?? null, participant_alt: key?.participantAlt ?? key?.participantPn ?? null,
           },
         }).catch((e: unknown) => console.warn("[webhook] operator-decide invoke skip:", errorText(e)));
+        await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, false);
+        return new Response(JSON.stringify({ success: true, routed: "operator-decide" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       if (isFromMe) {
-        await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, false, true);
-        // Aprendizado a partir de respostas enviadas pelo celular (fora do painel)
-        if (content && content.length > 15 && projectId) {
+        const isGroupOut = jidSuffix.includes("g.us") || jidSuffix.includes("broadcast") || phone.startsWith("120363");
+        await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, false, !isGroupOut);
+        // Aprendizado a partir de respostas humanas enviadas pelo celular para leads (nunca em grupos ou relatórios da IA)
+        if (!isGroupOut && content && content.length > 15 && projectId && !isAutomatedOrNoiseMessage(content, messageType, false)) {
           supabase.functions.invoke("wa-learn-from-human", {
             body: { conversation_id: conv.id, message_id: savedMsg?.id, project_id: projectId },
           }).catch((e: unknown) => console.warn("[webhook] learn invoke skip:", errorText(e)));
         }
       } else {
-        // Transcrição de áudio inbound — independente do autoresponder
+        // ── ROTEAMENTO IMPERIUS COPILOT (Grupo Imperio X + Privado dos Sócios) ──
+        const isGroupChat =
+          jidSuffix === "g.us" ||
+          jidSuffix === "broadcast" ||
+          jidSuffix.includes("g.us") ||
+          jidSuffix.includes("broadcast") ||
+          phone.startsWith("120363");
+        const isImperioXGroup = rawJid === IMPERIO_X_JID;
+
+        if (isImperioXGroup || !isGroupChat) {
+          const rawParticipant = key?.participant ?? body?.data?.participant ?? null;
+          const rawParticipantAlt =
+            key?.participantAlt ??
+            key?.participantPn ??
+            body?.data?.participantAlt ??
+            key?.remoteJidAlt ??
+            body?.data?.remoteJidAlt ??
+            null;
+
+          const candidateIds = isImperioXGroup
+            ? buildSenderCandidateIds(rawParticipant, rawParticipantAlt)
+            : buildSenderCandidateIds(rawJid, phone, rawParticipantAlt, rawParticipant);
+
+          let matchedMember: { id: string; user_id: string | null; name: string; whatsapp_ids: string[] | null } | null = null;
+          if (candidateIds.length > 0) {
+            const { data: teamRows } = await supabase
+              .from("imphq_team_members")
+              .select("id, user_id, name, whatsapp_ids")
+              .overlaps("whatsapp_ids", candidateIds)
+              .or("is_active.eq.true,is_active.is.null")
+              .limit(2);
+            if (teamRows && teamRows.length > 0) {
+              matchedMember = teamRows[0] as { id: string; user_id: string | null; name: string; whatsapp_ids: string[] | null };
+            }
+          }
+
+          // Fallback seguro exclusivo dentro do grupo fechado Imperio X caso o WhatsApp envie apenas @lid na 1ª msg
+          if (!matchedMember && isImperioXGroup && pushName) {
+            const lowerPush = pushName.trim().toLowerCase();
+            const { data: allActiveMembers } = await supabase
+              .from("imphq_team_members")
+              .select("id, user_id, name, whatsapp_ids")
+              .or("is_active.eq.true,is_active.is.null");
+            if (allActiveMembers) {
+              matchedMember = (allActiveMembers.find((m) => {
+                const mName = String(m.name || "").toLowerCase();
+                return (
+                  (lowerPush.includes("vinicius") && mName.includes("vinicius")) ||
+                  ((lowerPush.includes("bruno") || lowerPush.includes("macete")) && mName.includes("bruno"))
+                );
+              }) as { id: string; user_id: string | null; name: string; whatsapp_ids: string[] | null }) || null;
+            }
+          }
+
+          if (matchedMember) {
+            // Auto-aprende o @lid do sócio em imphq_team_members se ainda não estiver salvo
+            const lidCandidate = [rawParticipant, !isImperioXGroup ? rawJid : null].find(
+              (v) => typeof v === "string" && v.endsWith("@lid"),
+            );
+            if (lidCandidate) {
+              const lidDigits = lidCandidate.split("@")[0].replace(/\D/g, "");
+              const currentIds = Array.isArray(matchedMember.whatsapp_ids) ? matchedMember.whatsapp_ids : [];
+              if (lidDigits && !currentIds.includes(lidDigits)) {
+                const updatedIds = [...new Set([...currentIds, lidDigits, lidCandidate])];
+                supabase
+                  .from("imphq_team_members")
+                  .update({ whatsapp_ids: updatedIds })
+                  .eq("id", matchedMember.id)
+                  .then(() => console.log(`[webhook] Auto-learned @lid ${lidDigits} for ${matchedMember?.name}`));
+              }
+            }
+
+            await updateConversationAfterMessage(conv.id, content, conv.message_count || 0, false);
+
+            if (!isAutomatedOrNoiseMessage(content, messageType, isImperioXGroup)) {
+              const sbUrl = Deno.env.get("SUPABASE_URL") || "";
+              const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+              const memberSnapshot = matchedMember;
+
+              const copilotTask = (async () => {
+                try {
+                  let promptText = content;
+                  if (messageType === "audio" && mediaUrl && savedMsg?.id) {
+                    const { data: transData } = await supabase.functions.invoke("wa-audio-transcribe", {
+                      body: {
+                        message_id: savedMsg.id,
+                        media_url: mediaUrl,
+                        project_id: projectId,
+                        conversation_id: conv.id,
+                        phone,
+                      },
+                    });
+                    if (transData?.transcript && String(transData.transcript).trim()) {
+                      promptText = `[Áudio enviado por ${memberSnapshot.name}]: ${String(transData.transcript).trim()}`;
+                    } else {
+                      console.warn("[webhook] Empty transcript for team member audio; skipping copilot-imperius");
+                      return;
+                    }
+                  } else if (mediaUrl && messageType !== "audio") {
+                    promptText = `${content}\n[Mídia anexada: ${mediaUrl}]`;
+                  }
+
+                  console.log(`[webhook] Routing ${memberSnapshot.name} message to copilot-imperius (target=${rawJid})`);
+                  await fetch(`${sbUrl}/functions/v1/copilot-imperius`, {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${sbKey}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      channel: "whatsapp",
+                      userId: memberSnapshot.user_id,
+                      senderName: memberSnapshot.name,
+                      targetJid: rawJid,
+                      providerId,
+                      messages: [{ role: "user", content: promptText }],
+                    }),
+                  });
+                } catch (copErr: unknown) {
+                  console.error("[webhook] copilot-imperius invoke error:", errorText(copErr));
+                }
+              })();
+
+              if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+                EdgeRuntime.waitUntil(copilotTask);
+              }
+            } else {
+              console.log(`[webhook] Ignored noise/report message from ${matchedMember.name} in ${rawJid}`);
+            }
+
+            // Retorna imediatamente para NUNCA tratar o sócio como lead do JP Freitas (wa-ai-reply / openflow)
+            return new Response(
+              JSON.stringify({ success: true, routed: "copilot-imperius", member: matchedMember.name }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+        }
+
+        // Transcrição de áudio inbound — independente do autoresponder (para leads comuns)
         if (messageType === "audio" && mediaUrl && savedMsg?.id) {
           supabase.functions.invoke("wa-audio-transcribe", {
             body: {

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/lib/today-board";
 import { newSales, saleCurrency, type WatchedSale } from "@/lib/sale-watch";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
 
 export const NEW_SALE_EVENT = "imperio:new-sale";
 
@@ -23,7 +24,7 @@ export function SaleWatcher() {
       const since = new Date(Date.now() - 2 * 3_600_000).toISOString();
       const { data: rows, error } = await supabase.from("imphq_vendas")
         .select("id, project_id, valor, produto_nome, data, created_at")
-        .eq("status", "aprovado").gte("created_at", since).order("created_at", { ascending: false }).limit(20);
+        .in("status", [...PAID_SALE_STATUSES]).gte("created_at", since).order("created_at", { ascending: false }).limit(20);
       if (error) throw error;
       return rows ?? [];
     },

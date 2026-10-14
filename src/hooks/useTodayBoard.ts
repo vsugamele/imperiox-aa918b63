@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { writeAgentNotes, type StepStatus } from "@shared/map-steps";
 import { buildTodayBoard, type ProjectBoard } from "@/lib/today-board";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
+import { startOfDayBRT, toLocalDateStr } from "@/lib/periodUtils";
 
 function startOfToday(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+  return startOfDayBRT(toLocalDateStr());
 }
 
 async function loadTodayBoard(): Promise<ProjectBoard[]> {
@@ -15,7 +15,7 @@ async function loadTodayBoard(): Promise<ProjectBoard[]> {
     supabase.from("imphq_projects").select("id, name").or("is_archived.eq.false,is_archived.is.null").order("name"),
     supabase.from("imphq_company_map_nodes")
       .select("id, map_id, label, kind, description, notes, checklist, position, executor_type, linked_skill_id, linked_project_id, stage_role, step_status, owner_member_id, due_date"),
-    supabase.from("imphq_vendas").select("project_id, valor, data").eq("status", "aprovado").gte("data_venda", since),
+    supabase.from("imphq_vendas").select("project_id, valor, data").in("status", [...PAID_SALE_STATUSES]).gte("data_venda", since),
     supabase.from("imphq_leads").select("project_id").gte("created_at", since),
     supabase.from("imphq_company_maps").select("id").not("archived_at", "is", null),
   ]);

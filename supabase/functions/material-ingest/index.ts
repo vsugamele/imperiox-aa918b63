@@ -347,45 +347,72 @@ async function aiJson(system: string, user: string, tag: string) {
   return JSON.parse(content || "{}");
 }
 
-async function extractSwipe(rawText: string, titleHint: string) {
-  const wc = rawText.trim().split(/\s+/).length;
-  const vsl = wc >= 1200;
-  const extracted = await aiJson(
-    "Disseca copy de marketing direto. JSON only, sem markdown.",
-    `Quebre a copy. Se VSL (${vsl}) use blocks.__schema=vsl7 com b1_gancho…b7_garantia_cta (texto literal). Senão short6: gancho, participacao_ativa, narrativa, reframe, cta_engajamento, cta_venda.
-Campos: title, criador, plataforma, formato, mecanismo, gatilhos[], blocks{}.
-Título hint: ${titleHint}
-COPY:
-"""${rawText.slice(0, vsl ? 28000 : 8000)}"""`,
-    "material-ingest-swipe",
-  );
-  const blocks = extracted.blocks || {};
-  if (!blocks.__schema) blocks.__schema = vsl ? "vsl7" : "short6";
+function swipeFallback(rawText: string, titleHint: string, vsl: boolean) {
+  const schema = vsl ? "vsl7" : "short6";
+  const snippet = rawText.trim().slice(0, 4000);
   return {
-    title: extracted.title || titleHint || "Copy importada",
-    criador: extracted.criador || null,
-    plataforma: extracted.plataforma || null,
-    formato: extracted.formato || (vsl ? "VSL" : null),
-    mecanismo: extracted.mecanismo || null,
-    gatilhos: Array.isArray(extracted.gatilhos) ? extracted.gatilhos : [],
-    blocks,
+    title: titleHint || "Copy importada",
+    criador: null,
+    plataforma: null,
+    formato: vsl ? "VSL" : "Reel",
+    mecanismo: null,
+    gatilhos: [] as string[],
+    blocks: vsl
+      ? { __schema: schema, b1_gancho: snippet, narrativa: snippet }
+      : { __schema: schema, narrativa: snippet },
     raw_text: rawText.slice(0, 30000),
   };
 }
 
+async function extractSwipe(rawText: string, titleHint: string) {
+  const wc = rawText.trim().split(/\s+/).length;
+  const vsl = wc >= 1200;
+  try {
+    const extracted = await aiJson(
+      "Disseca copy de marketing direto. JSON only, sem markdown.",
+      `Quebre a copy. Se VSL (${vsl}) use blocks.__schema=vsl7 com b1_gancho…b7_garantia_cta (texto literal). Senão short6: gancho, participacao_ativa, narrativa, reframe, cta_engajamento, cta_venda.
+Campos: title, criador, plataforma, formato, mecanismo, gatilhos[], blocks{}.
+Título hint: ${titleHint}
+COPY:
+"""${rawText.slice(0, vsl ? 28000 : 8000)}"""`,
+      "material-ingest-swipe",
+    );
+    const blocks = extracted.blocks || {};
+    if (!blocks.__schema) blocks.__schema = vsl ? "vsl7" : "short6";
+    return {
+      title: extracted.title || titleHint || "Copy importada",
+      criador: extracted.criador || null,
+      plataforma: extracted.plataforma || null,
+      formato: extracted.formato || (vsl ? "VSL" : null),
+      mecanismo: extracted.mecanismo || null,
+      gatilhos: Array.isArray(extracted.gatilhos) ? extracted.gatilhos : [],
+      blocks,
+      raw_text: rawText.slice(0, 30000),
+    };
+  } catch (e) {
+    console.warn("[material-ingest] swipe AI fallback", e);
+    return swipeFallback(rawText, titleHint, vsl);
+  }
+}
+
 async function reverseEngineer(swipe: { title: string; formato?: string | null; mecanismo?: string | null; plataforma?: string | null; blocks: any; raw_text?: string | null }) {
   const isVsl = swipe.blocks?.__schema === "vsl7" || (swipe.formato || "").toLowerCase() === "vsl";
-  const reverse = await aiJson(
-    "Engenheiro reverso de copy. JSON only, estruturas reutilizáveis.",
-    `Schema ${isVsl ? "vsl7 (promessa_central, publico_alvo, mecanismo_unico, esqueleto_vsl7, gatilhos, tom_voz)" : "short6 (formula_nome, esqueleto{gancho,participacao_ativa,narrativa,reframe,cta_engajamento,cta_venda}, gatilhos, tom_voz)"}.
+  try {
+    const reverse = await aiJson(
+      "Engenheiro reverso de copy. JSON only, estruturas reutilizáveis.",
+      `Schema ${isVsl ? "vsl7 (promessa_central, publico_alvo, mecanismo_unico, esqueleto_vsl7, gatilhos, tom_voz)" : "short6 (formula_nome, esqueleto{gancho,participacao_ativa,narrativa,reframe,cta_engajamento,cta_venda}, gatilhos, tom_voz)"}.
 Título: ${swipe.title}
 Mecanismo: ${swipe.mecanismo || "n/a"}
 Blocos: ${JSON.stringify(swipe.blocks).slice(0, 12000)}
 Amostra: ${(swipe.raw_text || "").slice(0, 8000)}`,
-    "material-ingest-reverse",
-  );
-  reverse.__schema = isVsl ? "vsl7" : "short6";
-  return reverse;
+      "material-ingest-reverse",
+    );
+    reverse.__schema = isVsl ? "vsl7" : "short6";
+    return reverse;
+  } catch (e) {
+    console.warn("[material-ingest] reverse AI fallback", e);
+    return { __schema: isVsl ? "vsl7" : "short6", fallback: true, reason: "ia_indisponivel" };
+  }
 }
 
 async function transcribeVideoUrl(videoUrl: string): Promise<string> {

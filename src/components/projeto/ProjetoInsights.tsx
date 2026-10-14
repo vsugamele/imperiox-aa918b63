@@ -1,5 +1,6 @@
 import type { Tables } from "@/integrations/supabase/types";
 import { jsonFields, jsonText } from "@/lib/json-fields";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,7 +70,7 @@ export function ProjetoInsights({ projectId }: Props) {
             (from, to) => {
               let q = supabase.from("imphq_vendas")
                 .select("created_at, valor, lead_id, produto_nome")
-                .eq("project_id", projectId).eq("status", "aprovado")
+                .eq("project_id", projectId).in("status", [...PAID_SALE_STATUSES])
                 .gte("created_at", since).range(from, to);
               if (produto !== ALL_PRODUCTS) q = q.eq("produto_nome", produto);
               return q;

@@ -815,8 +815,128 @@ export const TOOL_SPECS = [
       },
     },
   },
+  // ===== Onda 13: Operação Universal, Testes no Ar, Blueprints, Mapas, Imagens & Rotinas =====
+  {
+    type: "function",
+    function: {
+      name: "testesCriativosNoAr",
+      description: "Lê os testes de criativos ativos (imphq_test_orders + imphq_test_variants) cruzando gasto na Meta (Zernio) com vendas reais por UTM, CPA, ICs e decisão de cada variante/ângulo.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string", description: "ID do projeto (ex: jp_freitas, slimsoda, linfaflow). Se omitido, traz de todos os projetos." },
+          todos_status: { type: "boolean", description: "Se true, inclui testes encerrados/rascunho além dos no_ar" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "filaAprovacoesPendentes",
+      description: "Lista todas as decisões e ações da IA pendentes de aprovação humana (imphq_ai_actions pending + última rodada numerada do operador no grupo Imperio X).",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          limite: { type: "number", description: "default 25" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "dossieProdutoBlueprint",
+      description: "Retorna o dossiê estratégico completo de um projeto/produto (imphq_product_blueprints + sites + swipes): mecanismo único, avatar, dores, oferta, preço, links de checkout e referências.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string", description: "ID ou nome do projeto (ex: slimsoda, jp_freitas, linfaflow, cardioflush)" },
+        },
+        required: ["projeto_id"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "mapaOperacionalProjeto",
+      description: "Consulta o Mapa Operacional (imphq_company_maps e nodes) de um projeto ou da empresa: etapas, checklists, status, prazos e responsáveis.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+          termo_mapa: { type: "string", description: "Filtro opcional pelo nome do mapa ou etapa" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "statusCloudPhonesGeelark",
+      description: "Lista os perfis e aparelhos Cloud Phone (GeeLark / imphq_cloud_phones) com status, proxy, localização e notas operacionais.",
+      parameters: {
+        type: "object",
+        properties: {
+          projeto_id: { type: "string" },
+        }, additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "gerenciarRotinasDiarias",
+      description: "Lista, cria, ativa ou pausa rotinas recorrentes da operação (imphq_daily_routines).",
+      parameters: {
+        type: "object",
+        properties: {
+          acao: { type: "string", enum: ["listar", "criar", "pausar", "ativar"] },
+          projeto_id: { type: "string" },
+          titulo: { type: "string", description: "Título da rotina (para criar)" },
+          descricao: { type: "string", description: "Descrição ou instrução da rotina" },
+          horario: { type: "string", description: "Horário HH:MM (ex: 09:00)" },
+          recorrencia: { type: "string", description: "daily, weekdays ou weekly (default daily)" },
+          rotina_id: { type: "string", description: "ID da rotina (para pausar/ativar)" },
+        },
+        required: ["acao"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "gerarImagemCriativo",
+      description: "Gera uma imagem de criativo/anúncio/packshot com IA, salva na biblioteca do projeto (imphq_content_library) e retorna a URL pública da imagem para ser enviada no chat/WhatsApp.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: { type: "string", description: "Prompt visual detalhado da imagem a ser gerada (preferencialmente rico em detalhes de iluminação, composição e estilo UGC/anúncio)" },
+          projeto_id: { type: "string", description: "ID do projeto (default: geral)" },
+          titulo: { type: "string", description: "Título curto do criativo" },
+        },
+        required: ["prompt"], additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "dispararRotinaSistema",
+      description: "Dispara sob demanda uma rotina operacional do sistema: relatorio_testes (envia relatório dos testes no ar), briefing_matinal (envia briefing no WhatsApp), sincronizar_ads (sincroniza gastos de anúncios Zernio/Meta), monitor_saude_wa (checa saúde dos chips WhatsApp).",
+      parameters: {
+        type: "object",
+        properties: {
+          rotina: { type: "string", enum: ["relatorio_testes", "briefing_matinal", "sincronizar_ads", "monitor_saude_wa"] },
+          projeto_id: { type: "string" },
+        },
+        required: ["rotina"], additionalProperties: false,
+      },
+    },
+  },
 ];
-
 
 
 
@@ -834,15 +954,69 @@ async function listarProjetos(ctx: ToolCtx) {
   return { projetos: (data || []).map((p) => ({ id: p.id, nome: p.name, ativo: p.active })) };
 }
 
+const KNOWN_PROJECT_ALIASES: Record<string, string> = {
+  jp: "jp_freitas",
+  jpfreitas: "jp_freitas",
+  "jp freitas": "jp_freitas",
+  ccp: "jp_freitas",
+  "codigo dos cortes": "jp_freitas",
+  "código dos cortes": "jp_freitas",
+  slim: "slimsoda",
+  slimsoda: "slimsoda",
+  "slim soda": "slimsoda",
+  "slim-us": "slimsoda",
+  linfa: "linfaflow",
+  linfaflow: "linfaflow",
+  "linfa flow": "linfaflow",
+  cardio: "cardioflush",
+  cardioflush: "cardioflush",
+  "cardio flush": "cardioflush",
+  cinna: "cinna-shield",
+  cinnashield: "cinna-shield",
+  "cinna shield": "cinna-shield",
+  memo: "memoflow",
+  memoflow: "memoflow",
+  "memo flow": "memoflow",
+  leaf: "leaftide",
+  leaftide: "leaftide",
+  "leaf tide": "leaftide",
+  vigor: "vigor_boost",
+  vigorboost: "vigor_boost",
+  "vigor boost": "vigor_boost",
+  horse: "horsejello",
+  horsejello: "horsejello",
+  vanessa: "vanessa_equilibreon",
+  equilibreon: "vanessa_equilibreon",
+  laise: "laise",
+  aviator: "laise",
+  tatuagem: "tatuagem",
+  jonathan: "tatuagem",
+  fitness: "dr---fitness",
+};
+
 async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
   const t = (termo || "").trim();
   if (!t) return { error: "termo vazio" };
 
-  // 1ª tentativa: ilike literal
+  const norm = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const aliasId = KNOWN_PROJECT_ALIASES[norm] || KNOWN_PROJECT_ALIASES[norm.replace(/[^a-z0-9]/g, "")];
+  if (aliasId) {
+    const { data: aliasHit } = await ctx.supabase
+      .from("imphq_projects")
+      .select("id, name, active")
+      .eq("id", aliasId)
+      .limit(1);
+    if (aliasHit?.length) {
+      return { termo_buscado: t, matches: aliasHit.map((p) => ({ id: p.id, nome: p.name, ativo: p.active })) };
+    }
+  }
+
+  // 1ª tentativa: ilike literal em name ou id
+  const compact = t.replace(/[\s_-]+/g, "");
   const r1 = await ctx.supabase
     .from("imphq_projects")
     .select("id, name, active")
-    .ilike("name", `%${t}%`)
+    .or(`name.ilike.%${t}%,id.ilike.%${t}%,name.ilike.%${compact}%,id.ilike.%${compact}%`)
     .limit(10);
   if ((r1.data || []).length) {
     return { termo_buscado: t, matches: r1.data!.map((p) => ({ id: p.id, nome: p.name, ativo: p.active })) };
@@ -851,7 +1025,10 @@ async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
   // 2ª tentativa: tokens ≥ 3 chars com OR
   const tokens = t.split(/\s+/).filter((x) => x.length >= 3);
   if (tokens.length) {
-    const orExpr = tokens.map((tok) => `name.ilike.%${tok.replace(/[,()]/g, "")}%`).join(",");
+    const orExpr = tokens.map((tok) => {
+      const clean = tok.replace(/[,()]/g, "");
+      return `name.ilike.%${clean}%,id.ilike.%${clean}%`;
+    }).join(",");
     const r2 = await ctx.supabase
       .from("imphq_projects")
       .select("id, name, active")
@@ -872,7 +1049,7 @@ async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
     .select("id, name, active, is_archived")
     .eq("is_archived", false)
     .order("name")
-    .limit(10);
+    .limit(15);
   return {
     termo_buscado: t,
     fallback: "sem_match_exato",
@@ -882,7 +1059,10 @@ async function buscarProjeto(ctx: ToolCtx, { termo }: { termo: string }) {
 }
 
 function resolveProjectId(ctx: ToolCtx, given?: string) {
-  return given || ctx.projectId || null;
+  const raw = (given || ctx.projectId || "").trim();
+  if (!raw) return null;
+  const norm = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return KNOWN_PROJECT_ALIASES[norm] || KNOWN_PROJECT_ALIASES[norm.replace(/[^a-z0-9]/g, "")] || raw;
 }
 
 async function leadsDoDia(ctx: ToolCtx, args: { projeto_id?: string; data?: string }) {
@@ -2379,6 +2559,385 @@ async function execucoesTravadas(ctx: ToolCtx, args: { projeto_id?: string; hora
   };
 }
 
+// ===== Onda 13: Operação Universal, Testes no Ar, Blueprints, Mapas, Imagens & Rotinas =====
+
+async function testesCriativosNoAr(ctx: ToolCtx, args: { projeto_id?: string; todos_status?: boolean }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  let q = ctx.supabase.from("imphq_test_orders")
+    .select("id, project_id, nome, oferta, status, cpa_alvo, ics_por_venda, utm_campaign, ativado_em, created_at")
+    .order("created_at", { ascending: false }).limit(15);
+  if (!args.todos_status) q = q.eq("status", "no_ar");
+  if (pid) q = q.eq("project_id", pid);
+  const { data: orders, error } = await q;
+  if (error) return { error: error.message };
+  if (!orders?.length) return { count: 0, testes: [], nota: "Nenhum teste de criativos encontrado para o filtro." };
+
+  const resultados = [];
+  for (const order of orders) {
+    const { data: variants } = await ctx.supabase
+      .from("imphq_test_variants")
+      .select("ordem, angulo, hipotese, status, utm_content, meta_ad_id")
+      .eq("order_id", order.id)
+      .order("ordem");
+
+    const adIds = (variants || []).map((v) => v.meta_ad_id).filter(Boolean) as string[];
+    const since = String(order.ativado_em ?? order.created_at).slice(0, 10);
+
+    const [{ data: spendRows }, { data: salesRows }] = await Promise.all([
+      adIds.length
+        ? ctx.supabase.from("imphq_ads_spend")
+            .select("ad_id, spend, init_checkout, link_clicks, impressoes, purchases, effective_status")
+            .in("ad_id", adIds).gte("date", since)
+        : Promise.resolve({ data: [] }),
+      ctx.supabase.from("imphq_vendas")
+        .select("utm_campaign, utm_content, status, valor, valor_liquido")
+        .eq("project_id", order.project_id)
+        .eq("utm_campaign", order.utm_campaign),
+    ]);
+
+    const spendByAd: Record<string, { spend: number; ic: number; clicks: number; impr: number; pixel: number; status: string | null }> = {};
+    for (const s of spendRows || []) {
+      const k = s.ad_id;
+      if (!spendByAd[k]) spendByAd[k] = { spend: 0, ic: 0, clicks: 0, impr: 0, pixel: 0, status: s.effective_status };
+      spendByAd[k].spend += Number(s.spend || 0);
+      spendByAd[k].ic += Number(s.init_checkout || 0);
+      spendByAd[k].clicks += Number(s.link_clicks || 0);
+      spendByAd[k].impr += Number(s.impressoes || 0);
+      spendByAd[k].pixel += Number(s.purchases || 0);
+      if (s.effective_status) spendByAd[k].status = s.effective_status;
+    }
+
+    const approvedSales = (salesRows || []).filter((v) => ["aprovado", "paid", "approved", "completed"].includes(String(v.status || "").toLowerCase()));
+    let gastoTotal = 0;
+    let vendasReaisTotal = 0;
+    let receitaLiquidaTotal = 0;
+
+    const variantesDetalhe = (variants || []).map((v) => {
+      const sp = v.meta_ad_id ? spendByAd[v.meta_ad_id] : undefined;
+      const gasto = +(sp?.spend || 0).toFixed(2);
+      const ic = sp?.ic || 0;
+      const vendasVar = approvedSales.filter((s) => v.utm_content && String(s.utm_content || "").toLowerCase() === String(v.utm_content).toLowerCase());
+      const qtdVendas = vendasVar.length;
+      const liquido = vendasVar.reduce((acc, s) => acc + Number(s.valor_liquido ?? s.valor ?? 0), 0);
+      gastoTotal += gasto;
+      vendasReaisTotal += qtdVendas;
+      receitaLiquidaTotal += liquido;
+      return {
+        ordem: v.ordem,
+        angulo: v.angulo,
+        status_meta: sp?.status || v.status,
+        gasto,
+        ic,
+        vendas_reais: qtdVendas,
+        cpa_real: qtdVendas > 0 ? +(gasto / qtdVendas).toFixed(2) : null,
+      };
+    });
+
+    resultados.push({
+      id: order.id,
+      projeto_id: order.project_id,
+      nome: order.nome,
+      oferta: order.oferta,
+      status: order.status,
+      cpa_alvo: order.cpa_alvo,
+      gasto_total: +gastoTotal.toFixed(2),
+      vendas_reais: vendasReaisTotal,
+      cpa_geral: vendasReaisTotal > 0 ? +(gastoTotal / vendasReaisTotal).toFixed(2) : null,
+      receita_liquida: +receitaLiquidaTotal.toFixed(2),
+      saldo: +(receitaLiquidaTotal - gastoTotal).toFixed(2),
+      variantes: variantesDetalhe,
+    });
+  }
+
+  return { count: resultados.length, testes: resultados };
+}
+
+async function filaAprovacoesPendentes(ctx: ToolCtx, args: { projeto_id?: string; limite?: number }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const limite = args.limite ?? 25;
+
+  let q = ctx.supabase.from("imphq_ai_actions")
+    .select("id, projeto_id, kind, reason, status, payload, created_at")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(limite);
+  if (pid) q = q.eq("projeto_id", pid);
+
+  const [{ data: actions }, { data: lastRound }] = await Promise.all([
+    q,
+    ctx.supabase.from("imphq_activity_log")
+      .select("created_at, details")
+      .eq("action", "operator_round")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const roundDetails = objectValue(lastRound?.details);
+  const itensRodada = Array.isArray(roundDetails.itens) ? roundDetails.itens : [];
+
+  return {
+    pendentes_fila_ia: (actions || []).length,
+    acoes: (actions || []).map((a) => ({
+      id: a.id,
+      projeto: a.projeto_id,
+      tipo: a.kind,
+      motivo: a.reason,
+      criado_em: a.created_at,
+    })),
+    ultima_rodada_grupo: {
+      em: lastRound?.created_at || null,
+      itens_numerados: itensRodada,
+      como_decidir: "Responda 'ok 1', 'não 2' no grupo Imperio X ou acesse https://imperiox.vercel.app/aprovar",
+    },
+  };
+}
+
+async function dossieProdutoBlueprint(ctx: ToolCtx, args: { projeto_id: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id) || args.projeto_id;
+  const [{ data: bp }, { data: sites }, { data: swipes }] = await Promise.all([
+    ctx.supabase.from("imphq_product_blueprints")
+      .select("id, produto_nome, versao, score, snapshot, gaps, updated_at")
+      .eq("project_id", pid)
+      .eq("is_current", true)
+      .maybeSingle(),
+    ctx.supabase.from("imphq_project_sites")
+      .select("name, url, tipo, status")
+      .eq("project_id", pid)
+      .limit(15),
+    ctx.supabase.from("imphq_swipes")
+      .select("id, titulo, hook, angulo, formato, status")
+      .eq("project_id", pid)
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ]);
+
+  return {
+    projeto_id: pid,
+    produto_nome: bp?.produto_nome || pid,
+    versao_blueprint: bp?.versao || null,
+    score_prontidao: bp?.score || null,
+    blueprint: bp?.snapshot || null,
+    lacunas: bp?.gaps || null,
+    sites_e_paginas: sites || [],
+    ultimos_swipes: swipes || [],
+  };
+}
+
+async function mapaOperacionalProjeto(ctx: ToolCtx, args: { projeto_id?: string; termo_mapa?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  const { data: maps } = await ctx.supabase
+    .from("imphq_company_maps")
+    .select("id, name, updated_at")
+    .is("archived_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+
+  let nodeQuery = ctx.supabase
+    .from("imphq_company_map_nodes")
+    .select("id, map_id, label, kind, description, checklist, due_date, owner_member_id, linked_project_id, notes")
+    .limit(80);
+  if (pid) nodeQuery = nodeQuery.eq("linked_project_id", pid);
+  if (args.termo_mapa) nodeQuery = nodeQuery.ilike("label", `%${args.termo_mapa}%`);
+
+  const { data: nodes, error } = await nodeQuery;
+  if (error) return { error: error.message };
+
+  const mapById: Record<string, string> = {};
+  for (const m of maps || []) mapById[m.id] = m.name;
+
+  return {
+    mapas_ativos: (maps || []).map((m) => ({ id: m.id, nome: m.name, atualizado: m.updated_at })),
+    total_etapas: (nodes || []).length,
+    etapas: (nodes || []).map((n) => ({
+      id: n.id,
+      mapa: mapById[n.map_id] || n.map_id,
+      etapa: n.label,
+      tipo: n.kind,
+      projeto: n.linked_project_id,
+      prazo: n.due_date,
+      descricao: n.description?.slice(0, 180) || null,
+      notas: n.notes?.slice(0, 180) || null,
+      checklist: n.checklist,
+    })),
+  };
+}
+
+async function statusCloudPhonesGeelark(ctx: ToolCtx, args: { projeto_id?: string }) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  let q = ctx.supabase.from("imphq_cloud_phones")
+    .select("id, nome, project_id, provider, status, proxy_geo, proxy_tipo, notas, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (pid) q = q.eq("project_id", pid);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return {
+    total: (data || []).length,
+    aparelhos: data || [],
+  };
+}
+
+async function gerenciarRotinasDiarias(
+  ctx: ToolCtx,
+  args: { acao: string; projeto_id?: string; titulo?: string; descricao?: string; horario?: string; recorrencia?: string; rotina_id?: string },
+) {
+  const pid = resolveProjectId(ctx, args.projeto_id);
+  if (args.acao === "listar") {
+    let q = ctx.supabase.from("imphq_daily_routines")
+      .select("id, title, description, time_of_day, recurrence, is_active, project_id")
+      .order("time_of_day", { ascending: true })
+      .limit(30);
+    if (pid) q = q.eq("project_id", pid);
+    const { data, error } = await q;
+    if (error) return { error: error.message };
+    return { count: (data || []).length, rotinas: data || [] };
+  }
+
+  if (args.acao === "criar") {
+    if (!args.titulo) return { error: "Informe o titulo da rotina para criar." };
+    const { data, error } = await ctx.supabase.from("imphq_daily_routines").insert({
+      title: args.titulo,
+      description: args.descricao || null,
+      time_of_day: args.horario || "09:00",
+      recurrence: args.recorrencia || "daily",
+      project_id: pid,
+      user_id: ctx.userId,
+      is_active: true,
+    }).select("id, title, time_of_day, recurrence, project_id").single();
+    if (error) return { error: error.message };
+    return { ok: true, rotina_criada: data };
+  }
+
+  if (args.acao === "pausar" || args.acao === "ativar") {
+    if (!args.rotina_id) return { error: "Informe rotina_id para pausar/ativar." };
+    const novoStatus = args.acao === "ativar";
+    const { data, error } = await ctx.supabase.from("imphq_daily_routines")
+      .update({ is_active: novoStatus })
+      .eq("id", args.rotina_id)
+      .select("id, title, is_active")
+      .single();
+    if (error) return { error: error.message };
+    return { ok: true, rotina: data };
+  }
+
+  return { error: `Ação desconhecida: ${args.acao}` };
+}
+
+async function gerarImagemCriativo(
+  ctx: ToolCtx,
+  args: { prompt: string; projeto_id?: string; titulo?: string },
+) {
+  const pid = resolveProjectId(ctx, args.projeto_id) || "geral";
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY") || "";
+
+  let dataUrl: string | null = null;
+
+  // 1ª tentativa: Lovable AI Gateway (google/gemini-2.5-flash-image)
+  if (lovableKey) {
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: [{ type: "text", text: args.prompt }] }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (resp.ok) {
+        const j = await resp.json();
+        dataUrl = j?.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+      }
+    } catch (e) {
+      console.warn("[gerarImagemCriativo] Lovable image gen fallback:", safeError(e));
+    }
+  }
+
+  // 2ª tentativa: OpenRouter (google/gemini-2.5-flash-image-preview)
+  if (!dataUrl && openrouterKey) {
+    try {
+      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openrouterKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [{ role: "user", content: [{ type: "text", text: args.prompt }] }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (resp.ok) {
+        const j = await resp.json();
+        dataUrl = j?.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+      }
+    } catch (e) {
+      console.warn("[gerarImagemCriativo] OpenRouter image gen error:", safeError(e));
+    }
+  }
+
+  if (!dataUrl) {
+    return { error: "Não foi possível gerar a imagem nos provedores configurados." };
+  }
+
+  // Se já for uma URL HTTP pública, registra direto; se for base64 data URL, faz upload no Storage
+  let fileUrl = dataUrl;
+  let mime = "image/png";
+  let sizeBytes = 0;
+
+  if (dataUrl.startsWith("data:")) {
+    const m = dataUrl.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+    mime = m?.[1] || "image/png";
+    const b64 = m?.[2] || dataUrl.split(",")[1];
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    sizeBytes = bytes.byteLength;
+    const ext = mime.split("/")[1].split("+")[0] || "png";
+    const path = `${pid}/criativos/${Date.now()}.${ext}`;
+
+    const { error: upErr } = await ctx.supabase.storage.from("creative-assets").upload(path, bytes, {
+      contentType: mime,
+      upsert: false,
+    });
+    if (upErr) return { error: `Falha ao salvar imagem no storage: ${upErr.message}` };
+    const { data: pub } = ctx.supabase.storage.from("creative-assets").getPublicUrl(path);
+    fileUrl = pub.publicUrl;
+  }
+
+  const titulo = args.titulo || `Criativo IA — ${pid}`;
+  const { data: row } = await ctx.supabase.from("imphq_content_library").insert({
+    project_id: pid,
+    title: titulo,
+    file_url: fileUrl,
+    file_type: mime,
+    thumbnail_url: fileUrl,
+    tags: ["ia", "criativo", "whatsapp"],
+    size_bytes: sizeBytes || null,
+  }).select("id").maybeSingle();
+
+  return {
+    ok: true,
+    projeto_id: pid,
+    titulo,
+    image_url: fileUrl,
+    library_id: row?.id || null,
+  };
+}
+
+async function dispararRotinaSistema(ctx: ToolCtx, args: { rotina: string; projeto_id?: string }) {
+  const fnMap: Record<string, { fn: string; body: Record<string, unknown> }> = {
+    relatorio_testes: { fn: "test-report-wa", body: { force: true } },
+    briefing_matinal: { fn: "daily-briefing-wa", body: { force: true } },
+    sincronizar_ads: { fn: "zernio-ads-sync-all", body: { project_id: resolveProjectId(ctx, args.projeto_id) } },
+    monitor_saude_wa: { fn: "wa-health-monitor", body: {} },
+  };
+  const target = fnMap[args.rotina];
+  if (!target) return { error: `Rotina desconhecida: ${args.rotina}` };
+
+  const { data, error } = await ctx.supabase.functions.invoke(target.fn, { body: target.body });
+  if (error) return { ok: false, rotina: args.rotina, error: error.message };
+  return { ok: true, rotina: args.rotina, function_invocada: target.fn, resultado: data };
+}
+
 
 const toolArguments = {buscarProjeto: z.object({termo:z.string()}).passthrough(),
 leadsDoDia: z.object({projeto_id:z.string().optional(),data:z.string().optional()}).passthrough(),
@@ -2434,7 +2993,15 @@ vendasPorPlataforma: z.object({projeto_id:z.string().optional(),dias:z.number().
 chargebacksRecentes: z.object({projeto_id:z.string().optional(),dias:z.number().optional(),limite:z.number().optional()}).passthrough(),
 fluxoCaixaMes: z.object({projeto_id:z.string().optional()}).passthrough(),
 automacoesAtivas: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
-execucoesTravadas: z.object({projeto_id:z.string().optional(),horas:z.number().optional(),limite:z.number().optional()}).passthrough()};
+execucoesTravadas: z.object({projeto_id:z.string().optional(),horas:z.number().optional(),limite:z.number().optional()}).passthrough(),
+testesCriativosNoAr: z.object({projeto_id:z.string().optional(),todos_status:z.boolean().optional()}).passthrough(),
+filaAprovacoesPendentes: z.object({projeto_id:z.string().optional(),limite:z.number().optional()}).passthrough(),
+dossieProdutoBlueprint: z.object({projeto_id:z.string()}).passthrough(),
+mapaOperacionalProjeto: z.object({projeto_id:z.string().optional(),termo_mapa:z.string().optional()}).passthrough(),
+statusCloudPhonesGeelark: z.object({projeto_id:z.string().optional()}).passthrough(),
+gerenciarRotinasDiarias: z.object({acao:z.string(),projeto_id:z.string().optional(),titulo:z.string().optional(),descricao:z.string().optional(),horario:z.string().optional(),recorrencia:z.string().optional(),rotina_id:z.string().optional()}).passthrough(),
+gerarImagemCriativo: z.object({prompt:z.string(),projeto_id:z.string().optional(),titulo:z.string().optional()}).passthrough(),
+dispararRotinaSistema: z.object({rotina:z.string(),projeto_id:z.string().optional()}).passthrough()};
 
 export async function runTool(name: string, args: unknown, ctx: ToolCtx): Promise<unknown> {
 
@@ -2497,6 +3064,14 @@ export async function runTool(name: string, args: unknown, ctx: ToolCtx): Promis
       case "fluxoCaixaMes": return await fluxoCaixaMes(ctx, toolArguments.fluxoCaixaMes.parse(args));
       case "automacoesAtivas": return await automacoesAtivas(ctx, toolArguments.automacoesAtivas.parse(args));
       case "execucoesTravadas": return await execucoesTravadas(ctx, toolArguments.execucoesTravadas.parse(args));
+      case "testesCriativosNoAr": return await testesCriativosNoAr(ctx, toolArguments.testesCriativosNoAr.parse(args));
+      case "filaAprovacoesPendentes": return await filaAprovacoesPendentes(ctx, toolArguments.filaAprovacoesPendentes.parse(args));
+      case "dossieProdutoBlueprint": return await dossieProdutoBlueprint(ctx, toolArguments.dossieProdutoBlueprint.parse(args));
+      case "mapaOperacionalProjeto": return await mapaOperacionalProjeto(ctx, toolArguments.mapaOperacionalProjeto.parse(args));
+      case "statusCloudPhonesGeelark": return await statusCloudPhonesGeelark(ctx, toolArguments.statusCloudPhonesGeelark.parse(args));
+      case "gerenciarRotinasDiarias": return await gerenciarRotinasDiarias(ctx, toolArguments.gerenciarRotinasDiarias.parse(args));
+      case "gerarImagemCriativo": return await gerarImagemCriativo(ctx, toolArguments.gerarImagemCriativo.parse(args));
+      case "dispararRotinaSistema": return await dispararRotinaSistema(ctx, toolArguments.dispararRotinaSistema.parse(args));
       default: return { error: `tool desconhecida: ${name}` };
 
 

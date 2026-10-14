@@ -1114,17 +1114,25 @@ REGRAS GERAIS DE CONVERSAÇÃO HUMANA:
     // Carrega ia_ativa e mantém sincronizado
     useEffect(() => {
       if (!conversationId) return;
+      const syncIaAtiva = (data: { ia_ativa?: boolean | null; metadata?: unknown } | null) => {
+        if (data != null) {
+          const meta = typeof data.metadata === "object" && data.metadata !== null ? (data.metadata as Record<string, unknown>) : null;
+          const isIgnored = data.ia_ativa === false || meta?.ai_ignored === true;
+          setIaAtiva(!isIgnored);
+        }
+      };
       supabase.from("imphq_wa_conversations")
         .select("ia_ativa, metadata")
         .eq("id", conversationId)
         .maybeSingle()
-        .then(({ data }) => {
-          if (data != null) {
-            const meta = typeof data.metadata === "object" && data.metadata !== null ? (data.metadata as Record<string, unknown>) : null;
-            const isIgnored = data.ia_ativa === false || meta?.ai_ignored === true;
-            setIaAtiva(!isIgnored);
-          }
-        });
+        .then(({ data }) => syncIaAtiva(data));
+      const ch = supabase
+        .channel(`wa-chatview-ia-${conversationId}`)
+        .on("postgres_changes",
+          { event: "UPDATE", schema: "public", table: "imphq_wa_conversations", filter: `id=eq.${conversationId}` },
+          (payload) => syncIaAtiva(payload.new as { ia_ativa?: boolean | null; metadata?: unknown }))
+        .subscribe();
+      return () => { supabase.removeChannel(ch); };
     }, [conversationId]);
 
     // Carrega o último intent real desta conversa (classificador de triagem)

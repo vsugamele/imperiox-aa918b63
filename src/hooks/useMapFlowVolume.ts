@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProjectVolume } from "@shared/flow-volume";
 import { pageSnapshots } from "@/lib/map-stage-metrics";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
 
 export interface MapFlowData {
   sessions: Map<string, number>;
@@ -22,7 +23,7 @@ export function useMapFlowVolume(projectIds: string[]) {
       const [pageResults, convRes, salesRes, leadsRes] = await Promise.all([
         Promise.all(ids.map(async (id) => ({ id, result: await supabase.rpc("imphq_page_metrics", { p_project_id: id, p_since: since }) }))),
         supabase.from("imphq_wa_conversations").select("project_id, jid_suffix").in("project_id", ids).gte("created_at", since).limit(5000),
-        supabase.from("imphq_vendas").select("project_id").in("project_id", ids).eq("status", "aprovado").gte("created_at", since).limit(5000),
+        supabase.from("imphq_vendas").select("project_id").in("project_id", ids).in("status", [...PAID_SALE_STATUSES]).gte("created_at", since).limit(5000),
         supabase.from("imphq_leads").select("project_id").in("project_id", ids).gte("criado_em", since).limit(5000),
       ]);
       for (const res of [convRes, salesRes, leadsRes]) if (res.error) throw res.error;

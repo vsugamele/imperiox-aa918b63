@@ -156,7 +156,7 @@ export default function LiveFunnelPanel({ projectFilter }: Props) {
                 <Activity className="h-4 w-4 text-emerald-400" />
                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               </div>
-              <h3 className="font-cormorant text-lg font-bold text-foreground">Funil Ao Vivo</h3>
+              <h3 className="font-editorial text-lg font-bold text-foreground">Funil Ao Vivo</h3>
               <Badge variant="outline" className="text-[10px]">tempo real</Badge>
             </div>
             <Button

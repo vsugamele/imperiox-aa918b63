@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
+import { isPaidSaleStatus } from "@/lib/revenueMode";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -158,13 +159,13 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
 
         // Vendas 24h
         const pVendas24h = vList.filter((v) => v.project_id === pId && v.created_at >= last24h);
-        const aprovadas24h = pVendas24h.filter((v) => v.status === "aprovado");
+        const aprovadas24h = pVendas24h.filter((v) => isPaidSaleStatus(v.status));
         const receita24h = aprovadas24h.reduce((sum, v) => sum + Number(v.valor || 0), 0);
         const abandonos24h = pVendas24h.filter((v) => v.status === "carrinho_abandonado");
         const pix24h = pVendas24h.filter((v) => v.status === "pix_gerado");
 
         // Vendas 30d
-        const pVendas30d = vList.filter((v) => v.project_id === pId && v.status === "aprovado");
+        const pVendas30d = vList.filter((v) => v.project_id === pId && isPaidSaleStatus(v.status));
         const receita30d = pVendas30d.reduce((sum, v) => sum + Number(v.valor || 0), 0);
 
         // Leads 24h

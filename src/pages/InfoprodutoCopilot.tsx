@@ -574,6 +574,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
     try {
       const newId = crypto.randomUUID();
       const initialData = {
+        status: "em_construcao",
         produto: dossier.nome || newProjectName,
         precos: { principal: dossier.preco },
         briefing: { nicho: dossier.nicho },
@@ -597,7 +598,7 @@ ${dossier[p.id] || "_Fase não preenchida ainda._"}
         id: newId,
         name: newProjectName,
         category: newProjectCategory,
-        status: "em_construcao",
+        active: true,
         icon: "🚀",
         color: "#d4a843",
         data: initialData,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Layers, Loader2, Map as MapIcon, Plus, Sparkles, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,7 @@ export function CompanyMapPathEmbed({
   onSelectProject,
   operationMapIdsByProject = {},
 }: CompanyMapPathEmbedProps) {
+  const navigate = useNavigate();
   const activeProjectId = selectedProjectId || projects[0]?.id || null;
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
@@ -363,12 +364,12 @@ export function CompanyMapPathEmbed({
             onOpen={(id) => {
               // Redirect to canvas focused on that node
               if (mapId) {
-                window.location.href = `/funis?view=mapa&map=${mapId}&node=${id}`;
+                navigate(`/funis?view=mapa&map=${mapId}&node=${id}`);
               }
             }}
             onSetRole={handleSetRole}
             onSwitchToCanvas={mapId ? () => {
-              window.location.href = `/funis?view=mapa&map=${mapId}`;
+              navigate(`/funis?view=mapa&map=${mapId}`);
             } : undefined}
           />
         </div>

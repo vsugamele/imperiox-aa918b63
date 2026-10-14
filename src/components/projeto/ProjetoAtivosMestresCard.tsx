@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: Props) {
+  const navigate = useNavigate();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [creativeModalOpen, setCreativeModalOpen] = useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
@@ -417,7 +419,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
                   size="sm"
                   variant="outline"
                   className={`flex-1 h-7 text-[11px] gap-1 border-white/10 ${pendingConvsCount > 0 ? "border-amber-500/30 text-amber-300 hover:border-amber-500/60 hover:bg-amber-500/10" : "hover:border-green-500/50"}`}
-                  onClick={() => onNavigateTab ? onNavigateTab("openflow") : window.location.assign("/inbox?tab=whatsapp")}
+                  onClick={() => onNavigateTab ? onNavigateTab("openflow") : navigate("/inbox?tab=whatsapp")}
                 >
                   <Bot className="h-3 w-3 text-green-400" />
                   {pendingConvsCount > 0 ? `Atender Fila (${pendingConvsCount})` : "Ver Atendimentos"}

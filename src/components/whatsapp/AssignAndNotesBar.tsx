@@ -78,6 +78,20 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
       .on("postgres_changes",
         { event: "*", schema: "public", table: "imphq_wa_internal_notes", filter: `conversation_id=eq.${conversationId}` },
         () => load())
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "imphq_wa_conversations", filter: `id=eq.${conversationId}` },
+        (payload) => {
+          const d = payload.new as Record<string, unknown>;
+          if ("assigned_to" in d) setAssignedTo((d.assigned_to as string) || null);
+          if ("snoozed_until" in d) setSnoozedUntil((d.snoozed_until as string) || null);
+          if ("ai_paused_until" in d) setAiPausedUntil((d.ai_paused_until as string) || null);
+          if ("status" in d) setConvStatus((d.status as string) || null);
+          setConvData(prev => prev ? {
+            ...prev,
+            ia_ativa: "ia_ativa" in d ? (d.ia_ativa as boolean | null) : prev.ia_ativa,
+            metadata: "metadata" in d ? d.metadata : prev.metadata,
+          } : null);
+        })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [conversationId]);
@@ -175,11 +189,12 @@ export default function AssignAndNotesBar({ conversationId }: { conversationId: 
   const resumeAi = async () => {
     const { error } = await supabase
       .from("imphq_wa_conversations")
-      .update({ status: "active", ai_paused_until: null })
+      .update({ status: "active", ai_paused_until: null, ia_ativa: true })
       .eq("id", conversationId);
     if (error) { toast.error("Falha ao retomar IA"); return; }
     setConvStatus("active");
     setAiPausedUntil(null);
+    setConvData(prev => prev ? { ...prev, ia_ativa: true } : null);
     toast.success("IA retomada. Próxima mensagem do lead volta a ser respondida.");
   };
 

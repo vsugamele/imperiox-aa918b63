@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarCheck, Clock, Send, XCircle, FlaskConical } from "lucide-react";
-import { toLocalDateStr } from "@/lib/periodUtils";
+import { toLocalDateStr, startOfDayBRT } from "@/lib/periodUtils";
 
 interface KPIData {
   agendados: number;
@@ -21,14 +21,15 @@ export default function CampaignKPICards() {
     staleTime: 60_000,
     queryFn: async (): Promise<KPIData> => {
       const today = toLocalDateStr();
+      const todayStartISO = startOfDayBRT(today);
 
       const [agendadosRes, offsetRes, nextStepRes, enviadosRes, canceladosRes, variantBRes] = await Promise.all([
         supabase.from("imphq_wa_campaign_steps").select("id", { count: "exact", head: true }).eq("is_active", true).gte("send_date", today),
         supabase.from("imphq_wa_campaign_steps").select("id", { count: "exact", head: true }).eq("is_active", true).is("send_date", null),
         supabase.from("imphq_wa_campaign_steps").select("send_date, send_time").eq("is_active", true).gte("send_date", today).order("send_date", { ascending: true }).order("send_time", { ascending: true }).limit(1).maybeSingle(),
-        supabase.from("imphq_wa_campaign_logs").select("id", { count: "exact", head: true }).eq("status", "sent").gte("created_at", `${today}T00:00:00`),
+        supabase.from("imphq_wa_campaign_logs").select("id", { count: "exact", head: true }).eq("status", "sent").gte("executed_at", todayStartISO),
         supabase.from("imphq_wa_campaigns").select("id", { count: "exact", head: true }).eq("status", "cancelled"),
-        supabase.from("imphq_wa_campaign_logs").select("id", { count: "exact", head: true }).eq("status", "sent").eq("error", "VARIANT_B").gte("created_at", `${today}T00:00:00`),
+        supabase.from("imphq_wa_campaign_logs").select("id", { count: "exact", head: true }).eq("status", "sent").eq("error", "VARIANT_B").gte("executed_at", todayStartISO),
       ]);
 
       let proximoDisparo = "—";

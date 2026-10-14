@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isPaidSaleStatus } from "@/lib/revenueMode";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -55,7 +56,7 @@ export default function FunilSimulador() {
     const impressoes = (adsR.data || []).reduce((s: number, r) => s + (+r.impressoes || 0), 0);
     const cliques = (adsR.data || []).reduce((s: number, r) => s + (+r.cliques || 0), 0);
     const checkouts = (adsR.data || []).reduce((s: number, r) => s + (+r.checkouts_iniciados || 0), 0);
-    const vendasAprovadas = (vendasR.data || []).filter((v) => v.status === "approved" || v.status === "aprovado");
+    const vendasAprovadas = (vendasR.data || []).filter((v) => isPaidSaleStatus(v.status));
     const vendas = vendasAprovadas.length;
     const receita = vendasAprovadas.reduce((s: number, v) => s + (+v.valor || 0), 0);
 

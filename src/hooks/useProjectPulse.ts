@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
 
 export interface ProjectPulse {
   revenueToday: number;
@@ -41,9 +42,9 @@ export function useProjectPulse(projectId: string | undefined, refreshMs = 60_00
       const twoHoursAgo = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
 
       const [todayRes, monthRes, ystRes, adsRes, hotRes, leadsRes] = await Promise.all([
-        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", dayStart).lt("created_at", dayEnd),
-        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", monthStart),
-        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).eq("status", "aprovado").gte("created_at", yStart).lt("created_at", dayStart),
+        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).in("status", [...PAID_SALE_STATUSES]).gte("created_at", dayStart).lt("created_at", dayEnd),
+        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).in("status", [...PAID_SALE_STATUSES]).gte("created_at", monthStart),
+        supabase.from("imphq_vendas").select("valor, status").eq("project_id", projectId).in("status", [...PAID_SALE_STATUSES]).gte("created_at", yStart).lt("created_at", dayStart),
         supabase.from("imphq_ads_spend").select("valor").eq("project_id", projectId).eq("data_ref", todayStr),
         supabase.from("imphq_vendas").select("id, status").eq("project_id", projectId).neq("status", "aprovado").gte("data->>last_intent_at", twoHoursAgo),
         supabase.from("imphq_leads").select("id", { count: "exact", head: true }).eq("project_id", projectId).gte("criado_em", dayStart),

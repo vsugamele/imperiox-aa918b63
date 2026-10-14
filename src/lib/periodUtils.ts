@@ -92,10 +92,14 @@ export function brtStart(day: string): string {
   return `${day}T00:00:00-03:00`;
 }
 
+/** Alias de brtStart para início do dia em BRT (America/Sao_Paulo). */
+export const startOfDayBRT = brtStart;
+
 /** Início do dia seguinte em horário de Brasília (BRT, UTC-3), usado como limite superior exclusivo (< brtNextDay). */
 export function brtNextDay(day: string): string {
   const d = new Date(`${day}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
   return `${d.toISOString().slice(0, 10)}T00:00:00-03:00`;
 }
+
 

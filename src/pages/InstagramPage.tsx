@@ -2,6 +2,7 @@ import { record } from "@/lib/funis-data";
 import type { Tables, Database as DatabaseSchema, Json } from "@/integrations/supabase/types";
 import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ interface IgComment {
 }
 
 export default function InstagramPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => localStorage.getItem("ig.selectedProject") || "");
   const [accounts, setAccounts] = useState<IgAccount[]>([]);
@@ -1466,7 +1468,7 @@ export default function InstagramPage() {
           <div className="flex-1 text-xs leading-6 text-amber-100/90">
             Conectado via <strong>Zernio</strong>. Algumas ações (abrir post, responder/excluir comentário, insights, icebreakers) exigem também conexão via <strong>Meta/Facebook</strong>.
           </div>
-          <Button variant="outline" size="sm" className="h-7 text-[11px] border-amber-500/40 hover:bg-amber-500/10" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] border-amber-500/40 hover:bg-amber-500/10" onClick={() => navigate(`/projetos/${selectedProjectId}`)}>
             Conectar Meta
           </Button>
         </div>
@@ -1483,7 +1485,7 @@ export default function InstagramPage() {
             <p className="text-sm text-muted-foreground max-w-md">
               Vincule sua conta Instagram Business nas configurações de integração do seu projeto em <strong>Projetos &gt; Detalhes &gt; Instagram</strong>.
             </p>
-            <Button variant="outline" size="sm" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/projetos/${selectedProjectId}`)}>
               Ir para o Painel do Projeto
             </Button>
           </CardContent>
@@ -2933,7 +2935,7 @@ export default function InstagramPage() {
                           <div className="text-center py-6 text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
                             <AlertCircle className="h-5 w-5 text-amber-500" />
                             <p>IA não configurada para este projeto.</p>
-                            <Button variant="outline" size="sm" className="text-xs h-7 border-amber-500/30 text-amber-400" onClick={() => window.location.href = `/projetos/${selectedProjectId}`}>
+                            <Button variant="outline" size="sm" className="text-xs h-7 border-amber-500/30 text-amber-400" onClick={() => navigate(`/projetos/${selectedProjectId}`)}>
                               Configurar no Projeto
                             </Button>
                           </div>

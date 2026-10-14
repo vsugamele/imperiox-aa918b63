@@ -79,7 +79,7 @@ export function TripwireEngineDialog({ open, onClose, projectId, product, coreOf
               {result.nome_escolhido && (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 space-y-1">
                   <p className="text-[10px] uppercase tracking-wider text-amber-300 font-semibold">Nome</p>
-                  <p className="text-lg font-cormorant text-foreground">{result.nome_escolhido.nome}</p>
+                  <p className="text-lg font-editorial text-foreground">{result.nome_escolhido.nome}</p>
                   <p className="text-xs text-muted-foreground leading-5">{result.nome_escolhido.justificativa}</p>
                 </div>
               )}
@@ -100,7 +100,7 @@ export function TripwireEngineDialog({ open, onClose, projectId, product, coreOf
                       Copiar tudo
                     </Button>
                   </div>
-                  {result.copy.headline && <p className="text-base font-cormorant text-foreground leading-7">{result.copy.headline}</p>}
+                  {result.copy.headline && <p className="text-base font-editorial text-foreground leading-7">{result.copy.headline}</p>}
                   {result.copy.subheadline && <p className="text-xs text-muted-foreground leading-6">{result.copy.subheadline}</p>}
                   {result.copy.corpo && <p className="text-xs text-foreground/90 leading-6 whitespace-pre-wrap">{result.copy.corpo}</p>}
                   {Array.isArray(result.copy.empilhamento) && result.copy.empilhamento.length > 0 && (

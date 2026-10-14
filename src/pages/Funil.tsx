@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { errorMessage } from "@/lib/error-message";
+import { isPaidSaleStatus } from "@/lib/revenueMode";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
@@ -92,7 +93,7 @@ export default function Funil() {
       const linksEnviados = (attrs || []).length;
       const linksClicados = (attrs || []).filter((a) => a.clicked_at).length;
       const vendasGeradas = (attrs || []).filter((a) => a.venda_id).length;
-      const vendasAprovadas = (attrs || []).filter((a) => a.venda_status === "aprovado").length;
+      const vendasAprovadas = (attrs || []).filter((a) => isPaidSaleStatus(a.venda_status)).length;
 
       // Receita real via venda_ids atribuídos a esse funil
       const vendaIds = Array.from(new Set((attrs || []).filter((a) => a.venda_id).map((a) => a.venda_id)));
@@ -103,7 +104,7 @@ export default function Funil() {
           .select("id, valor, valor_liquido, status")
           .in("id", vendaIds);
         for (const v of (vendas || [])) {
-          if ((v.status || "").toLowerCase() === "aprovado") {
+          if (isPaidSaleStatus(v.status)) {
             totalRev += Number(v.valor_liquido ?? v.valor) || 0;
             countRev++;
           }
@@ -151,7 +152,7 @@ export default function Funil() {
       for (const r of (templates || [])) {
         const cur = tplMap.get(r.template_name) || { sent: 0, sales: 0 };
         cur.sent++;
-        if (r.venda_status === "aprovado") cur.sales++;
+        if (isPaidSaleStatus(r.venda_status)) cur.sales++;
         tplMap.set(r.template_name, cur);
       }
       const tplList = Array.from(tplMap.entries())
@@ -392,7 +393,7 @@ export default function Funil() {
                     Enviado {new Date(m.sent_at).toLocaleString("pt-BR")} · Casado {m.matched_at ? new Date(m.matched_at).toLocaleString("pt-BR") : "—"}
                   </p>
                 </div>
-                <Badge className={m.venda_status === "aprovado" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}>
+                <Badge className={isPaidSaleStatus(m.venda_status) ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}>
                   {m.venda_status}
                 </Badge>
               </div>

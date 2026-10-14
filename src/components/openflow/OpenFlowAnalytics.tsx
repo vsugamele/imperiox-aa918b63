@@ -2,6 +2,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import type { Acao } from "@/components/openflow/FlowEditor";
 import { readExecutionSteps } from "@/lib/flow-execution-data";
 import { errorMessage } from "@/lib/error-message";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -69,7 +70,7 @@ export function OpenFlowAnalytics({ automacoes }: OpenFlowAnalyticsProps) {
       const { data: vendas } = await supabase
         .from('imphq_vendas')
         .select('valor, data')
-        .eq('status', 'aprovado')
+        .in('status', [...PAID_SALE_STATUSES])
         .gte('created_at', thirtyDaysAgo);
 
       const byFlow = new Map<string, {nome: string; receita: number; count: number; automacao_id: string}>();

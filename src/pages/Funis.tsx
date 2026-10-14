@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { parseEtapa, parseFunnelData, parseProjectData, readRecord, serializeFunnelStages, toJson, type Etapa, type FunnelData, type Product, type ProjectData } from "@/lib/funis-data";
 import { errorMessage } from "@/lib/error-message";
+import { PAID_SALE_STATUSES, isPaidSaleStatus } from "@/lib/revenueMode";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -364,7 +365,7 @@ export default function Funis() {
     for (const v of (vendasRes.data || [])) {
       if (!v.project_id) continue;
       if (!map[v.project_id]) map[v.project_id] = { leads: 0, vendas: 0, receita: 0, conv: 0 };
-      if ((v.status || "").toLowerCase() === "aprovado") {
+      if (isPaidSaleStatus(v.status)) {
         map[v.project_id].vendas++;
         map[v.project_id].receita += Number(v.valor_liquido ?? v.valor) || 0;
       }
@@ -442,7 +443,7 @@ export default function Funis() {
       const [evRes, leadsRes, vendasRes, adsRes] = await Promise.all([
         supabase.from("imphq_events").select("page_url, event_name").eq("project_id", pid),
         supabase.from("imphq_leads").select("id").eq("project_id", pid),
-        supabase.from("imphq_vendas").select("id, valor, status").eq("project_id", pid).eq("status", "aprovado"),
+        supabase.from("imphq_vendas").select("id, valor, status").eq("project_id", pid).in("status", [...PAID_SALE_STATUSES]),
         supabase.from("imphq_ads_spend").select("valor").eq("project_id", pid),
       ]);
       // Pixel metrics

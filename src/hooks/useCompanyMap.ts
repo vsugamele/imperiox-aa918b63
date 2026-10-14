@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { buildProjectMap, type ProjectMap, type ProjectMapInput } from "@shared/project-map";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -25,7 +26,7 @@ async function loadCompanyMap(): Promise<ProjectMap[]> {
     supabase.from("imphq_projects").select("id, name, data, avatar").or("is_archived.eq.false,is_archived.is.null").order("name"),
     supabase.from("imphq_competitors").select("project_id, name, url, oferta_principal, preco, mecanismo_unico, headline, paginas_funil"),
     supabase.from("imphq_company_map_nodes").select("linked_project_id, label, url, kind, image_url").not("linked_project_id", "is", null),
-    supabase.from("imphq_vendas").select("project_id, produto_nome").eq("status", "aprovado").gte("created_at", since30d),
+    supabase.from("imphq_vendas").select("project_id, produto_nome").in("status", [...PAID_SALE_STATUSES]).gte("created_at", since30d),
     supabase.from("imphq_wa_providers").select("project_id, is_active"),
     supabase.from("imphq_wa_ai_config").select("project_id, enabled, draft_mode"),
   ]);

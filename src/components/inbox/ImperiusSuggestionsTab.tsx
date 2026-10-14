@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -203,6 +204,7 @@ const KIND_META: Record<SuggestionKind, { icon: LucideIcon; color: string; label
 };
 
 export default function ImperiusSuggestionsTab() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Suggestion[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
@@ -270,7 +272,7 @@ export default function ImperiusSuggestionsTab() {
       const p = s.phone.replace(/\D/g, "");
       window.open(`https://wa.me/${p}`, "_blank");
     } else if (s.lead_id) {
-      window.location.href = `/leads?id=${s.lead_id}`;
+      navigate(`/leads?id=${s.lead_id}`);
     }
   }
 
