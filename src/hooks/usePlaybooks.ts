@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { planPlaybook, type Playbook } from "@shared/playbooks";
+import { PLAYBOOK_LIBRARY } from "@shared/playbook-library";
 import { playbookFromRows, writePlaybookPlan, type ApplyResult } from "@shared/playbook-apply";
 
 export interface PlaybookApplication { id: string; playbook_id: string; project_id: string; map_id: string; status: string; created_at: string }
@@ -14,8 +15,16 @@ async function loadPlaybooks(): Promise<PlaybookLibrary> {
   ]);
   for (const res of [pbRes, stRes, apRes]) if (res.error) throw res.error;
   const steps = stRes.data ?? [];
+  const dbPlaybooks = (pbRes.data ?? []).map((row) =>
+    playbookFromRows(row, steps.filter((s) => s.playbook_id === row.id))
+  );
+  const dbIds = new Set(dbPlaybooks.map((p) => p.id));
+  const mergedPlaybooks = [
+    ...dbPlaybooks,
+    ...PLAYBOOK_LIBRARY.filter((p) => !dbIds.has(p.id)),
+  ];
   return {
-    playbooks: (pbRes.data ?? []).map((row) => playbookFromRows(row, steps.filter((s) => s.playbook_id === row.id))),
+    playbooks: mergedPlaybooks,
     applications: apRes.data ?? [],
   };
 }

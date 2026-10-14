@@ -472,25 +472,94 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   const handleRefineWithAi = async () => {
     setGeneratingAi(true);
     try {
-      const { data, error } = await supabase.functions.invoke("openflow-ai", {
+      const intentMap: Record<AgencyFrontType, string> = {
+        advertorial: "weaponized_credibility",
+        pdp_dtc: "weaponized_credibility",
+        lp_vsl: "vsl_imperador",
+        captura_quiz: "criativo_imperador",
+        webinar: "vsl_imperador",
+        grupo_lancamento: "conversa_imperador",
+        grupo_relacionamento: "conversa_imperador",
+        x1_closer: "conversa_imperador",
+      };
+
+      const { data, error } = await supabase.functions.invoke("copy-engine", {
         body: {
-          action: "quick_generate",
-          prompt: `Você é o Diretor de Copywriting de Resposta Direta da agência Império. Expanda e escreva a copy completa e pronta para conversão da frente "${selectedFront.label}" para o produto "${productName}" (Projeto: ${projectName}).\n\nDor do avatar: ${avatarPain}\nMecanismo Único: ${mechanismName}\nOferta: ${offerDetails}\nObjeção real dos leads que precisa ser esmagada na copy: "${selectedComplaint?.sampleQuotes[0]}" (${selectedComplaint?.label}).\n\nUse como base estrutural:\n${fullText}`,
+          intent: intentMap[selectedFront.id] ?? "criativo_imperador",
+          input: `Você é o Diretor de Copywriting de Resposta Direta da agência Império. Expanda e escreva a copy completa e pronta para conversão da frente "${selectedFront.label}" para o produto "${productName}" (Projeto: ${projectName}).\n\nDor do avatar: ${avatarPain}\nMecanismo Único: ${mechanismName}\nOferta: ${offerDetails}\nObjeção real dos leads que precisa ser esmagada na copy: "${selectedComplaint?.sampleQuotes[0]}" (${selectedComplaint?.label}).\n\nUse como base estrutural:\n${fullText}`,
+          context: activeProjectId ? { project_id: activeProjectId } : undefined,
         },
       });
       if (error) throw error;
-      const resultText = data?.result || data?.text || data?.content;
+      const resultText = data?.content || data?.result || data?.text;
       if (resultText && typeof resultText === "string") {
         setAiCustomOutput(resultText);
-        toast.success("Copy expandida pela IA com sucesso!");
+        toast.success("Copy expandida pelo motor de IA com sucesso!");
       } else {
         toast.info("Blueprint estruturado mantido (sem retorno adicional da IA).");
       }
     } catch {
-      toast.info("Usando o Blueprint determinístico de alta conversão (IA offline no momento).");
+      toast.info("Usando o Blueprint determinístico de alta conversão.");
     } finally {
       setGeneratingAi(false);
     }
+  };
+
+  const handleDownloadHtml = () => {
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${productName} — ${selectedFront.label}</title>
+  <style>
+    :root { --bg: #0b0d12; --card: #131722; --accent: #10b981; --gold: #f59e0b; --text: #f3f4f6; --muted: #9ca3af; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; padding: 32px 16px; }
+    .container { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+    .kicker { display: inline-block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--gold); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); padding: 4px 10px; border-radius: 999px; margin-bottom: 8px; }
+    h1 { font-size: clamp(24px, 4vw, 36px); line-height: 1.2; color: #fff; }
+    .meta { font-size: 14px; color: var(--muted); }
+    .section { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+    .section-title { font-size: 16px; font-weight: 700; color: var(--accent); }
+    .section-tag { font-size: 11px; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px; color: var(--muted); }
+    .section-body { white-space: pre-line; font-size: 15px; color: #e5e7eb; }
+    .cta-btn { display: block; width: 100%; text-align: center; background: var(--accent); color: #04130d; font-weight: 800; font-size: 16px; padding: 16px 24px; border-radius: 12px; text-decoration: none; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="kicker">${selectedFront.shortTag} · ${projectName}</span>
+      <h1>${productName} — ${mechanismName}</h1>
+      <p class="meta">Oferta ativa: ${offerDetails}</p>
+    </header>
+    ${sections
+      .map(
+        (s) => `<section class="section">
+      <div class="section-header">
+        <span class="section-title">${s.title}</span>
+        <span class="section-tag">${s.tag}</span>
+      </div>
+      <div class="section-body">${s.body.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+    </section>`
+      )
+      .join("\n")}
+    <a href="#checkout" class="cta-btn">GARANTIR ${productName.toUpperCase()} COM GARANTIA DE 30 DIAS →</a>
+  </div>
+</body>
+</html>`;
+    const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selectedFront.id}-${productName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Página HTML pronta baixada!");
   };
 
   const handleSaveToSites = async () => {
@@ -697,6 +766,16 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               >
                 <Copy className="h-3.5 w-3.5 mr-1" />
                 Copiar Tudo
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={handleDownloadHtml}
+                title="Baixar arquivo HTML estilizado pronto para publicar"
+              >
+                <Globe className="h-3.5 w-3.5 mr-1" />
+                Baixar HTML
               </Button>
               <Button
                 size="sm"

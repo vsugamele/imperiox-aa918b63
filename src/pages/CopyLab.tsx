@@ -14,6 +14,7 @@ import { Loader2, Crown, Copy as CopyIcon, Sparkles, MessageSquare, Stethoscope,
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { parseMemoFlowAdBatch, formatBatchForMediaBuyer } from "@/lib/memoflow-ads-generator";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 type Project = { id: string; name: string };
 type Intent =
@@ -39,6 +40,8 @@ const TABS: Array<{ id: Intent; label: string; icon: LucideIcon; subtitle: strin
 
 export default function CopyLab() {
   const location = useLocation();
+  const { projectId: globalProjectId } = useGlobalProject();
+  const searchParams = new URLSearchParams(location.search);
   const routeState = (location.state || {}) as {
     initialIntent?: Intent;
     projectId?: string;
@@ -46,11 +49,19 @@ export default function CopyLab() {
     initialOutput?: string;
   };
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState<string>(routeState.projectId || "__none__");
-  const [activeTab, setActiveTab] = useState<Intent>(routeState.initialIntent || "lote_anuncios_memoflow");
+  const queryBriefing = searchParams.get("briefing") || "";
+  const queryIntent = (searchParams.get("intent") as Intent | null) || undefined;
+  const queryProj = searchParams.get("projectId") || undefined;
 
-  const [briefing, setBriefing] = useState(routeState.briefing || "");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState<string>(
+    routeState.projectId || queryProj || (globalProjectId && globalProjectId !== "all" ? globalProjectId : "__none__")
+  );
+  const [activeTab, setActiveTab] = useState<Intent>(
+    routeState.initialIntent || queryIntent || "lote_anuncios_memoflow"
+  );
+
+  const [briefing, setBriefing] = useState(routeState.briefing || queryBriefing || "");
   const [crenca, setCrenca] = useState("");
   const [referencia, setReferencia] = useState("");
   const [copyParaDiagnostico, setCopyParaDiagnostico] = useState("");
