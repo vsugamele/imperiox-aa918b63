@@ -53,7 +53,7 @@ export default function Hoje() {
   const { data: allBoards = [], isLoading, isFetching, error, refetch } = useTodayBoard();
   const { projectId: globalProjectId } = useGlobalProject();
   const boards = useMemo(
-    () => (globalProjectId === "all" ? allBoards : allBoards.filter((b) => b.projectId === globalProjectId)),
+    () => (!globalProjectId || globalProjectId === "all" ? allBoards : allBoards.filter((b) => b.projectId === globalProjectId)),
     [allBoards, globalProjectId]
   );
   const { data: companyMaps = [] } = useCompanyMap();

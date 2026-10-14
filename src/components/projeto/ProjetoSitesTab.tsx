@@ -6,14 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Globe, ExternalLink, Trash2, Plus, Eye, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import { SiteThumbnail, getCleanDomain } from "@/components/sites/SiteThumbnail";
+import { SiteThumbnail, getCleanDomain, createVirtualSiteFromUrl } from "@/components/sites/SiteThumbnail";
 import { SiteDetailModal } from "@/components/sites/SiteDetailModal";
 import type { Site } from "@/components/sites/SiteCard";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
 
 type Row = {
   id: string;
   papel: string;
   site: Site;
+  isVirtual?: boolean;
 };
 
 const PAPEL_LABEL: Record<string, string> = {
@@ -33,13 +35,71 @@ export function ProjetoSitesTab({ projectId }: { projectId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("imphq_project_sites")
-      .select("id, papel, site:imphq_sites(*)")
-      .eq("projeto_id", projectId)
-      .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setRows((data || []) as unknown as Row[]);
+    const [linkedRes, projRes] = await Promise.all([
+      supabase
+        .from("imphq_project_sites")
+        .select("id, papel, site:imphq_sites(*)")
+        .eq("projeto_id", projectId)
+        .order("created_at", { ascending: false }),
+      supabase.from("imphq_projects").select("id, name, data").eq("id", projectId).maybeSingle(),
+    ]);
+
+    if (linkedRes.error) toast.error(linkedRes.error.message);
+    const linkedRows = ((linkedRes.data || []) as unknown as Row[]).filter((r) => r.site);
+
+    // Se houver links na ficha do projeto que ainda não estão na lista, exibe com preview visual
+    const existingUrls = new Set(linkedRows.map((r) => r.site.url));
+    const virtualRows: Row[] = [];
+    if (projRes.data) {
+      const pName = projRes.data.name || projectId;
+      const pData = jsonFields(projRes.data.data);
+      const vslUrl =
+        (typeof pData.vsl_url === "string" && pData.vsl_url) ||
+        jsonText(objectFields(pData.links).site) ||
+        "";
+      const checkoutUrl = typeof pData.checkout_url === "string" ? pData.checkout_url : "";
+
+      if (vslUrl && !existingUrls.has(vslUrl)) {
+        existingUrls.add(vslUrl);
+        virtualRows.push({
+          id: `virt-lp-${projectId}`,
+          papel: "lp",
+          isVirtual: true,
+          site: createVirtualSiteFromUrl(vslUrl, `${pName} — Página Principal / VSL`, "vsl"),
+        });
+      }
+      if (checkoutUrl && !existingUrls.has(checkoutUrl)) {
+        existingUrls.add(checkoutUrl);
+        virtualRows.push({
+          id: `virt-chk-${projectId}`,
+          papel: "checkout",
+          isVirtual: true,
+          site: createVirtualSiteFromUrl(checkoutUrl, `${pName} — Checkout Oficial`, "checkout"),
+        });
+      }
+      if (Array.isArray(pData.produtos)) {
+        pData.produtos.forEach((prodRaw, idx) => {
+          const prod = objectFields(prodRaw);
+          const prodName = jsonText(prod.nome) || `${pName} Oferta #${idx + 1}`;
+          if (Array.isArray(prod.links)) {
+            prod.links.forEach((lnkRaw, lIdx) => {
+              const u = jsonText(lnkRaw);
+              if (u && u.startsWith("http") && !existingUrls.has(u)) {
+                existingUrls.add(u);
+                virtualRows.push({
+                  id: `virt-prod-${idx}-${lIdx}`,
+                  papel: "lp",
+                  isVirtual: true,
+                  site: createVirtualSiteFromUrl(u, prodName, "lp"),
+                });
+              }
+            });
+          }
+        });
+      }
+    }
+
+    setRows([...linkedRows, ...virtualRows]);
     setLoading(false);
   }, [projectId]);
 
@@ -48,6 +108,10 @@ export function ProjetoSitesTab({ projectId }: { projectId: string }) {
   }, [load]);
 
   async function handleRemove(id: string) {
+    if (id.startsWith("virt-")) {
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      return;
+    }
     if (!confirm("Desvincular este site do projeto?")) return;
     const { error } = await supabase.from("imphq_project_sites").delete().eq("id", id);
     if (error) return toast.error(error.message);

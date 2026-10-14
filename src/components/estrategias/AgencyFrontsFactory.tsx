@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { extractLeadComplaints, type LeadSignalInput } from "@/lib/agency-radar";
+import { loadProjectIntelligence, type ProjectIntelligenceBundle } from "@/lib/project-intelligence";
+import { normalizeProjectIcon, SiteThumbnail } from "@/components/sites/SiteThumbnail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   BookOpen,
+  Brain,
   CheckCircle2,
   Copy,
+  Cpu,
   FileCode2,
+  FileText,
   Flame,
   Globe,
   Layers,
@@ -22,6 +27,7 @@ import {
   Rocket,
   ShoppingBag,
   Sparkles,
+  UserCheck,
   Users,
   Wand2,
 } from "lucide-react";
@@ -367,6 +373,9 @@ function buildDeterministicBlueprint(params: {
 export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFrontType }) {
   const navigate = useNavigate();
   const [selectedFrontId, setSelectedFrontId] = useState<AgencyFrontType>(initialFront ?? "advertorial");
+  const [projectsList, setProjectsList] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [intel, setIntel] = useState<ProjectIntelligenceBundle | null>(null);
   const [projectName, setProjectName] = useState("Império Direct");
   const [productName, setProductName] = useState("LinfaFlow");
   const [avatarPain, setAvatarPain] = useState("inchaço persistente, retenção e cansaço ao acordar");
@@ -377,27 +386,22 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   const [aiCustomOutput, setAiCustomOutput] = useState<string | null>(null);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
+  // 1. Load project list & WhatsApp signals on mount
   useEffect(() => {
     let cancelled = false;
     async function loadContext() {
       try {
         const projRes = await supabase
           .from("imphq_projects")
-          .select("id, name, description")
+          .select("id, name, icon, description")
           .or("is_archived.eq.false,is_archived.is.null")
-          .order("updated_at", { ascending: false })
-          .limit(1);
+          .order("name", { ascending: true });
 
-        if (!cancelled && !projRes.error && projRes.data && projRes.data[0]) {
-          const p = projRes.data[0];
-          setActiveProjectId(p.id);
-          setProjectName(p.name);
-          setProductName(p.name);
-          if (p.description && p.description.trim()) {
-            setAvatarPain(p.description.trim());
-          }
+        if (!cancelled && !projRes.error && Array.isArray(projRes.data) && projRes.data.length > 0) {
+          setProjectsList(projRes.data.map((p) => ({ id: p.id, name: p.name, icon: p.icon })));
+          const first = projRes.data[0];
+          setActiveProjectId(first.id);
         }
 
         const waRes = await supabase
@@ -433,7 +437,35 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
     };
   }, []);
 
-  const complaints = useMemo(() => extractLeadComplaints(leadSignals), [leadSignals]);
+  // 2. Whenever activeProjectId changes, load full Project + Avatar + Docs + Skills + Sites intelligence
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeProjectId) return;
+    loadProjectIntelligence(activeProjectId).then((bundle) => {
+      if (cancelled || !bundle) return;
+      setIntel(bundle);
+      setProjectName(bundle.projectName);
+      setProductName(bundle.products[0]?.name || bundle.projectName);
+      setMechanismName(bundle.mechanismName);
+      setAvatarPain(bundle.deepPains[0] || bundle.projectDescription || "dor persistente sem solução definitiva");
+      setOfferDetails(bundle.offerSummary);
+      setAiCustomOutput(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId]);
+
+  const combinedSignals = useMemo(() => {
+    if (!intel) return leadSignals;
+    const avatarSigs: LeadSignalInput[] = [
+      ...intel.deepPains.map((p) => ({ text: p, source: "crm" as const, contactName: intel.avatarName })),
+      ...intel.objections.map((o) => ({ text: o.objecao, source: "whatsapp" as const, contactName: intel.avatarName })),
+    ];
+    return [...avatarSigs, ...leadSignals];
+  }, [intel, leadSignals]);
+
+  const complaints = useMemo(() => extractLeadComplaints(combinedSignals), [combinedSignals]);
   const selectedComplaint = complaints[selectedComplaintIdx] ?? complaints[0];
   const selectedFront = useMemo(
     () => AGENCY_FRONTS.find((f) => f.id === selectedFrontId) ?? AGENCY_FRONTS[0],
@@ -450,24 +482,36 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
         mechanismName,
         offerDetails,
         topObjectionLabel: selectedComplaint?.label ?? "Ceticismo",
-        topObjectionQuote: selectedComplaint?.sampleQuotes[0] ?? "Será que funciona mesmo?",
-        topObjectionAnswer: selectedComplaint?.x1Script ?? "Garantia total de 30 dias.",
+        topObjectionQuote:
+          intel?.objections[0]?.objecao ?? selectedComplaint?.sampleQuotes[0] ?? "Será que funciona mesmo?",
+        topObjectionAnswer:
+          intel?.objections[0]?.resposta ?? selectedComplaint?.x1Script ?? "Garantia total de 30 dias.",
       }),
-    [selectedFront, projectName, productName, avatarPain, mechanismName, offerDetails, selectedComplaint]
+    [selectedFront, projectName, productName, avatarPain, mechanismName, offerDetails, selectedComplaint, intel]
   );
 
   const fullText = useMemo(() => {
     if (aiCustomOutput) return aiCustomOutput;
+    const intelHeader = intel
+      ? [
+          `• Avatar Conectado: ${intel.avatarName} (${intel.avatarAgeRange})`,
+          `• Inimigo Comum: ${intel.enemy}`,
+          `• Gatilho Nuclear: ${intel.nuclearTrigger}`,
+          `• Documentos Lidos: ${intel.docs.map((d) => d.title).join(" · ") || "Dossiê do Projeto"}`,
+          `• Skills Aplicadas: ${intel.skills.map((s) => s.name).join(" · ")}`,
+        ]
+      : [];
     return [
       `# ${selectedFront.label.toUpperCase()} — ${productName.toUpperCase()} (${projectName})`,
       `• Dor Central: ${avatarPain}`,
       `• Mecanismo Único: ${mechanismName}`,
       `• Oferta & Ancoragem: ${offerDetails}`,
       `• Objeção Neutralizada: ${selectedComplaint?.label}`,
+      ...intelHeader,
       "",
       ...sections.map((s) => `## ${s.title} [${s.tag}]\n${s.body}`),
     ].join("\n\n");
-  }, [aiCustomOutput, selectedFront, productName, projectName, avatarPain, mechanismName, offerDetails, selectedComplaint, sections]);
+  }, [aiCustomOutput, selectedFront, productName, projectName, avatarPain, mechanismName, offerDetails, selectedComplaint, sections, intel]);
 
   const handleRefineWithAi = async () => {
     setGeneratingAi(true);
@@ -486,7 +530,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
       const { data, error } = await supabase.functions.invoke("copy-engine", {
         body: {
           intent: intentMap[selectedFront.id] ?? "criativo_imperador",
-          input: `Você é o Diretor de Copywriting de Resposta Direta da agência Império. Expanda e escreva a copy completa e pronta para conversão da frente "${selectedFront.label}" para o produto "${productName}" (Projeto: ${projectName}).\n\nDor do avatar: ${avatarPain}\nMecanismo Único: ${mechanismName}\nOferta: ${offerDetails}\nObjeção real dos leads que precisa ser esmagada na copy: "${selectedComplaint?.sampleQuotes[0]}" (${selectedComplaint?.label}).\n\nUse como base estrutural:\n${fullText}`,
+          input: `Você é o Diretor de Copywriting de Resposta Direta da agência Império. Expanda e escreva a copy completa e pronta para conversão da frente "${selectedFront.label}" para o produto "${productName}" (Projeto: ${projectName}).\n\nAvatar: ${intel?.avatarName || "Cliente Ideal"}\nDor do avatar: ${avatarPain}\nInimigo Comum: ${intel?.enemy || "Soluções paliativas"}\nGatilho Nuclear: ${intel?.nuclearTrigger || ""}\nMecanismo Único: ${mechanismName}\nOferta: ${offerDetails}\nDocumentos lidos: ${intel?.docs.map((d) => `${d.title}: ${d.excerpt}`).join(" | ") || ""}\nSkills aplicadas: ${intel?.skills.map((s) => s.name).join(", ") || ""}\nObjeção real dos leads que precisa ser esmagada na copy: "${selectedComplaint?.sampleQuotes[0]}" (${selectedComplaint?.label}).\n\nUse como base estrutural:\n${fullText}`,
           context: activeProjectId ? { project_id: activeProjectId } : undefined,
         },
       });
@@ -494,12 +538,12 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
       const resultText = data?.content || data?.result || data?.text;
       if (resultText && typeof resultText === "string") {
         setAiCustomOutput(resultText);
-        toast.success("Copy expandida pelo motor de IA com sucesso!");
+        toast.success("Copy expandida pelo motor de IA com Avatar + Documentos + Skills!");
       } else {
         toast.info("Blueprint estruturado mantido (sem retorno adicional da IA).");
       }
     } catch {
-      toast.info("Usando o Blueprint determinístico de alta conversão.");
+      toast.info("Usando o Blueprint determinístico de alta conversão conectado ao projeto.");
     } finally {
       setGeneratingAi(false);
     }
@@ -565,37 +609,48 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   const handleSaveToSites = async () => {
     setSavingSite(true);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id;
-      if (!userId) throw new Error("Usuário não autenticado");
-
-      const tipoMap: Record<AgencyFrontType, string> = {
+      const pageTypeMap: Record<AgencyFrontType, string> = {
         advertorial: "advertorial",
         pdp_dtc: "pdp",
         lp_vsl: "vsl",
         captura_quiz: "captura",
-        webinar: "lp",
+        webinar: "webinar",
         grupo_lancamento: "captura",
-        grupo_relacionamento: "captura",
-        x1_closer: "outro",
+        grupo_relacionamento: "comunidade",
+        x1_closer: "whatsapp",
       };
 
       const slug = `${selectedFront.id}-${productName}`
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-");
 
-      const { error } = await supabase.from("imphq_sites").insert({
-        user_id: userId,
-        titulo: `[${selectedFront.shortTag}] ${productName} — ${mechanismName.slice(0, 32)}`,
-        url: `https://blueprint.imperio.hq/${slug}`,
-        tipo: tipoMap[selectedFront.id] ?? "lp",
+      const siteId = `site_front_${slug}_${Date.now().toString(36)}`;
+      const siteUrl = intel?.sites[0]?.url || `https://blueprint.imperio.hq/${slug}`;
+
+      const { error } = await supabase.from("imphq_sites").upsert({
+        id: siteId,
+        name: `[${selectedFront.shortTag}] ${productName} — ${mechanismName.slice(0, 32)}`,
+        url: siteUrl,
+        category: "nossos",
+        page_type: pageTypeMap[selectedFront.id] ?? "vsl",
+        funnel_stage: selectedFront.id === "x1_closer" ? "retencao" : "conversao",
         status: "ativo",
-        content_md: fullText,
-        summary: `${selectedFront.label} · Mecanismo: ${mechanismName} · Oferta: ${offerDetails}`,
-        tags: [selectedFront.shortTag.toLowerCase(), productName.toLowerCase()],
+        project_slug: activeProjectId || slug,
+        notes: fullText,
       });
       if (error) throw error;
-      toast.success(`Frente "${selectedFront.shortTag}" salva no catálogo de Sites & Ecossistemas!`);
+
+      if (activeProjectId) {
+        await supabase.from("imphq_project_sites").upsert({
+          id: `ps_${activeProjectId}_${siteId}`,
+          project_id: activeProjectId,
+          site_id: siteId,
+          role: pageTypeMap[selectedFront.id] ?? "vsl",
+          is_primary: false,
+        });
+      }
+
+      toast.success(`Frente "${selectedFront.shortTag}" salva no catálogo de Sites & Ecossistemas do projeto!`);
     } catch {
       navigator.clipboard?.writeText(fullText);
       toast.success("Blueprint copiado para a área de transferência!");
@@ -642,6 +697,51 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
         })}
       </div>
 
+      {/* Connected Intelligence Summary + Visual Thumbnails */}
+      {intel && (
+        <div className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-card to-card p-3.5 flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="font-bold text-primary flex items-center gap-1">
+                <Brain className="h-3.5 w-3.5" /> Inteligência Lida do Projeto:
+              </span>
+              <Badge variant="outline" className="text-[10px] border-primary/40 text-foreground">
+                {intel.projectIcon} {intel.projectName}
+              </Badge>
+              <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-300">
+                <UserCheck className="h-3 w-3 mr-1" /> Avatar: {intel.avatarName}
+              </Badge>
+              <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-300">
+                <FileText className="h-3 w-3 mr-1" /> {intel.docs.length} Docs
+              </Badge>
+              <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-300">
+                <Cpu className="h-3 w-3 mr-1" /> {intel.skills.length} Skills
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              <strong>Inimigo:</strong> {intel.enemy} · <strong>Gatilho Nuclear:</strong> {intel.nuclearTrigger}
+            </p>
+          </div>
+
+          {intel.sites.length > 0 && (
+            <div className="flex items-center gap-2">
+              {intel.sites.slice(0, 2).map((site) => (
+                <div
+                  key={site.id || site.url}
+                  className="w-28 rounded-lg overflow-hidden border border-border/70 bg-background/60 shrink-0"
+                  title={`${site.name} (${site.url})`}
+                >
+                  <SiteThumbnail site={site} aspectClassName="aspect-[16/9]" showUrlBar={false} />
+                  <div className="px-1.5 py-0.5 text-[9px] font-medium truncate text-muted-foreground">
+                    {site.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Configuration + Live VOC Injection */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 rounded-xl border border-border bg-card p-4 space-y-3.5">
@@ -654,6 +754,26 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               {selectedFront.shortTag}
             </Badge>
           </div>
+
+          {projectsList.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-[11px] text-primary font-semibold">
+                Selecionar Projeto (Carrega Avatar + Docs + Skills + Páginas)
+              </Label>
+              <select
+                aria-label="Selecionar Projeto da Agência"
+                value={activeProjectId ?? ""}
+                onChange={(e) => setActiveProjectId(e.target.value)}
+                className="w-full h-8 rounded-md border border-primary/40 bg-background px-2.5 text-xs font-medium text-foreground"
+              >
+                {projectsList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {normalizeProjectIcon(p.icon)} {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2.5">
             <div className="space-y-1">
@@ -704,7 +824,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
           <div className="space-y-1.5 pt-1 border-t border-border/60">
             <Label className="text-[11px] flex items-center justify-between">
               <span>🗣️ Reclamação / Objeção do Lead a Neutralizar:</span>
-              <span className="text-[10px] text-muted-foreground">Do Radar VOC</span>
+              <span className="text-[10px] text-muted-foreground">Do Radar VOC + Avatar</span>
             </Label>
             <div className="flex flex-wrap gap-1.5">
               {complaints.slice(0, 5).map((c, idx) => (
@@ -750,7 +870,8 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
                 {selectedFront.label}
               </h3>
               <p className="text-xs text-muted-foreground">
-                Conectado ao mecanismo <strong>{mechanismName}</strong> e blindado contra{" "}
+                Conectado ao mecanismo <strong>{mechanismName}</strong>
+                {intel ? ` · Avatar ${intel.avatarName}` : ""} e blindado contra{" "}
                 <strong>{selectedComplaint?.label}</strong>
               </p>
             </div>

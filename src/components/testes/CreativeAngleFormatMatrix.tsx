@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TestOrder } from "@/hooks/useTestOrders";
 import { PORTAS, CARGAS, PORTA_PONTO, type Porta, type Carga } from "@shared/hw-taxonomy";
+import { loadProjectIntelligence, type ProjectIntelligenceBundle } from "@/lib/project-intelligence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -125,16 +126,31 @@ export function CreativeAngleFormatMatrix({
   const [creatingVariant, setCreatingVariant] = useState(false);
   const [generatingArt, setGeneratingArt] = useState(false);
   const [optimisticPlannedCells, setOptimisticPlannedCells] = useState<Record<string, number>>({});
+  const [intel, setIntel] = useState<ProjectIntelligenceBundle | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadProjectIntelligence(projectId && projectId !== "all" ? projectId : null).then((bundle) => {
+      if (!cancelled) setIntel(bundle);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const portaKeys = Object.keys(PORTAS) as Porta[];
 
-  // Collect distinct angles from order variants + copy library + canonical strategic angles
+  // Collect distinct angles from order variants + copy library + project avatar/mechanism + canonical strategic angles
   const angles = useMemo(() => {
     const set = new Set<string>();
     for (const o of orders) {
       for (const v of o.variantes ?? []) {
         if (v.angulo && v.angulo.trim()) set.add(v.angulo.trim());
       }
+    }
+    if (intel) {
+      if (intel.mechanismName) set.add(`Mecanismo: ${intel.mechanismName}`);
+      if (intel.deepPains[0]) set.add(`Dor Raiz: ${intel.deepPains[0].slice(0, 48)}`);
     }
     for (const item of library) {
       if (item.nome && item.nome.trim() && set.size < 6) {
@@ -145,7 +161,7 @@ export function CreativeAngleFormatMatrix({
       if (set.size < 6) set.add(def);
     }
     return Array.from(set).slice(0, 7);
-  }, [orders, library]);
+  }, [orders, library, intel]);
 
   // Build lookup matrix: angle -> formatKey -> stats
   const matrixStats = useMemo(() => {
@@ -208,6 +224,15 @@ export function CreativeAngleFormatMatrix({
       });
       return;
     }
+    const projectLines = intel
+      ? [
+          `• Projeto Conectado: ${intel.projectName} (${intel.mechanismName})`,
+          `• Avatar Alvo: ${intel.avatarName} — Dor: "${intel.deepPains[0] || ""}"`,
+          `• Inimigo Comum: ${intel.enemy}`,
+          `• Documento Lido: ${intel.docs[0]?.title || "Dossiê Estratégico"}`,
+          `• Skills Aplicadas: ${intel.skills.slice(0, 3).map((s) => s.name).join(" + ")}`,
+        ]
+      : [];
     const params = new URLSearchParams({
       briefing: [
         `CRIATIVO MATRIZ ÂNGULO × FORMATO × JEITO`,
@@ -216,6 +241,7 @@ export function CreativeAngleFormatMatrix({
         `• Jeito de Execução: ${fmt.jeitoHint}`,
         `• Porta de Entrada (H&W): ${PORTAS[selectedPorta]} — ${PORTA_EXAMPLES[selectedPorta]}`,
         `• Carga do 1º Quadro: ${CARGAS[fmt.defaultCarga]}`,
+        ...projectLines,
         `• Regra: Entregar gancho de 3s + descrição do 1º quadro + pouso na 2ª frase + corpo de mecanismo + CTA direto.`,
       ].join("\n"),
     });
@@ -231,6 +257,7 @@ export function CreativeAngleFormatMatrix({
       let targetProjectId =
         (projectId && projectId !== "all" ? projectId : null) ||
         targetOrder?.project_id ||
+        intel?.projectId ||
         null;
 
       if (!targetProjectId) {
@@ -249,11 +276,11 @@ export function CreativeAngleFormatMatrix({
           .insert({
             project_id: targetProjectId,
             nome: `Esteira Matriz · ${angle.slice(0, 28)}`,
-            oferta: "Oferta Principal",
+            oferta: intel?.offerSummary || "Oferta Principal",
             ad_account_id: "act_matriz",
             cpa_alvo: 80,
             payout: 160,
-            pagina_url: "https://imperio.hq",
+            pagina_url: intel?.sites[0]?.url || "https://imperio.hq",
             utm_campaign: slug,
             verba_dia_conjunto: 50,
             status: "planejado",
@@ -267,6 +294,7 @@ export function CreativeAngleFormatMatrix({
       if (targetOrderId) {
         const nextOrdem = (targetOrder?.variantes?.length ?? 0) + 1;
         const matchedLib = library.find((l) => l.nome.toLowerCase() === angle.toLowerCase());
+        const synthesizedHook = intel?.synthesizedHooks[0]?.text || PORTA_EXAMPLES[selectedPorta];
         const { error: varErr } = await supabase.from("imphq_test_variants").insert({
           order_id: targetOrderId,
           ordem: nextOrdem,
@@ -278,11 +306,11 @@ export function CreativeAngleFormatMatrix({
           pouso: "pousou",
           copy_lib_id: matchedLib?.id ?? null,
           metodo: "matriz_hw",
-          hipotese: `${angle} em ${fmt.shortLabel} abrindo pela porta ${PORTAS[selectedPorta]}`,
+          hipotese: `${angle} em ${fmt.shortLabel} abrindo pela porta ${PORTAS[selectedPorta]} (${intel?.avatarName || "Avatar"})`,
           headline: angle,
-          texto: `[Porta ${PORTAS[selectedPorta]}] ${PORTA_EXAMPLES[selectedPorta]}\n[1º Quadro: ${CARGAS[fmt.defaultCarga]}] ${fmt.jeitoHint}`,
+          texto: `[Porta ${PORTAS[selectedPorta]}] ${synthesizedHook}\n[1º Quadro: ${CARGAS[fmt.defaultCarga]}] ${fmt.jeitoHint}`,
           image_url: targetOrder?.variantes?.[0]?.image_url || "/map-previews/stage-ads.png",
-          link_url: targetOrder?.pagina_url || "https://imperio.hq",
+          link_url: targetOrder?.pagina_url || intel?.sites[0]?.url || "https://imperio.hq",
           utm_content: `mat_${fmt.key}_${selectedPorta}_${Date.now().toString(36)}`,
           status: "planejado",
         });
@@ -312,6 +340,7 @@ export function CreativeAngleFormatMatrix({
       const targetProjectId =
         (projectId && projectId !== "all" ? projectId : null) ||
         targetOrder?.project_id ||
+        intel?.projectId ||
         "default";
       const baseImg =
         targetOrder?.variantes?.find((v) => v.image_url?.startsWith("http"))?.image_url ||
@@ -326,8 +355,8 @@ export function CreativeAngleFormatMatrix({
           base_image_url: baseImg,
           angulo: angle,
           hipotese: `${fmt.fullLabel} · Porta ${PORTAS[selectedPorta]} · 1º Quadro ${CARGAS[fmt.defaultCarga]}`,
-          oferta: targetOrder?.oferta || "Protocolo Oficial",
-          texto_base: `${PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${fmt.jeitoHint}`,
+          oferta: targetOrder?.oferta || intel?.offerSummary || "Protocolo Oficial",
+          texto_base: `${intel?.synthesizedHooks[0]?.text || PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${fmt.jeitoHint}`,
           quantidade: 2,
           eixos: ["headline", "avatar"],
         },
@@ -365,6 +394,11 @@ export function CreativeAngleFormatMatrix({
               <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400">
                 {virginCount} células virgens prontas para testar
               </Badge>
+              {intel && (
+                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                  {intel.projectIcon} {intel.projectName} · Avatar {intel.avatarName}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Escolha a <strong>Porta (Jeito do Gancho)</strong> e clique em qualquer célula para criar uma ordem de teste real, gerar a 1ª arte IA ou abrir o roteiro no Copy Lab.
@@ -504,6 +538,7 @@ export function CreativeAngleFormatMatrix({
             <p className="text-[11px] text-muted-foreground">
               <strong>Jeito de gravar/montar:</strong> {activeCell.format.jeitoHint} ·{" "}
               <strong>1º Quadro:</strong> {CARGAS[activeCell.format.defaultCarga]}
+              {intel ? ` · Avatar: ${intel.avatarName} · Mecanismo: ${intel.mechanismName}` : ""}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

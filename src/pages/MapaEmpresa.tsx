@@ -36,7 +36,7 @@ export default function MapaEmpresa() {
   const { data: allMaps = [], isLoading, isFetching, error, refetch } = useCompanyMap();
   const { projectId: globalProjectId } = useGlobalProject();
   const maps = useMemo(
-    () => (globalProjectId === "all" ? allMaps : allMaps.filter((m) => m.projectId === globalProjectId)),
+    () => (!globalProjectId || globalProjectId === "all" ? allMaps : allMaps.filter((m) => m.projectId === globalProjectId)),
     [allMaps, globalProjectId]
   );
   const { data: boards = [] } = useTodayBoard();
@@ -51,11 +51,11 @@ export default function MapaEmpresa() {
   });
 
   const [selectedPathProjectId, setSelectedPathProjectId] = useState<string | null>(
-    () => (globalProjectId !== "all" ? globalProjectId : null)
+    () => (globalProjectId && globalProjectId !== "all" ? globalProjectId : null)
   );
 
   useEffect(() => {
-    if (globalProjectId !== "all") {
+    if (globalProjectId && globalProjectId !== "all") {
       setSelectedPathProjectId(globalProjectId);
     }
   }, [globalProjectId]);

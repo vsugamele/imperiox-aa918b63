@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
 import { errorMessage } from "@/lib/error-message";
+import { SiteThumbnail, createVirtualSiteFromUrl } from "@/components/sites/SiteThumbnail";
 
 interface Props {
   project: Tables<"imphq_projects">;
@@ -308,7 +309,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
             {/* 1. PÁGINA / VSL ATIVA */}
             <div className="bg-[#121418] border border-[#1E2228] hover:border-primary/40 transition-colors rounded-lg p-3.5 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                   <span className="flex items-center gap-1.5 font-medium text-foreground">
                     <Globe className="h-3.5 w-3.5 text-primary" /> VSL & Página Ativa
                   </span>
@@ -316,10 +317,24 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
                     OFICIAL
                   </Badge>
                 </div>
+                <div
+                  className="mb-2 rounded-md overflow-hidden border border-white/10 cursor-pointer"
+                  onClick={() => vslInfo.url && window.open(vslInfo.url, "_blank")}
+                >
+                  <SiteThumbnail
+                    site={createVirtualSiteFromUrl(
+                      vslInfo.url || `https://${project.id}.imperio.hq`,
+                      vslInfo.label,
+                      "vsl"
+                    )}
+                    aspect="aspect-[16/9]"
+                    showBrowserBar={true}
+                  />
+                </div>
                 <p className="text-xs font-mono text-zinc-300 truncate select-all py-1 bg-black/40 px-2 rounded border border-white/5" title={vslInfo.url}>
                   {vslInfo.url || "URL não cadastrada"}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-1.5 truncate">
+                <p className="text-[11px] text-muted-foreground mt-1 truncate">
                   {vslInfo.label}
                 </p>
               </div>
@@ -351,7 +366,7 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
             {/* 2. CHECKOUT OFICIAL */}
             <div className="bg-[#121418] border border-[#1E2228] hover:border-primary/40 transition-colors rounded-lg p-3.5 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                   <span className="flex items-center gap-1.5 font-medium text-foreground">
                     <CreditCard className="h-3.5 w-3.5 text-emerald-400" /> Checkout Oficial
                   </span>
@@ -359,7 +374,21 @@ export function ProjetoAtivosMestresCard({ project, onNavigateTab, onRefresh }: 
                     CONVERTENDO
                   </Badge>
                 </div>
-                <p className="text-xs font-semibold text-zinc-200 truncate py-1">
+                <div
+                  className="mb-2 rounded-md overflow-hidden border border-white/10 cursor-pointer"
+                  onClick={() => checkoutInfo.url && window.open(checkoutInfo.url, "_blank")}
+                >
+                  <SiteThumbnail
+                    site={createVirtualSiteFromUrl(
+                      checkoutInfo.url || vslInfo.url || `https://${project.id}.imperio.hq/checkout`,
+                      `${project.name} — Checkout`,
+                      "checkout"
+                    )}
+                    aspect="aspect-[16/9]"
+                    showBrowserBar={true}
+                  />
+                </div>
+                <p className="text-xs font-semibold text-zinc-200 truncate py-0.5">
                   {checkoutInfo.preco}
                 </p>
                 <p className="text-[11px] text-muted-foreground truncate">

@@ -23,6 +23,81 @@ const TIPO_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   outro: Globe,
 };
 
+const STAGE_PREVIEW_BY_TIPO: Record<string, string> = {
+  vsl: "/map-previews/stage-vsl.png",
+  lp: "/map-previews/stage-vsl.png",
+  advertorial: "/map-previews/stage-ads.png",
+  pdp: "/map-previews/stage-checkout.png",
+  checkout: "/map-previews/stage-checkout.png",
+  obrigado: "/map-previews/stage-checkout.png",
+  captura: "/map-previews/stage-whatsapp.png",
+  outro: "/map-previews/stage-vsl.png",
+};
+
+const ICON_NAME_TO_EMOJI: Record<string, string> = {
+  flame: "🔥",
+  brain: "🧠",
+  droplets: "💧",
+  heart: "❤️",
+  shield: "🛡️",
+  sparkles: "✨",
+  zap: "⚡",
+  rocket: "🚀",
+  target: "🎯",
+  crown: "👑",
+};
+
+export function normalizeProjectIcon(rawIcon?: string | null, projectId?: string | null): string {
+  const byId: Record<string, string> = {
+    jp_freitas: "💈",
+    linfaflow: "🌿",
+    slimsoda: "🥤",
+    memoflow: "🧠",
+    cardioflush: "❤️",
+    leaftide: "💧",
+    horsejello: "🔥",
+    "cinna-shield": "🛡️",
+    vigor_boost: "✨",
+    tatuagem: "🎨",
+    laise: "✈️",
+    "dr---fitness": "💪",
+    lipo: "💧",
+  };
+  if (rawIcon && rawIcon.trim()) {
+    const trimmed = rawIcon.trim();
+    const mapped = ICON_NAME_TO_EMOJI[trimmed.toLowerCase()];
+    if (mapped) return mapped;
+    // Se não for palavra ASCII pura (ex: já é emoji), retorna direto
+    if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) return trimmed;
+  }
+  if (projectId && byId[projectId]) return byId[projectId];
+  return "🎯";
+}
+
+export function createVirtualSiteFromUrl(
+  url: string,
+  titulo = "Página do Projeto",
+  tipo = "vsl",
+  thumbnailUrl: string | null = null
+): Site {
+  const cleanUrl = url?.trim() || "https://imperio.hq";
+  return {
+    id: `virtual-${cleanUrl}`,
+    user_id: "",
+    titulo,
+    url: cleanUrl,
+    tipo,
+    status: "ativo",
+    tags: [tipo],
+    thumbnail_url: thumbnailUrl,
+    branding_json: null,
+    content_md: null,
+    summary: null,
+    last_scraped_at: null,
+    created_at: new Date().toISOString(),
+  };
+}
+
 export function getCleanDomain(rawUrl: string): string {
   try {
     const u = new URL(rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`);
@@ -30,6 +105,17 @@ export function getCleanDomain(rawUrl: string): string {
   } catch {
     return rawUrl.replace(/^https?:\/\//, "").split("/")[0] || rawUrl;
   }
+}
+
+function normalizeMshotsUrl(rawThumb: string): string {
+  const prefix = "https://s0.wp.com/mshots/v1/";
+  if (!rawThumb.startsWith(prefix)) return rawThumb;
+  const rest = rawThumb.slice(prefix.length);
+  // Se já estiver URL-encoded (começa com https%3A), mantém
+  if (rest.startsWith("http%3A") || rest.startsWith("https%3A")) return rawThumb;
+  // Remove sufixo ?w=800 ou &w=800 para codificar a URL interna limpa
+  const cleanedInner = rest.replace(/[?&]w=\d+$/, "");
+  return `${prefix}${encodeURIComponent(cleanedInner)}?w=800`;
 }
 
 export function SiteThumbnail({
@@ -57,15 +143,17 @@ export function SiteThumbnail({
     return { primary, bg };
   }, [branding]);
 
+  const stageFallbackImg = STAGE_PREVIEW_BY_TIPO[site.tipo] || "/map-previews/stage-vsl.png";
+
   // Construir lista ordenada de candidatos visuais
   const candidates = useMemo(() => {
     const list: string[] = [];
     const rawThumb = site.thumbnail_url?.trim();
 
-    // Se o thumbnail não for link expirado do firecrawl
-    if (rawThumb && (rawThumb.startsWith("data:") || rawThumb.startsWith("http"))) {
+    // Candidato 1: thumbnail salvo (normalizando mshots se necessário)
+    if (rawThumb && (rawThumb.startsWith("data:") || rawThumb.startsWith("http") || rawThumb.startsWith("/"))) {
       if (!rawThumb.includes("firecrawl-scrape-media") || rawThumb.includes("Expires=179") || rawThumb.includes("Expires=18")) {
-        list.push(rawThumb);
+        list.push(normalizeMshotsUrl(rawThumb));
       }
     }
 
@@ -75,17 +163,24 @@ export function SiteThumbnail({
     }
 
     // Candidato 3: WordPress mshots (rápido, gratuito, alta disponibilidade)
-    if (site.url) {
+    if (site.url && !site.url.includes("blueprint.imperio.hq")) {
       const cleanUrl = site.url.startsWith("http") ? site.url : `https://${site.url}`;
       const mshots = `https://s0.wp.com/mshots/v1/${encodeURIComponent(cleanUrl)}?w=800`;
-      list.push(mshots);
+      if (!list.includes(mshots)) list.push(mshots);
     }
 
     // Candidato 4: Microlink screenshot
-    if (site.url) {
+    if (site.url && !site.url.includes("blueprint.imperio.hq")) {
       const cleanUrl = site.url.startsWith("http") ? site.url : `https://${site.url}`;
       const microlink = `https://api.microlink.io?url=${encodeURIComponent(cleanUrl)}&screenshot=true&meta=false&embed=screenshot.url`;
-      list.push(microlink);
+      if (!list.includes(microlink)) list.push(microlink);
+    }
+
+    // Candidato 5: Thum.io screenshot
+    if (site.url && !site.url.includes("blueprint.imperio.hq")) {
+      const cleanUrl = site.url.startsWith("http") ? site.url : `https://${site.url}`;
+      const thumIo = `https://image.thum.io/get/width/800/crop/600/noanimate/${cleanUrl}`;
+      if (!list.includes(thumIo)) list.push(thumIo);
     }
 
     return list;
@@ -118,16 +213,16 @@ export function SiteThumbnail({
   const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 
   return (
-    <div className={`relative ${aspect} w-full overflow-hidden bg-slate-950/80 select-none group/thumb ${className}`}>
+    <div className={`relative ${aspect} w-full overflow-hidden bg-slate-950/90 select-none group/thumb ${className}`}>
       {/* Barra de Navegador Estilo Safari/macOS */}
       {showBrowserBar && (
-        <div className="absolute top-0 left-0 right-0 z-20 h-6 bg-slate-950/80 backdrop-blur-md border-b border-white/10 px-2.5 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-0 left-0 right-0 z-20 h-6 bg-slate-950/85 backdrop-blur-md border-b border-white/10 px-2.5 flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-rose-500/80" />
             <span className="w-2 h-2 rounded-full bg-amber-500/80" />
             <span className="w-2 h-2 rounded-full bg-emerald-500/80" />
           </div>
-          <div className="flex items-center gap-1 max-w-[65%] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-slate-300 font-mono truncate">
+          <div className="flex items-center gap-1 max-w-[68%] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-slate-300 font-mono truncate">
             <Lock className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
             <span className="truncate">{domain}</span>
           </div>
@@ -153,12 +248,19 @@ export function SiteThumbnail({
       {/* Imagem do Site com fallback progressivo */}
       {!isExhausted && currentSrc ? (
         <>
-          {/* Skeleton Shimmer enquanto carrega */}
+          {/* Preview visual da etapa enquanto a captura carrega */}
           {!isLoaded && (
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 animate-pulse flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2 text-slate-500">
-                <Globe className="w-6 h-6 animate-spin opacity-50" />
-                <span className="text-[10px] font-mono">Renderizando visual…</span>
+            <div className={`absolute inset-0 overflow-hidden ${showBrowserBar ? "pt-6" : ""}`}>
+              <img
+                src={stageFallbackImg}
+                alt=""
+                className="w-full h-full object-cover opacity-35 scale-105 blur-[1px]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/40 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-1.5 text-slate-300">
+                  <Globe className="w-5 h-5 animate-spin text-primary/80" />
+                  <span className="text-[10px] font-mono">{domain}</span>
+                </div>
               </div>
             </div>
           )}
@@ -175,9 +277,9 @@ export function SiteThumbnail({
           />
         </>
       ) : (
-        /* Branded Mockup: Fallback visual dinâmico com identidade visual do site */
+        /* Branded Visual Stage Preview com identidade visual do site */
         <div
-          className={`w-full h-full flex flex-col items-center justify-center p-4 relative overflow-hidden ${
+          className={`w-full h-full flex flex-col items-center justify-center p-3 relative overflow-hidden ${
             showBrowserBar ? "pt-7" : ""
           }`}
           style={{
@@ -186,38 +288,36 @@ export function SiteThumbnail({
               : "radial-gradient(circle at 50% 30%, #1e1b4b 0%, #090a10 85%)",
           }}
         >
-          {/* Grid decorativo de fundo */}
-          <div
-            className="absolute inset-0 opacity-10 pointer-events-none"
-            style={{
-              backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)",
-              backgroundSize: "16px 16px",
-            }}
+          <img
+            src={stageFallbackImg}
+            alt={site.titulo}
+            className="absolute inset-0 w-full h-full object-cover opacity-45 group-hover/thumb:scale-105 transition-transform duration-500"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/65 to-slate-950/35 pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col items-center text-center max-w-[90%] gap-2">
+          <div className="relative z-10 flex flex-col items-center text-center max-w-[92%] gap-1.5">
             <div className="relative">
-              <div className="w-12 h-12 rounded-xl bg-slate-900/90 border border-white/10 shadow-xl flex items-center justify-center overflow-hidden p-2">
+              <div className="w-10 h-10 rounded-xl bg-slate-900/90 border border-white/15 shadow-xl flex items-center justify-center overflow-hidden p-1.5">
                 <img
                   src={faviconUrl}
                   alt={domain}
                   onError={(e) => {
                     (e.currentTarget as HTMLElement).style.display = "none";
                   }}
-                  className="w-7 h-7 object-contain"
+                  className="w-6 h-6 object-contain z-10"
                 />
-                <TipoIcon className="w-6 h-6 text-slate-400 absolute" />
+                <TipoIcon className="w-5 h-5 text-slate-400 absolute" />
               </div>
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
-                <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
+              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                <Sparkles className="w-2 h-2 text-emerald-400" />
               </span>
             </div>
 
             <div className="space-y-0.5">
-              <h4 className="font-medium text-xs text-slate-200 line-clamp-1 max-w-[200px]" title={site.titulo}>
+              <h4 className="font-semibold text-[11px] text-white line-clamp-1 max-w-[220px] drop-shadow" title={site.titulo}>
                 {site.titulo}
               </h4>
-              <p className="text-[10px] text-slate-400 font-mono">{domain}</p>
+              <p className="text-[10px] text-emerald-300/90 font-mono">{domain}</p>
             </div>
           </div>
         </div>

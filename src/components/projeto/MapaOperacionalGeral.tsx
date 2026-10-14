@@ -47,9 +47,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import {
+  SiteThumbnail,
+  createVirtualSiteFromUrl,
+  normalizeProjectIcon,
+  getCleanDomain,
+} from "@/components/sites/SiteThumbnail";
+import type { Site } from "@/components/sites/SiteCard";
+
 interface Props {
   projects: Tables<"imphq_projects">[];
   onRefresh?: () => void;
+}
+
+interface LinkedProjectSite {
+  id: string;
+  papel: string;
+  site: Site;
 }
 
 interface ProjectCardData {
@@ -72,16 +86,39 @@ interface ProjectCardData {
   hasActiveAds: boolean;
   hasCreatives: boolean;
   bottlenecksCount: number;
+  linkedSites: LinkedProjectSite[];
+  primarySite: Site;
+  checkoutSite: Site | null;
 }
 
-const PROJECT_EMOJIS: Record<string, string> = {
-  jp_freitas: "💈",
-  linfaflow: "🌿",
-  slimsoda: "🥤",
-  tatuagem: "🎨",
-  laise: "✈️",
-  "dr---fitness": "💪",
-  lipo: "💧",
+interface TelemetryBundle {
+  vendas: Array<{ project_id: string | null; valor: number | null; status: string | null; created_at: string }>;
+  leads: Array<{ project_id: string | null; id: string; score: number | null; criado_em: string | null }>;
+  convs: Array<{ project_id: string | null; unread_count: number | null; last_message_at: string | null; status: string | null }>;
+  inbound: Array<{ project_id: string | null; id: string; direction: string | null }>;
+  providers: Array<{ project_id: string | null; instance_name: string; status: string; is_active: boolean }>;
+  aiConfigs: Array<{ project_id: string | null; enabled: boolean | null; draft_mode: boolean | null }>;
+  kanban: Array<{
+    id: string;
+    project_id: string | null;
+    title: string;
+    priority: string | null;
+    due_date: string | null;
+    column_id: string | null;
+    imphq_kanban_columns?: { title?: string } | null;
+  }>;
+  projectSites: Array<{ id: string; projeto_id: string; papel: string; site: Site | null }>;
+}
+
+const EMPTY_TELEMETRY: TelemetryBundle = {
+  vendas: [],
+  leads: [],
+  convs: [],
+  inbound: [],
+  providers: [],
+  aiConfigs: [],
+  kanban: [],
+  projectSites: [],
 };
 
 export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
@@ -93,8 +130,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
   const [dispatchingWa, setDispatchingWa] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const [cardsData, setCardsData] = useState<ProjectCardData[]>([]);
+  const [telemetry, setTelemetry] = useState<TelemetryBundle>(EMPTY_TELEMETRY);
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -103,88 +139,124 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
       const last30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      // 1. Vendas nas últimas 24h e 30d
-      const { data: vendasData } = await supabase
-        .from("imphq_vendas")
-        .select("project_id, valor, status, created_at")
-        .gte("created_at", last30d);
+      const [
+        vendasRes,
+        leadsRes,
+        convsRes,
+        inboundRes,
+        providersRes,
+        aiConfigRes,
+        kanbanRes,
+        sitesRes,
+      ] = await Promise.all([
+        supabase
+          .from("imphq_vendas")
+          .select("project_id, valor, status, created_at")
+          .gte("created_at", last30d)
+          .limit(3000),
+        supabase
+          .from("imphq_leads")
+          .select("project_id, id, score, criado_em")
+          .gte("criado_em", last24h)
+          .limit(2000),
+        supabase
+          .from("imphq_wa_conversations")
+          .select("project_id, unread_count, last_message_at, status")
+          .gt("unread_count", 0)
+          .limit(1000),
+        supabase
+          .from("imphq_wa_messages")
+          .select("project_id, id, direction")
+          .eq("direction", "incoming")
+          .gte("created_at", last24h)
+          .limit(2000),
+        supabase
+          .from("imphq_wa_providers")
+          .select("project_id, instance_name, status, is_active"),
+        supabase
+          .from("imphq_wa_ai_config")
+          .select("project_id, enabled, draft_mode"),
+        supabase
+          .from("imphq_kanban_cards")
+          .select("id, project_id, title, priority, due_date, column_id, imphq_kanban_columns(title)")
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("imphq_project_sites")
+          .select("id, projeto_id, papel, site:imphq_sites(*)")
+          .order("created_at", { ascending: false }),
+      ]);
 
-      // 2. Leads nas últimas 24h
-      const { data: leadsData } = await supabase
-        .from("imphq_leads")
-        .select("project_id, id, score, criado_em")
-        .gte("criado_em", last24h);
+      setTelemetry({
+        vendas: vendasRes.data || [],
+        leads: leadsRes.data || [],
+        convs: convsRes.data || [],
+        inbound: inboundRes.data || [],
+        providers: providersRes.data || [],
+        aiConfigs: aiConfigRes.data || [],
+        kanban: (kanbanRes.data || []) as TelemetryBundle["kanban"],
+        projectSites: (sitesRes.data || []) as unknown as TelemetryBundle["projectSites"],
+      });
+    } catch (e) {
+      console.error("Erro ao carregar mapa operacional geral:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      // 3. Conversas no WhatsApp com unread_count > 0
-      const { data: convsData } = await supabase
-        .from("imphq_wa_conversations")
-        .select("project_id, unread_count, last_message_at, status")
-        .gt("unread_count", 0);
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
-      // 4. Mensagens inbound 24h
-      const { data: inboundData } = await supabase
-        .from("imphq_wa_messages")
-        .select("project_id, id, direction")
-        .eq("direction", "incoming")
-        .gte("created_at", last24h);
+  // Calcula os cards instantaneamente a partir de `projects` + telemetria disponível
+  const cardsData = useMemo<ProjectCardData[]>(() => {
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const vList = telemetry.vendas;
+    const lList = telemetry.leads;
+    const cList = telemetry.convs;
+    const inList = telemetry.inbound;
+    const pList = telemetry.providers;
+    const aList = telemetry.aiConfigs;
+    const kList = telemetry.kanban;
+    const sList = telemetry.projectSites;
 
-      // 5. Providers WA
-      const { data: providersData } = await supabase
-        .from("imphq_wa_providers")
-        .select("project_id, instance_name, status, is_active");
+    const mapped = projects.map((proj): ProjectCardData => {
+      const pId = proj.id;
+      const pData = jsonFields(proj.data);
 
-      // 6. IA config
-      const { data: aiConfigData } = await supabase
-        .from("imphq_wa_ai_config")
-        .select("project_id, enabled, draft_mode");
+      // Vendas 24h
+      const pVendas24h = vList.filter((v) => v.project_id === pId && v.created_at >= last24h);
+      const aprovadas24h = pVendas24h.filter((v) => isPaidSaleStatus(v.status));
+      const receita24h = aprovadas24h.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+      const abandonos24h = pVendas24h.filter((v) => v.status === "carrinho_abandonado");
+      const pix24h = pVendas24h.filter((v) => v.status === "pix_gerado");
 
-      // 7. Kanban cards / Demandas
-      const { data: kanbanData } = await supabase
-        .from("imphq_kanban_cards")
-        .select("id, project_id, title, priority, due_date, column_id, imphq_kanban_columns(title)")
-        .order("created_at", { ascending: false });
+      // Vendas 30d
+      const pVendas30d = vList.filter((v) => v.project_id === pId && isPaidSaleStatus(v.status));
+      const receita30d = pVendas30d.reduce((sum, v) => sum + Number(v.valor || 0), 0);
 
-      const vList = vendasData || [];
-      const lList = leadsData || [];
-      const cList = convsData || [];
-      const inList = inboundData || [];
-      const pList = providersData || [];
-      const aList = aiConfigData || [];
-      const kList = kanbanData || [];
+      // Leads 24h
+      const pLeads24h = lList.filter((l) => l.project_id === pId);
+      const hotLeads = pLeads24h.filter((l) => Number(l.score || 0) >= 70);
 
-      // Mapeia para cada projeto
-      const mapped = projects.map((proj): ProjectCardData => {
-        const pId = proj.id;
-        const pData = jsonFields(proj.data);
+      // Conversas e mensagens paradas (últimas 48h)
+      const pConvs = cList.filter((c) => c.project_id === pId);
+      const recentPendingConvs = pConvs.filter(
+        (c) => c.last_message_at && new Date(c.last_message_at).getTime() >= Date.now() - 48 * 3600000
+      );
+      const pInbound = inList.filter((m) => m.project_id === pId);
 
-        // Vendas 24h
-        const pVendas24h = vList.filter((v) => v.project_id === pId && v.created_at >= last24h);
-        const aprovadas24h = pVendas24h.filter((v) => isPaidSaleStatus(v.status));
-        const receita24h = aprovadas24h.reduce((sum, v) => sum + Number(v.valor || 0), 0);
-        const abandonos24h = pVendas24h.filter((v) => v.status === "carrinho_abandonado");
-        const pix24h = pVendas24h.filter((v) => v.status === "pix_gerado");
+      // Provider WA
+      const prov =
+        pList.find((pr) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas")) ||
+        null;
+      const ai = aList.find((a) => a.project_id === pId) || null;
 
-        // Vendas 30d
-        const pVendas30d = vList.filter((v) => v.project_id === pId && isPaidSaleStatus(v.status));
-        const receita30d = pVendas30d.reduce((sum, v) => sum + Number(v.valor || 0), 0);
-
-        // Leads 24h
-        const pLeads24h = lList.filter((l) => l.project_id === pId);
-        const hotLeads = pLeads24h.filter((l) => Number(l.score || 0) >= 70);
-
-        // Conversas e mensagens paradas (últimas 48h)
-        const pConvs = cList.filter((c) => c.project_id === pId);
-        const recentPendingConvs = pConvs.filter((c) =>
-          c.last_message_at && new Date(c.last_message_at).getTime() >= Date.now() - 48 * 3600000
-        );
-        const pInbound = inList.filter((m) => m.project_id === pId);
-
-        // Provider WA
-        const prov = pList.find((pr) => pr.project_id === pId || (pId === "jp_freitas" && pr.instance_name === "jpfreitas")) || null;
-        const ai = aList.find((a) => a.project_id === pId) || null;
-
-        // Demandas / Kanban
-        const pTasks = kList.filter((k) => k.project_id === pId).slice(0, 4).map((k) => {
+      // Demandas / Kanban
+      const pTasks = kList
+        .filter((k) => k.project_id === pId)
+        .slice(0, 4)
+        .map((k) => {
           const colTitle = (k.imphq_kanban_columns?.title || "").toLowerCase();
           const isDone = colTitle.includes("done") || colTitle.includes("conclu") || colTitle.includes("finaliz");
           return {
@@ -196,98 +268,119 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
           };
         });
 
-        // VSL URL
-        let vslUrl = "";
-        if (pData.vsl_url && typeof pData.vsl_url === "string") vslUrl = pData.vsl_url;
-        else if (Array.isArray(pData.produtos) && pData.produtos.length > 0) {
-          const prod = objectFields(pData.produtos.find((x) => objectFields(x).status === "ativo") ?? pData.produtos[0]);
-          if (Array.isArray(prod.links) && prod.links.length > 0) vslUrl = jsonText(prod.links[0]) ?? "";
-        }
-        if (!vslUrl) vslUrl = jsonText(objectFields(pData.links).site) ?? "";
-        if (!vslUrl) {
-          if (pId === "jp_freitas") vslUrl = "https://codigodoscortesperfeitos.vercel.app";
-          else if (pId === "linfaflow") vslUrl = "https://linfaflow.com/";
-          else if (pId === "slimsoda") vslUrl = "https://slimsoda.com/";
-        }
+      // Sites vinculados na biblioteca
+      const linkedSites: LinkedProjectSite[] = sList
+        .filter((row) => row.projeto_id === pId && row.site)
+        .map((row) => ({
+          id: row.id,
+          papel: row.papel,
+          site: row.site as Site,
+        }));
 
-        // Checkout URL
-        let checkoutUrl = "";
-        let offerPrice = "R$ 47,00";
-        if (pData.checkout_url && typeof pData.checkout_url === "string") checkoutUrl = pData.checkout_url;
-        else if (pId === "jp_freitas") {
-          checkoutUrl = "https://codigodoscortesperfeitos.vercel.app/inscricao";
-          offerPrice = "R$ 47,00 (Curso) + R$ 27,00 Bump";
-        } else if (pId === "linfaflow") {
-          checkoutUrl = "https://linfaflow.com/checkout";
-          offerPrice = "R$ 197,00 (Pote 1)";
-        } else if (pId === "slimsoda") {
-          checkoutUrl = "https://slimsoda.com/checkout";
-          offerPrice = "$ 69,00";
-        }
+      // VSL URL
+      let vslUrl = "";
+      if (pData.vsl_url && typeof pData.vsl_url === "string") vslUrl = pData.vsl_url;
+      else if (Array.isArray(pData.produtos) && pData.produtos.length > 0) {
+        const prod = objectFields(pData.produtos.find((x) => objectFields(x).status === "ativo") ?? pData.produtos[0]);
+        if (Array.isArray(prod.links) && prod.links.length > 0) vslUrl = jsonText(prod.links[0]) ?? "";
+      }
+      if (!vslUrl) vslUrl = jsonText(objectFields(pData.links).site) ?? "";
+      if (!vslUrl && linkedSites.length > 0) {
+        const lpSite = linkedSites.find((s) => s.papel === "lp" || s.site.tipo === "vsl" || s.site.tipo === "lp") ?? linkedSites[0];
+        vslUrl = lpSite.site.url;
+      }
+      if (!vslUrl) {
+        if (pId === "jp_freitas") vslUrl = "https://codigodoscortesperfeitos.vercel.app";
+        else if (pId === "linfaflow") vslUrl = "https://linfaflow.com/";
+        else if (pId === "slimsoda") vslUrl = "https://slimsoda-powder-vsl.vercel.app/";
+        else if (pId === "memoflow") vslUrl = "https://memoflow-vsl.vercel.app/";
+        else if (pId === "cardioflush") vslUrl = "https://cardioflush-vsls-hw.vercel.app/";
+        else if (pId === "leaftide") vslUrl = "https://leaftide-powder-vsl.vercel.app/";
+      }
 
-        // Meta Ads status
-        const creatives = Array.isArray(pData.facebook_creatives) ? pData.facebook_creatives : [];
-        const hasActiveAds = creatives.some((c) => {
-          const status = objectFields(c).status;
-          return status === "ACTIVE" || status === "ACTIVE_CAMPAIGN";
-        });
-        const hasCreatives = creatives.length > 0;
+      // Checkout URL
+      let checkoutUrl = "";
+      let offerPrice = "R$ 47,00";
+      if (pData.checkout_url && typeof pData.checkout_url === "string") checkoutUrl = pData.checkout_url;
+      else if (pId === "jp_freitas") {
+        checkoutUrl = "https://codigodoscortesperfeitos.vercel.app/inscricao";
+        offerPrice = "R$ 47,00 (Curso) + R$ 27,00 Bump";
+      } else if (pId === "linfaflow") {
+        checkoutUrl = "https://linfaflow.com/checkout";
+        offerPrice = "R$ 197,00 (Pote 1)";
+      } else if (pId === "slimsoda") {
+        checkoutUrl = "https://slimsoda-powder-vsl.vercel.app/pdp/";
+        offerPrice = "$ 69,00";
+      } else if (pId === "memoflow") {
+        checkoutUrl = "https://truevitallabs.com/";
+        offerPrice = "$ 69,00";
+      }
 
-        // Contagem de gargalos
-        let bCount = 0;
-        if (recentPendingConvs.length > 0) bCount++;
-        if (abandonos24h.length > 0 || pix24h.length > 0) bCount++;
-        if (hasCreatives && !hasActiveAds) bCount++;
-        if (prov && !prov.is_active) bCount++;
+      const primarySite =
+        linkedSites.find((s) => s.papel === "lp" || s.site.tipo === "vsl" || s.site.tipo === "lp")?.site ??
+        linkedSites[0]?.site ??
+        createVirtualSiteFromUrl(vslUrl || `https://${pId}.imperio.hq`, `${proj.name} — Página Principal`, "vsl");
 
-        return {
-          project: proj,
-          receita24h,
-          vendas24hCount: aprovadas24h.length,
-          receita30d,
-          abandonosCount: abandonos24h.length,
-          pixPendentesCount: pix24h.length,
-          leads24hCount: pLeads24h.length,
-          hotLeadsCount: hotLeads.length,
-          pendingConvsCount: recentPendingConvs.length,
-          inboundMsgs24hCount: pInbound.length,
-          waProvider: prov,
-          aiConfig: ai ? { enabled: !!ai.enabled, full_autonomy: !ai.draft_mode } : null,
-          tasks: pTasks,
-          vslUrl,
-          checkoutUrl,
-          offerPrice,
-          hasActiveAds,
-          hasCreatives,
-          bottlenecksCount: bCount,
-        };
+      const checkoutSite =
+        linkedSites.find((s) => s.papel === "checkout" || s.site.tipo === "checkout" || s.site.tipo === "pdp")?.site ??
+        (checkoutUrl
+          ? createVirtualSiteFromUrl(checkoutUrl, `${proj.name} — Checkout / PDP`, "checkout")
+          : null);
+
+      // Meta Ads status
+      const creatives = Array.isArray(pData.facebook_creatives) ? pData.facebook_creatives : [];
+      const hasActiveAds = creatives.some((c) => {
+        const status = objectFields(c).status;
+        return status === "ACTIVE" || status === "ACTIVE_CAMPAIGN";
       });
+      const hasCreatives = creatives.length > 0;
 
-      // Ordenar: Prioritários primeiro (jp_freitas, linfaflow, slimsoda)
-      const coreIds = ["jp_freitas", "linfaflow", "slimsoda"];
-      mapped.sort((a, b) => {
-        const aIdx = coreIds.indexOf(a.project.id);
-        const bIdx = coreIds.indexOf(b.project.id);
-        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-        if (aIdx !== -1) return -1;
-        if (bIdx !== -1) return 1;
-        // Depois por gargalos decrescente
-        if (b.bottlenecksCount !== a.bottlenecksCount) return b.bottlenecksCount - a.bottlenecksCount;
-        return a.project.name.localeCompare(b.project.name);
-      });
+      // Contagem de gargalos
+      let bCount = 0;
+      if (recentPendingConvs.length > 0) bCount++;
+      if (abandonos24h.length > 0 || pix24h.length > 0) bCount++;
+      if (hasCreatives && !hasActiveAds) bCount++;
+      if (prov && !prov.is_active) bCount++;
 
-      setCardsData(mapped);
-    } catch (e) {
-      console.error("Erro ao carregar mapa operacional geral:", e);
-      toast.error("Falha ao carregar dados do mapa geral");
-    } finally {
-      setLoading(false);
-    }
-  }, [projects]);
+      return {
+        project: proj,
+        receita24h,
+        vendas24hCount: aprovadas24h.length,
+        receita30d,
+        abandonosCount: abandonos24h.length,
+        pixPendentesCount: pix24h.length,
+        leads24hCount: pLeads24h.length,
+        hotLeadsCount: hotLeads.length,
+        pendingConvsCount: recentPendingConvs.length,
+        inboundMsgs24hCount: pInbound.length,
+        waProvider: prov,
+        aiConfig: ai ? { enabled: !!ai.enabled, full_autonomy: !ai.draft_mode } : null,
+        tasks: pTasks,
+        vslUrl,
+        checkoutUrl,
+        offerPrice,
+        hasActiveAds,
+        hasCreatives,
+        bottlenecksCount: bCount,
+        linkedSites,
+        primarySite,
+        checkoutSite,
+      };
+    });
 
-  useEffect(() => {
-    loadAllData();
-  }, [loadAllData]);
+    const coreIds = ["jp_freitas", "linfaflow", "slimsoda", "memoflow", "cardioflush", "leaftide"];
+    mapped.sort((a, b) => {
+      const aIdx = coreIds.indexOf(a.project.id);
+      const bIdx = coreIds.indexOf(b.project.id);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      if (b.bottlenecksCount !== a.bottlenecksCount) return b.bottlenecksCount - a.bottlenecksCount;
+      return a.project.name.localeCompare(b.project.name);
+    });
+
+    return mapped;
+  }, [projects, telemetry]);
 
   // Totais consolidados da operação
   const totals = useMemo(() => {
@@ -540,7 +633,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
       <div className="space-y-4">
         {filteredCards.map((c) => {
           const p = c.project;
-          const emoji = PROJECT_EMOJIS[p.id] || "🎯";
+          const emoji = normalizeProjectIcon(p.icon, p.id);
 
           return (
             <Card
@@ -556,7 +649,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
                     {emoji}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3
                         className="text-base sm:text-lg font-bold text-white hover:text-primary transition-colors cursor-pointer flex items-center gap-1.5"
                         onClick={() => navigate(`/projetos/${p.id}`)}
@@ -567,6 +660,11 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
                       <Badge variant="outline" className="text-[10px] font-mono border-white/10 text-muted-foreground">
                         {p.category || "Operação"}
                       </Badge>
+                      {c.linkedSites.length > 0 && (
+                        <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
+                          🖼️ {c.linkedSites.length} {c.linkedSites.length === 1 ? "página" : "páginas"}
+                        </Badge>
+                      )}
                       {c.bottlenecksCount > 0 ? (
                         <Badge className="text-[10px] font-mono bg-amber-500/20 text-amber-300 border-amber-500/30">
                           {c.bottlenecksCount} GARGALOS VIVOS
@@ -773,16 +871,66 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
                   </div>
                 </div>
 
-                {/* COLUNA 3: 🌐 ATIVOS OFICIAIS & NAVEGAÇÃO */}
+                {/* COLUNA 3: 🌐 ATIVOS OFICIAIS, PÁGINAS COM IMAGEM & NAVEGAÇÃO */}
                 <div className="bg-[#121418] border border-[#1E2228] rounded-lg p-3.5 space-y-2.5 flex flex-col justify-between">
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300 pb-1.5 border-b border-white/5">
                       <span className="flex items-center gap-1.5 text-emerald-400 uppercase tracking-wider font-mono">
-                        <Globe className="h-3.5 w-3.5" /> Ativos & Checkout
+                        <Globe className="h-3.5 w-3.5" /> Páginas & Checkout
                       </span>
                       <Badge variant="outline" className="text-[9px] font-mono border-white/10 text-zinc-400">
                         {c.offerPrice}
                       </Badge>
+                    </div>
+
+                    {/* Miniaturas Visuais das Páginas do Projeto */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Miniatura 1: Página Principal / VSL */}
+                      <div
+                        className="group/preview relative rounded-lg overflow-hidden border border-white/10 bg-black cursor-pointer hover:border-primary/60 transition-all"
+                        onClick={() => (c.vslUrl ? window.open(c.vslUrl, "_blank") : navigate(`/projetos/${p.id}?tab=sites`))}
+                        title={c.primarySite.titulo}
+                      >
+                        <SiteThumbnail site={c.primarySite} aspect="aspect-[16/10]" showBrowserBar={true} />
+                        <div className="px-2 py-1 bg-black/80 border-t border-white/5 flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-medium text-zinc-200 truncate">
+                            {c.primarySite.titulo}
+                          </span>
+                          <ExternalLink className="h-2.5 w-2.5 text-primary shrink-0" />
+                        </div>
+                      </div>
+
+                      {/* Miniatura 2: Checkout ou 2ª Página Vinculada */}
+                      {(() => {
+                        const secondSite =
+                          c.linkedSites[1]?.site ??
+                          c.checkoutSite ??
+                          createVirtualSiteFromUrl(
+                            c.checkoutUrl || c.vslUrl || `https://${p.id}.imperio.hq/checkout`,
+                            `${p.name} — Checkout`,
+                            "checkout"
+                          );
+                        const targetUrl = secondSite.url;
+                        return (
+                          <div
+                            className="group/preview relative rounded-lg overflow-hidden border border-white/10 bg-black cursor-pointer hover:border-emerald-500/60 transition-all"
+                            onClick={() =>
+                              targetUrl && !targetUrl.includes(".imperio.hq")
+                                ? window.open(targetUrl, "_blank")
+                                : navigate(`/projetos/${p.id}?tab=sites`)
+                            }
+                            title={secondSite.titulo}
+                          >
+                            <SiteThumbnail site={secondSite} aspect="aspect-[16/10]" showBrowserBar={true} />
+                            <div className="px-2 py-1 bg-black/80 border-t border-white/5 flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-medium text-zinc-200 truncate">
+                                {secondSite.titulo}
+                              </span>
+                              <ExternalLink className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* VSL Link */}
@@ -790,7 +938,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
                       <div className="truncate pr-2">
                         <span className="text-[10px] uppercase font-mono text-muted-foreground block">Página / VSL:</span>
                         <span className="font-mono text-zinc-300 text-[11px] truncate block" title={c.vslUrl}>
-                          {c.vslUrl || "Não configurado"}
+                          {c.vslUrl ? getCleanDomain(c.vslUrl) : "Não configurado"}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -822,7 +970,7 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
                       <div className="truncate pr-2">
                         <span className="text-[10px] uppercase font-mono text-muted-foreground block">Checkout Oficial:</span>
                         <span className="font-mono text-zinc-300 text-[11px] truncate block" title={c.checkoutUrl}>
-                          {c.checkoutUrl || "Não configurado"}
+                          {c.checkoutUrl ? getCleanDomain(c.checkoutUrl) : "Não configurado"}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -848,28 +996,26 @@ export function MapaOperacionalGeral({ projects, onRefresh }: Props) {
                         )}
                       </div>
                     </div>
-
-                    {/* Status Chip / IA */}
-                    <div className="p-2 rounded bg-black/30 border border-white/5 flex items-center justify-between text-[11px]">
-                      <span className="text-muted-foreground flex items-center gap-1.5">
-                        <Bot className="h-3.5 w-3.5 text-primary" />
-                        Instância: <strong className="text-zinc-200">{c.waProvider?.instance_name || "Nenhuma"}</strong>
-                      </span>
-                      <span className="font-mono text-emerald-400">
-                        {c.aiConfig?.full_autonomy ? "⚡ 100% IA" : "Co-piloto"}
-                      </span>
-                    </div>
                   </div>
 
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                  <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-6 text-[11px] text-muted-foreground hover:text-white gap-1 w-full justify-center"
+                      className="h-6 text-[11px] text-primary hover:text-white gap-1 flex-1 justify-center"
+                      onClick={() => navigate(`/projetos/${p.id}?tab=sites`)}
+                    >
+                      <Globe className="h-3 w-3" />
+                      Ver Páginas ({Math.max(c.linkedSites.length, c.vslUrl ? 1 : 0)})
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[11px] text-muted-foreground hover:text-white gap-1 flex-1 justify-center"
                       onClick={() => navigate(`/projetos/${p.id}?tab=mapa`)}
                     >
                       <Layers className="h-3 w-3" />
-                      Abrir Canvas Visual do Funil →
+                      Canvas do Funil →
                     </Button>
                   </div>
                 </div>

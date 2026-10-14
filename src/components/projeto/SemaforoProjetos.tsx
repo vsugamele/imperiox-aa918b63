@@ -23,6 +23,7 @@ import { buildFunnelLive, type AdsRow, type SaleRow } from "@shared/funnel-live"
 import { runFunnelDiagnostics, type FunnelDiagnosticItem } from "@shared/funnel-diagnostics";
 import { scanFunnelAnomalies } from "@shared/funnel-sentinel";
 import { FunnelRemediationModal } from "@/components/funis/FunnelRemediationModal";
+import { normalizeProjectIcon } from "@/components/sites/SiteThumbnail";
 
 interface Props {
   projects: Tables<"imphq_projects">[];
@@ -310,6 +311,12 @@ export function SemaforoProjetos({ projects, onOpenGrowthCopilot }: Props) {
     };
   }, [projectsHealth]);
 
+  const [showAllRows, setShowAllRows] = useState(false);
+  const visibleRows = useMemo(
+    () => (showAllRows || filterHealth !== "all" ? filtered : filtered.slice(0, 4)),
+    [filtered, showAllRows, filterHealth]
+  );
+
   return (
     <Card className="bg-[#0A0B0D] border-[#1B1E23] overflow-hidden shadow-xl">
       <CardHeader className="pb-3 border-b border-[#1B1E23]/60 bg-gradient-to-r from-emerald-500/5 via-amber-500/5 to-transparent">
@@ -473,7 +480,7 @@ export function SemaforoProjetos({ projects, onOpenGrowthCopilot }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1B1E23]/60">
-            {filtered.map((item) => {
+            {visibleRows.map((item) => {
               const {
                 project,
                 statusColor,
@@ -500,7 +507,7 @@ export function SemaforoProjetos({ projects, onOpenGrowthCopilot }: Props) {
                 >
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2.5">
-                      <span className="text-lg">{project.icon || "📁"}</span>
+                      <span className="text-lg">{normalizeProjectIcon(project.icon, project.id)}</span>
                       <div>
                         <div className="font-medium text-white group-hover:text-[#D6FF4B] transition-colors flex items-center gap-1.5">
                           {project.name}
@@ -669,6 +676,19 @@ export function SemaforoProjetos({ projects, onOpenGrowthCopilot }: Props) {
             })}
           </tbody>
         </table>
+        {filtered.length > 4 && filterHealth === "all" && (
+          <div className="border-t border-[#1B1E23] bg-[#0E1013] px-4 py-2 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setShowAllRows((prev) => !prev)}
+              className="text-xs font-mono text-[#D6FF4B] hover:underline flex items-center gap-1.5"
+            >
+              {showAllRows
+                ? "▲ Recolher Semáforo (mostrar top 4)"
+                : `▼ Expandir todos os ${filtered.length} projetos no Semáforo`}
+            </button>
+          </div>
+        )}
       </CardContent>
 
       {/* Modal de Playbook acionável direto do Semáforo Executivo */}

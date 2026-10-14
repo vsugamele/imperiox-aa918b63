@@ -8,6 +8,7 @@ import {
   type LeadSignalInput,
   type ReferenceSignalInput,
 } from "@/lib/agency-radar";
+import { loadProjectIntelligence, type ProjectIntelligenceBundle } from "@/lib/project-intelligence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -20,6 +21,9 @@ import {
   TrendingUp,
   Wand2,
   FileText,
+  Brain,
+  Cpu,
+  UserCheck,
 } from "lucide-react";
 
 interface AgencyRadarPanelProps {
@@ -38,6 +42,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
   const [activeTab, setActiveTab] = useState<"voc" | "trends">("voc");
   const [leadSignals, setLeadSignals] = useState<LeadSignalInput[]>([]);
   const [refSignals, setRefSignals] = useState<ReferenceSignalInput[]>([]);
+  const [intel, setIntel] = useState<ProjectIntelligenceBundle | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -46,6 +51,32 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
       setLoading(true);
       try {
         const signals: LeadSignalInput[] = [];
+
+        // 0. Load Project + Avatar + Docs + Skills intelligence
+        const bundle = await loadProjectIntelligence(projectId && projectId !== "all" ? projectId : null);
+        if (!cancelled) {
+          setIntel(bundle);
+        }
+
+        // Inject Avatar's documented deep pains & objections as grounded signals so VOC reflects the project avatar
+        if (bundle) {
+          for (const pain of bundle.deepPains) {
+            signals.push({
+              text: pain,
+              source: "crm",
+              contactName: bundle.avatarName,
+              createdAt: new Date().toISOString(),
+            });
+          }
+          for (const obj of bundle.objections) {
+            signals.push({
+              text: obj.objecao,
+              source: "whatsapp",
+              contactName: bundle.avatarName,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
 
         // 1. WhatsApp conversations (last messages & AI summaries)
         const waRes = await supabase
@@ -171,6 +202,26 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
 
   const complaints = useMemo(() => extractLeadComplaints(leadSignals), [leadSignals]);
   const marketTrends = useMemo(() => extractMarketTrends(refSignals), [refSignals]);
+
+  // Combine market hooks with project-grounded synthesized hooks (Avatar + Docs + Skills)
+  const combinedHooks = useMemo(() => {
+    const projectHooks = (intel?.synthesizedHooks || []).map((sh, i) => ({
+      id: sh.id,
+      hookText: sh.text,
+      portaLabel: sh.angle,
+      format: `Avatar + ${sh.skillApplied}`,
+      daysActive: 14 + i * 3,
+      docRef: sh.docReference,
+      painTarget: sh.avatarPainTarget,
+    }));
+    const marketHooks = marketTrends.hooks.map((hk) => ({
+      ...hk,
+      docRef: intel?.docs[0]?.title || null,
+      painTarget: intel?.deepPains[0] || null,
+    }));
+    return [...projectHooks, ...marketHooks];
+  }, [intel, marketTrends.hooks]);
+
   const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -225,8 +276,11 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
       });
       return;
     }
+    const intelContext = intel
+      ? `\n\n[Contexto Conectado do Projeto: ${intel.projectName}]\nAvatar: ${intel.avatarName} (${intel.avatarAgeRange})\nMecanismo Único: ${intel.mechanismName}\nInimigo Comum: ${intel.enemy}\nGatilho Nuclear: ${intel.nuclearTrigger}\nDocumento Base: ${intel.docs[0]?.title || "Dossiê do Projeto"}\nSkills Aplicadas: ${intel.skills.slice(0, 3).map((s) => s.name).join(", ")}`
+      : "";
     const params = new URLSearchParams({
-      briefing: `Ângulo para quebrar objeção "${cluster.label}": ${cluster.recommendedAngle}\n\nFala real do lead (VOC): "${cluster.sampleQuotes[0] ?? ""}"\n\nFormato: ${cluster.recommendedFormatLabel}\nPorta H&W: ${cluster.recommendedPortaLabel}\nCarga do 1º quadro: ${cluster.firstFrameLoad}`,
+      briefing: `Ângulo para quebrar objeção "${cluster.label}": ${cluster.recommendedAngle}\n\nFala real do lead (VOC): "${cluster.sampleQuotes[0] ?? ""}"\n\nFormato: ${cluster.recommendedFormatLabel}\nPorta H&W: ${cluster.recommendedPortaLabel}\nCarga do 1º quadro: ${cluster.firstFrameLoad}${intelContext}`,
     });
     navigate(`/copy-lab?${params.toString()}`);
   };
@@ -242,7 +296,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
             <Radar className="h-4 w-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-sm font-bold text-foreground">
                 Radar Vivo da Agência · VOC & Formatos em Alta
               </h2>
@@ -253,7 +307,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Descubra o que os leads estão reclamando no X1/WhatsApp e quais formatos/ganchos estão escalando para transformar em novos ângulos, scripts X1 e blocos de LP/PDP.
+              Descubra o que os leads estão reclamando no X1/WhatsApp e quais formatos/ganchos estão escalando — cruzando com o Avatar, Documentos e Skills do projeto.
             </p>
           </div>
         </div>
@@ -286,8 +340,34 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
         </div>
       </div>
 
+      {/* Barra de Inteligência do Projeto Conectada ao Radar e aos Ganchos */}
+      {intel && (
+        <div className="rounded-lg border border-primary/20 bg-background/60 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-primary flex items-center gap-1">
+              <Brain className="h-3.5 w-3.5" /> Contexto Lido nos Ganchos:
+            </span>
+            <Badge variant="outline" className="text-[10px] border-primary/30 text-foreground">
+              {intel.projectIcon} {intel.projectName}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-300">
+              <UserCheck className="h-3 w-3 mr-1" /> Avatar: {intel.avatarName}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-300">
+              <FileText className="h-3 w-3 mr-1" /> {intel.docs.length} Docs ({intel.docs[0]?.title || "Dossiê"})
+            </Badge>
+            <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-300">
+              <Cpu className="h-3 w-3 mr-1" /> {intel.skills.length} Skills ({intel.skills.slice(0, 2).map((s) => s.name).join(" + ")})
+            </Badge>
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            Mecanismo: <strong className="text-foreground">{intel.mechanismName}</strong>
+          </span>
+        </div>
+      )}
+
       {loading ? (
-        <div className="text-xs text-muted-foreground py-4">Sincronizando conversas X1, CRM e biblioteca de referências...</div>
+        <div className="text-xs text-muted-foreground py-4">Sincronizando conversas X1, CRM, Avatar, Documentos e Skills...</div>
       ) : activeTab === "voc" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {complaints.slice(0, 6).map((cluster, idx) => (
@@ -307,7 +387,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
 
                 <div className="rounded-lg bg-muted/40 border border-border/50 p-2 space-y-1">
                   <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                    🗣️ Fala capturada dos leads:
+                    🗣️ Fala capturada ({intel ? `Leads + Avatar ${intel.avatarName}` : "Leads"}):
                   </p>
                   <p className="text-xs italic text-foreground/90 line-clamp-2">
                     “{cluster.sampleQuotes[0]}”
@@ -421,19 +501,19 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                Ganchos (Primeiros 3s) Mais Longevos
+                Ganchos (Primeiros 3s) · Projeto + Avatar + Docs + Skills
               </p>
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-6 text-[11px]"
-                onClick={() => navigate("/referencias")}
+                onClick={() => navigate("/hook-labs")}
               >
-                Abrir Spy & Referências →
+                Abrir Hook Labs →
               </Button>
             </div>
             <div className="space-y-2">
-              {marketTrends.hooks.slice(0, 4).map((hk) => (
+              {combinedHooks.slice(0, 5).map((hk) => (
                 <div
                   key={hk.id}
                   className="rounded-lg border border-border/80 bg-background/70 p-3 flex items-start justify-between gap-3"
@@ -441,14 +521,14 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
-                        Porta: {hk.portaLabel}
+                        {hk.portaLabel}
                       </Badge>
                       <Badge variant="secondary" className="text-[10px]">
                         {hk.format}
                       </Badge>
-                      {hk.daysActive > 0 && (
-                        <span className="text-[10px] font-mono text-emerald-400">
-                          {hk.daysActive}d rodando
+                      {hk.docRef && (
+                        <span className="text-[10px] text-cyan-300/90 truncate max-w-[180px]">
+                          📄 {hk.docRef}
                         </span>
                       )}
                     </div>
@@ -462,7 +542,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
                     className="h-7 text-[11px] shrink-0"
                     onClick={() => {
                       const params = new URLSearchParams({
-                        briefing: `Modelar gancho vencedor (${hk.daysActive}d ativo):\n"${hk.hookText}"\nFormato: ${hk.format} | Porta H&W: ${hk.portaLabel}`,
+                        briefing: `Modelar gancho conectado ao projeto ${intel?.projectName || ""} (${hk.format}):\n"${hk.hookText}"\nAvatar: ${intel?.avatarName || "N/A"} | Mecanismo: ${intel?.mechanismName || "N/A"} | Porta: ${hk.portaLabel}`,
                       });
                       navigate(`/copy-lab?${params.toString()}`);
                     }}

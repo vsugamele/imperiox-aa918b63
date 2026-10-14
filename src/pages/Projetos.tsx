@@ -18,6 +18,9 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
+import { SiteThumbnail, createVirtualSiteFromUrl, normalizeProjectIcon } from "@/components/sites/SiteThumbnail";
+import type { Site } from "@/components/sites/SiteCard";
+import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
 
 const boardsSchema = z.array(z.object({board:z.string(),columns:z.array(z.object({title:z.string(),cards:z.array(z.string()).optional()}).passthrough())}).passthrough());
 interface ProjectTemplate {
@@ -119,6 +122,8 @@ function fmtBRL(v: number) {
 
 export default function Projetos() {
   const [projects, setProjects] = useState<Tables<"imphq_projects">[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [projectSitesMap, setProjectSitesMap] = useState<Record<string, Site[]>>({});
   const [kpisMap, setKpisMap] = useState<Record<string, ProjectKpis>>({});
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -173,14 +178,43 @@ export default function Projetos() {
   }, []);
 
   const load = useCallback(async () => {
-    const [projRes, tplRes] = await Promise.all([
-      supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }),
-      supabase.from("imphq_project_templates").select("*").order("created_at", { ascending: false }),
-    ]);
-    const projs = projRes.data || [];
-    setProjects(projs);
-    setTemplates((tplRes.data || []).map(t=>({...t,boards_json:boardsSchema.parse(t.boards_json).map(b=>({...b,board:b.board,columns:b.columns.map(c=>({...c,title:c.title}))}))})));
-    loadKpis(projs);
+    setLoadingProjects(true);
+    try {
+      const [projRes, tplRes, sitesRes] = await Promise.all([
+        supabase.from("imphq_projects").select("*").order("created_at", { ascending: false }),
+        supabase.from("imphq_project_templates").select("*").order("created_at", { ascending: false }),
+        supabase.from("imphq_project_sites").select("projeto_id, papel, site:imphq_sites(*)").order("created_at", { ascending: false }),
+      ]);
+      const projs = projRes.data || [];
+      setProjects(projs);
+
+      const sMap: Record<string, Site[]> = {};
+      for (const row of (sitesRes.data || []) as unknown as Array<{ projeto_id: string; site: Site | null }>) {
+        if (row.projeto_id && row.site) {
+          if (!sMap[row.projeto_id]) sMap[row.projeto_id] = [];
+          sMap[row.projeto_id].push(row.site);
+        }
+      }
+      setProjectSitesMap(sMap);
+
+      setTemplates(
+        (tplRes.data || []).map((t) => {
+          const parsed = boardsSchema.safeParse(t.boards_json);
+          const boards = parsed.success ? parsed.data : [];
+          return {
+            ...t,
+            boards_json: boards.map((b) => ({
+              ...b,
+              board: b.board,
+              columns: b.columns.map((c) => ({ ...c, title: c.title })),
+            })),
+          };
+        })
+      );
+      loadKpis(projs);
+    } finally {
+      setLoadingProjects(false);
+    }
   }, [loadKpis]);
 
   useEffect(() => { load(); }, [load]);
@@ -377,6 +411,15 @@ export default function Projetos() {
         </div>
       </div>
 
+      {loadingProjects && projects.length === 0 && (
+        <Card className="bg-card border-border p-8 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-xs font-mono">Carregando projetos, páginas e telemetria da operação...</p>
+          </div>
+        </Card>
+      )}
+
       {/* Semáforo Executivo dos Projetos (Visão Macro para Sócios e Equipe) */}
       <SemaforoProjetos 
         projects={projects}
@@ -498,7 +541,7 @@ export default function Projetos() {
                   <div className="space-y-1">
                     {topRev.map(({ p, k }, i) => (
                       <button key={p.id} onClick={() => navigate(`/projetos/${p.id}`)} className="w-full text-left flex items-center justify-between text-xs hover:bg-secondary/40 rounded px-2 py-1">
-                        <span className="truncate">{i + 1}. {p.icon} {p.name}</span>
+                        <span className="truncate">{i + 1}. {normalizeProjectIcon(p.icon, p.id)} {p.name}</span>
                         <span className="font-mono text-primary tabular-nums">{fmtBRL(k.receita30)}</span>
                       </button>
                     ))}
@@ -510,7 +553,7 @@ export default function Projetos() {
                     {topGrowth.length === 0 && <span className="text-xs text-muted-foreground italic">sem comparativo</span>}
                     {topGrowth.map(({ p, k }) => (
                       <button key={p.id} onClick={() => navigate(`/projetos/${p.id}`)} className="w-full text-left flex items-center justify-between text-xs hover:bg-secondary/40 rounded px-2 py-1">
-                        <span className="truncate">{p.icon} {p.name}</span>
+                        <span className="truncate">{normalizeProjectIcon(p.icon, p.id)} {p.name}</span>
                         <span className="font-mono text-emerald-400 tabular-nums">▲ {k.delta.toFixed(0)}%</span>
                       </button>
                     ))}
@@ -523,7 +566,7 @@ export default function Projetos() {
                     {inAlert.slice(0, 4).map(({ p, k }) => (
                       <div key={p.id} className="flex items-center justify-between text-xs hover:bg-secondary/40 rounded px-2 py-1">
                         <button onClick={() => navigate(`/projetos/${p.id}`)} className="truncate text-left flex-1">
-                          {p.icon} {p.name} <span className="text-muted-foreground">· {k.spend30 > 0 && k.receita30 === 0 ? `queima ${fmtBRL(k.spend30)}` : "frio"}</span>
+                          {normalizeProjectIcon(p.icon, p.id)} {p.name} <span className="text-muted-foreground">· {k.spend30 > 0 && k.receita30 === 0 ? `queima ${fmtBRL(k.spend30)}` : "frio"}</span>
                         </button>
                         <button onClick={() => triage(p.id, p.name)} className="text-[10px] text-primary hover:underline shrink-0 ml-2">→ Imperius</button>
                       </div>
@@ -549,15 +592,37 @@ export default function Projetos() {
               const k = kpisMap[p.id];
               const healthColor = k?.health === "hot" ? "bg-emerald-500" : k?.health === "warm" ? "bg-amber-500" : "bg-muted-foreground/40";
               const deltaUp = (k?.delta ?? 0) >= 0;
+              const pData = jsonFields(p.data);
+              let fallbackUrl = typeof pData.vsl_url === "string" ? pData.vsl_url : jsonText(objectFields(pData.links).site) ?? "";
+              if (!fallbackUrl) {
+                if (p.id === "jp_freitas") fallbackUrl = "https://codigodoscortesperfeitos.vercel.app";
+                else if (p.id === "linfaflow") fallbackUrl = "https://linfaflow.com/";
+                else if (p.id === "slimsoda") fallbackUrl = "https://slimsoda-powder-vsl.vercel.app/";
+              }
+              const linkedList = projectSitesMap[p.id] || [];
+              const previewSite =
+                linkedList[0] ??
+                createVirtualSiteFromUrl(fallbackUrl || `https://${p.id}.imperio.hq`, `${p.name} — Página Principal`, "vsl");
+
               return (
-              <Card key={p.id} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 group relative">
+              <Card key={p.id} className="bg-card border-border hover:border-primary/30 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 group relative overflow-hidden">
+                <div className="border-b border-border/60" onClick={() => navigate(`/projetos/${p.id}`)}>
+                  <SiteThumbnail site={previewSite} aspect="aspect-[16/9]" showBrowserBar={true} />
+                </div>
                 <CardContent className="p-4" onClick={() => navigate(`/projetos/${p.id}`)}>
                   <div className="flex items-start justify-between">
-                    <span className="text-2xl">{p.icon || "📁"}</span>
-                    <span className={`h-2.5 w-2.5 rounded-full ${healthColor}`} title={k?.health || ""} />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xl shrink-0">{normalizeProjectIcon(p.icon, p.id)}</span>
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-sm truncate">{p.name}</h3>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                          {p.category || "Sem categoria"}
+                          {linkedList.length > 0 ? ` · ${linkedList.length} pág(s)` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 mt-1 ${healthColor}`} title={k?.health || ""} />
                   </div>
-                  <h3 className="mt-2 font-medium text-sm truncate">{p.name}</h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">{p.category || "Sem categoria"}</p>
 
                   {k && (k.receita30 > 0 || k.leads7 > 0 || k.spend30 > 0) ? (
                     <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-3 gap-2 text-[10px]">
@@ -587,7 +652,7 @@ export default function Projetos() {
                 </CardContent>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button size="icon" variant="ghost" className="absolute top-2 right-8 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    <Button size="icon" variant="ghost" className="absolute top-7 right-2 z-30 h-6 w-6 bg-black/60 hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
                   </AlertDialogTrigger>
