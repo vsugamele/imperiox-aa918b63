@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Rocket, Mail, AlertTriangle, Users, TrendingUp, ExternalLink } from "lucide-react";
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
 import { GuideDrawer } from "@/components/assistente/GuideDrawer";
+import { AgencyFrontsFactory } from "@/components/estrategias/AgencyFrontsFactory";
 import { toast } from "sonner";
 
 interface Project { id: string; nome: string; }
@@ -30,6 +31,7 @@ export default function Lancamentos() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [emailCount, setEmailCount] = useState<number>(0);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [showGroupHub, setShowGroupHub] = useState(true);
 
   const load = useCallback(async () => {
     const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -148,7 +150,16 @@ export default function Lancamentos() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Leads capturados, ritmo e saúde de nutrição por lançamento.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant={showGroupHub ? "default" : "outline"}
+            onClick={() => setShowGroupHub((prev) => !prev)}
+            className="text-xs gap-1.5"
+          >
+            <Users className="h-3.5 w-3.5" />
+            {showGroupHub ? "Ocultar Central de Grupos & Webinar" : "💬 Central de Grupos (Lançamento & VIP) + Webinar"}
+          </Button>
           <GuideDrawer area="lancamento" projectId={projectId !== "__all__" ? projectId : undefined} />
           <Select value={projectId} onValueChange={setProjectId}>
             <SelectTrigger className="w-[220px] bg-secondary"><SelectValue /></SelectTrigger>
@@ -165,6 +176,20 @@ export default function Lancamentos() {
           </Select>
         </div>
       </header>
+
+      {showGroupHub && (
+        <section className="rounded-xl border border-primary/30 bg-card p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-foreground">
+              Central de Grupos (Lançamento & Relacionamento VIP), Webinar e Repescagem X1
+            </h2>
+            <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
+              Aquecimento · Enquetes · Abertura · X1
+            </Badge>
+          </div>
+          <AgencyFrontsFactory initialFront="grupo_lancamento" />
+        </section>
+      )}
 
       {/* KPI macro */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

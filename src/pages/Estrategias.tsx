@@ -12,27 +12,42 @@ import { ApplyPlaybookDialog } from "@/components/estrategias/ApplyPlaybookDialo
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { useProjectsAndMaps, usePlaybooks, type PlaybookApplication } from "@/hooks/usePlaybooks";
 import { CopyLibrary } from "@/components/estrategias/CopyLibrary";
+import { AgencyFrontsFactory } from "@/components/estrategias/AgencyFrontsFactory";
 import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 const FAMILIES = Object.keys(FAMILY_LABEL) as PlaybookFamily[];
 const EXECUTOR_ICON: Record<ExecutorGroup, typeof Bot> = { ia: Bot, automatico: Cog, ferramenta: Plug, humano: User };
 
-type View = "estrategias" | "biblioteca";
+type View = "estrategias" | "frentes" | "biblioteca";
 
 export default function Estrategias() {
   const [view, setView] = useState<View>("estrategias");
   return (
     <div className="space-y-6">
       <header>
-        <div className="kicker">Estratégias</div>
-        <h1 className="section-title mt-1 text-2xl md:text-3xl">{view === "estrategias" ? "Como cada projeto pode crescer" : "Biblioteca de copy"}</h1>
+        <div className="kicker">Estratégias & Frentes da Agência</div>
+        <h1 className="section-title mt-1 text-2xl md:text-3xl">
+          {view === "estrategias"
+            ? "Como cada projeto pode crescer"
+            : view === "frentes"
+            ? "Fábrica de Frentes (LP, PDP, Advertorial, Webinar, Grupos & X1)"
+            : "Biblioteca de copy"}
+        </h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           {view === "estrategias"
-            ? "Cada estratégia é um passo a passo pronto: etapas com contrato, quem executa (IA, automação ou você), a skill e a métrica de cada uma. Aplique a um projeto e ela vira etapas no mapa, que aparecem em Hoje. A IA usa a mesma biblioteca pelo MCP."
+            ? "Cada estratégia é um passo a passo pronto: etapas com contrato, quem executa (IA, automação ou você), a skill e a métrica de cada uma. Aplique a um projeto e ela vira etapas no mapa, que aparecem em Hoje."
+            : view === "frentes"
+            ? "Monte a estrutura e a copy de qualquer frente da agência — Advertorial, PDP Multi-Kits, LP de VSL, Captura/Quiz, Sala de Webinar, Grupos de Lançamento/Relacionamento e Script X1 — já conectada às reclamações reais dos leads."
             : "Ângulos, objeções, provas e mecanismos para escrever anúncio com método. A IA consulta a mesma biblioteca pelo MCP (get_copy_library)."}
         </p>
-        <div className="mt-3 inline-flex rounded-md border border-border p-0.5" role="tablist" aria-label="Visão">
-          {([["estrategias", "Estratégias"], ["biblioteca", "Biblioteca de copy"]] as const).map(([v, label]) => (
+        <div className="mt-3 inline-flex flex-wrap rounded-md border border-border p-0.5" role="tablist" aria-label="Visão">
+          {(
+            [
+              ["estrategias", "Estratégias (Playbooks)"],
+              ["frentes", "⚡ Fábrica de Frentes & Páginas"],
+              ["biblioteca", "Biblioteca de copy"],
+            ] as const
+          ).map(([v, label]) => (
             <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}
               className={cn("rounded px-3 py-1 text-xs font-medium transition-colors", view === v ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}>
               {label}
@@ -40,7 +55,7 @@ export default function Estrategias() {
           ))}
         </div>
       </header>
-      {view === "estrategias" ? <PlaybooksView /> : <CopyLibrary />}
+      {view === "estrategias" ? <PlaybooksView /> : view === "frentes" ? <AgencyFrontsFactory /> : <CopyLibrary />}
     </div>
   );
 }

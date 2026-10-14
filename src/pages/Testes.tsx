@@ -22,6 +22,8 @@ import { CARGAS, PORTAS, POUSOS, type Carga, type Porta, type Pouso } from "@sha
 import { FORMATO_LABEL } from "@shared/batch-strategist";
 import { useCopyLibrary } from "@/hooks/useCopyLibrary";
 import { NextBatchPanel } from "@/components/testes/NextBatchPanel";
+import { AgencyRadarPanel } from "@/components/testes/AgencyRadarPanel";
+import { CreativeAngleFormatMatrix } from "@/components/testes/CreativeAngleFormatMatrix";
 import { useAvatarNames } from "@/hooks/useCast";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -69,6 +71,10 @@ export default function Testes() {
           a fábrica recria a arte mantendo a pessoa e o estilo e escreve a copy nova.
         </p>
       </header>
+
+      <AgencyRadarPanel projectId={globalProjectId} />
+
+      <CreativeAngleFormatMatrix orders={orders} library={library} />
 
       {isLoading && <PageSkeleton variant="grid" label="Carregando testes" />}
       {error && (

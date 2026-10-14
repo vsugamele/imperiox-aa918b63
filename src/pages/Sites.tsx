@@ -27,6 +27,7 @@ import { AttachToProjectModal } from "@/components/sites/AttachToProjectModal";
 import { UseAsBaseModal } from "@/components/sites/UseAsBaseModal";
 import { CreateEcosystemModal } from "@/components/sites/CreateEcosystemModal";
 import { SiteThumbnail, getCleanDomain } from "@/components/sites/SiteThumbnail";
+import { AgencyFrontsFactory } from "@/components/estrategias/AgencyFrontsFactory";
 
 export const ALL_TIPOS = [
   { value: "lp", label: "Landing Page" },
@@ -47,6 +48,7 @@ export default function Sites() {
   const [status, setStatus] = useState<string>("ativo");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isBulkRefreshing, setIsBulkRefreshing] = useState(false);
+  const [showFrontsFactory, setShowFrontsFactory] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
   const [attachSite, setAttachSite] = useState<Site | null>(null);
@@ -195,6 +197,16 @@ export default function Sites() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <Button
+            variant={showFrontsFactory ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowFrontsFactory((prev) => !prev)}
+            className="text-xs gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{showFrontsFactory ? "Fechar Fábrica de Páginas" : "⚡ Fábrica de LP / PDP / Advertorial"}</span>
+          </Button>
+
+          <Button
             variant="outline"
             size="sm"
             onClick={handleBulkRefreshPrints}
@@ -211,6 +223,12 @@ export default function Sites() {
           </Button>
         </div>
       </div>
+
+      {showFrontsFactory && (
+        <div className="rounded-xl border border-primary/30 bg-card/90 p-4">
+          <AgencyFrontsFactory initialFront="advertorial" />
+        </div>
+      )}
 
       {/* Barra de Filtros, Busca e Alternância de Visualização */}
       <div className="space-y-3">

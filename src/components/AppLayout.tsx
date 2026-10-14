@@ -134,7 +134,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
 
 function EditorialBreadcrumb() {
   const { pathname } = useLocation();
-  const { projects } = useGlobalProject();
+  const { data: projects = [] } = useGlobalProjectList();
   const parts = pathname.split("/").filter(Boolean);
   const first = parts[0] || "hoje";
   const compound = parts.slice(0, 2).join("/");

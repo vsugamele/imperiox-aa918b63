@@ -49,7 +49,6 @@ export function useGlobalProjectList() {
 
 export function useGlobalProject() {
   const [projectId, setProjectIdState] = useState<string | null>(readStoredGlobalProject);
-  const { data: projects = [] } = useGlobalProjectList();
 
   useEffect(() => {
     const onCustom = (e: Event) => {
@@ -84,6 +83,5 @@ export function useGlobalProject() {
   return {
     projectId,
     setProjectId,
-    projects,
   };
 }
