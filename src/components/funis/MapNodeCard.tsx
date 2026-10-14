@@ -12,6 +12,7 @@ import { extractAgentData } from "@/components/funis/map-agent-data";
 import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNodeData } from "@/components/funis/map-node-model";
 import { StepOwnerChips } from "@/components/funis/StepOwnerChips";
 import { classifyNodeTemperature } from "@shared/funnel-diagnostics";
+import { MapNodeVisualPreview, resolveVisualPreviewForNode } from "@/components/funis/MapNodeVisualPreview";
 
 const EXECUTOR_ICON: Record<ExecutorGroup, typeof Bot> = { ia: Bot, automatico: Zap, ferramenta: Wrench, humano: User };
 
@@ -133,6 +134,15 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
   const tempInfo = !isImageNode ? classifyNodeTemperature(data.kind, data.stage_role, data.label) : null;
   const marketingAction = !isImageNode ? getMarketingActionForKind(data.kind, data.label) : null;
 
+  // Halo térmico quando o Modo Mapa de Calor está ativo
+  const heatmapHaloCls = data.heatmapMode
+    ? kpi?.tone === "bad" || overdue
+      ? "ring-2 ring-rose-500 border-rose-500/80 shadow-[0_0_32px_rgba(244,63,94,0.45)]"
+      : kpi?.tone === "good" || agent.status === "done"
+      ? "ring-2 ring-emerald-500/80 border-emerald-500/70 shadow-[0_0_28px_rgba(16,185,129,0.35)]"
+      : "ring-1 ring-amber-500/70 border-amber-500/60 shadow-[0_0_24px_rgba(245,158,11,0.28)]"
+    : "";
+
   return (
     <div
       className={cn(
@@ -143,6 +153,7 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
         isSimulated && "ring-4 ring-warning scale-105 z-30 animate-pulse",
         kpi?.tone === "bad" && "border-destructive/60 shadow-[0_0_16px_hsl(var(--destructive)/0.12)]",
         kpi?.tone === "good" && "border-success/40",
+        heatmapHaloCls,
       )}
       style={hasCustomSize ? { width: "100%", height: "100%" } : hasCustomWidth ? { width: "100%" } : { minWidth: sizeCfg.min, maxWidth: sizeCfg.max }}
     >
@@ -187,6 +198,19 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
 
       {/* Ações rápidas no hover */}
       <div className="nodrag absolute right-1.5 top-2 z-10 flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+        {data.onAutoAssignImage && !data.image_url && (
+          <button
+            className="rounded p-1 text-primary hover:bg-primary/15"
+            onClick={(e) => {
+              e.stopPropagation();
+              const resolved = resolveVisualPreviewForNode(data.kind, data.label, data.url);
+              data.onAutoAssignImage?.(data.id, resolved.liveScreenshotUrl || resolved.assetPath);
+            }}
+            title="Fixar imagem/print visual nesta etapa"
+          >
+            <ImageIcon className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={(e) => {
@@ -247,8 +271,8 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
           {data.stage_role && <p className="mt-0.5 text-xs text-primary">{data.stage_role}</p>}
         </div>
 
-        {/* Print da página / imagem */}
-        {data.image_url && (
+        {/* Print da página / imagem ou Preview Visual Automático da Etapa */}
+        {data.image_url ? (
           <button
             type="button"
             className={cn("nodrag relative overflow-hidden rounded-md border border-border bg-muted/40 text-left", isImageNode && hasCustomSize ? "flex-1 min-h-0" : "shrink-0")}
@@ -268,7 +292,19 @@ export function MapNodeCard({ data, selected }: { data: MapNodeData; selected?: 
               </span>
             )}
           </button>
-        )}
+        ) : !isImageNode ? (
+          <div className="nodrag">
+            <MapNodeVisualPreview
+              kind={data.kind}
+              label={data.label}
+              url={data.url}
+              kpiText={kpi?.primary}
+              kpiTone={kpi?.tone === "good" ? "good" : kpi?.tone === "bad" ? "bad" : "neutral"}
+              compact
+              onOpenLightbox={openImage}
+            />
+          </div>
+        ) : null}
 
         {summary && <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{summary}</p>}
 

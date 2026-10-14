@@ -56,6 +56,7 @@ import { StepPrints } from "@/components/funis/StepPrints";
 import { StepScaleLadder } from "@/components/funis/StepScaleLadder";
 import { scaleStepPhase } from "@shared/scale-ladder";
 import { SIZE_PRESETS, matchesLens, type ChecklistItem, type MapNode, type MapNodeData } from "@/components/funis/map-node-model";
+import { resolveVisualPreviewForNode } from "@/components/funis/MapNodeVisualPreview";
 export type { AgentExecutionData } from "@/components/funis/map-agent-data";
 import { ReferenciasPicker } from "@/components/funis/ReferenciasPicker";
 import { ImageLightbox } from "@/components/shared/ImageLightbox";
@@ -506,7 +507,9 @@ function InnerMap({
     }
   }, [activeScenario, currentStepIndex, rawNodes, setCenter]);
 
-  // Sync activeLens and simulation state down to nodes and edges
+  const [heatmapMode, setHeatmapMode] = useState(false);
+
+  // Sync activeLens, heatmapMode and simulation state down to nodes and edges
   useEffect(() => {
     const currentStep = activeScenario?.steps[currentStepIndex];
     setNodes(nds => nds.map(n => {
@@ -520,10 +523,11 @@ function InnerMap({
           ...n.data,
           activeLens,
           isSimulatedActive,
+          heatmapMode,
         }
       };
     }));
-  }, [activeLens, isSimulating, currentStepIndex, activeScenario]);
+  }, [activeLens, isSimulating, currentStepIndex, activeScenario, heatmapMode]);
 
   useEffect(() => {
     const currentStep = activeScenario?.steps[currentStepIndex];
@@ -667,6 +671,40 @@ function InnerMap({
     setCopyDialog({ nodeId, label: n.label, kind: n.kind, projectId: pid });
   }, []);
 
+  const autoAssignNodeImage = useCallback(async (nodeId: string, imageUrl: string) => {
+    setRawNodes(list => list.map(r => r.id === nodeId ? { ...r, image_url: imageUrl } : r));
+    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, image_url: imageUrl } } : n));
+    const { error } = await supabase.from("imphq_company_map_nodes").update({ image_url: imageUrl }).eq("id", nodeId);
+    if (error) {
+      toast.error("Não foi possível fixar a imagem no nó.");
+      return;
+    }
+    toast.success("Imagem visual fixada nesta etapa!");
+  }, []);
+
+  const autoPopulateAllMapVisuals = useCallback(async () => {
+    const candidates = rawNodesRef.current.filter(
+      (n) => n.kind !== "sticky" && n.kind !== "grupo" && n.kind !== "texto" && n.kind !== "imagem" && !n.image_url
+    );
+    if (candidates.length === 0) {
+      toast.info("Todas as etapas já possuem imagens ou miniaturas visuais ativas.");
+      return;
+    }
+    const updates = candidates.map((n) => {
+      const preview = resolveVisualPreviewForNode(n.kind, n.label, n.url);
+      return { id: n.id, image_url: preview.imageUrl };
+    });
+    const updateMap = new Map(updates.map((u) => [u.id, u.image_url]));
+    setRawNodes((list) => list.map((r) => (updateMap.has(r.id) ? { ...r, image_url: updateMap.get(r.id)! } : r)));
+    setNodes((nds) =>
+      nds.map((n) => (updateMap.has(n.id) ? { ...n, data: { ...n.data, image_url: updateMap.get(n.id)! } } : n))
+    );
+    await Promise.all(
+      updates.map((u) => supabase.from("imphq_company_map_nodes").update({ image_url: u.image_url }).eq("id", u.id))
+    );
+    toast.success(`${updates.length} etapa(s) populadas automaticamente com imagens visuais e prints!`);
+  }, []);
+
 
   // load nodes/edges/annotations — stable (deps são refs), sem loop de recarga
   const loadMap = useCallback(async (id: string) => {
@@ -710,7 +748,7 @@ function InnerMap({
               ? { width: n.width, height: n.height, style: { width: n.width, height: n.height } }
               : { width: n.width, style: { width: n.width } }
             : {}),
-          data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, waInfo },
+          data: { ...n, onToggleItem: toggleChecklistItem, onDuplicate: duplicateNode, onDelete: deleteNodeById, onGenerateCopy: openCopyDialog, onAutoAssignImage: autoAssignNodeImage, waInfo },
         } as Node;
       });
       return [...baseNodes, ...annNodes];
@@ -729,7 +767,7 @@ function InnerMap({
         ...edgeVisual(sNode?.label || "", tNode?.label || "", e.style === "dashed", false),
       };
     }));
-  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, setAnnotations]);
+  }, [toggleChecklistItem, duplicateNode, deleteNodeById, openCopyDialog, autoAssignNodeImage, setAnnotations]);
 
   loadMapRef.current = loadMap;
 
@@ -2266,6 +2304,9 @@ function InnerMap({
         onPrevStep={handlePrevStep}
         onOpenGrowthCopilot={() => setGrowthCopilotOpen(true)}
         onOpenInfraTools={() => setInfraToolsOpen(true)}
+        heatmapMode={heatmapMode}
+        onToggleHeatmap={() => setHeatmapMode((v) => !v)}
+        onAutoPopulateVisuals={autoPopulateAllMapVisuals}
         nodeCount={rawNodes.length}
       />}
 

@@ -36,10 +36,13 @@ export interface MapNodeData extends MapNode {
   onDuplicate?: (id: string) => void;
   onDelete?: (id: string) => void;
   onToggleItem?: (id: string, itemId: string, done: boolean) => void;
+  onAutoAssignImage?: (id: string, imageUrl: string) => void;
   waInfo?: { phone?: string; instance?: string; provider: string; conversations?: number } | null;
   liveStats?: NodeStats | null;
   activeLens?: TacticalLens;
   isSimulatedActive?: boolean;
+  /** Modo Mapa de Calor Térmico no Canvas 2D */
+  heatmapMode?: boolean;
   /** Posição da etapa na ordem do fluxo (seguindo as setas); ausente em cartões fora do fluxo. */
   stepNumber?: number | null;
 }

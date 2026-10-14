@@ -42,6 +42,8 @@ import { FunnelSafeScalePanel } from "@/components/funis/FunnelSafeScalePanel";
 import { FunnelCxRadar } from "@/components/funis/FunnelCxRadar";
 import { FunnelImpactMemory } from "@/components/funis/FunnelImpactMemory";
 import { StageDrillDownDrawer } from "@/components/funis/StageDrillDownDrawer";
+import { FunnelSankeyFlow } from "@/components/funis/FunnelSankeyFlow";
+import { MapNodeVisualPreview } from "@/components/funis/MapNodeVisualPreview";
 
 interface ProjetoFunnelCockpitProps {
   projectId: string;
@@ -431,6 +433,12 @@ export function ProjetoFunnelCockpit({
               </span>
             </div>
 
+            {/* Diagrama Visual de Fluxo Sankey / Rio de Conversão & Sangria */}
+            <FunnelSankeyFlow
+              funnel={funnel}
+              onSelectStage={(id) => setInspectStageId(id)}
+            />
+
             {/* Grid Horizontal Responsivo com os 6 Nós do Funil */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {/* ETAPA 1: ANÚNCIO */}
@@ -463,6 +471,7 @@ export function ProjetoFunnelCockpit({
               <StageNodeCard
                 stageId="pagina"
                 title="2. Página"
+                stageUrl={funnel.paginas?.[0]?.url ?? null}
                 status={pagina?.status ?? "sem_dado"}
                 primaryValue={fmtInt(pagina?.metrics.find((m) => m.label === "Visitas")?.value)}
                 primaryLabel="Visitas"
@@ -681,6 +690,7 @@ export function ProjetoFunnelCockpit({
 interface StageNodeCardProps {
   stageId: StageId;
   title: string;
+  stageUrl?: string | null;
   status: StageStatus;
   primaryValue: string;
   primaryLabel: string;
@@ -701,6 +711,7 @@ interface StageNodeCardProps {
 function StageNodeCard({
   stageId,
   title,
+  stageUrl,
   status,
   primaryValue,
   primaryLabel,
@@ -726,9 +737,16 @@ function StageNodeCard({
           : "border-border/60 hover:border-border"
       )}
     >
-      {/* Top Header do Card */}
+      {/* Top Header do Card + Miniatura Visual da Etapa */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-1">
+        <MapNodeVisualPreview
+          kind={stageId}
+          label={title}
+          url={stageUrl}
+          compact
+          metricBadge={conversion?.value !== null && conversion?.value !== undefined ? `${conversion.label}: ${conversion.value.toFixed(1)}%` : null}
+        />
+        <div className="flex items-center justify-between gap-1 pt-0.5">
           <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
             <Icon className={cn("h-3 w-3", meta.color.split(" ")[0])} />
             {title}

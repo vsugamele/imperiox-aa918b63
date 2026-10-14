@@ -24,6 +24,8 @@ import { FunnelCxRadar } from "@/components/funis/FunnelCxRadar";
 import { FunnelImpactMemory } from "@/components/funis/FunnelImpactMemory";
 import { StageDrillDownDrawer } from "@/components/funis/StageDrillDownDrawer";
 import { FunnelRemediationModal } from "@/components/funis/FunnelRemediationModal";
+import { FunnelSankeyFlow } from "@/components/funis/FunnelSankeyFlow";
+import { MapNodeVisualPreview } from "@/components/funis/MapNodeVisualPreview";
 import type { FunnelDiagnosticItem } from "@shared/funnel-diagnostics";
 
 interface ProjectOption { id: string; name: string; category?: string | null }
@@ -202,11 +204,23 @@ export function FunnelLivePanel({ projects, initialProjectId }: { projects: Proj
             </motion.div>
           )}
 
+          {/* Diagrama Visual de Fluxo Sankey / Rio de Conversão & Sangria */}
+          <FunnelSankeyFlow
+            funnel={data}
+            onSelectStage={(id) => setInspectStageId(id)}
+          />
+
           <ol className="flex flex-col gap-2 xl:flex-row xl:items-stretch" aria-label="Etapas do funil">
             {data.etapas.map((e, i) => (
               <li key={e.id} className="flex flex-col items-stretch gap-2 xl:flex-1 xl:flex-row xl:items-center">
                 {i > 0 && <Connector stage={e} />}
-                <StageCard stage={e} index={i} isGargalo={data.gargalo === e.id} onClick={() => setInspectStageId(e.id)} />
+                <StageCard
+                  stage={e}
+                  index={i}
+                  isGargalo={data.gargalo === e.id}
+                  stageUrl={e.id === "pagina" ? data.paginas[0]?.url : null}
+                  onClick={() => setInspectStageId(e.id)}
+                />
               </li>
             ))}
           </ol>
@@ -355,7 +369,7 @@ function Connector({ stage }: { stage: Stage }) {
   );
 }
 
-function StageCard({ stage, index, isGargalo, onClick }: { stage: Stage; index: number; isGargalo: boolean; onClick?: () => void }) {
+function StageCard({ stage, index, isGargalo, stageUrl, onClick }: { stage: Stage; index: number; isGargalo: boolean; stageUrl?: string | null; onClick?: () => void }) {
   const Icon = STAGE_ICON[stage.id];
   const style = STATUS_STYLE[stage.status];
   const deltaPp = stage.conversao?.deltaPp ?? null;
@@ -372,6 +386,13 @@ function StageCard({ stage, index, isGargalo, onClick }: { stage: Stage; index: 
       )}
       aria-label={`Etapa ${stage.label}`}
     >
+      <MapNodeVisualPreview
+        kind={stage.id}
+        label={stage.label}
+        url={stageUrl}
+        compact
+        metricBadge={stage.conversao?.value !== null && stage.conversao?.value !== undefined ? `${stage.conversao.label}: ${stage.conversao.value}%` : null}
+      />
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Icon className="h-4 w-4 text-primary" /> {stage.label}</span>
         <span className={cn("rounded-full border px-1.5 py-px text-[10px] uppercase", isGargalo ? STATUS_STYLE.gargalo.pill : style.pill)}>

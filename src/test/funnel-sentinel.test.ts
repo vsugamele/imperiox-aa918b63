@@ -10,6 +10,7 @@ import {
   mapBottleneckToProjectTab,
 } from "@shared/funnel-sentinel";
 import { evaluateProjectExecutiveHealth } from "@/components/projeto/SemaforoProjetos";
+import { resolveVisualPreviewForNode } from "@/components/funis/MapNodeVisualPreview";
 import type { Tables } from "@/integrations/supabase/types";
 
 describe("Sentinela de Vazamento Proativo & Motores de Execução (funnel-sentinel)", () => {
@@ -284,6 +285,27 @@ describe("Sentinela de Vazamento Proativo & Motores de Execução (funnel-sentin
     expect(priority?.pillarId).toBe("infra");
     expect(priority?.tabValue).toBe("sites");
     expect(priority?.severity).toBe("critico");
+  });
+
+  it("Fase 4: resolve corretamente a imagem visual gerada ou print ao vivo para cada etapa do mapa", () => {
+    const adsPreview = resolveVisualPreviewForNode("anuncio", "Meta Ads Criativo P1");
+    expect(adsPreview.archetype).toBe("ads");
+    expect(adsPreview.fallbackUrl).toBe("/map-previews/stage-ads.png");
+    expect(adsPreview.isLiveScreenshot).toBe(false);
+
+    const vslLive = resolveVisualPreviewForNode("pagina", "VSL Principal", "https://linfaflow.com.br/vsl");
+    expect(vslLive.archetype).toBe("vsl");
+    expect(vslLive.fallbackUrl).toBe("/map-previews/stage-vsl.png");
+    expect(vslLive.isLiveScreenshot).toBe(true);
+    expect(vslLive.imageUrl).toContain("api.microlink.io");
+
+    const checkoutPreview = resolveVisualPreviewForNode("checkout", "Checkout Kiwify PIX");
+    expect(checkoutPreview.archetype).toBe("checkout");
+    expect(checkoutPreview.fallbackUrl).toBe("/map-previews/stage-checkout.png");
+
+    const waPreview = resolveVisualPreviewForNode("recuperacao", "WhatsApp IA Recuperação X1");
+    expect(waPreview.archetype).toBe("whatsapp");
+    expect(waPreview.fallbackUrl).toBe("/map-previews/stage-whatsapp.png");
   });
 });
 

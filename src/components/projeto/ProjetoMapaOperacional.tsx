@@ -31,6 +31,7 @@ import type { LucideIcon } from "lucide-react";
 import { jsonFields, jsonText, objectFields } from "@/lib/json-fields";
 import { ProjetoMcpDialog } from "./ProjetoMcpDialog";
 import { CompanyMapCanvas } from "@/components/funis/CompanyMapCanvas";
+import { MapNodeVisualPreview } from "@/components/funis/MapNodeVisualPreview";
 
 interface Props {
   projectId: string;
@@ -441,7 +442,23 @@ export function ProjetoMapaOperacional({ projectId, project, onNavigateTab, onRe
                   : "border-rose-500/30 hover:border-rose-500/60"
               }`}
             >
-              <CardHeader className="p-4 pb-3 space-y-2 border-b border-border">
+              <CardHeader className="p-4 pb-3 space-y-2.5 border-b border-border">
+                <MapNodeVisualPreview
+                  kind={
+                    node.id === "trafego"
+                      ? "anuncio"
+                      : node.id === "leads"
+                      ? "pagina"
+                      : node.id === "atendimento"
+                      ? "recuperacao"
+                      : node.id === "oferta"
+                      ? "checkout"
+                      : "recuperacao"
+                  }
+                  label={node.title}
+                  compact
+                  metricBadge={`${node.kpiLabel}: ${node.kpiValue}`}
+                />
                 <div className="flex items-center justify-between">
                   <div className={`p-2 rounded-xl border ${
                     isOperational

@@ -17,7 +17,10 @@ import {
   Wrench,
   Bot,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Image as ImageIcon,
+  Snowflake,
+  Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -172,6 +175,10 @@ interface Props {
   // Copilot Trigger
   onOpenGrowthCopilot: () => void;
   onOpenInfraTools: () => void;
+  // Visual Map Modes
+  heatmapMode?: boolean;
+  onToggleHeatmap?: () => void;
+  onAutoPopulateVisuals?: () => void;
   // Counts / Stats
   nodeCount: number;
   activeProjectName?: string;
@@ -189,6 +196,9 @@ export function CompanyMapTacticalBar({
   onPrevStep,
   onOpenGrowthCopilot,
   onOpenInfraTools,
+  heatmapMode = false,
+  onToggleHeatmap,
+  onAutoPopulateVisuals,
   nodeCount,
 }: Props) {
   const [isPlayingAuto, setIsPlayingAuto] = useState(false);
@@ -361,6 +371,38 @@ export function CompanyMapTacticalBar({
             </div>
           </div>
 
+          {/* Botões Visuais: Mapa de Calor + Popular Imagens 1 Clique */}
+          {onToggleHeatmap && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onToggleHeatmap}
+              className={cn(
+                "h-7 text-xs gap-1.5 font-semibold transition-all",
+                heatmapMode
+                  ? "bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-[0_0_14px_rgba(244,63,94,0.3)]"
+                  : "bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10"
+              )}
+              title="Ativar/desativar Mapa de Calor Financeiro e Raias de Temperatura nas etapas"
+            >
+              <Flame className={cn("h-3 w-3", heatmapMode ? "text-rose-400 fill-rose-400" : "text-orange-400")} />
+              <span className="hidden md:inline">Mapa de Calor</span>
+            </Button>
+          )}
+
+          {onAutoPopulateVisuals && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onAutoPopulateVisuals}
+              className="h-7 text-xs bg-cyan-500/10 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/20 font-semibold gap-1.5"
+              title="Preencher automaticamente imagens e prints visuais nas etapas do mapa"
+            >
+              <ImageIcon className="h-3 w-3 text-cyan-400" />
+              <span className="hidden md:inline">Popular Imagens</span>
+            </Button>
+          )}
+
           {/* Botão Simulador de Jornada */}
           {!isSimulating ? (
             <div className="flex items-center gap-1">
@@ -409,6 +451,40 @@ export function CompanyMapTacticalBar({
           </button>
         </div>
       </div>
+
+      {/* Raias Arquiteturais de Temperatura + Legenda Térmica quando Mapa de Calor está ativo */}
+      {heatmapMode && (
+        <div className="pointer-events-auto grid grid-cols-2 md:grid-cols-4 gap-2 bg-[#0A0B0D]/90 backdrop-blur-md border border-white/10 rounded-xl p-2 shadow-xl animate-in fade-in duration-200">
+          <div className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-sky-300">
+              <Snowflake className="h-3.5 w-3.5 text-sky-400" />
+              1. TOPO · AQUISIÇÃO
+            </span>
+            <span className="text-[10px] font-mono text-sky-200/80">Ads · Reels · Orgânico</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+              <Sun className="h-3.5 w-3.5 text-amber-400" />
+              2. MEIO · RETENÇÃO
+            </span>
+            <span className="text-[10px] font-mono text-amber-200/80">VSL · Advertorial · Quiz</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-orange-500/30 bg-orange-500/10 px-2.5 py-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-orange-300">
+              <Flame className="h-3.5 w-3.5 text-orange-400" />
+              3. FUNDO · CHECKOUT
+            </span>
+            <span className="text-[10px] font-mono text-orange-200/80">PIX · Cartão · Garantia</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+              4. PÓS-VENDA · LTV
+            </span>
+            <span className="text-[10px] font-mono text-emerald-200/80">Bump · Upsell · X1 IA</span>
+          </div>
+        </div>
+      )}
 
       {/* Caixa Flutuante do Simulador Interativo ("Play Flow") */}
       {isSimulating && activeScenario && currentStep && (
