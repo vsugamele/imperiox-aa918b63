@@ -2569,7 +2569,7 @@ function ReferenciasDesktop() {
               <Layers className="h-5 w-5 text-amber-400" />
               <span>Variações desta Oferta / Criativo</span>
               <Badge variant="outline" className="ml-auto text-xs bg-amber-500/10 text-amber-400 border-amber-500/30">
-                {clusterModal?.count} páginas veiculando
+                {clusterModal?.count ?? clusterModal?.totalPages ?? 1} páginas veiculando
               </Badge>
             </DialogTitle>
           </DialogHeader>
@@ -2607,10 +2607,10 @@ function ReferenciasDesktop() {
               <div>
                 <h4 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Megaphone className="h-3.5 w-3.5 text-primary" />
-                  Fanpages / Anúncios Ativos ({clusterModal.allRefs.length})
+                  Fanpages / Anúncios Ativos ({(clusterModal.allRefs ?? clusterModal.variations ?? []).length})
                 </h4>
                 <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                  {clusterModal.allRefs.map((item, idx) => {
+                  {(clusterModal.allRefs ?? clusterModal.variations ?? []).map((item, idx) => {
                     const itemDetails = parseRefDetails(item);
                     return (
                       <div
@@ -2622,7 +2622,7 @@ function ReferenciasDesktop() {
                             <span className="font-medium text-foreground truncate">
                               {itemDetails.paginaNome || "Página Anunciante"}
                             </span>
-                            {itemDetails.statusAtivo && (
+                            {(itemDetails.statusAtivo ?? itemDetails.ativo) && (
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" title="Ativo" />
                             )}
                             {itemDetails.diasNoAr > 0 && (

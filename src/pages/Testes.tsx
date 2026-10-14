@@ -50,7 +50,7 @@ export default function Testes() {
   const { data: allOrders = [], isLoading, error } = useTestOrders();
   const { projectId: globalProjectId } = useGlobalProject();
   const orders = useMemo(
-    () => (globalProjectId === "all" ? allOrders : allOrders.filter((o) => o.project_id === globalProjectId)),
+    () => (!globalProjectId || globalProjectId === "all" ? allOrders : allOrders.filter((o) => o.project_id === globalProjectId)),
     [allOrders, globalProjectId]
   );
   const { data: batches = [] } = useVariationBatches();

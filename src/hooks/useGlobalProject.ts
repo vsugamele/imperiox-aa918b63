@@ -12,12 +12,17 @@ export interface GlobalProjectOption {
   category: string | null;
 }
 
-function readStoredGlobalProject(): string {
-  if (typeof window === "undefined") return "all";
+function normalizeStoredProject(raw: string | null | undefined): string | null {
+  if (!raw || raw === "all" || raw === "__all__") return null;
+  return raw;
+}
+
+function readStoredGlobalProject(): string | null {
+  if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem(GLOBAL_PROJECT_KEY) || "all";
+    return normalizeStoredProject(localStorage.getItem(GLOBAL_PROJECT_KEY));
   } catch {
-    return "all";
+    return null;
   }
 }
 
@@ -43,16 +48,17 @@ export function useGlobalProjectList() {
 }
 
 export function useGlobalProject() {
-  const [projectId, setProjectIdState] = useState<string>(readStoredGlobalProject);
+  const [projectId, setProjectIdState] = useState<string | null>(readStoredGlobalProject);
+  const { data: projects = [] } = useGlobalProjectList();
 
   useEffect(() => {
     const onCustom = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      if (typeof detail === "string") setProjectIdState(detail);
+      const detail = (e as CustomEvent<string | null>).detail;
+      setProjectIdState(normalizeStoredProject(detail));
     };
     const onStorage = (e: StorageEvent) => {
       if (e.key === GLOBAL_PROJECT_KEY) {
-        setProjectIdState(e.newValue || "all");
+        setProjectIdState(normalizeStoredProject(e.newValue));
       }
     };
     window.addEventListener(GLOBAL_PROJECT_EVENT, onCustom);
@@ -63,19 +69,21 @@ export function useGlobalProject() {
     };
   }, []);
 
-  const setProjectId = useCallback((nextId: string) => {
-    const normalized = nextId || "all";
+  const setProjectId = useCallback((nextId: string | null) => {
+    const normalized = normalizeStoredProject(nextId);
     setProjectIdState(normalized);
+    const stored = normalized ?? "all";
     try {
-      localStorage.setItem(GLOBAL_PROJECT_KEY, normalized);
+      localStorage.setItem(GLOBAL_PROJECT_KEY, stored);
     } catch {
       /* ignore storage errors */
     }
-    window.dispatchEvent(new CustomEvent<string>(GLOBAL_PROJECT_EVENT, { detail: normalized }));
+    window.dispatchEvent(new CustomEvent<string | null>(GLOBAL_PROJECT_EVENT, { detail: normalized }));
   }, []);
 
   return {
     projectId,
     setProjectId,
+    projects,
   };
 }

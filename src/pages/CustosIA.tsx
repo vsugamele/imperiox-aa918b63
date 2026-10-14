@@ -156,13 +156,7 @@ export default function CustosIA() {
     queryKey: ["circuit-breaker-config"],
     staleTime: 15_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("imphq_ai_circuit_breaker")
-        .select("*")
-        .eq("id", "global")
-        .maybeSingle();
-      if (error) throw error;
-      return (data || {
+      const fallback: CircuitBreakerConfig = {
         id: "global",
         daily_budget_usd: 25,
         hourly_budget_usd: 10,
@@ -172,7 +166,26 @@ export default function CustosIA() {
         tripped_at: null,
         enabled: true,
         updated_at: new Date().toISOString(),
-      }) as CircuitBreakerConfig;
+      };
+      try {
+        const { data, error } = await (supabase as unknown as {
+          from: (table: string) => {
+            select: (cols: string) => {
+              eq: (col: string, val: string) => {
+                maybeSingle: () => Promise<{ data: Partial<CircuitBreakerConfig> | null; error: unknown }>;
+              };
+            };
+          };
+        })
+          .from("imphq_ai_circuit_breaker")
+          .select("*")
+          .eq("id", "global")
+          .maybeSingle();
+        if (error || !data) return fallback;
+        return { ...fallback, ...data };
+      } catch {
+        return fallback;
+      }
     },
   });
 

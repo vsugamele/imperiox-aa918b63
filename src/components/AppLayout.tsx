@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useGlobalProject } from "@/hooks/useGlobalProject";
+import { useGlobalProject, useGlobalProjectList } from "@/hooks/useGlobalProject";
 import { Check, ChevronDown, ExternalLink, FolderKanban, Sparkles, X } from "lucide-react";
 
 
@@ -171,7 +171,7 @@ function EditorialBreadcrumb() {
 function GlobalProjectSwitcher() {
   const { projectId, setProjectId } = useGlobalProject();
   const { data: projects = [] } = useGlobalProjectList();
-  const activeProject = projectId === "all" ? null : projects.find((p) => p.id === projectId) ?? null;
+  const activeProject = !projectId || projectId === "all" ? null : projects.find((p) => p.id === projectId) ?? null;
 
   return (
     <div className="hidden sm:flex items-center gap-1">
@@ -199,11 +199,11 @@ function GlobalProjectSwitcher() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => setProjectId("all")}
+            onSelect={() => setProjectId(null)}
             className="flex items-center justify-between text-xs cursor-pointer"
           >
             <span>Todos os projetos</span>
-            {projectId === "all" && <Check className="h-3.5 w-3.5 text-primary" />}
+            {(!projectId || projectId === "all") && <Check className="h-3.5 w-3.5 text-primary" />}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {projects.map((p) => (

@@ -118,7 +118,7 @@ function FilaUnificadaTab({ onOpenWhatsApp }: { onOpenWhatsApp: (phone: string) 
       .order("score", { ascending: false })
       .limit(50);
 
-    if (globalProjectId !== "all") {
+    if (globalProjectId && globalProjectId !== "all") {
       convQuery = convQuery.eq("project_id", globalProjectId);
       leadQuery = leadQuery.eq("project_id", globalProjectId);
     }
@@ -327,7 +327,7 @@ function HotLeadsTab({ onOpenWhatsApp }: { onOpenWhatsApp: (phone: string) => vo
       .order("score", { ascending: false })
       .limit(50);
 
-    if (globalProjectId !== "all") {
+    if (globalProjectId && globalProjectId !== "all") {
       q = q.eq("project_id", globalProjectId);
     }
 

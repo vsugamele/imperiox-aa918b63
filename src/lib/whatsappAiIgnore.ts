@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface AiIgnoreSession {
   id?: string;
@@ -98,7 +99,7 @@ export async function toggleChatAiIgnore({
         ai_paused: ignore,
         ai_paused_until: ignore ? "2099-01-01T00:00:00.000Z" : null,
         ai_debounce_until: null,
-        metadata: meta,
+        metadata: meta as Json,
       })
       .eq("id", conversationId);
 
@@ -109,13 +110,15 @@ export async function toggleChatAiIgnore({
 
     // 2. Discard any pending drafts if ignoring
     if (ignore) {
-      await supabase
-        .from("imphq_wa_ai_drafts")
-        .delete()
-        .eq("conversation_id", conversationId)
-        .eq("status", "pending")
-        .then(() => {})
-        .catch(() => {});
+      try {
+        await supabase
+          .from("imphq_wa_ai_drafts")
+          .delete()
+          .eq("conversation_id", conversationId)
+          .eq("status", "pending");
+      } catch {
+        /* ignore draft cleanup failure */
+      }
     }
 
     // 3. Sync with imphq_wa_ai_config (Configurações da IA - Contatos Ignorados)

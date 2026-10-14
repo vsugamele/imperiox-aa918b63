@@ -89,7 +89,7 @@ export default function Aprovar() {
   const { data: allItems = [], isLoading, error } = useApprovals();
   const { projectId: globalProjectId } = useGlobalProject();
   const items = useMemo(
-    () => (globalProjectId === "all" ? allItems : allItems.filter((i) => !i.projectId || i.projectId === globalProjectId)),
+    () => (!globalProjectId || globalProjectId === "all" ? allItems : allItems.filter((i) => !i.projectId || i.projectId === globalProjectId)),
     [allItems, globalProjectId]
   );
   const { data: targets } = useProjectsAndMaps();

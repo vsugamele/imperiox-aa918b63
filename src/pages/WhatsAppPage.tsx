@@ -1,5 +1,5 @@
 import { record } from "@/lib/funis-data";
-import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
+import type { Json, Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { errorMessage } from "@/lib/error-message";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -65,7 +65,10 @@ const TAB_LABELS: Record<string, string> = {
   hub: "Hub Local",
 };
 
-type WaSession = Pick<Tables<"imphq_wa_conversations">, "id" | "contact_name" | "phone" | "session" | "project_id" | "status" | "message_count" | "metadata" | "created_at" | "provider_id" | "last_message" | "updated_at" | "last_message_at" | "last_read_at" | "avatar_url" | "unread_count" | "last_message_direction" | "jid_suffix" | "ai_last_reply_at" | "ai_lock_until" | "ai_paused_until" | "assigned_to" | "snoozed_until" | "handoff_at" | "color_override">;
+type WaSession = Pick<Tables<"imphq_wa_conversations">, "id" | "contact_name" | "phone" | "session" | "project_id" | "status" | "message_count" | "metadata" | "created_at" | "provider_id" | "last_message" | "updated_at" | "last_message_at" | "last_read_at" | "avatar_url" | "unread_count" | "last_message_direction" | "jid_suffix" | "ai_last_reply_at" | "ai_lock_until" | "ai_paused_until" | "assigned_to" | "snoozed_until" | "handoff_at" | "color_override"> & {
+  ia_ativa?: boolean | null;
+  ai_paused?: boolean | null;
+};
 type WaProvider = Pick<Tables<"imphq_wa_providers">, "id" | "display_name" | "instance_name" | "provider" | "api_url" | "is_active" | "project_id" | "webhook_verify_token" | "waba_id" | "phone_number_id" | "health_alerts_enabled" | "health_alerts_muted_until" | "twilio_from" | "created_at" | "ai_enabled" | "status">;
 
 let waRefCache: {
@@ -319,8 +322,8 @@ export default function WhatsApp() {
     }
 
     const reasonCfg = getArchiveReasonConfig(reason);
-    const updatedMeta = {
-      ...(typeof target.metadata === "object" && target.metadata ? (target.metadata as Record<string, unknown>) : {}),
+    const updatedMeta: Json = {
+      ...(typeof target.metadata === "object" && target.metadata ? (target.metadata as Record<string, Json | undefined>) : {}),
       archived: true,
       archive_reason: reason,
       archived_at: new Date().toISOString(),
@@ -359,8 +362,8 @@ export default function WhatsApp() {
       return;
     }
 
-    const currentMeta = typeof session.metadata === "object" && session.metadata
-      ? { ...(session.metadata as Record<string, unknown>) }
+    const currentMeta: Record<string, Json | undefined> = typeof session.metadata === "object" && session.metadata
+      ? { ...(session.metadata as Record<string, Json | undefined>) }
       : {};
 
     if (ignore) {
@@ -376,7 +379,7 @@ export default function WhatsApp() {
       ia_ativa: !ignore,
       ai_paused: ignore,
       ai_paused_until: ignore ? "2099-01-01T00:00:00.000Z" : null,
-      metadata: currentMeta,
+      metadata: currentMeta as Json,
     } : s));
 
     setSelectedSession(prev => prev && prev.id === session.id ? {
@@ -384,7 +387,7 @@ export default function WhatsApp() {
       ia_ativa: !ignore,
       ai_paused: ignore,
       ai_paused_until: ignore ? "2099-01-01T00:00:00.000Z" : null,
-      metadata: currentMeta,
+      metadata: currentMeta as Json,
     } : prev);
 
     if (ignore) {
@@ -409,11 +412,11 @@ export default function WhatsApp() {
       toast.error("Erro ao desarquivar conversa.");
       return;
     }
-    const currentMeta = typeof target.metadata === "object" && target.metadata ? { ...(target.metadata as Record<string, unknown>) } : {};
+    const currentMeta: Record<string, Json | undefined> = typeof target.metadata === "object" && target.metadata ? { ...(target.metadata as Record<string, Json | undefined>) } : {};
     delete currentMeta.archived;
     delete currentMeta.archive_reason;
     delete currentMeta.archived_at;
-    const updatedMeta = currentMeta;
+    const updatedMeta = currentMeta as Json;
     setSessions(prev => prev.map(s => s.id === id ? { ...s, status: "active", metadata: updatedMeta } : s));
     setSelectedSession(prev => prev && prev.id === id ? { ...prev, status: "active", metadata: updatedMeta } : prev);
     toast.success("Conversa restaurada para a caixa principal!");

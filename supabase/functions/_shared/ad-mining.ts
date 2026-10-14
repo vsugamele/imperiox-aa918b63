@@ -31,6 +31,7 @@ export interface MinedAd {
   video_url: string | null;
   preview_url: string | null;
   biblioteca_url: string;
+  nicho_sugerido?: string;
 }
 
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {});
@@ -127,6 +128,7 @@ export interface RefDetails {
   diasNoAr: number;
   dataInicio?: string | null;
   ativo: boolean;
+  statusAtivo: boolean;
   variacoes: number;
   bibliotecaUrl?: string | null;
 
@@ -240,6 +242,7 @@ export function parseRefDetails(ref: any): RefDetails {
     diasNoAr,
     dataInicio,
     ativo,
+    statusAtivo: ativo,
     variacoes,
     bibliotecaUrl,
     headline,
@@ -265,7 +268,9 @@ export interface GroupedRefCluster {
   mainRef: any;
   details: RefDetails;
   variations: any[];
+  allRefs: any[];
   totalPages: number;
+  count: number;
   uniquePages: string[];
   maxDiasNoAr: number;
   isCluster: boolean;
@@ -316,7 +321,9 @@ export function groupReferencesByOffer(refs: any[]): GroupedRefCluster[] {
         variacoes: items.length,
       },
       variations: items,
+      allRefs: items,
       totalPages: uniquePages.length,
+      count: uniquePages.length,
       uniquePages,
       maxDiasNoAr,
       isCluster: items.length > 1,
