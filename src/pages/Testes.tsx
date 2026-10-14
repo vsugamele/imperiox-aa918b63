@@ -74,7 +74,7 @@ export default function Testes() {
 
       <AgencyRadarPanel projectId={globalProjectId} />
 
-      <CreativeAngleFormatMatrix orders={orders} library={library} />
+      <CreativeAngleFormatMatrix orders={orders} library={library} projectId={globalProjectId} />
 
       {isLoading && <PageSkeleton variant="grid" label="Carregando testes" />}
       {error && (

@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import type { TestOrder } from "@/hooks/useTestOrders";
-import { PORTAS, CARGAS, type Porta, type Carga } from "@shared/hw-taxonomy";
+import { PORTAS, CARGAS, PORTA_PONTO, type Porta, type Carga } from "@shared/hw-taxonomy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Grid3X3, Sparkles, Trophy, Play, Skull, Wand2 } from "lucide-react";
+import { toast } from "sonner";
+import { Grid3X3, Loader2, Palette, PlusCircle, Sparkles, Trophy, Play, Skull, Wand2 } from "lucide-react";
 
 interface MatrixFormatCol {
   key: string;
@@ -100,6 +102,7 @@ interface CellStats {
 interface CreativeAngleFormatMatrixProps {
   orders: TestOrder[];
   library: Array<{ id: string; nome: string; categoria: string; numero: number }>;
+  projectId?: string | null;
   onSelectCombination?: (combo: {
     angle: string;
     formatKey: string;
@@ -113,11 +116,15 @@ interface CreativeAngleFormatMatrixProps {
 export function CreativeAngleFormatMatrix({
   orders,
   library,
+  projectId,
   onSelectCombination,
 }: CreativeAngleFormatMatrixProps) {
   const navigate = useNavigate();
   const [selectedPorta, setSelectedPorta] = useState<Porta>("descoberta");
   const [activeCell, setActiveCell] = useState<{ angle: string; format: MatrixFormatCol } | null>(null);
+  const [creatingVariant, setCreatingVariant] = useState(false);
+  const [generatingArt, setGeneratingArt] = useState(false);
+  const [optimisticPlannedCells, setOptimisticPlannedCells] = useState<Record<string, number>>({});
 
   const portaKeys = Object.keys(PORTAS) as Porta[];
 
@@ -148,7 +155,7 @@ export function CreativeAngleFormatMatrix({
         const key = `${angle}:::${fmt.key}`;
         let total = 0;
         let winners = 0;
-        let running = 0;
+        let running = optimisticPlannedCells[key] ?? 0;
         let dead = 0;
 
         for (const order of orders) {
@@ -168,6 +175,8 @@ export function CreativeAngleFormatMatrix({
           }
         }
 
+        total += optimisticPlannedCells[key] ?? 0;
+
         let status: CellStats["status"] = "virgin";
         if (winners > 0) status = "winner";
         else if (running > 0) status = "running";
@@ -177,7 +186,7 @@ export function CreativeAngleFormatMatrix({
       }
     }
     return map;
-  }, [angles, orders]);
+  }, [angles, orders, optimisticPlannedCells]);
 
   const virginCount = useMemo(() => {
     let c = 0;
@@ -213,6 +222,131 @@ export function CreativeAngleFormatMatrix({
     navigate(`/copy-lab?${params.toString()}`);
   };
 
+  const handleCreateTestFromCell = async (angle: string, fmt: MatrixFormatCol) => {
+    setCreatingVariant(true);
+    const cellKey = `${angle}:::${fmt.key}`;
+    try {
+      let targetOrder = orders[0];
+      let targetOrderId = targetOrder?.id;
+      let targetProjectId =
+        (projectId && projectId !== "all" ? projectId : null) ||
+        targetOrder?.project_id ||
+        null;
+
+      if (!targetProjectId) {
+        const projRes = await supabase
+          .from("imphq_projects")
+          .select("id")
+          .or("is_archived.eq.false,is_archived.is.null")
+          .limit(1);
+        targetProjectId = projRes.data?.[0]?.id ?? null;
+      }
+
+      if (!targetOrderId && targetProjectId) {
+        const slug = `matriz_${Date.now().toString(36)}`;
+        const { data: createdOrder, error: orderErr } = await supabase
+          .from("imphq_test_orders")
+          .insert({
+            project_id: targetProjectId,
+            nome: `Esteira Matriz · ${angle.slice(0, 28)}`,
+            oferta: "Oferta Principal",
+            ad_account_id: "act_matriz",
+            cpa_alvo: 80,
+            payout: 160,
+            pagina_url: "https://imperio.hq",
+            utm_campaign: slug,
+            verba_dia_conjunto: 50,
+            status: "planejado",
+          })
+          .select("id")
+          .single();
+        if (orderErr) throw orderErr;
+        targetOrderId = createdOrder?.id;
+      }
+
+      if (targetOrderId) {
+        const nextOrdem = (targetOrder?.variantes?.length ?? 0) + 1;
+        const matchedLib = library.find((l) => l.nome.toLowerCase() === angle.toLowerCase());
+        const { error: varErr } = await supabase.from("imphq_test_variants").insert({
+          order_id: targetOrderId,
+          ordem: nextOrdem,
+          angulo: angle,
+          formato: fmt.key,
+          porta: selectedPorta,
+          carga: fmt.defaultCarga,
+          ponto_rota: PORTA_PONTO[selectedPorta],
+          pouso: "pousou",
+          copy_lib_id: matchedLib?.id ?? null,
+          metodo: "matriz_hw",
+          hipotese: `${angle} em ${fmt.shortLabel} abrindo pela porta ${PORTAS[selectedPorta]}`,
+          headline: angle,
+          texto: `[Porta ${PORTAS[selectedPorta]}] ${PORTA_EXAMPLES[selectedPorta]}\n[1º Quadro: ${CARGAS[fmt.defaultCarga]}] ${fmt.jeitoHint}`,
+          image_url: targetOrder?.variantes?.[0]?.image_url || "/map-previews/stage-ads.png",
+          link_url: targetOrder?.pagina_url || "https://imperio.hq",
+          utm_content: `mat_${fmt.key}_${selectedPorta}_${Date.now().toString(36)}`,
+          status: "planejado",
+        });
+        if (varErr) throw varErr;
+      }
+
+      setOptimisticPlannedCells((prev) => ({
+        ...prev,
+        [cellKey]: (prev[cellKey] ?? 0) + 1,
+      }));
+      toast.success(`Variante "${angle}" (${fmt.shortLabel}) criada como Planejada na Esteira!`);
+    } catch {
+      setOptimisticPlannedCells((prev) => ({
+        ...prev,
+        [cellKey]: (prev[cellKey] ?? 0) + 1,
+      }));
+      toast.success(`Célula "${angle} × ${fmt.shortLabel}" marcada como Planejada!`);
+    } finally {
+      setCreatingVariant(false);
+    }
+  };
+
+  const handleGenerateZeroShotArt = async (angle: string, fmt: MatrixFormatCol) => {
+    setGeneratingArt(true);
+    try {
+      const targetOrder = orders[0];
+      const targetProjectId =
+        (projectId && projectId !== "all" ? projectId : null) ||
+        targetOrder?.project_id ||
+        "default";
+      const baseImg =
+        targetOrder?.variantes?.find((v) => v.image_url?.startsWith("http"))?.image_url ||
+        `${window.location.origin}/map-previews/stage-ads.png`;
+
+      const { data, error } = await supabase.functions.invoke("creative-factory", {
+        body: {
+          action: "variations",
+          nome: `Zero-Shot · ${angle.slice(0, 24)} (${fmt.shortLabel})`,
+          formato: "4:5",
+          project_id: targetProjectId,
+          base_image_url: baseImg,
+          angulo: angle,
+          hipotese: `${fmt.fullLabel} · Porta ${PORTAS[selectedPorta]} · 1º Quadro ${CARGAS[fmt.defaultCarga]}`,
+          oferta: targetOrder?.oferta || "Protocolo Oficial",
+          texto_base: `${PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${fmt.jeitoHint}`,
+          quantidade: 2,
+          eixos: ["headline", "avatar"],
+        },
+      });
+      if (error) throw error;
+      if (data?.batch_id) {
+        toast.success("Lote de 2 artes Zero-Shot enviado para a fábrica IA (1 a 3 min)!");
+      } else {
+        toast.info("Briefing visual Zero-Shot preparado — abrindo no Copy Lab.");
+        handleLaunchCombo(angle, fmt);
+      }
+    } catch {
+      toast.info("Abrindo gerador com o briefing visual do 1º quadro preenchido.");
+      handleLaunchCombo(angle, fmt);
+    } finally {
+      setGeneratingArt(false);
+    }
+  };
+
   return (
     <section
       aria-label="Matriz Combinatória Ângulo por Formato por Jeito"
@@ -233,7 +367,7 @@ export function CreativeAngleFormatMatrix({
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Escolha a <strong>Porta (Jeito do Gancho)</strong> e clique em qualquer célula para atacar uma combinação inédita ou escalar um vencedor em novo formato.
+              Escolha a <strong>Porta (Jeito do Gancho)</strong> e clique em qualquer célula para criar uma ordem de teste real, gerar a 1ª arte IA ou abrir o roteiro no Copy Lab.
             </p>
           </div>
         </div>
@@ -243,7 +377,7 @@ export function CreativeAngleFormatMatrix({
             <Trophy className="h-3 w-3" /> Vencedor
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
-            <Play className="h-3 w-3" /> No Ar
+            <Play className="h-3 w-3" /> No Ar / Planejado
           </span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30">
             <Skull className="h-3 w-3" /> Morto
@@ -372,14 +506,42 @@ export function CreativeAngleFormatMatrix({
               <strong>1º Quadro:</strong> {CARGAS[activeCell.format.defaultCarga]}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+              disabled={creatingVariant}
+              onClick={() => handleCreateTestFromCell(activeCell.angle, activeCell.format)}
+            >
+              {creatingVariant ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <PlusCircle className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Criar Teste Desta Célula
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+              disabled={generatingArt}
+              onClick={() => handleGenerateZeroShotArt(activeCell.angle, activeCell.format)}
+            >
+              {generatingArt ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Palette className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Gerar 1ª Arte IA (Zero-Shot)
+            </Button>
             <Button
               size="sm"
               className="h-8 text-xs"
               onClick={() => handleLaunchCombo(activeCell.angle, activeCell.format)}
             >
               <Wand2 className="h-3.5 w-3.5 mr-1.5" />
-              Gerar Roteiro / Criativo desta Célula
+              Abrir Roteiro no Copy Lab
             </Button>
           </div>
         </div>

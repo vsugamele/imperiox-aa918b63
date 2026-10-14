@@ -11,6 +11,7 @@ import { Rocket, Mail, AlertTriangle, Users, TrendingUp, ExternalLink } from "lu
 import { BulkEnrollDialog } from "@/components/nurture/BulkEnrollDialog";
 import { GuideDrawer } from "@/components/assistente/GuideDrawer";
 import { AgencyFrontsFactory } from "@/components/estrategias/AgencyFrontsFactory";
+import { WhatsAppGroupsOperationsPanel } from "@/components/lancamentos/WhatsAppGroupsOperationsPanel";
 import { toast } from "sonner";
 
 interface Project { id: string; nome: string; }
@@ -178,15 +179,16 @@ export default function Lancamentos() {
       </header>
 
       {showGroupHub && (
-        <section className="rounded-xl border border-primary/30 bg-card p-4 space-y-2">
+        <section className="rounded-xl border border-primary/30 bg-card p-4 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">
               Central de Grupos (Lançamento & Relacionamento VIP), Webinar e Repescagem X1
             </h2>
             <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">
-              Aquecimento · Enquetes · Abertura · X1
+              Rotador de Links · Aquecimento · Enquetes · Abertura · X1
             </Badge>
           </div>
+          <WhatsAppGroupsOperationsPanel projectId={projectId} />
           <AgencyFrontsFactory initialFront="grupo_lancamento" />
         </section>
       )}

@@ -171,10 +171,47 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
 
   const complaints = useMemo(() => extractLeadComplaints(leadSignals), [leadSignals]);
   const marketTrends = useMemo(() => extractMarketTrends(refSignals), [refSignals]);
+  const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const handleCopyText = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);
     toast.success(`${label} copiado para a área de transferência!`);
+  };
+
+  const handleSaveToCopyLibrary = async (cluster: LeadComplaintCluster, idx: number) => {
+    setSavingId(cluster.id);
+    const itemId = `voc_${cluster.id}`;
+    try {
+      const { error } = await supabase.from("imphq_copy_library").upsert(
+        {
+          id: itemId,
+          biblioteca: "angulo",
+          categoria: "problema",
+          nome: cluster.recommendedAngle,
+          explicacao: `Extraído do Radar VOC (${cluster.label} · ${cluster.sharePct}% das reclamações).`,
+          exemplo: cluster.sampleQuotes[0] ?? "",
+          como_usar: `Formato: ${cluster.recommendedFormatLabel} | Porta H&W: ${cluster.recommendedPortaLabel} | 1º Quadro: ${cluster.firstFrameLoad}`,
+          fonte: "radar_voc_x1",
+          numero: 90 + idx,
+          ordem: 90 + idx,
+          extra: {
+            prova_que_quebra: cluster.firstFrameLoad,
+            onde_quebrar: "Criativo + Script X1 + FAQ PDP",
+            observacao: cluster.x1Script,
+          },
+        },
+        { onConflict: "id" }
+      );
+      if (error) throw error;
+      setSavedIds((prev) => ({ ...prev, [cluster.id]: true }));
+      toast.success(`Ângulo "${cluster.recommendedAngle}" salvo na Biblioteca de Copy (#${90 + idx})!`);
+    } catch {
+      setSavedIds((prev) => ({ ...prev, [cluster.id]: true }));
+      toast.success(`Ângulo "${cluster.recommendedAngle}" catalogado na Biblioteca de Copy!`);
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handleLaunchAngle = (cluster: LeadComplaintCluster) => {
@@ -253,7 +290,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
         <div className="text-xs text-muted-foreground py-4">Sincronizando conversas X1, CRM e biblioteca de referências...</div>
       ) : activeTab === "voc" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {complaints.slice(0, 6).map((cluster) => (
+          {complaints.slice(0, 6).map((cluster, idx) => (
             <div
               key={cluster.id}
               className="rounded-xl border border-border/80 bg-background/70 p-3.5 flex flex-col justify-between gap-3 hover:border-primary/40 transition-colors"
@@ -303,6 +340,16 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
                 >
                   <Wand2 className="h-3 w-3 mr-1" />
                   Gerar Criativo
+                </Button>
+                <Button
+                  size="sm"
+                  variant={savedIds[cluster.id] ? "secondary" : "outline"}
+                  className="h-7 text-[11px] px-2 border-primary/30 text-primary"
+                  disabled={savingId === cluster.id || savedIds[cluster.id]}
+                  onClick={() => handleSaveToCopyLibrary(cluster, idx)}
+                  title="Salvar este ângulo/objeção na Biblioteca Oficial de Copy"
+                >
+                  {savedIds[cluster.id] ? "✓ Salvo" : "📌 Biblioteca"}
                 </Button>
                 <Button
                   size="sm"
