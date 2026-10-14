@@ -35,6 +35,7 @@ import { ProductEcosystemDrawer } from "@/components/funis/ProductEcosystemDrawe
 import { FunnelBrainCard } from "@/components/funis/FunnelBrainCard";
 import { LaunchTimelineDialog } from "@/components/funis/LaunchTimelineDialog";
 import { Calendar as CalendarIcon, Brain } from "lucide-react";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 interface Funil {
   id: string; nome: string; tipo?: string; status?: string; url?: string;
@@ -44,7 +45,7 @@ interface Funil {
 type Project = Pick<Tables<"imphq_projects">, "id" | "name" | "data"> & { briefing: ProjectData; description?: string };
 
 const DEFAULT_ETAPAS: Etapa[] = [
-  { nome: "AnÃºncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 },
+  { nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 },
   { nome: "Opt-in", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 400, pos_y: 80 },
   { nome: "VSL/Webinar", tipo: "vsl", visitantes: 0, conversoes: 0, pos_x: 720, pos_y: 80 },
   { nome: "Checkout", tipo: "checkout", visitantes: 0, conversoes: 0, pos_x: 1040, pos_y: 80 },
@@ -53,7 +54,7 @@ const DEFAULT_ETAPAS: Etapa[] = [
 
 const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; label: string; icon: LucideIcon; hasMetrics: boolean }> = {
   criativo:  { bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-400", label: "Criativo", icon: Megaphone, hasMetrics: true },
-  pagina:    { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "PÃ¡gina", icon: FileText, hasMetrics: true },
+  pagina:    { bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", label: "Página", icon: FileText, hasMetrics: true },
   vsl:       { bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-400", label: "VSL", icon: Video, hasMetrics: true },
   checkout:  { bg: "bg-emerald-500/10", border: "border-emerald-500/40", text: "text-emerald-400", label: "Checkout", icon: ShoppingCart, hasMetrics: true },
   upsell:    { bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", label: "Upsell", icon: ArrowRight, hasMetrics: true },
@@ -62,7 +63,7 @@ const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; la
   tiktok:    { bg: "bg-cyan-500/10", border: "border-cyan-500/40", text: "text-cyan-400", label: "TikTok", icon: Music, hasMetrics: true },
   linkedin:  { bg: "bg-sky-500/10", border: "border-sky-500/40", text: "text-sky-400", label: "LinkedIn", icon: Linkedin, hasMetrics: true },
   blog:      { bg: "bg-teal-500/10", border: "border-teal-500/40", text: "text-teal-400", label: "Blog", icon: PenLine, hasMetrics: true },
-  video:     { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400", label: "VÃ­deo", icon: Video, hasMetrics: true },
+  video:     { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400", label: "Vídeo", icon: Video, hasMetrics: true },
   imagem:    { bg: "bg-orange-500/10", border: "border-orange-500/40", text: "text-orange-400", label: "Imagem", icon: Image, hasMetrics: false },
   email:     { bg: "bg-sky-600/10", border: "border-sky-600/40", text: "text-sky-300", label: "Email", icon: Mail, hasMetrics: true },
   whatsapp:  { bg: "bg-green-500/10", border: "border-green-500/40", text: "text-green-400", label: "WhatsApp", icon: MessageSquare, hasMetrics: true },
@@ -72,10 +73,10 @@ const TIPO_STYLES: Record<string, { bg: string; border: string; text: string; la
 };
 
 const TIPO_GROUPS = [
-  { label: "PÃ¡ginas", tipos: ["pagina", "vsl", "checkout", "upsell"] },
+  { label: "Páginas", tipos: ["pagina", "vsl", "checkout", "upsell"] },
   { label: "Canais", tipos: ["face_ads", "instagram", "tiktok", "linkedin", "blog"] },
-  { label: "MÃ­dia", tipos: ["criativo", "video", "imagem"] },
-  { label: "ComunicaÃ§Ã£o", tipos: ["email", "whatsapp"] },
+  { label: "Mídia", tipos: ["criativo", "video", "imagem"] },
+  { label: "Comunicação", tipos: ["email", "whatsapp"] },
   { label: "Outros", tipos: ["caixa", "texto", "outro"] },
 ];
 
@@ -106,20 +107,21 @@ const IMG_DEFAULT_H = 180;
 const IMG_MIN = 80;
 
 export default function Funis() {
+  const { projectId: globalProjectId } = useGlobalProject();
   const [funis, setFunis] = useState<Funil[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [filterProject, setFilterProject] = useState("all");
+  const [filterProject, setFilterProject] = useState(() => globalProjectId || "all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [showAutoBuild, setShowAutoBuild] = useState(false);
   const [showCorteExpress, setShowCorteExpress] = useState(false);
-  const [hubProjectId, setHubProjectId] = useState<string | null>(null);
+  const [hubProjectId, setHubProjectId] = useState<string | null>(() => (globalProjectId !== "all" ? globalProjectId : null));
   const [showTimeline, setShowTimeline] = useState(false);
   const [cloneFunil, setCloneFunil] = useState<Funil | null>(null);
   const [selectedFunil, setSelectedFunil] = useState<Funil | null>(null);
-  const [form, setForm] = useState({ nome: "", tipo: "PerpÃ©tuo", status: "Rascunho", project_id: "" });
+  const [form, setForm] = useState({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" });
   const [zoom, setZoom] = useState(0.85);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -211,11 +213,11 @@ export default function Funis() {
         setAiGenPrompt("");
         toast.success(`IA gerou ${etapas.length} etapas!${data?.estrategia ? `\n📋 ${data.estrategia}` : ""}`, { duration: 6000 });
       } else {
-        toast.error("A IA nÃ£o retornou etapas. Tente reformular o prompt.");
+        toast.error("A IA não retornou etapas. Tente reformular o prompt.");
       }
     } catch (err: unknown) {
       if (errorMessage(err)?.includes("429")) toast.error("Rate limit excedido.");
-      else if (errorMessage(err)?.includes("402")) toast.error("CrÃ©ditos insuficientes.");
+      else if (errorMessage(err)?.includes("402")) toast.error("Créditos insuficientes.");
       else toast.error(errorMessage(err) || "Erro ao gerar funil");
     } finally { setAiGenerating(false); }
   };
@@ -308,8 +310,8 @@ export default function Funis() {
         // Fallback local
         const etapas: Etapa[] = [];
         const spacing = 320;
-        etapas.push({ nome: "AnÃºncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 });
-        etapas.push({ nome: "PÃ¡gina de Captura", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 80 + spacing, pos_y: 80, connects_to: [] });
+        etapas.push({ nome: "Anúncio", tipo: "criativo", visitantes: 0, conversoes: 0, pos_x: 80, pos_y: 80 });
+        etapas.push({ nome: "Página de Captura", tipo: "pagina", visitantes: 0, conversoes: 0, pos_x: 80 + spacing, pos_y: 80, connects_to: [] });
         etapas[0].connects_to = [1];
 
         const sorted = [...prodList].sort((a, b) => {
@@ -389,6 +391,14 @@ export default function Funis() {
   }, [loadKpis]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Sync with global project filter
+  useEffect(() => {
+    setFilterProject(globalProjectId || "all");
+    if (globalProjectId && globalProjectId !== "all") {
+      setHubProjectId(globalProjectId);
+    }
+  }, [globalProjectId]);
 
   // Sync viewMode from URL query param (e.g. /funis?view=mapa)
   useEffect(() => {
@@ -472,7 +482,7 @@ export default function Funis() {
   });
 
   const createFunil = async () => {
-    if (!form.nome.trim()) { toast.error("Nome obrigatÃ³rio"); return; }
+    if (!form.nome.trim()) { toast.error("Nome obrigatório"); return; }
     const id = crypto.randomUUID();
     const { error } = await supabase.from("imphq_funis").insert([{
       id, nome: form.nome, tipo: form.tipo, status: form.status,
@@ -481,7 +491,7 @@ export default function Funis() {
     }]);
     if (error) { toast.error("Erro: " + error.message); return; }
     toast.success("Funil criado!"); setShowNew(false);
-    setForm({ nome: "", tipo: "PerpÃ©tuo", status: "Rascunho", project_id: "" }); load();
+    setForm({ nome: "", tipo: "Perpétuo", status: "Rascunho", project_id: "" }); load();
   };
 
   const deleteFunil = async (id: string) => {
@@ -520,7 +530,7 @@ export default function Funis() {
   const uploadImageFile = useCallback(async (file: File): Promise<string | null> => {
     if (!selectedFunil) return null;
     if (!file.type.startsWith("image/")) {
-      toast.error(`${file.name} nÃ£o Ã© uma imagem`);
+      toast.error(`${file.name} não é uma imagem`);
       return null;
     }
     const ext = (file.name.split(".").pop() || "png").toLowerCase();
@@ -674,7 +684,7 @@ export default function Funis() {
       etapas[fromIdx] = { ...e, connects_to: newConnects.length > 0 ? newConnects : undefined };
       setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
       triggerAutoSave();
-      toast.success("ConexÃ£o removida");
+      toast.success("Conexão removida");
     }
   };
 
@@ -688,7 +698,7 @@ export default function Funis() {
     etapas[fromIdx] = { ...e, connects_to: [...existing, toIdx] };
     setSelectedFunil({ ...selectedFunil, data: { ...selectedFunil.data, etapas } });
     triggerAutoSave();
-    toast.success("ConexÃ£o criada");
+    toast.success("Conexão criada");
   }, [selectedFunil, triggerAutoSave]);
 
   // --- Drag handlers ---
@@ -857,9 +867,9 @@ export default function Funis() {
             className="h-7 gap-1 text-xs bg-primary/90 hover:bg-primary"
             onClick={() => setShowAutoBuild(true)}
             disabled={!selectedFunil.project_id}
-            title={selectedFunil.project_id ? "Monta o funil a partir de produtos, fluxos, WA, e-mails, sites e anÃºncios do projeto" : "Selecione um projeto"}
+            title={selectedFunil.project_id ? "Monta o funil a partir de produtos, fluxos, WA, e-mails, sites e anúncios do projeto" : "Selecione um projeto"}
           >
-            <Sparkles className="h-3 w-3" /> Montar AutomÃ¡tico
+            <Sparkles className="h-3 w-3" /> Montar Automático
           </Button>
 
 
@@ -989,7 +999,7 @@ export default function Funis() {
                         style={{ pointerEvents: "stroke", cursor: "pointer" }}
                         onClick={() => removeConnection(c.fromIdx, c.toIdx)}
                       >
-                        <title>Clique para remover conexÃ£o #{c.fromIdx} â†’ #{c.toIdx}</title>
+                        <title>Clique para remover conexão #{c.fromIdx} → #{c.toIdx}</title>
                       </path>
                     )}
                     <path
@@ -1054,7 +1064,7 @@ export default function Funis() {
               const x = etapa.pos_x ?? 80;
               const y = etapa.pos_y ?? 80;
               const cardH = isTextType ? CARD_H_SIMPLE : (isSimple ? CARD_H_SIMPLE : CARD_H_METRICS);
-              // â”€â”€ Image node (free-form) â”€â”€
+              // ── Image node (free-form) ──
               if (etapa.tipo === "imagem" && etapa.image_url) {
                 const iw = etapa.width ?? IMG_DEFAULT_W;
                 const ih = etapa.height ?? IMG_DEFAULT_H;
@@ -1151,7 +1161,7 @@ export default function Funis() {
                         defaultValue={etapa.descricao || ""}
                         onBlur={e => setEtapaField(i, "descricao", e.target.value)}
                         className="text-xs bg-card/50 border-border min-h-[80px] resize-none"
-                        placeholder="AnotaÃ§Ã£o / texto livre..."
+                        placeholder="Anotação / texto livre..."
                       />
                       <div className="flex items-center justify-between">
                         <Input defaultValue={etapa.nome} onBlur={e => setEtapaField(i, "nome", e.target.value)}
@@ -1177,7 +1187,7 @@ export default function Funis() {
                         className="h-7 text-xs font-bold bg-transparent border-none p-0 focus-visible:ring-0" />
 
                       <Input defaultValue={etapa.descricao || ""} onBlur={e => setEtapaField(i, "descricao", e.target.value)}
-                        className="h-6 text-[10px] bg-card/50 border-border p-1" placeholder="DescriÃ§Ã£o..." />
+                        className="h-6 text-[10px] bg-card/50 border-border p-1" placeholder="Descrição..." />
 
                       {/* Product dropdown */}
                       {projectProductsFull.length > 0 && (
@@ -1222,7 +1232,7 @@ export default function Funis() {
 
                       {/* Connect to - text fallback */}
                       <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-muted-foreground shrink-0">â†’</span>
+                        <span className="text-[9px] text-muted-foreground shrink-0">→</span>
                         <Input
                           defaultValue={(etapa.connects_to || []).join(",")}
                           onBlur={e => {
@@ -1232,7 +1242,7 @@ export default function Funis() {
                           }}
                           className="h-5 text-[9px] bg-card/50 border-border p-1 font-mono"
                           placeholder="Conecta a: 1,2"
-                          title="Ãndices das etapas destino (0-based), separados por vÃ­rgula"
+                          title="Índices das etapas destino (0-based), separados por vírgula"
                         />
                       </div>
 
@@ -1369,7 +1379,7 @@ export default function Funis() {
           {/* Connection mode indicator */}
           {connectingFrom !== null && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 shadow-lg animate-fade-in">
-              Conectando de #{connectingFrom} â€” solte sobre outro card
+              Conectando de #{connectingFrom} — solte sobre outro card
               <Button size="icon" variant="ghost" className="h-5 w-5 text-primary-foreground/70 hover:text-primary-foreground" onClick={() => { setConnectingFrom(null); setConnectLine(null); }}>
                 <X className="h-3 w-3" />
               </Button>
@@ -1425,7 +1435,7 @@ export default function Funis() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuLabel className="text-xs">OrganizaÃ§Ã£o com IA</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs">Organização com IA</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => aiOrganizeProducts("create")} className="text-xs gap-2">
                   <Sparkles className="h-3 w-3" /> Criar funil do zero
@@ -1448,7 +1458,7 @@ export default function Funis() {
           </Button>
           
           <Button size="sm" variant="destructive" onClick={() => deleteFunil(selectedFunil.id)}><Trash2 className="h-3 w-3 mr-1" /> Excluir</Button>
-          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards â€¢ Scroll=zoom â€¢ Pontos laterais conectam â€¢ Cole (Ctrl+V) ou arraste imagens direto no canvas</span>
+          <span className="text-[10px] text-muted-foreground ml-2">Arraste cards • Scroll=zoom • Pontos laterais conectam • Cole (Ctrl+V) ou arraste imagens direto no canvas</span>
         </div>
 
         {/* AI Generate Funnel Dialog */}
@@ -1463,7 +1473,7 @@ export default function Funis() {
                 <Textarea
                   value={aiGenPrompt}
                   onChange={e => setAiGenPrompt(e.target.value)}
-                  placeholder="Ex: Funil de lanÃ§amento com captura â†’ sequÃªncia de emails â†’ VSL â†’ checkout com orderbump e upsell de mentoria..."
+                  placeholder="Ex: Funil de lançamento com captura → sequência de emails → VSL → checkout com orderbump e upsell de mentoria..."
                   className="bg-secondary min-h-[100px]"
                 />
               </div>
@@ -1477,9 +1487,9 @@ export default function Funis() {
                 </Select>
               </div>
               {selectedFunil?.project_id && projectProductsFull.length > 0 && (
-                <p className="text-[10px] text-emerald-400">âœ… Projeto vinculado com {projectProductsFull.length} produto(s) â€” a IA usarÃ¡ como contexto.</p>
+                <p className="text-[10px] text-emerald-400">✅ Projeto vinculado com {projectProductsFull.length} produto(s) — a IA usará como contexto.</p>
               )}
-              <p className="text-[10px] text-muted-foreground">A IA criarÃ¡ todas as etapas, conexÃµes e posicionamento visual automaticamente. {(selectedFunil?.data.etapas || []).length > 0 && "âš ï¸ As etapas atuais serÃ£o substituÃ­das."}</p>
+              <p className="text-[10px] text-muted-foreground">A IA criará todas as etapas, conexões e posicionamento visual automaticamente. {(selectedFunil?.data.etapas || []).length > 0 && "⚠️ As etapas atuais serão substituídas."}</p>
             </div>
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => setShowAiGen(false)}>Cancelar</Button>
@@ -1601,11 +1611,12 @@ export default function Funis() {
 
           <Button
             size="sm"
+            variant="outline"
             onClick={() => window.dispatchEvent(new CustomEvent("imphq:open-funnel-architect"))}
-            className="h-8 gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-xs"
+            className="h-8 gap-1.5 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium text-xs shadow-xs"
             title="Abrir o Arquiteto de Funis IA"
           >
-            <Sparkles className="h-3.5 w-3.5 text-emerald-200" /> Arquiteto Funil
+            <Sparkles className="h-3.5 w-3.5 text-primary" /> Arquiteto Funil
           </Button>
 
           {/* More actions dropdown */}
@@ -1687,7 +1698,7 @@ export default function Funis() {
                         <Badge variant={f.status === "Ativo" ? "default" : "outline"} className="text-[10px]">{f.status || "Rascunho"}</Badge>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">{f.tipo || "PerpÃ©tuo"} â€¢ {etapas.length} etapas</p>
+                    <p className="text-xs text-muted-foreground">{f.tipo || "Perpétuo"} • {etapas.length} etapas</p>
                     {f.project_id && <p className="text-[10px] text-muted-foreground mt-1">{projectName(f.project_id)}</p>}
 
                     {kpi && (
@@ -1711,7 +1722,7 @@ export default function Funis() {
                       </div>
                     )}
                     {f.project_id && !kpi && (
-                      <p className="text-[9px] text-muted-foreground/60 mt-3 pt-3 border-t border-border/30 text-center">Sem dados nos Ãºltimos 30d</p>
+                      <p className="text-[9px] text-muted-foreground/60 mt-3 pt-3 border-t border-border/30 text-center">Sem dados nos últimos 30d</p>
                     )}
 
                     {etapas.length > 0 && (
@@ -1761,8 +1772,8 @@ export default function Funis() {
                 <Select value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PerpÃ©tuo">PerpÃ©tuo</SelectItem>
-                    <SelectItem value="LanÃ§amento">LanÃ§amento</SelectItem>
+                    <SelectItem value="Perpétuo">Perpétuo</SelectItem>
+                    <SelectItem value="Lançamento">Lançamento</SelectItem>
                     <SelectItem value="Webinar">Webinar</SelectItem>
                     <SelectItem value="VSL">VSL</SelectItem>
                   </SelectContent>
@@ -1858,10 +1869,10 @@ export default function Funis() {
   );
 }
 
-// â”€â”€ Ecossistema View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Ecossistema View ──────────────────────────────────────────
 const CLUSTER_LEVELS = [
-  { key: "aquisicao", label: "AquisiÃ§Ã£o", color: "border-blue-500/50", bg: "bg-blue-500/5" },
-  { key: "ascensao", label: "AscensÃ£o / Upsell", color: "border-amber-500/50", bg: "bg-amber-500/5" },
+  { key: "aquisicao", label: "Aquisição", color: "border-blue-500/50", bg: "bg-blue-500/5" },
+  { key: "ascensao", label: "Ascensão / Upsell", color: "border-amber-500/50", bg: "bg-amber-500/5" },
   { key: "core", label: "Core", color: "border-emerald-500/50", bg: "bg-emerald-500/5" },
   { key: "premium", label: "Premium", color: "border-rose-500/50", bg: "bg-rose-500/5" },
 ];
@@ -1897,7 +1908,7 @@ function EcossistemaView({ projects }: { projects: Project[] }) {
         let cluster = "core";
         const tipoLower = (tipo || "").toLowerCase();
         const nomeLower = nome.toLowerCase();
-        if (tipoLower.includes("tripwire") || tipoLower.includes("isca") || nomeLower.includes("grÃ¡tis")) cluster = "aquisicao";
+        if (tipoLower.includes("tripwire") || tipoLower.includes("isca") || nomeLower.includes("grátis")) cluster = "aquisicao";
         else if (tipoLower.includes("upsell") || tipoLower.includes("bump")) cluster = "ascensao";
         else if (tipoLower.includes("premium") || tipoLower.includes("mentoria") || tipoLower.includes("high ticket")) cluster = "premium";
 
@@ -1910,7 +1921,7 @@ function EcossistemaView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-muted-foreground">VisÃ£o macro de todos os produtos organizados por nÃ­vel na escada de valor. Dados do briefing de cada projeto.</p>
+      <p className="text-xs text-muted-foreground">Visão macro de todos os produtos organizados por nível na escada de valor. Dados do briefing de cada projeto.</p>
       {CLUSTER_LEVELS.map((cluster) => {
         const items = allProducts.filter(p => p.cluster === cluster.key);
         return (
@@ -1920,7 +1931,7 @@ function EcossistemaView({ projects }: { projects: Project[] }) {
               <Badge variant="outline" className="text-[9px]">{items.length}</Badge>
             </h3>
             {items.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nenhum produto neste nÃ­vel</p>
+              <p className="text-xs text-muted-foreground italic">Nenhum produto neste nível</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {items.map((prod, idx) => {

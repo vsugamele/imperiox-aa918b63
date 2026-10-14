@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkline } from "@/components/dashboard/cockpit/Sparkline";
+import { PAID_SALE_STATUSES, USD_BRL_RATE, saleValue, useRevenueMode } from "@/lib/revenueMode";
+import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-
-const APPROVED = ["aprovado", "aprovada", "approved", "paid", "completed"];
 
 function fmtDate(d: Date) {
   return d
@@ -14,8 +15,11 @@ function fmtDate(d: Date) {
 }
 
 export function EditorialHeader() {
+  const { projectId: globalProjectId } = useGlobalProject();
+  const [revenueMode] = useRevenueMode();
+
   const { data } = useQuery({
-    queryKey: ["cockpit", "editorial-header"],
+    queryKey: ["cockpit", "editorial-header", globalProjectId ?? "all", revenueMode],
     staleTime: 60_000,
     queryFn: async () => {
       const now = new Date();
@@ -24,26 +28,36 @@ export function EditorialHeader() {
       const start30 = new Date(now.getTime() - 30 * 86_400_000).toISOString();
       const start30Date = start30.split("T")[0];
 
-      const [todayRes, mtdRes, adsRes] = await Promise.all([
-        supabase
-          .from("imphq_vendas")
-          .select("valor, valor_liquido")
-          .in("status", APPROVED)
-          .gte("data_venda", startToday),
-        supabase
-          .from("imphq_vendas")
-          .select("valor, valor_liquido, data_venda")
-          .in("status", APPROVED)
-          .gte("data_venda", startMonth),
-        supabase
-          .from("imphq_ads_spend")
-          .select("valor, moeda, data_ref")
-          .gte("data_ref", start30Date),
-      ]);
+      let todayQ = supabase
+        .from("imphq_vendas")
+        .select("valor, valor_liquido")
+        .in("status", [...PAID_SALE_STATUSES])
+        .gte("data_venda", startToday);
+      let mtdQ = supabase
+        .from("imphq_vendas")
+        .select("valor, valor_liquido, data_venda")
+        .in("status", [...PAID_SALE_STATUSES])
+        .gte("data_venda", startMonth);
+      let adsQ = supabase
+        .from("imphq_ads_spend")
+        .select("valor, moeda, data_ref")
+        .gte("data_ref", start30Date);
 
-      const today = (todayRes.data || []).reduce((s: number, v) => s + Number(v.valor || 0), 0);
-      const mtdRows = (mtdRes.data || []);
-      const mtd = mtdRows.reduce((s, v) => s + Number(v.valor || 0), 0);
+      if (globalProjectId) {
+        todayQ = todayQ.eq("project_id", globalProjectId);
+        mtdQ = mtdQ.eq("project_id", globalProjectId);
+        adsQ = adsQ.eq("project_id", globalProjectId);
+      }
+
+      const [todayRes, mtdRes, adsRes] = await Promise.all([todayQ, mtdQ, adsQ]);
+
+      const today = (todayRes.data || []).reduce(
+        (s: number, v) => s + saleValue(v, revenueMode),
+        0,
+      );
+      const mtdRows = mtdRes.data || [];
+      const mtd = mtdRows.reduce((s, v) => s + saleValue(v, revenueMode), 0);
+      const mtdGross = mtdRows.reduce((s, v) => s + Number(v.valor || 0), 0);
       const mtdNet = mtdRows.reduce(
         (s, v) => s + Number(v.valor_liquido ?? v.valor ?? 0),
         0,
@@ -62,20 +76,20 @@ export function EditorialHeader() {
       }
       mtdRows.forEach((v) => {
         const key = String(v.data_venda || "").split("T")[0];
-        if (byDay.has(key)) byDay.set(key, (byDay.get(key) || 0) + Number(v.valor || 0));
+        if (byDay.has(key)) byDay.set(key, (byDay.get(key) || 0) + saleValue(v, revenueMode));
       });
       const spark = Array.from(byDay.values());
 
       // ROAS blended 30d
       const spend30 = (adsRes.data || []).reduce((s: number, a) => {
         const v = Number(a.valor || 0);
-        return s + (a.moeda === "USD" ? v * 5.2 : v);
+        return s + (a.moeda === "USD" ? v * USD_BRL_RATE : v);
       }, 0);
       const rev30 = mtdRows
         .filter((v) => new Date(v.data_venda) >= new Date(start30))
-        .reduce((s: number, v) => s + Number(v.valor || 0), 0);
+        .reduce((s: number, v) => s + saleValue(v, revenueMode), 0);
       const roas = spend30 > 0 ? rev30 / spend30 : 0;
-      const margin = mtd > 0 ? (mtdNet / mtd) * 100 : 0;
+      const margin = mtdGross > 0 ? (mtdNet / mtdGross) * 100 : 0;
 
       return { today, mtd, projection, roas, margin, spark };
     },
@@ -95,8 +109,11 @@ export function EditorialHeader() {
     <div className="border-y border-border/60 py-5">
       <div className="flex items-baseline justify-between gap-6 flex-wrap">
         <div className="min-w-0">
-          <div className="text-[9px] tracking-[0.32em] uppercase text-gold/70 mb-1.5 font-medium">
-            {fmtDate(now)} · Edição diária
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[9px] tracking-[0.32em] uppercase text-gold/70 font-medium">
+              {fmtDate(now)} · {globalProjectId ? "Visão do projeto ativo" : "Edição diária"}
+            </span>
+            <RevenueModeToggle />
           </div>
           <h1
             className="text-4xl md:text-5xl italic font-light text-foreground leading-none"
@@ -108,7 +125,7 @@ export function EditorialHeader() {
         <div className="flex items-end gap-3">
           <div className="text-right">
             <div className="text-[9px] tracking-[0.28em] uppercase text-muted-foreground/70 mb-1">
-              Receita hoje
+              Receita hoje ({revenueMode})
             </div>
             <div
               className="text-4xl italic text-gold tabular-nums leading-none"

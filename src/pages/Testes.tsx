@@ -1,17 +1,21 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, BarChart3, ClipboardCopy, FlaskConical, Loader2, Sparkles, Tag, Trophy, XCircle } from "lucide-react";
+import { AlertTriangle, BarChart3, ClipboardCopy, FlaskConical, Loader2, PauseCircle, PlayCircle, Sparkles, Tag, Trophy, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { AXIS_ORDER, VARIATION_AXES, type VariationAxis } from "@shared/creative-variations";
-import { useGenerateVariations, useTestLive, useTestOrders, useVariationBatches, type TestLive, type TestOrder, type VariationBatch } from "@/hooks/useTestOrders";
+import { useGenerateVariations, useTestLive, useTestOrders, useUpdateVariantStatus, useVariationBatches, type TestLive, type TestOrder, type VariationBatch } from "@/hooks/useTestOrders";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 import { LIVE_LABEL, liveEvaluation, liveLabel, type LiveOrder, type LiveVariant } from "@shared/test-live";
 import { methodScoreboard, type ScoreBy, type ScoreInput } from "@shared/method-scoreboard";
 import { CARGAS, PORTAS, POUSOS, type Carga, type Porta, type Pouso } from "@shared/hw-taxonomy";
@@ -32,10 +36,23 @@ const VARIANT_TONE: Record<string, string> = {
   planejado: "border-dashed border-border text-muted-foreground",
 };
 
+const VARIANT_STATUS_OPTIONS = [
+  { value: "vencedor", label: "Vencedor 🏆" },
+  { value: "no_ar", label: "No ar ▶" },
+  { value: "pausado", label: "Pausado ⏸" },
+  { value: "morto", label: "Morto ✖" },
+  { value: "planejado", label: "Planejado" },
+];
+
 const brl = (n: unknown) => `R$ ${Number(n ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 export default function Testes() {
-  const { data: orders = [], isLoading, error } = useTestOrders();
+  const { data: allOrders = [], isLoading, error } = useTestOrders();
+  const { projectId: globalProjectId } = useGlobalProject();
+  const orders = useMemo(
+    () => (globalProjectId === "all" ? allOrders : allOrders.filter((o) => o.project_id === globalProjectId)),
+    [allOrders, globalProjectId]
+  );
   const { data: batches = [] } = useVariationBatches();
   const { data: live = {} } = useTestLive(orders);
   const { data: library = [] } = useCopyLibrary();
@@ -79,6 +96,7 @@ export default function Testes() {
 const LABEL_TONE: Record<string, string> = { vendendo: "font-semibold text-success", ic_barato: "text-success", pausar: "text-destructive", aguardando: "text-muted-foreground", parado: "text-muted-foreground" };
 
 function OrderCard({ order, live, libName, onVariations }: { order: TestOrder; live?: TestLive; libName: (id: string | null) => { numero: number; nome: string } | undefined; onVariations: (v: Variant) => void }) {
+  const updateVariantStatus = typeof useUpdateVariantStatus === "function" ? useUpdateVariantStatus() : { mutate: () => {}, isPending: false };
   const dias = order.ativado_em ? Math.max(0, (Date.now() - Date.parse(order.ativado_em)) / 86_400_000) : 0;
   const readings = live?.readings ?? [];
   const byOrdem = new Map(readings.map((r) => [r.ordem, r]));
@@ -87,6 +105,17 @@ function OrderCard({ order, live, libName, onVariations }: { order: TestOrder; l
   const gasto = readings.reduce((s, r) => s + r.gasto, 0);
   const vendas = readings.reduce((s, r) => s + r.vendas, 0);
   const liquido = readings.reduce((s, r) => s + r.receita_liquida, 0);
+
+  const handleVariantStatus = (variantId: string, angulo: string, status: string) => {
+    updateVariantStatus.mutate(
+      { variantId, status },
+      {
+        onSuccess: () => toast.success(`"${angulo}" marcado como ${status.replace("_", " ")}`),
+        onError: (e) => toast.error(`Não foi possível atualizar: ${errorMessage(e)}`),
+      }
+    );
+  };
+
   return (
     <section className="space-y-3 rounded-lg border border-border bg-card p-4" aria-label={`Teste ${order.nome}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -118,9 +147,31 @@ function OrderCard({ order, live, libName, onVariations }: { order: TestOrder; l
               <div className="flex flex-1 flex-col gap-1 p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-medium leading-tight text-foreground">{String(v.ordem).padStart(2, "0")} · {v.angulo}</span>
-                  <span className={cn("shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium uppercase", VARIANT_TONE[v.status] ?? VARIANT_TONE.planejado)}>
-                    {v.status === "vencedor" ? <Trophy className="inline h-3 w-3" /> : v.status === "morto" ? <XCircle className="inline h-3 w-3" /> : null} {v.status.replace("_", " ")}
-                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={updateVariantStatus.isPending}
+                        title="Clique para alterar o status desta variante"
+                        className={cn("shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium uppercase hover:opacity-80 transition-opacity", VARIANT_TONE[v.status] ?? VARIANT_TONE.planejado)}
+                      >
+                        {v.status === "vencedor" ? <Trophy className="inline h-3 w-3" /> : v.status === "morto" ? <XCircle className="inline h-3 w-3" /> : v.status === "pausado" ? <PauseCircle className="inline h-3 w-3" /> : v.status === "no_ar" ? <PlayCircle className="inline h-3 w-3" /> : null} {v.status.replace("_", " ")}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel className="text-xs">Status da variante</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {VARIANT_STATUS_OPTIONS.map((opt) => (
+                        <DropdownMenuItem
+                          key={opt.value}
+                          disabled={opt.value === v.status}
+                          onSelect={() => handleVariantStatus(v.id, v.angulo, opt.value)}
+                        >
+                          {opt.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 {v.hipotese && <p className="text-[11px] text-muted-foreground">Hipótese: {v.hipotese}</p>}
                 <MethodTags variant={v} />
@@ -139,9 +190,25 @@ function OrderCard({ order, live, libName, onVariations }: { order: TestOrder; l
                 ) : null}
                 {a && (() => { const lb = liveLabel(a.decisao, r?.vendas ?? 0); return <p className={cn("text-[11px]", LABEL_TONE[lb])} title={`${a.rotulo}. ${a.motivo}`}>Esteira: {LIVE_LABEL[lb].icon} {LIVE_LABEL[lb].texto}</p>; })()}
                 {v.veredito && <p className="line-clamp-2 text-[11px] text-foreground" title={v.veredito}>{v.veredito}</p>}
-                <Button size="sm" variant="outline" className="mt-auto h-7" onClick={() => onVariations(v)}>
-                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Gerar variações
-                </Button>
+                <div className="mt-auto flex items-center gap-1.5 pt-1">
+                  <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" onClick={() => onVariations(v)}>
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Gerar variações
+                  </Button>
+                  {v.texto && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      title="Copiar copy desta variante"
+                      onClick={() => {
+                        navigator.clipboard.writeText(v.texto || "");
+                        toast.success("Copy da variante copiada!");
+                      }}
+                    >
+                      <ClipboardCopy className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </motion.div>
           );
@@ -221,6 +288,9 @@ function BatchesSection({ batches }: { batches: VariationBatch[] }) {
   const copyId = async (id: string) => {
     try { await navigator.clipboard.writeText(id); toast.success("Id do lote copiado"); } catch { toast.error("Não consegui copiar"); }
   };
+  const copyText = async (txt: string) => {
+    try { await navigator.clipboard.writeText(txt); toast.success("Copy copiada para a área de transferência!"); } catch { toast.error("Não consegui copiar"); }
+  };
   return (
     <section className="space-y-3" aria-label="Variações geradas">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground"><FlaskConical className="h-4 w-4" /> Variações geradas</h2>
@@ -243,11 +313,25 @@ function BatchesSection({ batches }: { batches: VariationBatch[] }) {
               {b.artes.length > 0 && (
                 <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
                   {b.artes.map((a) => (
-                    <figure key={a.id} className="overflow-hidden rounded border border-border">
+                    <figure key={a.id} className="flex flex-col overflow-hidden rounded border border-border">
                       <a href={a.image_url} target="_blank" rel="noopener noreferrer"><img src={a.image_url} alt={a.headline_arte ?? ""} loading="lazy" className="aspect-[4/5] w-full object-cover" /></a>
-                      <figcaption className="space-y-0.5 p-1.5 text-[11px]">
-                        <div className="font-medium uppercase text-muted-foreground">{a.eixo ?? "variação"}</div>
-                        {a.texto_anuncio && <p className="line-clamp-3 text-foreground" title={a.texto_anuncio}>{a.texto_anuncio}</p>}
+                      <figcaption className="flex flex-1 flex-col justify-between gap-1 p-1.5 text-[11px]">
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-medium uppercase text-muted-foreground">{a.eixo ?? "variação"}</span>
+                            {(a.texto_anuncio || a.headline_arte) && (
+                              <button
+                                type="button"
+                                onClick={() => copyText([a.headline_arte, a.texto_anuncio].filter(Boolean).join("\n\n"))}
+                                className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                                title="Copiar copy desta variação"
+                              >
+                                <ClipboardCopy className="h-3 w-3" /> copiar
+                              </button>
+                            )}
+                          </div>
+                          {a.texto_anuncio && <p className="mt-0.5 line-clamp-3 text-foreground" title={a.texto_anuncio}>{a.texto_anuncio}</p>}
+                        </div>
                       </figcaption>
                     </figure>
                   ))}

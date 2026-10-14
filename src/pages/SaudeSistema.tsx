@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, CircleHelp, HeartPulse, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleHelp, HeartPulse, Loader2, RefreshCw, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,9 +17,36 @@ const STATUS_UI: Record<HealthStatus, { label: string; icon: LucideIcon; tone: s
   ok:      { label: "Funcionando", icon: CheckCircle2, tone: "text-emerald-500", badge: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" },
 };
 
+function resolveCheckAction(check: HealthCheck): { to: string; label: string } {
+  const k = `${check.key} ${check.area} ${check.label}`.toLowerCase();
+  if (k.includes("wa") || k.includes("whatsapp") || k.includes("evolution") || k.includes("z-api") || k.includes("zapi")) {
+    return { to: "/inbox?tab=whatsapp", label: "Abrir WhatsApp" };
+  }
+  if (k.includes("instagram") || k.includes("manychat") || k.includes("ig")) {
+    return { to: "/inbox?tab=instagram", label: "Abrir Instagram" };
+  }
+  if (k.includes("ads") || k.includes("meta") || k.includes("spend") || k.includes("tráfego") || k.includes("trafego")) {
+    return { to: "/gerenciador", label: "Ver Gerenciador" };
+  }
+  if (k.includes("venda") || k.includes("webhook") || k.includes("checkout") || k.includes("ticto") || k.includes("hotmart") || k.includes("kiwify")) {
+    return { to: "/plataformas", label: "Ver Plataformas" };
+  }
+  if (k.includes("recup") || k.includes("aband") || k.includes("pix")) {
+    return { to: "/recuperacao", label: "Ver Recuperação" };
+  }
+  if (k.includes("lead") || k.includes("form") || k.includes("captura")) {
+    return { to: "/leads", label: "Ver Leads" };
+  }
+  if (k.includes("ia") || k.includes("ai") || k.includes("openrouter") || k.includes("custo")) {
+    return { to: "/inteligencia-ia", label: "Ver Inteligência IA" };
+  }
+  return { to: "/sala-de-maquinas", label: "Sala de máquinas" };
+}
+
 function CheckRow({ check }: { check: HealthCheck }) {
   const ui = STATUS_UI[check.status];
   const Icon = ui.icon;
+  const action = resolveCheckAction(check);
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border last:border-0" data-testid={`health-${check.key}`}>
       <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${ui.tone}`} />
@@ -34,6 +61,13 @@ function CheckRow({ check }: { check: HealthCheck }) {
           <p className="text-xs mt-1 text-foreground"><span className="font-semibold">O que fazer:</span> {check.hint}</p>
         )}
       </div>
+      {check.status !== "ok" && (
+        <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs shrink-0 gap-1">
+          <Link to={action.to}>
+            {action.label} <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }

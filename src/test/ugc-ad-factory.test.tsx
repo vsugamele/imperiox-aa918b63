@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import UgcAdFactory from "@/pages/UgcAdFactory";
@@ -18,7 +19,7 @@ vi.mock("@/integrations/supabase/client", () => {
 });
 
 async function run() {
-  render(<UgcAdFactory />);
+  render(<MemoryRouter><UgcAdFactory /></MemoryRouter>);
   fireEvent.change(screen.getByPlaceholderText("ex: Curso de X, suplemento Y"), { target: { value: "Produto" } });
   fireEvent.click(screen.getByRole("button", { name: /Rodar gates/ }));
 }

@@ -176,7 +176,7 @@ export default function ProjetoDetalhe() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
         e.preventDefault();
         setPaletteOpen(v => !v);
       }
@@ -521,11 +521,11 @@ export default function ProjetoDetalhe() {
               type="button"
               onClick={() => setPaletteOpen(true)}
               className="ml-auto flex items-center gap-2 px-3 py-2 rounded-md text-xs font-sans text-muted-foreground bg-secondary/30 border border-border/40 hover:text-foreground hover:border-border transition-colors"
-              title="Buscar seção (Ctrl+K)"
+              title="Buscar aba do projeto (Ctrl+/)"
             >
               <Search className="h-3.5 w-3.5" />
-              <span>Buscar</span>
-              <kbd className="hidden md:inline text-[10px] bg-background/60 border border-border/40 rounded px-1.5 py-0.5">⌘K</kbd>
+              <span>Buscar aba</span>
+              <kbd className="hidden md:inline text-[10px] bg-background/60 border border-border/40 rounded px-1.5 py-0.5">⌘/</kbd>
             </button>
           </div>
 

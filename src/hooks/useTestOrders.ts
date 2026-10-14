@@ -126,3 +126,21 @@ export function useGenerateVariations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["variation-batches"] }),
   });
 }
+
+/** Atualiza o status de uma variante de teste (vencedor, no_ar, pausado, morto, planejado) diretamente na tela. */
+export function useUpdateVariantStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ variantId, status }: { variantId: string; status: string }) => {
+      const { error } = await supabase
+        .from("imphq_test_variants")
+        .update({ status })
+        .eq("id", variantId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["test-orders"] });
+    },
+  });
+}
+

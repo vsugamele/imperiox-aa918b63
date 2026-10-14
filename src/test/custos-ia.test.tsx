@@ -5,6 +5,8 @@ import CustosIA from "@/pages/CustosIA";
 const state = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>>, error: false }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useQuery: ({ queryKey }: { queryKey: string[] }) => queryKey[0] === "ai-usage"
     ? { data: state.rows, isLoading: false, isError: state.error }
     : { data: [{ id: "slimsoda", name: "SlimSoda" }] },

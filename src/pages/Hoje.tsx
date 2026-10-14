@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Bot, CalendarClock, CheckCircle2, ClipboardCopy, Eye, Loader2, Map as MapIcon, RefreshCw, User, UserPlus } from "lucide-react";
+import { AlertTriangle, Bot, CalendarClock, CheckCircle2, ClipboardCopy, Eye, Loader2, Map as MapIcon, RefreshCw, Sparkles, User, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,8 @@ import { errorMessage } from "@/lib/error-message";
 import { addDays, DUE_LABEL, EXECUTOR_LABEL, firstName, localDate, STATUS_LABEL_STEP, type DueState, type StepStatus, type TeamMember } from "@shared/map-steps";
 import type { MapGap } from "@shared/project-map";
 import { filterBoardByOwner, formatMoney, mapLink, type BoardStep, type OwnerFilter, type ProjectBoard } from "@/lib/today-board";
-import { useSetStepAssignment, useSetStepStatus, useTodayBoard } from "@/hooks/useTodayBoard";
+import { useExecuteAiStep, useSetStepAssignment, useSetStepStatus, useTodayBoard } from "@/hooks/useTodayBoard";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useProjectJournal } from "@/hooks/useProjectJournal";
 import { journalActor, journalText, type JournalRow } from "@shared/journal";
@@ -49,7 +50,12 @@ const STATUS_TONE: Record<StepStatus, string> = {
 };
 
 export default function Hoje() {
-  const { data: boards = [], isLoading, isFetching, error, refetch } = useTodayBoard();
+  const { data: allBoards = [], isLoading, isFetching, error, refetch } = useTodayBoard();
+  const { projectId: globalProjectId } = useGlobalProject();
+  const boards = useMemo(
+    () => (globalProjectId === "all" ? allBoards : allBoards.filter((b) => b.projectId === globalProjectId)),
+    [allBoards, globalProjectId]
+  );
   const { data: companyMaps = [] } = useCompanyMap();
   const { data: team } = useTeamMembers();
   const members = useMemo(() => team?.members ?? [], [team]);
@@ -186,15 +192,15 @@ function ProjectCard({ board, critical, members, journal }: { board: ProjectBoar
         empty={null}
         hint="Checklist completa, mas ninguém marcou como feita. Confirme ou ajuste."
       />
-      <StepGroup title="Esperando você" icon={User} steps={board.waitingYou} members={members} empty="Nada pendente com o time." />
-      <StepGroup title="IA pode executar" icon={Bot} steps={board.aiReady} members={members} empty="Nenhuma etapa de IA pendente." canCopy />
-      <StepGroup title="Em andamento" icon={Loader2} steps={board.inProgress} members={members} empty={null} />
+      <StepGroup title="Esperando você" icon={User} steps={board.waitingYou} members={members} projectId={board.projectId} empty="Nada pendente com o time." />
+      <StepGroup title="IA pode executar" icon={Bot} steps={board.aiReady} members={members} projectId={board.projectId} empty="Nenhuma etapa de IA pendente." canCopy />
+      <StepGroup title="Em andamento" icon={Loader2} steps={board.inProgress} members={members} projectId={board.projectId} empty={null} />
       <JournalList rows={journal} />
     </section>
   );
 }
 
-function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint, members }: {
+function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint, members, projectId }: {
   title: string;
   members: TeamMember[];
   icon: typeof User;
@@ -202,6 +208,7 @@ function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint, members }: 
   empty: string | null;
   canCopy?: boolean;
   hint?: string;
+  projectId?: string;
 }) {
   if (!steps.length && empty === null) return null;
   const shown = steps.slice(0, MAX_ROWS);
@@ -214,7 +221,7 @@ function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint, members }: 
       {!steps.length && <p className="text-sm text-muted-foreground">{empty}</p>}
       <ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
         <AnimatePresence initial={false}>
-          {shown.map((step) => <StepRow key={step.id} step={step} canCopy={canCopy} members={members} />)}
+          {shown.map((step) => <StepRow key={step.id} step={step} canCopy={canCopy} members={members} projectId={projectId} />)}
         </AnimatePresence>
       </ul>
       {steps.length > MAX_ROWS && (
@@ -224,9 +231,10 @@ function StepGroup({ title, icon: Icon, steps, empty, canCopy, hint, members }: 
   );
 }
 
-function StepRow({ step, canCopy, members }: { step: BoardStep; canCopy?: boolean; members: TeamMember[] }) {
+function StepRow({ step, canCopy, members, projectId }: { step: BoardStep; canCopy?: boolean; members: TeamMember[]; projectId?: string }) {
   const setStatus = useSetStepStatus();
   const assign = useSetStepAssignment();
+  const executeAi = typeof useExecuteAiStep === "function" ? useExecuteAiStep() : { mutate: () => {}, isPending: false };
   const owner = members.find((m) => m.id === step.ownerId) ?? null;
   const today = localDate();
   const dueOptions = [
@@ -251,6 +259,22 @@ function StepRow({ step, canCopy, members }: { step: BoardStep; canCopy?: boolea
     } catch {
       toast.error("Não consegui copiar");
     }
+  };
+
+  const runAiStep = () => {
+    executeAi.mutate(
+      {
+        nodeId: step.id,
+        projectId,
+        label: step.label,
+        prompt: step.prompt,
+        skill: step.skill,
+      },
+      {
+        onSuccess: () => toast.success(`IA concluiu "${step.label}" → enviado para Revisar`),
+        onError: (err) => toast.error(`Erro ao executar IA: ${errorMessage(err) || "erro desconhecido"}`),
+      }
+    );
   };
 
   const changeStatus = (status: StepStatus) => {
@@ -309,9 +333,22 @@ function StepRow({ step, canCopy, members }: { step: BoardStep; canCopy?: boolea
           </DropdownMenuContent>
         </DropdownMenu>
         {canCopy && (
-          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={copyPrompt} title="Copiar prompt para a IA">
-            <ClipboardCopy className="h-3.5 w-3.5" />
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[11px] gap-1 border-primary/30 text-primary hover:bg-primary/10"
+              onClick={runAiStep}
+              disabled={executeAi.isPending}
+              title="Executar esta etapa com Imperius IA e mover para revisão"
+            >
+              {executeAi.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              <span>Executar IA</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={copyPrompt} title="Copiar prompt para a IA">
+              <ClipboardCopy className="h-3.5 w-3.5" />
+            </Button>
+          </>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

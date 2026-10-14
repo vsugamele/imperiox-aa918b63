@@ -17,13 +17,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { FileUpload } from "@/components/FileUpload";
-import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare, Copy, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Plus, Search, Star, ExternalLink, Trash2, Image, Layout, Mail, Video, FileText, Palette, List, Grid3X3, FolderPlus, Upload, BookmarkPlus, Camera, Megaphone, Play, LayoutGrid, Smartphone, ChevronRight, ChevronDown, Folder, FolderOpen, RefreshCw, PanelLeft, PanelLeftClose, Pencil, Check, X, Loader2, Download, Sparkles, FolderInput, CheckSquare, Copy, ShieldCheck, ShieldAlert, Layers, Globe, Tag, Flame, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { ReferenceDossierModal, type Analise } from "@/components/referencias/ReferenceDossierModal";
 import { CriarRoteiroModal } from "@/components/referencias/CriarRoteiroModal";
+import { parseRefDetails, groupReferencesByOffer, type RefDetails, type GroupedRefCluster } from "@shared/ad-mining";
 
 const TIPOS = ["criativo", "landing_page", "email", "video", "copy"];
 const PLATAFORMAS = ["Meta Ads", "Google Ads", "TikTok", "YouTube", "Instagram", "Email", "Outro"];
+
+const NICHO_STYLES: Record<string, { badge: string; border: string }> = {
+  "Pressão Alta / Hipertensão": { badge: "bg-rose-500/15 text-rose-300 border-rose-500/30", border: "border-rose-500/40" },
+  "Emagrecimento / Nutra": { badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", border: "border-emerald-500/40" },
+  "Saúde Linfática": { badge: "bg-teal-500/15 text-teal-300 border-teal-500/30", border: "border-teal-500/40" },
+  "Memória / Cognição": { badge: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30", border: "border-cyan-500/40" },
+  "Diabetes / Glicemia": { badge: "bg-amber-500/15 text-amber-300 border-amber-500/30", border: "border-amber-500/40" },
+  "Dores / Articulações": { badge: "bg-orange-500/15 text-orange-300 border-orange-500/30", border: "border-orange-500/40" },
+  "Saúde Masculina": { badge: "bg-blue-500/15 text-blue-300 border-blue-500/30", border: "border-blue-500/40" },
+  "Pele / Estética": { badge: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30", border: "border-fuchsia-500/40" },
+  "Espiritualidade": { badge: "bg-violet-500/15 text-violet-300 border-violet-500/30", border: "border-violet-500/40" },
+  "Finanças": { badge: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30", border: "border-yellow-500/40" },
+  "Relacionamento": { badge: "bg-pink-500/15 text-pink-300 border-pink-500/30", border: "border-pink-500/40" },
+  "Saúde e Bem-estar": { badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", border: "border-emerald-500/40" },
+  "Geral": { badge: "bg-slate-500/15 text-slate-300 border-slate-500/30", border: "border-slate-500/40" },
+};
 
 const TIPO_STYLES: Record<string, { border: string; badge: string; icon: LucideIcon; gradient: string }> = {
   criativo: { border: "border-l-rose-500", badge: "bg-rose-500/15 text-rose-400 border-rose-500/30", icon: Palette, gradient: "from-rose-500/20 to-rose-500/5" },
@@ -63,6 +80,9 @@ interface Ref {
   duracao?: number | null;
   lote?: string | null;
   fonte?: string | null;
+  formato?: string | null;
+  leitura?: any | null;
+  pipeline?: any | null;
 }
 
 /** Check if a URL points to a video file */
@@ -196,7 +216,16 @@ function ReferenciasDesktop() {
   const [filterPasta, setFilterPasta] = useState("all");
   const [filterOrigem, setFilterOrigem] = useState<"all" | "manual" | "library" | "ads">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterNicho, setFilterNicho] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [groupByOffer, setGroupByOffer] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("referencias.groupByOffer.v1") !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const [clusterModal, setClusterModal] = useState<GroupedRefCluster | null>(null);
   const [visibleCount, setVisibleCount] = useState<number>(48);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchMove, setShowBatchMove] = useState(false);
@@ -344,10 +373,16 @@ function ReferenciasDesktop() {
     } catch { /* Persistência opcional; mantém o layout em memória. */ }
   }, [viewMode]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("referencias.groupByOffer.v1", groupByOffer ? "1" : "0");
+    } catch { /* Persistência opcional */ }
+  }, [groupByOffer]);
+
   // Reset pagination when any filter changes
   useEffect(() => {
     setVisibleCount(48);
-  }, [search, filterTipo, filterPlat, filterProject, filterPasta, filterOrigem, filterCategory, currentFolder, selectedTag]);
+  }, [search, filterTipo, filterPlat, filterProject, filterPasta, filterOrigem, filterCategory, filterNicho, currentFolder, selectedTag, groupByOffer]);
 
   const hasActiveFilters = !!(
     search ||
@@ -357,6 +392,7 @@ function ReferenciasDesktop() {
     filterPasta !== "all" ||
     filterOrigem !== "all" ||
     filterCategory !== "all" ||
+    filterNicho !== "all" ||
     selectedTag !== null
   );
 
@@ -364,6 +400,7 @@ function ReferenciasDesktop() {
     setSearchInput(""); setSearch("");
     setFilterTipo("all"); setFilterPlat("all"); setFilterProject("all");
     setFilterPasta("all"); setFilterOrigem("all"); setFilterCategory("all");
+    setFilterNicho("all");
     setSelectedTag(null);
     setCurrentFolder([]);
     setSelectedIds(new Set());
@@ -624,15 +661,39 @@ function ReferenciasDesktop() {
 
   // Match everything except the folder/pasta filter — reused by folder counters
   const matchesNonFolder = (r: Ref & { _vpath?: string }) => {
-    const ms = !search || r.titulo?.toLowerCase().includes(search.toLowerCase()) || r.notas?.toLowerCase().includes(search.toLowerCase());
+    const d = parseRefDetails(r);
+    const q = search.toLowerCase();
+    const ms = !search ||
+      r.titulo?.toLowerCase().includes(q) ||
+      r.notas?.toLowerCase().includes(q) ||
+      d.headline.toLowerCase().includes(q) ||
+      d.copyTexto.toLowerCase().includes(q) ||
+      d.paginaNome.toLowerCase().includes(q) ||
+      (d.destinoHost && d.destinoHost.toLowerCase().includes(q));
+
     const mt = filterTipo === "all" || r.tipo === filterTipo;
     const mp = filterPlat === "all" || r.plataforma === filterPlat;
     const mpr = filterProject === "all" || r.project_id === filterProject;
     const mo = filterOrigem === "all" || r.source === filterOrigem;
     const mc = filterCategory === "all" || (r.source === "library" && r.content_category === filterCategory);
-    const mtag = !selectedTag || (r.tags?.includes(selectedTag) ?? false) || r.analise?.editorial?.primaryNiche === selectedTag;
-    return ms && mt && mp && mpr && mo && mc && mtag;
+    const mtag = !selectedTag || (r.tags?.includes(selectedTag) ?? false) || r.analise?.editorial?.primaryNiche === selectedTag || d.nicho === selectedTag;
+    const mnicho = filterNicho === "all" || d.nicho === filterNicho;
+    return ms && mt && mp && mpr && mo && mc && mtag && mnicho;
   };
+
+  // Nichos disponíveis computados a partir das referências
+  const availableNichos = useMemo(() => {
+    const counts: Record<string, number> = {};
+    refs.forEach(r => {
+      const d = parseRefDetails(r);
+      if (d.nicho) {
+        counts[d.nicho] = (counts[d.nicho] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([nicho, count]) => ({ nicho, count }));
+  }, [refs]);
 
   // Extract top frequent tags for visual tag strip
   const popularTags = useMemo(() => {
@@ -677,8 +738,17 @@ function ReferenciasDesktop() {
     ? [...filteredRaw].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     : filteredRaw;
 
+  // Clusters quando agrupamento por oferta/anúncio está ativado
+  const filteredClusters = useMemo(() => {
+    if (!groupByOffer) return [];
+    return groupReferencesByOffer(filtered);
+  }, [filtered, groupByOffer]);
+
   // Pagination slice (batch loading of 48 items)
   const visibleItems = filtered.slice(0, visibleCount);
+  const visibleClusters = useMemo(() => {
+    return filteredClusters.slice(0, visibleCount);
+  }, [filteredClusters, visibleCount]);
 
 
 
@@ -889,7 +959,8 @@ function ReferenciasDesktop() {
   );
 
   /** Render a thumbnail area — handles images, videos, and fallbacks */
-  const renderThumb = (r: Ref, height: string = "h-36") => {
+  const renderThumb = (r: Ref, height: string = "h-40", cluster?: GroupedRefCluster) => {
+    const d = cluster ? cluster.details : parseRefDetails(r);
     const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
     const Icon = style.icon;
     const isLib = r.source === "library";
@@ -899,15 +970,55 @@ function ReferenciasDesktop() {
       ? r.image_url
       : (r.quadros && r.quadros.length > 0 && r.quadros[0]?.url ? r.quadros[0].url : null);
 
+    const renderOverlayBadges = () => (
+      <>
+        {/* Badges de Formato e Cluster */}
+        <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1 pointer-events-none z-10">
+          <div className="flex items-center gap-1">
+            <Badge variant="outline" className="text-[9px] h-5 px-1.5 bg-black/75 backdrop-blur-sm text-slate-200 border-white/20 font-medium">
+              {d.formato === "video" ? "🎞️ Vídeo" : d.formato === "carrossel" ? "📑 Carrossel" : "🖼️ Estático"}
+            </Badge>
+            {cluster?.isCluster && (
+              <button
+                type="button"
+                className="pointer-events-auto text-[9px] h-5 px-2 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-md flex items-center gap-1 transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setClusterModal(cluster);
+                }}
+                title="Ver lista de todas as fanpages veiculando este criativo"
+              >
+                <Flame className="h-2.5 w-2.5 fill-slate-950" /> {cluster.totalPages} páginas
+              </button>
+            )}
+          </div>
+          {d.diasNoAr >= 14 && (
+            <Badge className="text-[9px] h-5 px-1.5 bg-amber-500/90 text-slate-950 font-bold border-0">
+              🔥 Escalado
+            </Badge>
+          )}
+        </div>
+
+        {/* Texto Visual da Arte (OCR) se houver */}
+        {d.textoVisual && (
+          <div className="absolute bottom-1.5 left-1.5 right-1.5 z-10 px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-white/10 text-[9px] text-slate-200 truncate flex items-center gap-1 pointer-events-none">
+            <span className="text-[8px] uppercase font-bold text-amber-400 shrink-0">Arte:</span>
+            <span className="truncate italic">"{d.textoVisual}"</span>
+          </div>
+        )}
+      </>
+    );
+
     if (displayImg) {
       return (
-        <div className={`${height} bg-secondary overflow-hidden relative`}>
+        <div className={`${height} bg-secondary overflow-hidden relative group/thumb`}>
           <img
             src={displayImg}
             alt={r.titulo}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
+          {renderOverlayBadges()}
           {r.is_video && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="bg-black/50 rounded-full p-2">
@@ -917,7 +1028,7 @@ function ReferenciasDesktop() {
           )}
           {/* Download button */}
           <button
-            className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10 shadow-md backdrop-blur-sm"
+            className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-20 shadow-md backdrop-blur-sm"
             title="Baixar imagem"
             onClick={(e) => {
               e.stopPropagation();
@@ -932,14 +1043,14 @@ function ReferenciasDesktop() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+              className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 z-10"
               title="Abrir link original"
             >
               <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
             </a>
           ) : (
             <button
-              className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+              className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 z-10"
               onClick={(e) => { e.stopPropagation(); setLightboxUrl(displayImg); }}
             >
               <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
@@ -947,7 +1058,7 @@ function ReferenciasDesktop() {
           )}
           {isLib && (
             <button
-              className="absolute top-1.5 right-8 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 z-10"
+              className="absolute top-1.5 right-8 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 z-20"
               title="Salvar como Referência"
               onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
             >
@@ -962,7 +1073,7 @@ function ReferenciasDesktop() {
     const directVideoSrc = (isVideoUrl(r.url) ? r.url : null) || (isVideoUrl(r.image_url) ? r.image_url : null);
     if (r.is_video && directVideoSrc) {
       return (
-        <div className={`${height} bg-secondary overflow-hidden relative`}>
+        <div className={`${height} bg-secondary overflow-hidden relative group/thumb`}>
           <video
             src={directVideoSrc}
             className="w-full h-full object-cover"
@@ -971,9 +1082,10 @@ function ReferenciasDesktop() {
             onMouseOver={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
             onMouseOut={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
           />
+          {renderOverlayBadges()}
           {/* Download button */}
           <button
-            className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10 shadow-md backdrop-blur-sm"
+            className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/70 hover:bg-black/90 text-white opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-20 shadow-md backdrop-blur-sm"
             title="Baixar vídeo"
             onClick={(e) => {
               e.stopPropagation();
@@ -989,7 +1101,7 @@ function ReferenciasDesktop() {
           </div>
           {isLib && (
             <button
-              className="absolute top-1.5 right-8 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 z-10"
+              className="absolute top-1.5 right-8 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 z-20"
               title="Salvar como Referência"
               onClick={(e) => { e.stopPropagation(); saveAsRef(r); }}
             >
@@ -1002,7 +1114,8 @@ function ReferenciasDesktop() {
 
     // Fallback gradient — clickable when a URL exists
     const fallback = (
-      <div className={`${height} bg-gradient-to-br ${style.gradient} flex flex-col items-center justify-center gap-2`}>
+      <div className={`${height} bg-gradient-to-br ${style.gradient} flex flex-col items-center justify-center gap-2 relative`}>
+        {renderOverlayBadges()}
         <Icon className="h-10 w-10 text-muted-foreground/20" />
         {r.url && <span className="text-[10px] text-primary/70 flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Abrir link</span>}
       </div>
@@ -1023,7 +1136,9 @@ function ReferenciasDesktop() {
     return fallback;
   };
 
-  const renderCard = (r: Ref, i: number) => {
+  const renderCard = (r: Ref, i: number, cluster?: GroupedRefCluster) => {
+    const d = cluster ? cluster.details : parseRefDetails(r);
+    const nichoStyle = NICHO_STYLES[d.nicho] || NICHO_STYLES["Geral"];
     const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
     const catMeta = r.content_category ? CATEGORY_META[r.content_category] : null;
     const isLib = r.source === "library";
@@ -1033,11 +1148,11 @@ function ReferenciasDesktop() {
 
     return (
       <Card
-        key={r.id}
-        className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.01] hover:border-slate-700 cursor-pointer transition-all duration-200 group overflow-hidden relative animate-fade-in ${
+        key={cluster ? cluster.id : r.id}
+        className={`bg-card border-border border-l-4 ${style.border} hover:scale-[1.01] hover:border-slate-700 cursor-pointer transition-all duration-200 group overflow-hidden relative animate-fade-in flex flex-col ${
           hasFrames ? "ring-1 ring-amber-500/20 shadow-md" : ""
         } ${selectedIds.has(r.id) ? "ring-2 ring-primary border-primary shadow-lg" : ""}`}
-        style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
+        style={{ animationDelay: `${i * 30}ms`, animationFillMode: "both" }}
         onClick={() => {
           if (isDossierItem) {
             setDossierRef(r);
@@ -1050,7 +1165,7 @@ function ReferenciasDesktop() {
       >
         {/* Selection checkbox */}
         <div
-          className={`absolute top-2 left-2 z-20 transition-opacity ${
+          className={`absolute top-2 left-2 z-30 transition-opacity ${
             selectedIds.has(r.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
           onClick={(e) => {
@@ -1098,102 +1213,185 @@ function ReferenciasDesktop() {
                   </button>
                 )}
                 <span className="text-slate-400 group-hover:text-amber-300 transition-colors flex items-center gap-0.5">
-                  Ver Dossiê da Copy →
+                  Ver Dossiê →
                 </span>
               </div>
             </div>
           </div>
         ) : (
-          renderThumb(r)
+          renderThumb(r, "h-40", cluster)
         )}
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-sm line-clamp-2 text-slate-100 group-hover:text-amber-300 transition-colors">
-              {r.analise?.ordinal ? `#${String(r.analise.ordinal).padStart(2, "0")} · ` : ""}{r.titulo}
+
+        <CardContent className="p-3 space-y-2.5 flex-1 flex flex-col justify-between">
+          <div className="space-y-2">
+            {/* Top row: Nicho & Dias no ar */}
+            <div className="flex items-center justify-between gap-1 flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap">
+                <Badge className={`text-[9px] font-semibold border ${nichoStyle.badge}`}>
+                  🏷️ {d.nicho}
+                </Badge>
+                {catMeta && (
+                  <Badge className={`text-[9px] border ${catMeta.color}`}>{catMeta.label}</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {d.diasNoAr > 0 && (
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono border ${
+                    d.diasNoAr >= 14
+                      ? "bg-amber-500/15 text-amber-300 border-amber-500/30 font-semibold"
+                      : "bg-secondary text-muted-foreground border-border"
+                  }`}>
+                    ⏱️ {d.diasNoAr}d
+                  </span>
+                )}
+                {isDossierItem && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-slate-400 hover:text-slate-200 transition-opacity"
+                    title="Editar dados"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditing({ ...r });
+                    }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
+                {!isLib && (
+                  <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-destructive transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Headline Comercial */}
+            <h3 className="font-semibold text-sm line-clamp-2 text-slate-100 group-hover:text-amber-300 transition-colors leading-snug">
+              {r.analise?.ordinal ? `#${String(r.analise.ordinal).padStart(2, "0")} · ` : ""}{d.headline}
             </h3>
-            <div className="flex items-center gap-1 shrink-0">
-              {isDossierItem && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-slate-400 hover:text-slate-200 transition-opacity"
-                  title="Editar dados"
+
+            {/* Pilar 1: Página & Funil (LP) */}
+            <div className="space-y-1.5 pt-1.5 border-t border-border/50 text-[11px]">
+              <div className="flex items-center justify-between gap-1 text-muted-foreground">
+                <div className="flex items-center gap-1 min-w-0 text-slate-300 truncate">
+                  <span className="text-[10px] text-muted-foreground shrink-0 font-medium">Página:</span>
+                  {cluster?.isCluster ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setClusterModal(cluster); }}
+                      className="font-medium text-amber-400 hover:text-amber-300 hover:underline truncate flex items-center gap-1"
+                      title="Ver todas as páginas veiculando este criativo"
+                    >
+                      <span className="truncate">{d.paginaNome}</span>
+                      <span className="text-[9px] bg-amber-500/20 px-1 rounded text-amber-300 shrink-0">+{cluster.totalPages - 1}</span>
+                    </button>
+                  ) : d.bibliotecaUrl ? (
+                    <a
+                      href={d.bibliotecaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-sky-400 hover:underline truncate flex items-center gap-0.5"
+                      title={`Ver na Meta Ads Library: ${d.paginaNome}`}
+                    >
+                      <span className="truncate">{d.paginaNome}</span>
+                      <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="font-medium text-slate-200 truncate">{d.paginaNome}</span>
+                  )}
+                </div>
+                {d.dataInicio && (
+                  <span className="text-[9px] text-slate-500 shrink-0 font-mono">
+                    desde {d.dataInicio.slice(5, 10)}
+                  </span>
+                )}
+              </div>
+
+              {d.destinoUrl && (
+                <div className="flex items-center justify-between gap-1 text-[10px] bg-slate-900/60 px-2 py-1 rounded border border-slate-800">
+                  <div className="flex items-center gap-1 min-w-0 text-muted-foreground truncate">
+                    <span className="text-[9px] uppercase tracking-wider font-semibold text-emerald-400/90 shrink-0">Funil:</span>
+                    <span className="truncate text-slate-300 font-mono">{d.destinoHost || d.destinoUrl}</span>
+                  </div>
+                  <a
+                    href={d.destinoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0 text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-0.5 font-medium ml-1"
+                    title="Abrir página de destino concorrente"
+                  >
+                    <Globe className="h-2.5 w-2.5" /> Abrir LP
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Pilar 2: Copy */}
+            {d.copyTexto ? (
+              <div className="rounded bg-secondary/30 p-2 border border-border/40 text-[11px] space-y-1">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span className="font-semibold text-amber-400/90 uppercase tracking-wider text-[9px]">Copy</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-slate-100 flex items-center gap-1 transition-colors text-[9px]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(d.copyTexto);
+                      toast.success("Copy copiada!");
+                    }}
+                    title="Copiar texto da copy"
+                  >
+                    <Copy className="h-2.5 w-2.5" /> Copiar
+                  </button>
+                </div>
+                <p className="text-slate-300 line-clamp-2 leading-relaxed text-[11px]">
+                  {d.copyTexto}
+                </p>
+                {d.cta && (
+                  <div className="pt-0.5 flex items-center gap-1 text-[10px]">
+                    <span className="text-[9px] text-muted-foreground font-semibold">CTA:</span>
+                    <Badge variant="outline" className="text-[9px] h-3.5 px-1 bg-slate-800/80 text-slate-300 border-slate-700">
+                      {d.cta}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            ) : r.notas && !r.notas.startsWith("Página:") ? (
+              <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>
+            ) : null}
+
+            {/* Tags e badges de infra */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
+              {r.pasta && <Badge variant="outline" className="text-[9px]">📁 {r.pasta}</Badge>}
+              {r.produto && <Badge variant="outline" className="text-[9px]">📦 {r.produto}</Badge>}
+              {isVaultSynced(r.url, r.image_url) ? (
+                <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1" title="Mídia permanente na CDN própria">
+                  <ShieldCheck className="h-2.5 w-2.5" /> No Cofre
+                </Badge>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-[9px] text-amber-400 hover:text-amber-300 font-medium px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                  title="Mídia em link externo. Clique para salvar no Storage próprio."
                   onClick={(e) => {
                     e.stopPropagation();
-                    setEditing({ ...r });
+                    handleSyncSingleToVault(r.id);
                   }}
                 >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-              )}
-              {!isLib && (
-                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-destructive transition-opacity" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                  <ShieldAlert className="h-2.5 w-2.5" /> Salvar no Cofre
+                </button>
               )}
             </div>
+
+            {r.score && r.score > 0 && <ScoreStars score={r.score} />}
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {hasFrames && (
-              <Badge className="text-[9px] border bg-amber-500/15 text-amber-400 border-amber-500/30">
-                🎞️ {r.duracao ? `${r.duracao.toFixed(1)}s` : "Vídeo"}
-              </Badge>
-            )}
-            {r.analise?.editorial?.primaryNiche && (
-              <Badge className="text-[9px] border bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
-                {r.analise.editorial.primaryNiche}
-              </Badge>
-            )}
-            {r.analise?.angle_family && (
-              <Badge className="text-[9px] border bg-purple-500/15 text-purple-300 border-purple-500/30">
-                {r.analise.angle_family}
-              </Badge>
-            )}
-            {r.analise?.criador && (
-              <span className="text-[10px] text-sky-400 font-medium">@{r.analise.criador}</span>
-            )}
-            {isLib && (
-              <Badge className="text-[9px] border bg-sky-500/15 text-sky-400 border-sky-500/30">📂 Projeto</Badge>
-            )}
-            {catMeta && (
-              <Badge className={`text-[9px] border ${catMeta.color}`}>{catMeta.label}</Badge>
-            )}
-            {!isLib && r.tipo && !hasFrames && <Badge className={`text-[9px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
-            {r.plataforma && <Badge variant="outline" className="text-[9px]">{r.plataforma}</Badge>}
-            {r.pasta && <Badge variant="outline" className="text-[9px]">📁 {r.pasta}</Badge>}
-            {r.produto && <Badge variant="outline" className="text-[9px]">📦 {r.produto}</Badge>}
-            {isVaultSynced(r.url, r.image_url) ? (
-              <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-1" title="Mídia permanente na CDN própria">
-                <ShieldCheck className="h-2.5 w-2.5" /> No Cofre
-              </Badge>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-[9px] text-amber-400 hover:text-amber-300 font-medium px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
-                title="Mídia em link externo. Clique para salvar no Storage próprio."
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSyncSingleToVault(r.id);
-                }}
-              >
-                <ShieldAlert className="h-2.5 w-2.5" /> Salvar no Cofre
-              </button>
-            )}
-          </div>
-          {r.score && r.score > 0 && <ScoreStars score={r.score} />}
-          {r.tags && r.tags.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              {r.tags.slice(0, 3).map(t => (
-                <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
-              ))}
-              {r.tags.length > 3 && <span className="text-[9px] text-muted-foreground">+{r.tags.length - 3}</span>}
-            </div>
-          )}
-          {r.project_id && <p className="text-[10px] text-muted-foreground">📁 {r.project_name || projectName(r.project_id)}</p>}
-          {r.notas && <p className="text-[10px] text-muted-foreground/70 line-clamp-2">{r.notas}</p>}
 
           {/* Card action footer */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px]">
+          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px] mt-2">
             <Button
               size="sm"
               variant="ghost"
@@ -1218,11 +1416,27 @@ function ReferenciasDesktop() {
                   <Download className="h-3 w-3" />
                 </button>
               )}
-              {r.url && !isLib && (
-                <a href={r.url} target="_blank" rel="noopener" className="text-primary hover:underline flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <ExternalLink className="h-2.5 w-2.5" /> Abrir link
+              {d.destinoUrl ? (
+                <a
+                  href={d.destinoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 hover:underline flex items-center gap-1"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <Globe className="h-2.5 w-2.5" /> LP
                 </a>
-              )}
+              ) : r.url && !isLib ? (
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline flex items-center gap-1"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <ExternalLink className="h-2.5 w-2.5" /> Link
+                </a>
+              ) : null}
             </div>
           </div>
         </CardContent>
@@ -1230,7 +1444,9 @@ function ReferenciasDesktop() {
     );
   };
 
-  const renderListRow = (r: Ref) => {
+  const renderListRow = (r: Ref, cluster?: GroupedRefCluster) => {
+    const d = cluster ? cluster.details : parseRefDetails(r);
+    const nichoStyle = NICHO_STYLES[d.nicho] || NICHO_STYLES["Geral"];
     const style = TIPO_STYLES[r.tipo || "criativo"] || TIPO_STYLES.criativo;
     const catMeta = r.content_category ? CATEGORY_META[r.content_category] : null;
     const isLib = r.source === "library";
@@ -1240,8 +1456,8 @@ function ReferenciasDesktop() {
 
     return (
       <div
-        key={r.id}
-        className={`flex items-center gap-3 p-2 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group ${
+        key={cluster ? cluster.id : r.id}
+        className={`flex items-center gap-3 p-2.5 rounded-lg border border-border border-l-4 ${style.border} hover:bg-secondary/50 cursor-pointer transition-colors group ${
           selectedIds.has(r.id) ? "bg-primary/5 border-primary" : ""
         }`}
         onClick={() => {
@@ -1267,88 +1483,97 @@ function ReferenciasDesktop() {
           />
         </div>
         {r.image_url && !isVideoUrl(r.image_url) ? (
-          <img src={r.image_url} alt="" className="h-10 w-14 rounded object-cover shrink-0" />
+          <img src={r.image_url} alt="" className="h-12 w-16 rounded object-cover shrink-0" />
         ) : r.is_video ? (
-          <div className="h-10 w-14 rounded bg-secondary flex items-center justify-center shrink-0">
+          <div className="h-12 w-16 rounded bg-secondary flex items-center justify-center shrink-0">
             <Play className="h-4 w-4 text-violet-400" />
           </div>
         ) : (
-          <div className={`h-10 w-14 rounded bg-gradient-to-br ${style.gradient} flex items-center justify-center shrink-0`}>
+          <div className={`h-12 w-16 rounded bg-gradient-to-br ${style.gradient} flex items-center justify-center shrink-0`}>
             {(() => { const Icon = style.icon; return <Icon className="h-4 w-4 text-muted-foreground/30" />; })()}
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{r.titulo}</p>
-          <div className="flex gap-1 items-center flex-wrap">
-            {isLib && <Badge className="text-[8px] border bg-sky-500/15 text-sky-400 border-sky-500/30">Projeto</Badge>}
-            {catMeta && <Badge className={`text-[8px] border ${catMeta.color}`}>{catMeta.label}</Badge>}
-            {!isLib && r.tipo && <Badge className={`text-[8px] border ${style.badge}`}>{r.tipo.replace("_", " ")}</Badge>}
-            {r.plataforma && <Badge variant="outline" className="text-[8px]">{r.plataforma}</Badge>}
-            {r.project_id && <span className="text-[9px] text-muted-foreground">📁 {r.project_name || projectName(r.project_id)}</span>}
-            {r.pasta && <span className="text-[9px] text-muted-foreground">📂 {r.pasta}</span>}
-            {r.produto && <span className="text-[9px] text-muted-foreground">📦 {r.produto}</span>}
-            {isVaultSynced(r.url, r.image_url) ? (
-              <span className="inline-flex items-center gap-1 text-[8px] text-emerald-400 font-medium px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20" title="No Storage próprio">
-                <ShieldCheck className="h-2.5 w-2.5" /> No Cofre
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={`text-[8px] font-semibold border ${nichoStyle.badge}`}>
+              🏷️ {d.nicho}
+            </Badge>
+            {cluster?.isCluster && (
+              <span className="text-[9px] font-bold text-amber-400 bg-amber-500/20 px-1.5 py-0.2 rounded border border-amber-500/30">
+                🔥 {cluster.totalPages} fanpages
               </span>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-[8px] text-amber-400 hover:text-amber-300 font-medium px-1.5 py-0.2 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
-                title="Salvar no Storage próprio"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSyncSingleToVault(r.id);
-                }}
-              >
-                <ShieldAlert className="h-2.5 w-2.5" /> Salvar no Cofre
-              </button>
+            )}
+            {d.diasNoAr > 0 && (
+              <span className="text-[9px] font-mono text-slate-400">
+                ⏱️ {d.diasNoAr}d no ar
+              </span>
+            )}
+            <p className="text-xs font-semibold text-slate-100 truncate flex-1">
+              {d.headline}
+            </p>
+          </div>
+          <div className="flex gap-2 items-center text-[10px] text-muted-foreground flex-wrap">
+            <span className="text-slate-300">
+              👤 {d.paginaNome}
+            </span>
+            {d.destinoHost && (
+              <span className="text-emerald-400 font-mono">
+                🌐 {d.destinoHost}
+              </span>
+            )}
+            {d.copyTexto && (
+              <span className="truncate max-w-xs italic text-slate-400">
+                "{d.copyTexto}"
+              </span>
             )}
           </div>
         </div>
-        {r.score && r.score > 0 && <ScoreStars score={r.score} />}
-        {r.tags && r.tags.length > 0 && (
-          <div className="flex gap-1 shrink-0">
-            {r.tags.slice(0, 2).map(t => (
-              <span key={t} className="text-[8px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{t}</span>
-            ))}
-          </div>
-        )}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-amber-950/30 gap-1 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation();
-            setModelarRef(r);
-          }}
-        >
-          <Sparkles className="h-3 w-3" /> Modelar
-        </Button>
-        {(r.image_url || r.url) && (
+        <div className="flex items-center gap-1.5 shrink-0">
+          {d.copyTexto && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-[10px] text-slate-300 gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(d.copyTexto);
+                toast.success("Copy copiada!");
+              }}
+            >
+              <Copy className="h-3 w-3" /> Copiar
+            </Button>
+          )}
           <Button
-            size="icon"
+            size="sm"
             variant="ghost"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-foreground transition-opacity"
-            title="Baixar mídia"
+            className="h-7 px-2 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-amber-950/30 gap-1 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
-              downloadMedia(r.image_url || r.url!, r.titulo);
+              setModelarRef(r);
             }}
           >
-            <Download className="h-3.5 w-3.5" />
+            <Sparkles className="h-3 w-3" /> Modelar
           </Button>
-        )}
-        {isLib && (
-          <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" title="Salvar como Referência" onClick={e => { e.stopPropagation(); saveAsRef(r); }}>
-            <BookmarkPlus className="h-3 w-3 text-primary" />
-          </Button>
-        )}
-        {!isLib && (
-          <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
-            <Trash2 className="h-3 w-3 text-destructive" />
-          </Button>
-        )}
+          {(r.image_url || r.url) && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-foreground transition-opacity"
+              title="Baixar mídia"
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadMedia(r.image_url || r.url!, r.titulo);
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {!isLib && (
+            <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0" onClick={e => { e.stopPropagation(); deleteRef(r.id); }}>
+              <Trash2 className="h-3 w-3 text-destructive" />
+            </Button>
+          )}
+        </div>
       </div>
     );
   };
@@ -1819,8 +2044,46 @@ function ReferenciasDesktop() {
       <div className="flex items-center gap-3 flex-wrap sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 py-2 -mx-1 px-1 border-b border-border/40">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Buscar..." className="pl-9 bg-secondary" />
+          <Input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Buscar por headline, copy, página, host..." className="pl-9 bg-secondary" />
         </div>
+
+        {/* Filtro por Nicho */}
+        <Select value={filterNicho} onValueChange={setFilterNicho}>
+          <SelectTrigger className="w-[150px] h-8 text-xs font-medium">
+            <SelectValue placeholder="Nicho" />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value="all">Todos Nichos ({refs.length})</SelectItem>
+            {availableNichos.map(({ nicho, count }) => (
+              <SelectItem key={nicho} value={nicho}>
+                {nicho} ({count})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Toggle Agrupar Ofertas / Variações */}
+        <Button
+          type="button"
+          size="sm"
+          variant={groupByOffer ? "default" : "outline"}
+          onClick={() => setGroupByOffer(v => !v)}
+          className={`h-8 text-xs gap-1.5 transition-all ${
+            groupByOffer
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          title="Agrupa criativos repetidos veiculados em múltiplas páginas de contingência"
+        >
+          <Layers className="h-3.5 w-3.5" />
+          <span>Agrupar Ofertas</span>
+          {groupByOffer && filteredClusters.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/30 text-amber-200">
+              {filteredClusters.length}
+            </span>
+          )}
+        </Button>
+
         <Select value={filterPlat} onValueChange={setFilterPlat}>
           <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Plataforma" /></SelectTrigger>
           <SelectContent>
@@ -1855,7 +2118,11 @@ function ReferenciasDesktop() {
             <List className="h-3.5 w-3.5" />
           </button>
         </div>
-        <Badge variant="outline" className="text-xs">{filtered.length} refs</Badge>
+        <Badge variant="outline" className="text-xs">
+          {groupByOffer
+            ? `${filteredClusters.length} ofertas (${filtered.length} ads)`
+            : `${filtered.length} refs`}
+        </Badge>
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" onClick={clearFilters}>
             Limpar filtros
@@ -1906,12 +2173,14 @@ function ReferenciasDesktop() {
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Image className="h-3.5 w-3.5 text-primary" />
             {currentFolder.length > 0
-              ? `Itens em "${currentFolder[currentFolder.length - 1]}" (${filtered.length})`
+              ? `Itens em "${currentFolder[currentFolder.length - 1]}" (${groupByOffer ? filteredClusters.length : filtered.length})`
+              : groupByOffer
+              ? `Ofertas / Criativos Agrupados (${filteredClusters.length})`
               : `Todas as Referências (${filtered.length})`}
           </h3>
-          {filtered.length > visibleCount && (
+          {(groupByOffer ? filteredClusters.length > visibleCount : filtered.length > visibleCount) && (
             <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">
-              Exibindo {visibleItems.length} de {filtered.length}
+              Exibindo {groupByOffer ? visibleClusters.length : visibleItems.length} de {groupByOffer ? filteredClusters.length : filtered.length}
             </Badge>
           )}
         </div>
@@ -1921,24 +2190,29 @@ function ReferenciasDesktop() {
             variant="ghost"
             className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1.5"
             onClick={() => {
-              if (selectedIds.size === visibleItems.length && visibleItems.length > 0) {
+              const currentVisibleIds = groupByOffer
+                ? visibleClusters.map(c => c.mainRef.id)
+                : visibleItems.map(r => r.id);
+              if (selectedIds.size === currentVisibleIds.length && currentVisibleIds.length > 0) {
                 clearSelection();
               } else {
-                selectAllVisible();
+                setSelectedIds(new Set(currentVisibleIds));
               }
             }}
           >
             <CheckSquare className="h-3.5 w-3.5 text-primary" />
-            {selectedIds.size === visibleItems.length && visibleItems.length > 0
+            {selectedIds.size > 0 && selectedIds.size === (groupByOffer ? visibleClusters.length : visibleItems.length)
               ? "Desmarcar todos"
-              : `Selecionar visíveis (${visibleItems.length})`}
+              : `Selecionar visíveis (${groupByOffer ? visibleClusters.length : visibleItems.length})`}
           </Button>
         )}
       </div>
 
       {viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {visibleItems.map((r, i) => renderCard(r, i))}
+          {groupByOffer
+            ? visibleClusters.map((cluster, i) => renderCard(cluster.mainRef, i, cluster))
+            : visibleItems.map((r, i) => renderCard(r, i))}
           {filtered.length === 0 && (
             <div className="col-span-full text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
@@ -1965,7 +2239,9 @@ function ReferenciasDesktop() {
         </div>
       ) : (
         <div className="space-y-1">
-          {visibleItems.map(r => renderListRow(r))}
+          {groupByOffer
+            ? visibleClusters.map(cluster => renderListRow(cluster.mainRef, cluster))
+            : visibleItems.map(r => renderListRow(r))}
           {filtered.length === 0 && (
             <div className="text-center py-12 space-y-2">
               <Image className="h-10 w-10 text-muted-foreground/20 mx-auto" />
@@ -1993,10 +2269,10 @@ function ReferenciasDesktop() {
       )}
 
       {/* Pagination / Load more bar */}
-      {filtered.length > visibleCount && (
+      {(groupByOffer ? filteredClusters.length > visibleCount : filtered.length > visibleCount) && (
         <div className="flex flex-col items-center justify-center gap-2 pt-6 pb-12">
           <p className="text-xs text-muted-foreground">
-            Exibindo <span className="font-semibold text-foreground">{visibleItems.length}</span> de <span className="font-semibold text-foreground">{filtered.length}</span> referências
+            Exibindo <span className="font-semibold text-foreground">{groupByOffer ? visibleClusters.length : visibleItems.length}</span> de <span className="font-semibold text-foreground">{groupByOffer ? filteredClusters.length : filtered.length}</span> {groupByOffer ? "ofertas" : "referências"}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -2004,22 +2280,22 @@ function ReferenciasDesktop() {
               onClick={() => setVisibleCount(c => c + 48)}
               className="px-6 h-9 text-xs gap-2 border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 font-medium"
             >
-              Carregar mais 48 referências
+              Carregar mais 48 {groupByOffer ? "ofertas" : "referências"}
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setVisibleCount(filtered.length)}
+              onClick={() => setVisibleCount(groupByOffer ? filteredClusters.length : filtered.length)}
               className="text-xs text-muted-foreground hover:text-foreground h-9"
             >
-              Mostrar todas ({filtered.length})
+              Mostrar todas ({groupByOffer ? filteredClusters.length : filtered.length})
             </Button>
           </div>
         </div>
       )}
-      {filtered.length > 0 && filtered.length <= visibleCount && (
+      {(groupByOffer ? filteredClusters.length : filtered.length) > 0 && (groupByOffer ? filteredClusters.length : filtered.length) <= visibleCount && (
         <div className="text-center py-6 text-xs text-muted-foreground/60 border-t border-border/20 mt-4">
-          Todas as {filtered.length} referências exibidas
+          Todas as {groupByOffer ? filteredClusters.length : filtered.length} {groupByOffer ? "ofertas agrupadas" : "referências"} exibidas
         </div>
       )}
 
@@ -2284,6 +2560,128 @@ function ReferenciasDesktop() {
         open={!!modelarRef}
         onOpenChange={(open) => { if (!open) setModelarRef(null); }}
       />
+
+      {/* Cluster Modal: lista de todas as fanpages veiculando a mesma oferta */}
+      <Dialog open={!!clusterModal} onOpenChange={(open) => { if (!open) setClusterModal(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Layers className="h-5 w-5 text-amber-400" />
+              <span>Variações desta Oferta / Criativo</span>
+              <Badge variant="outline" className="ml-auto text-xs bg-amber-500/10 text-amber-400 border-amber-500/30">
+                {clusterModal?.count} páginas veiculando
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {clusterModal && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="p-3 rounded-lg bg-secondary/40 border border-border/60 space-y-2">
+                <div className="font-semibold text-sm text-foreground">
+                  {clusterModal.details.headline}
+                </div>
+                {clusterModal.details.copyTexto && (
+                  <p className="text-muted-foreground line-clamp-3 text-[11px] leading-relaxed italic">
+                    "{clusterModal.details.copyTexto}"
+                  </p>
+                )}
+                <div className="flex items-center gap-3 pt-1 flex-wrap text-[11px]">
+                  {clusterModal.details.nicho && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Nicho: {clusterModal.details.nicho}
+                    </Badge>
+                  )}
+                  {clusterModal.details.formato && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Formato: {clusterModal.details.formato}
+                    </Badge>
+                  )}
+                  {clusterModal.details.destinoHost && (
+                    <span className="text-emerald-400 flex items-center gap-1 font-mono">
+                      <Globe className="h-3 w-3" /> {clusterModal.details.destinoHost}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Megaphone className="h-3.5 w-3.5 text-primary" />
+                  Fanpages / Anúncios Ativos ({clusterModal.allRefs.length})
+                </h4>
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  {clusterModal.allRefs.map((item, idx) => {
+                    const itemDetails = parseRefDetails(item);
+                    return (
+                      <div
+                        key={item.id || idx}
+                        className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-card/60 hover:bg-secondary/40 transition-colors gap-3"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground truncate">
+                              {itemDetails.paginaNome || "Página Anunciante"}
+                            </span>
+                            {itemDetails.statusAtivo && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" title="Ativo" />
+                            )}
+                            {itemDetails.diasNoAr > 0 && (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {itemDetails.diasNoAr}d no ar
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground truncate">
+                            {itemDetails.destinoHost && (
+                              <span className="text-emerald-400 font-mono truncate">
+                                🔗 {itemDetails.destinoHost}
+                              </span>
+                            )}
+                            {item.plataforma && <span>· {item.plataforma}</span>}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {item.url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[10px] px-2 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                              asChild
+                            >
+                              <a href={item.url} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-3 w-3" /> Biblioteca Meta
+                              </a>
+                            </Button>
+                          )}
+                          {itemDetails.destinoUrl && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[10px] px-2 gap-1 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                              asChild
+                            >
+                              <a href={itemDetails.destinoUrl} target="_blank" rel="noopener noreferrer">
+                                <Globe className="h-3 w-3" /> LP Destino
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setClusterModal(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );

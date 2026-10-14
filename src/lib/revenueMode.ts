@@ -53,6 +53,9 @@ export function getRevenue(
   return Number(venda.valor ?? 0);
 }
 
+/** Alias de getRevenue para compatibilidade entre módulos de cockpit e metas. */
+export const saleValue = getRevenue;
+
 /** Soma rápida de receita em uma lista de vendas. */
 export function sumRevenue(
   vendas: Array<{ valor?: number | null; valor_liquido?: number | null }>,
@@ -60,3 +63,17 @@ export function sumRevenue(
 ): number {
   return vendas.reduce((acc, v) => acc + getRevenue(v, mode), 0);
 }
+
+/** Status canônicos que representam uma venda paga em todas as plataformas (Ticto, Hotmart, Kiwify, Digistore24, Stripe). */
+export const PAID_SALE_STATUSES = [
+  "aprovado",
+  "aprovada",
+  "paga",
+  "approved",
+  "paid",
+  "completed",
+] as const;
+
+/** Taxa de câmbio padrão USD → BRL compartilhada entre Finanças, Custos IA e Gerenciador. */
+export const USD_BRL_RATE = 5.6;
+

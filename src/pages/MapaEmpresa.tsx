@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, GitCommit, Loader2, RefreshCw, TableProperties, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { errorMessage } from "@/lib/error-message";
 import { STATUS_LABEL, type MapArea, type MapStatus, type ProjectMap } from "@shared/project-map";
 import { useCompanyMap } from "@/hooks/useCompanyMap";
 import { useTodayBoard } from "@/hooks/useTodayBoard";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 import { StatusPill } from "@/components/mapa/StatusPill";
 import { ProjectMapDetail } from "@/components/mapa/ProjectMapDetail";
 import { STATUS_DOT } from "@/components/mapa/map-styles";
@@ -32,7 +33,12 @@ const statusOf = (map: ProjectMap, area: MapArea) => map.sections.find((s) => s.
 
 export default function MapaEmpresa() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: maps = [], isLoading, isFetching, error, refetch } = useCompanyMap();
+  const { data: allMaps = [], isLoading, isFetching, error, refetch } = useCompanyMap();
+  const { projectId: globalProjectId } = useGlobalProject();
+  const maps = useMemo(
+    () => (globalProjectId === "all" ? allMaps : allMaps.filter((m) => m.projectId === globalProjectId)),
+    [allMaps, globalProjectId]
+  );
   const { data: boards = [] } = useTodayBoard();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [onlyCritical, setOnlyCritical] = useState(false);
@@ -44,7 +50,15 @@ export default function MapaEmpresa() {
     return "caminho";
   });
 
-  const [selectedPathProjectId, setSelectedPathProjectId] = useState<string | null>(null);
+  const [selectedPathProjectId, setSelectedPathProjectId] = useState<string | null>(
+    () => (globalProjectId !== "all" ? globalProjectId : null)
+  );
+
+  useEffect(() => {
+    if (globalProjectId !== "all") {
+      setSelectedPathProjectId(globalProjectId);
+    }
+  }, [globalProjectId]);
 
   const handleTabChange = (t: "caminho" | "matriz") => {
     setActiveTab(t);
@@ -88,10 +102,11 @@ export default function MapaEmpresa() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
+            variant="outline"
             onClick={() => window.dispatchEvent(new CustomEvent("imphq:open-funnel-architect"))}
-            className="gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium shadow-sm"
+            className="gap-1.5 border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium shadow-sm"
           >
-            <Sparkles className="h-3.5 w-3.5 text-emerald-200" /> Arquiteto de Funil IA
+            <Sparkles className="h-3.5 w-3.5 text-primary" /> Arquiteto de Funil IA
           </Button>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isFetching && "animate-spin")} /> Atualizar

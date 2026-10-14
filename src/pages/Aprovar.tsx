@@ -28,6 +28,8 @@ import { errorMessage } from "@/lib/error-message";
 import { SOURCE_LABEL, waitingFor, type ApprovalItem, type ApprovalSource } from "@shared/approval-queue";
 import { useApprovals, useDecideApproval, type ApprovalDecision } from "@/hooks/useApprovals";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
+import { supabase } from "@/integrations/supabase/client";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { AiDidFeed } from "@/components/aprovar/AiDidFeed";
 
@@ -84,7 +86,12 @@ const RISK_LABEL = {
 } as const;
 
 export default function Aprovar() {
-  const { data: items = [], isLoading, error } = useApprovals();
+  const { data: allItems = [], isLoading, error } = useApprovals();
+  const { projectId: globalProjectId } = useGlobalProject();
+  const items = useMemo(
+    () => (globalProjectId === "all" ? allItems : allItems.filter((i) => !i.projectId || i.projectId === globalProjectId)),
+    [allItems, globalProjectId]
+  );
   const { data: targets } = useProjectsAndMaps();
   const [source, setSource] = useState<ApprovalSource | "todas">("todas");
   const [view, setView] = useState<"ia" | "decidir">("ia");
@@ -187,6 +194,8 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
   const Icon = SOURCE_ICON[item.source] || Bot;
   const wait = waitingFor(item.createdAt);
   const [customAnswer, setCustomAnswer] = useState(item.metadata?.suggestedAnswer || "");
+  const [pixMessage, setPixMessage] = useState(item.metadata?.recoveryMessage || "");
+  const [dispatchingWa, setDispatchingWa] = useState(false);
 
   const act = (decision: ApprovalDecision, extraAnswer?: string) => {
     decide.mutate(
@@ -211,15 +220,64 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
     toast.success(msg);
   };
 
-  const handlePixDispatch = () => {
-    if (item.metadata?.whatsappUrl && item.metadata.whatsappUrl.startsWith("http")) {
+  const openWaFallback = (msgText: string) => {
+    const rawPhone = item.metadata?.customerPhone?.replace(/\D/g, "") || "";
+    const url = rawPhone
+      ? `https://wa.me/${rawPhone.startsWith("55") ? rawPhone : `55${rawPhone}`}?text=${encodeURIComponent(msgText)}`
+      : item.metadata?.whatsappUrl;
+    if (url && url.startsWith("http")) {
       try {
-        window.open(item.metadata.whatsappUrl, "_blank", "noopener,noreferrer");
+        window.open(url, "_blank", "noopener,noreferrer");
       } catch {
-        // Ignora em ambientes sem suporte a window.open (ex.: testes jsdom)
+        // Ignora em ambientes sem suporte a window.open
       }
     }
+  };
+
+  const handlePixDispatch = async () => {
+    const phone = item.metadata?.customerPhone?.replace(/\D/g, "") || "";
+    const content = pixMessage.trim() || item.metadata?.recoveryMessage || "";
+
     act("approve");
+
+    if (phone && content) {
+      setDispatchingWa(true);
+      try {
+        const { data: providers } = await supabase
+          .from("imphq_wa_providers")
+          .select("id, project_id")
+          .eq("is_active", true)
+          .order("is_primary", { ascending: false })
+          .limit(5);
+
+        const matchProvider =
+          providers?.find((p) => item.projectId && p.project_id === item.projectId) ?? providers?.[0];
+
+        if (matchProvider) {
+          const { data: sendRes, error: sendErr } = await supabase.functions.invoke("whatsapp-api", {
+            body: {
+              action: "send_message",
+              provider_id: matchProvider.id,
+              project_id: item.projectId || matchProvider.project_id,
+              phone,
+              content,
+              sent_by: "human",
+            },
+          });
+          if (!sendErr && sendRes?.success) {
+            toast.success("Mensagem de recuperação enviada direto via WhatsApp API!");
+            setDispatchingWa(false);
+            return;
+          }
+        }
+      } catch {
+        // Fallback para wa.me caso a API não esteja ativa
+      } finally {
+        setDispatchingWa(false);
+      }
+    }
+
+    openWaFallback(content);
   };
 
   return (
@@ -302,16 +360,21 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
               {item.metadata.recoveryMessage && (
                 <div className="rounded border border-border/60 bg-background/80 p-2 text-foreground">
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-                    <span className="font-medium">Mensagem sugerida no WhatsApp:</span>
+                    <span className="font-medium">Mensagem de recuperação (editável):</span>
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(item.metadata?.recoveryMessage || "", "Texto da mensagem copiado!")}
+                      onClick={() => copyToClipboard(pixMessage || item.metadata?.recoveryMessage || "", "Texto da mensagem copiado!")}
                       className="inline-flex items-center gap-1 hover:text-foreground"
                     >
                       <Copy className="h-3 w-3" /> Copiar
                     </button>
                   </div>
-                  <p className="italic text-xs text-foreground/90 whitespace-pre-line">{item.metadata.recoveryMessage}</p>
+                  <Textarea
+                    value={pixMessage}
+                    onChange={(e) => setPixMessage(e.target.value)}
+                    rows={2}
+                    className="min-h-[52px] text-xs bg-transparent border-border/50 focus-visible:ring-1"
+                  />
                 </div>
               )}
 
@@ -320,9 +383,9 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
                   size="sm"
                   className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
                   onClick={handlePixDispatch}
-                  disabled={decide.isPending}
+                  disabled={decide.isPending || dispatchingWa}
                 >
-                  {decide.isPending ? (
+                  {decide.isPending || dispatchingWa ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Send className="mr-1.5 h-3.5 w-3.5" />
@@ -334,7 +397,7 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
                   variant="outline"
                   className="h-8 text-xs"
                   onClick={() => act("mark_paid")}
-                  disabled={decide.isPending}
+                  disabled={decide.isPending || dispatchingWa}
                 >
                   <Check className="mr-1.5 h-3.5 w-3.5 text-success" /> Já pagou (Aprovar)
                 </Button>
@@ -343,7 +406,7 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
                   variant="ghost"
                   className="h-8 text-xs text-muted-foreground hover:text-destructive"
                   onClick={() => act("reject")}
-                  disabled={decide.isPending}
+                  disabled={decide.isPending || dispatchingWa}
                 >
                   <X className="mr-1.5 h-3.5 w-3.5" /> Descartar
                 </Button>
@@ -418,7 +481,7 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
                   <X className="mr-1.5 h-3.5 w-3.5" /> Ignorar recomendação
                 </Button>
                 <Button asChild size="sm" variant="ghost" className="h-8 text-xs">
-                  <Link to="/gerenciador-ads">
+                  <Link to="/gerenciador">
                     <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Ver métricas no Ads
                   </Link>
                 </Button>

@@ -17,25 +17,38 @@ import { KpiHeroCard } from "@/components/shared/KpiHeroCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, TrendingUp, Crown, Layers } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, TrendingUp, Crown, Layers, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SectionInfo } from "@/components/SectionInfo";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
 import { useRevenueMode } from "@/lib/revenueMode";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 export default function Cohort() {
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [vendasRaw, setVendasRaw] = useState<VendaRow[]>([]);
   const [ads, setAds] = useState<AdsSpendRow[]>([]);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
-  const [projectId, setProjectId] = useState<string>("all");
+  const [projectId, setProjectId] = useState<string>(() => globalProjectId ?? "all");
   const [metric, setMetric] = useState<"rate" | "revenue" | "buyers">("rate");
   const [drill, setDrill] = useState<{ cohort: string; offset: number } | null>(null);
   const [creativeAds, setCreativeAds] = useState<AdSpendDetailedRow[]>([]);
   const [creativeVendasRaw, setCreativeVendasRaw] = useState<VendaDetailedRow[]>([]);
   const [groupBy, setGroupBy] = useState<CreativeGroupBy>("campanha");
   const [revenueMode] = useRevenueMode();
+
+  useEffect(() => {
+    const next = globalProjectId ?? "all";
+    setProjectId((prev) => (prev === next ? prev : next));
+  }, [globalProjectId]);
+
+  const handleProjectChange = (val: string) => {
+    setProjectId(val);
+    setGlobalProjectId(val === "all" ? null : val);
+  };
 
   // Aplica modo Bruto/Líquido sobrescrevendo `valor` no cliente
   const vendas = useMemo(
@@ -80,6 +93,29 @@ export default function Cohort() {
   const creativeRows = creativeBuild.rows;
   const matchingReport = creativeBuild.report;
 
+  const exportChannelsCsv = () => {
+    const header = ["Canal", "Leads", "Compradores", "Receita_BRL", "LTV_BRL", "ARPU_BRL", "CAC_BRL", "LTV_CAC_Ratio", "Payback_Dias"];
+    const lines = channels.map((c) => [
+      c.channel,
+      String(c.leads),
+      String(c.buyers),
+      c.revenue.toFixed(2),
+      c.ltv.toFixed(2),
+      c.arpu.toFixed(2),
+      c.cac.toFixed(2),
+      c.ltvCacRatio.toFixed(2),
+      c.paybackDays != null ? String(c.paybackDays) : "",
+    ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","));
+    const csv = [header.join(","), ...lines].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cohort-ltv-${projectId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const totals = useMemo(() => {
     const totalRev = vendas.reduce((s, v) => s + (v.valor || 0), 0);
     const totalLeads = leads.length;
@@ -111,7 +147,7 @@ export default function Cohort() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <RevenueModeToggle />
-          <Select value={projectId} onValueChange={setProjectId}>
+          <Select value={projectId} onValueChange={handleProjectChange}>
             <SelectTrigger className="w-[220px]">
               <SelectValue placeholder="Projeto" />
             </SelectTrigger>
@@ -122,6 +158,16 @@ export default function Cohort() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportChannelsCsv}
+            disabled={channels.length === 0}
+            className="gap-1.5 text-xs"
+            title="Exportar LTV por canal em CSV"
+          >
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { record, toJson } from "@/lib/funis-data";
 import type { Tables } from "@/integrations/supabase/types";
 import { errorMessage } from "@/lib/error-message";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Check, Clock, RotateCcw, ShieldAlert, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BucketCard } from "@/components/recuperacao/BucketCard";
 import { RecoveryTable } from "@/components/recuperacao/RecoveryTable";
 import { TemplateEditor } from "@/components/recuperacao/TemplateEditor";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 import {
   buildRecoveryBuckets,
   DEFAULT_RECOVERY_TEMPLATES,
@@ -28,7 +29,9 @@ import {
 } from "@/lib/recoveryBuckets";
 
 export default function Recuperacao() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Pick<Tables<"imphq_projects">,"id"|"name">[]>([]);
   const [sales, setSales] = useState<Pick<Tables<"imphq_vendas">,"id"|"project_id"|"lead_id"|"produto_nome"|"status"|"valor"|"created_at"|"data_venda"|"data">[]>([]);
@@ -41,7 +44,7 @@ export default function Recuperacao() {
   const [dispatchingBucket, setDispatchingBucket] = useState<RecoveryBucketId | null>(null);
   const [dispatchingItemId, setDispatchingItemId] = useState<string | null>(null);
 
-  const selectedProject = searchParams.get("projeto") || "all";
+  const selectedProject = searchParams.get("projeto") || globalProjectId || "all";
   const selectedProjectName = useMemo(
     () => projects.find((project) => project.id === selectedProject)?.name,
     [projects, selectedProject],
@@ -164,61 +167,88 @@ export default function Recuperacao() {
       return;
     }
     const targetProjectId = item.projectId || (selectedProject !== "all" ? selectedProject : null);
-    if (!targetProjectId) {
-      toast.error("Selecione um projeto para enviar via WhatsApp do projeto.");
-      return;
-    }
     try {
       setDispatchingItemId(item.id);
       const template = getResolvedTemplate(item, "whatsapp");
       const cadenceCorpo = getTouchCadenceMessage(item, template.corpo);
       const message = interpolateRecoveryTemplate(cadenceCorpo, item);
 
-      const payload = {
-        project_id: targetProjectId,
-        bucket: item.bucket,
-        max: 1,
-        items: [
-          {
-            id: item.id,
-            leadId: item.leadId,
-            vendaId: item.vendaId,
-            leadName: item.leadName,
-            email: item.email,
-            phone: item.phone,
-            product: item.product,
-            value: item.value,
-            projectId: targetProjectId,
-            pixCode: item.pixCode || null,
-            paymentLink: item.paymentLink || null,
-            touchLevel: item.touchLevel || 1,
-            customMessage: message,
-          },
-        ],
-      };
+      if (targetProjectId) {
+        const payload = {
+          project_id: targetProjectId,
+          bucket: item.bucket,
+          max: 1,
+          items: [
+            {
+              id: item.id,
+              leadId: item.leadId,
+              vendaId: item.vendaId,
+              leadName: item.leadName,
+              email: item.email,
+              phone: item.phone,
+              product: item.product,
+              value: item.value,
+              projectId: targetProjectId,
+              pixCode: item.pixCode || null,
+              paymentLink: item.paymentLink || null,
+              touchLevel: item.touchLevel || 1,
+              customMessage: message,
+            },
+          ],
+        };
 
-      const { data, error } = await supabase.functions.invoke("recovery-bucket-dispatch", { body: payload });
-      if (error) throw error;
-      const resp = record(data);
-      const errMsg = typeof resp.error === "string" ? String(resp.error) : undefined;
-      if (errMsg?.toLowerCase().includes("provider")) {
-        toast.error("Nenhum WhatsApp ativo no projeto.", {
-          action: { label: "Configurar", onClick: () => window.location.assign("/whatsapp") },
+        const { data, error } = await supabase.functions.invoke("recovery-bucket-dispatch", { body: payload });
+        if (!error) {
+          const resp = record(data);
+          const sent = Number(resp.sent) || 0;
+          const details = Array.isArray(resp.details) ? (resp.details as Array<{ ok: boolean; error?: string }>) : [];
+          if (sent > 0) {
+            toast.success(`Mensagem enviada com sucesso no WhatsApp para ${item.leadName}!`);
+            load();
+            return;
+          } else if (details[0]?.error === "already_purchased") {
+            toast.info("Bloqueado pela Trava Anti-Duplicação: este cliente já comprou.");
+            return;
+          } else if (details[0]?.error === "already_sent_24h") {
+            toast.info("Este lead já recebeu mensagem de recuperação nas últimas 24h.");
+            return;
+          }
+        }
+      }
+
+      // Fallback direto via whatsapp-api se houver instância ativa global/do projeto
+      const { data: providers } = await supabase
+        .from("imphq_wa_providers")
+        .select("id, project_id")
+        .eq("is_active", true)
+        .order("is_primary", { ascending: false })
+        .limit(5);
+
+      const matchProvider =
+        providers?.find((p) => targetProjectId && p.project_id === targetProjectId) ?? providers?.[0];
+
+      if (matchProvider) {
+        const { data: sendRes, error: sendErr } = await supabase.functions.invoke("whatsapp-api", {
+          body: {
+            action: "send_message",
+            provider_id: matchProvider.id,
+            project_id: targetProjectId || matchProvider.project_id,
+            phone: item.phone.replace(/\D/g, ""),
+            content: message,
+            sent_by: "human",
+          },
         });
-        return;
+        if (!sendErr && sendRes?.success) {
+          await createLog(item, "whatsapp_direto", "enviado", "whatsapp", `Disparo 1-clique via API (${item.touchLabel || "Toque"})`);
+          toast.success(`Mensagem enviada direto via WhatsApp API para ${item.leadName}!`);
+          load();
+          return;
+        }
       }
-      const sent = Number(resp.sent) || 0;
-      const details = Array.isArray(resp.details) ? (resp.details as Array<{ ok: boolean; error?: string }>) : [];
-      if (sent > 0) {
-        toast.success(`Mensagem enviada com sucesso no WhatsApp para ${item.leadName}!`);
-      } else if (details[0]?.error === "already_purchased") {
-        toast.info("Bloqueado pela Trava Anti-Duplicação: este cliente já comprou.");
-      } else if (details[0]?.error === "already_sent_24h") {
-        toast.info("Este lead já recebeu mensagem de recuperação nas últimas 24h.");
-      } else {
-        toast.error(`Falha no envio: ${details[0]?.error || "erro desconhecido"}`);
-      }
-      load();
+
+      toast.error("Nenhum WhatsApp ativo encontrado para disparo automático.", {
+        action: { label: "Configurar", onClick: () => navigate("/inbox?tab=whatsapp") },
+      });
     } catch (err: unknown) {
       toast.error(errorMessage(err) || "Erro ao disparar mensagem no WhatsApp.");
     } finally {
@@ -372,14 +402,14 @@ export default function Recuperacao() {
       const errMsg = typeof record(data).error === "string" ? String(record(data).error) : undefined;
       if (errMsg?.toLowerCase().includes("provider")) {
         toast.error("Nenhum WhatsApp ativo neste projeto.", {
-          action: { label: "Configurar", onClick: () => window.location.assign("/whatsapp") },
+          action: { label: "Configurar", onClick: () => navigate("/inbox?tab=whatsapp") },
         });
         return;
       }
       const sent = record(data).sent ?? 0;
       const skipped = record(data).skipped ?? 0;
       toast.success(`Disparo: ${sent} enviadas, ${skipped} ignoradas pela trava.`, {
-        action: { label: "Ver logs", onClick: () => window.location.assign("/imperius") },
+        action: { label: "Ver logs", onClick: () => navigate("/imperius") },
       });
       load();
     } catch (err: unknown) {
@@ -403,7 +433,13 @@ export default function Recuperacao() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Select value={selectedProject} onValueChange={(value) => setSearchParams(value === "all" ? {} : { projeto: value })}>
+          <Select
+            value={selectedProject}
+            onValueChange={(value) => {
+              setGlobalProjectId(value);
+              setSearchParams(value === "all" ? {} : { projeto: value });
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[260px]">
               <SelectValue placeholder="Filtrar projeto" />
             </SelectTrigger>

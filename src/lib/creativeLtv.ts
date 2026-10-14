@@ -1,10 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { jsonFields, jsonText } from "@/lib/json-fields";
+import { PAID_SALE_STATUSES, USD_BRL_RATE } from "@/lib/revenueMode";
 
 export interface AdSpendDetailedRow {
   project_id: string | null;
   data_ref: string | null;
   valor: number | null;
+  moeda?: string | null;
   campanha: string | null;
   conjunto_anuncios: string | null;
   anuncio: string | null;
@@ -83,17 +85,22 @@ export interface MatchingReport {
 export type CreativeGroupBy = "campanha" | "conjunto" | "anuncio";
 
 export async function fetchCreativeDataset(projectId?: string) {
-  const adsQ = supabase
+  let adsQ = supabase
     .from("imphq_ads_spend")
-    .select("project_id, data_ref, valor, campanha, conjunto_anuncios, anuncio, cliques, impressoes, compras")
+    .select("project_id, data_ref, valor, moeda, campanha, conjunto_anuncios, anuncio, cliques, impressoes, compras")
     .order("data_ref", { ascending: false })
     .limit(10000);
-  const vendasQ = supabase
+  let vendasQ = supabase
     .from("imphq_vendas")
     .select("id, lead_id, project_id, valor, valor_liquido, data_venda, utm_campaign, utm_content, utm_source, tipo_venda")
-    .eq("status", "aprovado")
+    .in("status", [...PAID_SALE_STATUSES])
     .order("data_venda", { ascending: false })
     .limit(10000);
+
+  if (projectId) {
+    adsQ = adsQ.eq("project_id", projectId);
+    vendasQ = vendasQ.eq("project_id", projectId);
+  }
 
   const [adsRes, vendasRes] = await Promise.all([adsQ, vendasQ]);
 
@@ -102,7 +109,7 @@ export async function fetchCreativeDataset(projectId?: string) {
 
   const ads: AdSpendDetailedRow[] = filterByProject(adsRes.data || []).map((a) => ({
     ...a,
-    valor: Number(a.valor || 0),
+    valor: Number(a.valor || 0) * (a.moeda === "USD" ? USD_BRL_RATE : 1),
   }));
 
   const vendasRaw: VendaDetailedRow[] = filterByProject(vendasRes.data || []).map((v) => ({

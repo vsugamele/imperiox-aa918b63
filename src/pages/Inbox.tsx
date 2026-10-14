@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, MessageSquare, Instagram, Flame, Phone, Mail, Sparkles, ChevronUp, Zap, Clock, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileInboxList } from "@/components/mobile/MobileInboxList";
 
@@ -44,6 +45,7 @@ type WaConvRow = Pick<
   | "contact_name"
   | "phone"
   | "lead_id"
+  | "project_id"
   | "last_message"
   | "last_message_at"
   | "unread_count"
@@ -52,7 +54,7 @@ type WaConvRow = Pick<
 
 type HotLeadRow = Pick<
   Tables<"imphq_leads">,
-  "id" | "nome" | "email" | "score" | "criado_em"
+  "id" | "nome" | "email" | "phone" | "project_id" | "score" | "criado_em"
 >;
 
 type Priority = "urgent" | "warning" | "opportunity";
@@ -63,6 +65,7 @@ interface FilaItem {
   name: string;
   preview: string;
   elapsed: number; // minutes
+  phone?: string | null;
   href: string;
 }
 
@@ -89,30 +92,38 @@ function priorityClasses(p: Priority): { pill: string; dot: string } {
   };
 }
 
-function FilaUnificadaTab() {
+function FilaUnificadaTab({ onOpenWhatsApp }: { onOpenWhatsApp: (phone: string) => void }) {
   const [items, setItems] = useState<FilaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { projectId: globalProjectId } = useGlobalProject();
 
   const load = async () => {
     const fourHoursAgo = new Date(Date.now() - 4 * 3600_000).toISOString();
     const thirtyMinAgo = new Date(Date.now() - 30 * 60_000).toISOString();
 
-    const [convsRes, leadsRes] = await Promise.all([
-      supabase
-        .from("imphq_wa_conversations")
-        .select("id,contact_name,phone,lead_id,last_message,last_message_at,unread_count,status")
-        .neq("status", "closed")
-        .order("unread_count", { ascending: false })
-        .order("last_message_at", { ascending: true })
-        .limit(100),
-      supabase
-        .from("imphq_leads")
-        .select("id,nome,email,score,criado_em")
-        .gt("score", 70)
-        .gte("criado_em", fourHoursAgo)
-        .order("score", { ascending: false })
-        .limit(50),
-    ]);
+    let convQuery = supabase
+      .from("imphq_wa_conversations")
+      .select("id,contact_name,phone,lead_id,project_id,last_message,last_message_at,unread_count,status")
+      .neq("status", "closed")
+      .order("unread_count", { ascending: false })
+      .order("last_message_at", { ascending: true })
+      .limit(100);
+
+    let leadQuery = supabase
+      .from("imphq_leads")
+      .select("id,nome,email,phone,project_id,score,criado_em")
+      .gt("score", 70)
+      .gte("criado_em", fourHoursAgo)
+      .order("score", { ascending: false })
+      .limit(50);
+
+    if (globalProjectId !== "all") {
+      convQuery = convQuery.eq("project_id", globalProjectId);
+      leadQuery = leadQuery.eq("project_id", globalProjectId);
+    }
+
+    const [convsRes, leadsRes] = await Promise.all([convQuery, leadQuery]);
 
     const convs: WaConvRow[] = (convsRes.data ?? []) as WaConvRow[];
     const leads: HotLeadRow[] = (leadsRes.data ?? []) as HotLeadRow[];
@@ -130,7 +141,6 @@ function FilaUnificadaTab() {
       } else if (c.last_message_at && c.last_message_at < thirtyMinAgo) {
         priority = "warning";
       } else {
-        // Fresh conversation (within 30min), not yet urgent — still in queue as opportunity
         priority = "opportunity";
       }
       queue.push({
@@ -141,7 +151,8 @@ function FilaUnificadaTab() {
           ? c.last_message.slice(0, 60) + (c.last_message.length > 60 ? "\u2026" : "")
           : "",
         elapsed,
-        href: "/inbox?tab=whatsapp",
+        phone: c.phone,
+        href: c.phone ? `/inbox?tab=whatsapp&phone=${encodeURIComponent(c.phone)}` : "/inbox?tab=whatsapp",
       });
     }
 
@@ -154,6 +165,7 @@ function FilaUnificadaTab() {
         name: l.nome ?? l.email ?? "Lead sem nome",
         preview: "Sem conversa \u2014 lead quente",
         elapsed,
+        phone: l.phone,
         href: `/leads?id=${l.id}`,
       });
     }
@@ -175,7 +187,7 @@ function FilaUnificadaTab() {
       if (document.visibilityState === "visible") load();
     }, 60_000);
     return () => clearInterval(t);
-  }, []);
+  }, [globalProjectId]);
 
   if (loading) return <TabLoader />;
 
@@ -253,7 +265,13 @@ function FilaUnificadaTab() {
               size="sm"
               variant="outline"
               className="shrink-0 text-xs h-7 border-border hover:border-primary/40 hover:text-primary"
-              onClick={() => (window.location.href = item.href)}
+              onClick={() => {
+                if (item.phone) {
+                  onOpenWhatsApp(item.phone);
+                } else {
+                  navigate(item.href);
+                }
+              }}
             >
               Atender →
             </Button>
@@ -293,24 +311,31 @@ function SlaBadge({ criado_em }: { criado_em: string | null }) {
   );
 }
 
-function HotLeadsTab() {
+function HotLeadsTab({ onOpenWhatsApp }: { onOpenWhatsApp: (phone: string) => void }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { projectId: globalProjectId } = useGlobalProject();
 
   useEffect(() => {
     const twoHoursAgo = new Date(Date.now() - 2 * 3600_000).toISOString();
-    supabase
+    let q = supabase
       .from("imphq_leads")
-      .select("id,nome,email,phone,score,criado_em,data")
+      .select("id,nome,email,phone,project_id,score,criado_em,data")
       .gt("score", 80)
       .gte("criado_em", twoHoursAgo)
       .order("score", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        setLeads((data || []).map(l => ({ ...l, telefone: l.phone })));
-        setLoading(false);
-      });
-  }, []);
+      .limit(50);
+
+    if (globalProjectId !== "all") {
+      q = q.eq("project_id", globalProjectId);
+    }
+
+    q.then(({ data }) => {
+      setLeads((data || []).map(l => ({ ...l, telefone: l.phone })));
+      setLoading(false);
+    });
+  }, [globalProjectId]);
 
   if (loading) return <TabLoader />;
 
@@ -324,7 +349,7 @@ function HotLeadsTab() {
             Leads com score &gt; 80 das últimas 2h aparecerão aqui.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => window.location.href = "/leads"}>
+        <Button variant="outline" size="sm" onClick={() => navigate("/leads")}>
           Ver todos os leads →
         </Button>
       </div>
@@ -343,7 +368,6 @@ function HotLeadsTab() {
       </div>
       {leads.map((lead) => {
         const phone = lead.telefone?.replace(/\D/g, "");
-        const waLink = phone ? `https://wa.me/${phone}` : null;
         return (
           <Card key={lead.id} className="bg-secondary/40 border-border card-hover-gold">
             <CardContent className="p-4 flex items-center justify-between gap-4">
@@ -372,18 +396,21 @@ function HotLeadsTab() {
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
-                {waLink && (
-                  <Button size="sm" variant="outline" className="text-xs h-7 gap-1" asChild>
-                    <a href={waLink} target="_blank" rel="noopener noreferrer">
-                      <MessageSquare className="h-3 w-3" /> WA
-                    </a>
+                {phone && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 gap-1 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                    onClick={() => onOpenWhatsApp(phone)}
+                  >
+                    <MessageSquare className="h-3 w-3" /> Atender no WA
                   </Button>
                 )}
                 <Button
                   size="sm"
                   variant="outline"
                   className="text-xs h-7"
-                  onClick={() => (window.location.href = `/leads?id=${lead.id}`)}
+                  onClick={() => navigate(`/leads?id=${lead.id}`)}
                 >
                   Ver CRM →
                 </Button>
@@ -539,19 +566,24 @@ const TABS: { value: InboxTab; label: string; icon: React.ElementType }[] = [
   { value: "hotleads",  label: "Hot Leads",   icon: Flame },
 ];
 
+function resolveInboxTab(raw: string | null): InboxTab {
+  if (raw === "hot") return "hotleads";
+  if (raw && TABS.some((t) => t.value === raw)) return raw as InboxTab;
+  return "whatsapp";
+}
+
 export default function Inbox() {
   const isMobile = useIsMobile();
   const [params, setParams] = useSearchParams();
   const { data: badges } = useSidebarBadges();
 
-  const defaultTab = ((): InboxTab => {
-    const p = params.get("tab") as InboxTab | null;
-    if (p && TABS.some((t) => t.value === p)) return p;
-    return "whatsapp";
-  })();
-
-  const [active, setActive] = useState<InboxTab>(defaultTab);
+  const [active, setActive] = useState<InboxTab>(() => resolveInboxTab(params.get("tab")));
   const [showKpiStrip, setShowKpiStrip] = useState(() => localStorage.getItem("wa.showKpiStrip") !== "false");
+
+  useEffect(() => {
+    const nextTab = resolveInboxTab(params.get("tab"));
+    setActive(nextTab);
+  }, [params]);
 
   useEffect(() => { localStorage.setItem("wa.showKpiStrip", String(showKpiStrip)); }, [showKpiStrip]);
 
@@ -561,6 +593,11 @@ export default function Inbox() {
     const tab = val as InboxTab;
     setActive(tab);
     setParams({ tab }, { replace: true });
+  };
+
+  const openWhatsAppByPhone = (phone: string) => {
+    setActive("whatsapp");
+    setParams({ tab: "whatsapp", phone }, { replace: true });
   };
 
   const badgeCount: Record<InboxTab, number> = {
@@ -617,7 +654,7 @@ export default function Inbox() {
             </Suspense>
           </TabsContent>
           <TabsContent value="fila" className="mt-0 pt-0 h-full overflow-auto">
-            <FilaUnificadaTab />
+            <FilaUnificadaTab onOpenWhatsApp={openWhatsAppByPhone} />
           </TabsContent>
           <TabsContent value="imperius" className="mt-0 pt-0 h-full overflow-auto">
             <Suspense fallback={<TabLoader />}>
@@ -630,7 +667,7 @@ export default function Inbox() {
             </Suspense>
           </TabsContent>
           <TabsContent value="hotleads" className="mt-0 pt-0 h-full overflow-auto">
-            <HotLeadsTab />
+            <HotLeadsTab onOpenWhatsApp={openWhatsAppByPhone} />
           </TabsContent>
         </div>
       </Tabs>

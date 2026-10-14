@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight } from "lucide-react";
-
-const APPROVED = ["aprovado", "aprovada", "approved", "paid", "completed"];
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 const fmt = (n: number) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -11,29 +11,46 @@ const fmt = (n: number) => {
 };
 
 export function BlendedFunnelStrip() {
+  const { projectId: globalProjectId } = useGlobalProject();
+
   const { data } = useQuery({
-    queryKey: ["cockpit", "blended-funnel"],
+    queryKey: ["cockpit", "blended-funnel", globalProjectId ?? "all"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const now = Date.now();
       const since = new Date(now - 30 * 86_400_000).toISOString();
       const sinceDate = since.split("T")[0];
 
+      let adsQ = supabase
+        .from("imphq_ads_spend")
+        .select("impressoes, cliques")
+        .gte("data_ref", sinceDate);
+      let leadsQ = supabase
+        .from("imphq_leads")
+        .select("id", { count: "exact", head: true })
+        .gte("criado_em", since);
+      let checkoutQ = supabase
+        .from("imphq_vendas")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since);
+      let salesQ = supabase
+        .from("imphq_vendas")
+        .select("id", { count: "exact", head: true })
+        .in("status", [...PAID_SALE_STATUSES])
+        .gte("created_at", since);
+
+      if (globalProjectId) {
+        adsQ = adsQ.eq("project_id", globalProjectId);
+        leadsQ = leadsQ.eq("project_id", globalProjectId);
+        checkoutQ = checkoutQ.eq("project_id", globalProjectId);
+        salesQ = salesQ.eq("project_id", globalProjectId);
+      }
+
       const [adsRes, leadsRes, checkoutRes, salesRes] = await Promise.all([
-        supabase
-          .from("imphq_ads_spend")
-          .select("impressoes, cliques")
-          .gte("data_ref", sinceDate),
-        supabase.from("imphq_leads").select("id", { count: "exact", head: true }).gte("criado_em", since),
-        supabase
-          .from("imphq_vendas")
-          .select("id", { count: "exact", head: true })
-          .gte("created_at", since),
-        supabase
-          .from("imphq_vendas")
-          .select("id", { count: "exact", head: true })
-          .in("status", APPROVED)
-          .gte("created_at", since),
+        adsQ,
+        leadsQ,
+        checkoutQ,
+        salesQ,
       ]);
 
       const impressions = (adsRes.data || []).reduce(

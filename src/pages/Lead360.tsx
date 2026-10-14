@@ -2,18 +2,21 @@ import type { Json } from "@/integrations/supabase/types";
 import type { LucideIcon } from "lucide-react";
 import { jsonFields, jsonText } from "@/lib/json-fields";
 import { errorMessage } from "@/lib/error-message";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useLead360, type Lead360Event } from "@/hooks/useLead360";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MousePointerClick, Eye, FileText, MessageCircle, DollarSign, Bot, Sparkles, Loader2, Copy } from "lucide-react";
+import { ArrowLeft, MousePointerClick, Eye, FileText, MessageCircle, DollarSign, Bot, Sparkles, Loader2, Copy, Send, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
+
+const PAID_SET = new Set<string>(PAID_SALE_STATUSES);
 
 const ICONS: Record<Lead360Event["kind"], LucideIcon> = {
   click: MousePointerClick,
@@ -47,10 +50,12 @@ const KIND_LABEL: Record<Lead360Event["kind"], string> = {
 
 export default function Lead360Page() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { data, isLoading, error } = useLead360(id);
   const [aiInput, setAiInput] = useState("Redija mensagem de WhatsApp curta para reengajar este lead.");
   const [aiOut, setAiOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [sendingWa, setSendingWa] = useState(false);
 
   const lead = data?.lead;
   const timeline = data?.timeline || [];
@@ -76,6 +81,57 @@ export default function Lead360Page() {
     }
   }
 
+  async function sendWhatsAppNow() {
+    if (!lead?.phone) {
+      toast.error("Este lead não possui telefone cadastrado.");
+      return;
+    }
+    const text = (aiOut || aiInput).trim();
+    if (!text) {
+      toast.error("Escreva ou gere uma mensagem primeiro.");
+      return;
+    }
+    const digits = String(lead.phone).replace(/\D/g, "");
+    const normalizedPhone = digits.length >= 10 && !digits.startsWith("55") ? `55${digits}` : digits;
+
+    setSendingWa(true);
+    try {
+      const { data: provs } = await supabase
+        .from("imphq_wa_providers")
+        .select("id, project_id")
+        .eq("is_active", true)
+        .limit(10);
+      const list = provs || [];
+      const matched =
+        (lead.projeto_id ? list.find((p) => p.project_id === lead.projeto_id) : undefined) ||
+        list[0];
+
+      if (matched?.id) {
+        const { error: sendErr } = await supabase.functions.invoke("whatsapp-api", {
+          body: {
+            action: "send_message",
+            provider_id: matched.id,
+            to: normalizedPhone,
+            message: text,
+            lead_id: String(lead.id),
+          },
+        });
+        if (!sendErr) {
+          toast.success("Mensagem disparada via WhatsApp API!");
+          return;
+        }
+      }
+
+      window.open(`https://wa.me/${normalizedPhone}?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+      toast.info("Abrindo WhatsApp Web com a mensagem preenchida");
+    } catch {
+      window.open(`https://wa.me/${normalizedPhone}?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+      toast.info("Abrindo WhatsApp Web com a mensagem preenchida");
+    } finally {
+      setSendingWa(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="p-8 flex items-center gap-3 text-muted-foreground">
@@ -94,17 +150,29 @@ export default function Lead360Page() {
     );
   }
 
+  const phoneDigits = lead.phone ? String(lead.phone).replace(/\D/g, "") : "";
+
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon"><Link to="/leads"><ArrowLeft className="h-4 w-4" /></Link></Button>
           <div>
             <h1 className="text-3xl font-serif">{lead.nome || lead.email || "Lead sem nome"}</h1>
-            <p className="text-sm text-muted-foreground">{lead.email} · {lead.phone}</p>
+            <p className="text-sm text-muted-foreground">{lead.email || "Sem e-mail"} · {lead.phone || "Sem telefone"}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {phoneDigits && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => navigate(`/inbox?tab=whatsapp&phone=${encodeURIComponent(phoneDigits)}`)}
+            >
+              <MessageCircle className="h-3.5 w-3.5" /> Abrir no Inbox
+            </Button>
+          )}
           {lead.status && <Badge variant="secondary">{lead.status}</Badge>}
           {lead.score != null && <Badge>Score {lead.score}</Badge>}
         </div>
@@ -166,11 +234,44 @@ export default function Lead360Page() {
             </Button>
             {aiOut && (
               <div className="space-y-2">
-                <div className="rounded-md bg-secondary/40 p-3 text-sm leading-7 whitespace-pre-wrap">{aiOut}</div>
-                <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => { navigator.clipboard.writeText(aiOut); toast.success("Copiado"); }}>
-                  <Copy className="h-3.5 w-3.5" /> Copiar mensagem
-                </Button>
+                <Textarea
+                  value={aiOut}
+                  onChange={(e) => setAiOut(e.target.value)}
+                  rows={4}
+                  className="bg-secondary/40 text-sm leading-6"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1.5"
+                    onClick={() => { navigator.clipboard.writeText(aiOut); toast.success("Copiado"); }}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copiar
+                  </Button>
+                  {lead.phone && (
+                    <Button
+                      size="sm"
+                      className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
+                      disabled={sendingWa}
+                      onClick={sendWhatsAppNow}
+                    >
+                      {sendingWa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      Disparar WA
+                    </Button>
+                  )}
+                </div>
               </div>
+            )}
+            {!aiOut && lead.phone && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full gap-1.5 text-xs"
+                onClick={() => window.open(`https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}`, "_blank", "noopener,noreferrer")}
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Abrir WhatsApp Direto
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -191,8 +292,11 @@ function Field({ label, value }: { label: string; value: unknown }) {
 
 function KpiStrip({ timeline }: { timeline: Lead360Event[] }) {
   const vendas = timeline.filter((e) => e.kind === "venda");
-  const totalReceita = vendas.reduce((s, e) => s + Number(e.data?.valor || 0), 0);
-  const vendasOk = vendas.filter((e) => ["aprovado", "approved", "paid"].includes(String(e.data?.status || "").toLowerCase()));
+  const vendasOk = vendas.filter((e) => PAID_SET.has(String(e.data?.status || "").toLowerCase()));
+  const totalReceita = vendasOk.reduce((s, e) => s + Number(e.data?.valor || 0), 0);
+  const totalPendente = vendas
+    .filter((e) => !PAID_SET.has(String(e.data?.status || "").toLowerCase()))
+    .reduce((s, e) => s + Number(e.data?.valor || 0), 0);
   const msgs = timeline.filter((e) => e.kind === "wa_message").length;
   const cliques = timeline.filter((e) => e.kind === "click").length;
   const ultimo = timeline[0];
@@ -200,9 +304,14 @@ function KpiStrip({ timeline }: { timeline: Lead360Event[] }) {
   const utmSrc = origem?.data?.utm_source || "—";
   const utmCamp = origem?.data?.utm_campaign || "";
 
+  const subReceita =
+    totalPendente > 0
+      ? `${vendasOk.length}/${vendas.length} pagas · R$ ${totalPendente.toFixed(0)} pend.`
+      : `${vendasOk.length}/${vendas.length} aprovadas`;
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-      <Kpi label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} sub={`${vendasOk.length}/${vendas.length} aprovadas`} />
+      <Kpi label="Receita" value={`R$ ${totalReceita.toFixed(2)}`} sub={subReceita} />
       <Kpi label="Mensagens WA" value={String(msgs)} />
       <Kpi label="Cliques" value={String(cliques)} />
       <Kpi label="Origem" value={String(utmSrc)} sub={String(utmCamp).slice(0, 40)} />

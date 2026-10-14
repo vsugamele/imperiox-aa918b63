@@ -25,7 +25,7 @@ import { EditableTagList } from "@/components/projeto/EditableTagList";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, LineChart, Line, AreaChart, Area, CartesianGrid, Cell } from "recharts";
 import { Search, MessageCircle, Plus, Trash2, Users, UserCheck, Crown, DollarSign, RefreshCw, Radio, Eye, ShoppingCart, MousePointerClick, Globe, Zap, FileUp, AlertCircle, AlertTriangle, Package, X, BarChart3, Mail, Send, Play, CalendarIcon, TrendingUp, Clock, Target, Megaphone, Copy, Sparkles, Flame, ListChecks, FileText, Brain, Tag, Download, PanelLeftClose, PanelLeftOpen, Activity, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { format, isToday, parseISO, isValid, subDays, startOfMonth, endOfMonth, subMonths, differenceInHours, differenceInDays, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
@@ -40,6 +40,7 @@ import LeadsTable, { type Lead as TableLead, type LeadVenda as TableLeadVenda } 
 import LeadsSidebar from "@/components/leads/LeadsSidebar";
 import QuickTagRuleDialog from "@/components/leads/QuickTagRuleDialog";
 import { useLeadTags } from "@/hooks/useLeadTags";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 
 import LeadWhatsAppDialog from "@/components/leads/LeadWhatsAppDialog";
@@ -209,6 +210,8 @@ function loadPersistedFilters(): Partial<PersistedFilters> {
 
 function LeadsDesktop() {
   const persisted = loadPersistedFilters();
+  const [searchParams] = useSearchParams();
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<ProjectReference[]>([]);
   const [projectCounts, setProjectCounts] = useState<{ totalAll: number; byProject: Record<string, number>; noProject: number }>({ totalAll: 0, byProject: {}, noProject: 0 });
@@ -216,7 +219,7 @@ function LeadsDesktop() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(persisted.statusFilter ?? "all");
   const [platformFilter, setPlatformFilter] = useState(persisted.platformFilter ?? "all");
-  const [projectFilter, setProjectFilter] = useState(persisted.projectFilter ?? "all");
+  const [projectFilter, setProjectFilter] = useState(() => globalProjectId ?? persisted.projectFilter ?? "all");
   const [showNew, setShowNew] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", phone: "", plataforma: "", status: "lead", tags: [] as string[] });
@@ -224,7 +227,7 @@ function LeadsDesktop() {
   const [stageFilter, setStageFilter] = useState(persisted.stageFilter ?? "all");
   const [hotOnly, setHotOnly] = useState<boolean>(persisted.hotOnly ?? false);
   const [filterPreset, setFilterPreset] = useState<string | null>(null);
-  const [tagFilter, setTagFilter] = useState<string>(persisted.tagFilter ?? "all");
+  const [tagFilter, setTagFilter] = useState<string>(() => searchParams.get("tag") || persisted.tagFilter || "all");
   const [showImport, setShowImport] = useState(false);
   const [productFilter, setProductFilter] = useState(persisted.productFilter ?? "all");
   const [products, setProducts] = useState<string[]>([]);
@@ -237,9 +240,13 @@ function LeadsDesktop() {
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [quickRuleTag, setQuickRuleTag] = useState<string | null>(null);
 
+  useEffect(() => {
+    const next = globalProjectId ?? "all";
+    setProjectFilter((prev) => (prev === "none" && !globalProjectId ? prev : prev === next ? prev : next));
+  }, [globalProjectId]);
 
-  // "Agora" (quem precisa de ação) abre primeiro — UX2.1.
-  const [mainTab, setMainTab] = useState("quentes");
+  // "Agora" (quem precisa de ação) abre primeiro — UX2.1 (ou aba passada via URL ?tab=leads).
+  const [mainTab, setMainTab] = useState(() => searchParams.get("tab") || "quentes");
   const [editTab, setEditTab] = useState<string>(() => {
     try { return localStorage.getItem("leads:editTab") || "dados"; } catch { return "dados"; }
   });
@@ -697,7 +704,7 @@ function LeadsDesktop() {
     <div className="flex gap-3 md:gap-6">
       {!sidebarCollapsed && (
         <div className="hidden md:block">
-          <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
+          <LeadsSidebar projects={projects} leads={leads} allVendasRaw={allVendasRaw} projectFilter={projectFilter} productFilter={productFilter} expandedProjects={expandedProjects} onProjectFilter={(v) => { setProjectFilter(v); setPage(0); if (v !== "none") setGlobalProjectId(v === "all" ? null : v); }} onProductFilter={(v) => { setProductFilter(v); setPage(0); }} onToggleProject={toggleProject} realtimeActive={realtimeActive} projectCounts={projectCounts} topTags={topTags} onCreateRuleForTag={(t) => setQuickRuleTag(t)} tagFilter={tagFilter} onTagFilter={(t) => { setTagFilter(t); setPage(0); }} />
         </div>
       )}
       <QuickTagRuleDialog open={!!quickRuleTag} onOpenChange={(v) => !v && setQuickRuleTag(null)} tag={quickRuleTag || ""} projects={projects} />

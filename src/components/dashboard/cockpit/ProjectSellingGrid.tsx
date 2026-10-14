@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectList } from "@/hooks/useProjectList";
 import { Sparkline } from "@/components/dashboard/cockpit/Sparkline";
 import { ArrowUpRight } from "lucide-react";
+import { PAID_SALE_STATUSES, USD_BRL_RATE, saleValue, useRevenueMode } from "@/lib/revenueMode";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
+import { cn } from "@/lib/utils";
 
-const APPROVED = ["aprovado", "aprovada", "approved", "paid", "completed"];
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
@@ -23,9 +25,11 @@ interface Row {
 
 export function ProjectSellingGrid() {
   const { data: projects = [] } = useProjectList();
+  const { projectId: globalProjectId } = useGlobalProject();
+  const [revenueMode] = useRevenueMode();
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["cockpit", "selling-grid", projects.map((p) => p.id).join(",")],
+    queryKey: ["cockpit", "selling-grid", projects.map((p) => p.id).join(","), revenueMode],
     enabled: projects.length > 0,
     staleTime: 60_000,
     queryFn: async (): Promise<Row[]> => {
@@ -40,8 +44,8 @@ export function ProjectSellingGrid() {
       const [salesRes, adsRes, hotRes] = await Promise.all([
         supabase
           .from("imphq_vendas")
-          .select("project_id, valor, data_venda")
-          .in("status", APPROVED)
+          .select("project_id, valor, valor_liquido, data_venda")
+          .in("status", [...PAID_SALE_STATUSES])
           .in("project_id", ids)
           .gte("data_venda", start14),
         supabase
@@ -56,13 +60,13 @@ export function ProjectSellingGrid() {
           .gte("score", 80),
       ]);
 
-      const sales = (salesRes.data || []);
-      const ads = (adsRes.data || []);
-      const hot = (hotRes.data || []);
+      const sales = salesRes.data || [];
+      const ads = adsRes.data || [];
+      const hot = hotRes.data || [];
 
       const spendByProj = new Map<string, number>();
       ads.forEach((a) => {
-        const v = Number(a.valor || 0) * (a.moeda === "USD" ? 5.2 : 1);
+        const v = Number(a.valor || 0) * (a.moeda === "USD" ? USD_BRL_RATE : 1);
         spendByProj.set(a.project_id, (spendByProj.get(a.project_id) || 0) + v);
       });
 
@@ -76,17 +80,17 @@ export function ProjectSellingGrid() {
           const pSales = sales.filter((s) => s.project_id === p.id);
           const revToday = pSales
             .filter((s) => new Date(s.data_venda) >= new Date(startToday))
-            .reduce((sum, s) => sum + Number(s.valor || 0), 0);
+            .reduce((sum, s) => sum + saleValue(s, revenueMode), 0);
           const rev7 = pSales
             .filter((s) => new Date(s.data_venda) >= new Date(start7))
-            .reduce((sum, s) => sum + Number(s.valor || 0), 0);
+            .reduce((sum, s) => sum + saleValue(s, revenueMode), 0);
           const revPrev7 = pSales
             .filter(
               (s) =>
                 new Date(s.data_venda) >= new Date(start14) &&
                 new Date(s.data_venda) < new Date(start7),
             )
-            .reduce((sum, s) => sum + Number(s.valor || 0), 0);
+            .reduce((sum, s) => sum + saleValue(s, revenueMode), 0);
 
           // Spark: receita por dia últimos 14d
           const byDay: number[] = new Array(14).fill(0);
@@ -95,7 +99,7 @@ export function ProjectSellingGrid() {
               (now - new Date(s.data_venda).getTime()) / 86_400_000,
             );
             const idx = 13 - days;
-            if (idx >= 0 && idx < 14) byDay[idx] += Number(s.valor || 0);
+            if (idx >= 0 && idx < 14) byDay[idx] += saleValue(s, revenueMode);
           });
 
           return {
@@ -110,8 +114,14 @@ export function ProjectSellingGrid() {
             spark: byDay,
           };
         })
-        .filter((r) => r.rev7 > 0 || r.hotLeads > 0 || r.spend7 > 0)
-        .sort((a, b) => b.rev7 - a.rev7)
+        .filter((r) => r.rev7 > 0 || r.hotLeads > 0 || r.spend7 > 0 || r.id === globalProjectId)
+        .sort((a, b) => {
+          if (globalProjectId) {
+            if (a.id === globalProjectId) return -1;
+            if (b.id === globalProjectId) return 1;
+          }
+          return b.rev7 - a.rev7;
+        })
         .slice(0, 8);
     },
   });
@@ -166,8 +176,11 @@ export function ProjectSellingGrid() {
             return (
               <Link
                 key={r.id}
-                to={`/projeto/${r.id}`}
-                className="group bg-background hover:bg-secondary/20 transition-colors p-4 flex flex-col gap-3"
+                to={`/projetos/${r.id}`}
+                className={cn(
+                  "group bg-background hover:bg-secondary/20 transition-colors p-4 flex flex-col gap-3",
+                  r.id === globalProjectId && "ring-1 ring-inset ring-gold/50 bg-gold/[0.03]",
+                )}
               >
                 <div className="flex items-start justify-between gap-2 min-w-0">
                   <div className="min-w-0 flex-1">

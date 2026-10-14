@@ -2,7 +2,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { jsonFields } from "@/lib/json-fields";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { SectionInfo } from "@/components/SectionInfo";
-import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
+import { toLocalDateStr, localDaysAgo, brtStart, brtNextDay } from "@/lib/periodUtils";
 import { sectionHelpTexts } from "@/data/sectionHelpTexts";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,9 +20,10 @@ import { FinancasAds } from "@/components/financas/FinancasAds";
 import { FinancasProdutos } from "@/components/financas/FinancasProdutos";
 import { FinancasPerformance } from "@/components/financas/FinancasPerformance";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
-import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
+import { useRevenueMode, getRevenue, PAID_SALE_STATUSES, USD_BRL_RATE } from "@/lib/revenueMode";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
-const USD_BRL = 5.2;
+const USD_BRL = USD_BRL_RATE;
 const TIPOS = ["SaaS", "API", "Infra", "Ads", "Freelancer", "Outro"];
 
 interface Custo { id: string; nome: string; tipo?: string; valor: number; moeda?: string; }
@@ -34,14 +35,25 @@ type Project = Pick<Tables<"imphq_projects">, "id" | "name" | "icon" | "data">;
 
 export default function Financas() {
   const [revenueMode] = useRevenueMode();
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [custos, setCustos] = useState<Custo[]>([]);
   const [projectCosts, setProjectCosts] = useState<ProjectCost[]>([]);
   const [projectRevenues, setProjectRevenues] = useState<ProjectRevenue[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [ads, setAds] = useState<AdsSpend[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [filterProject, setFilterProject] = useState("all");
+  const [filterProject, setFilterProjectState] = useState<string>(() => globalProjectId || "all");
   const [filterProduct, setFilterProduct] = useState("all");
+
+  useEffect(() => {
+    setFilterProjectState(globalProjectId || "all");
+  }, [globalProjectId]);
+
+  const setFilterProject = (val: string) => {
+    setFilterProjectState(val);
+    setGlobalProjectId(val || "all");
+  };
+
   // Default = últimos 30 dias para evitar somar histórico inteiro e inflar receita
   const [filterDateFrom, setFilterDateFrom] = useState(localDaysAgo(30));
   const [filterDateTo, setFilterDateTo] = useState(toLocalDateStr());
@@ -58,17 +70,17 @@ export default function Financas() {
     // Janela de busca: usa o filtro de datas; se vazio, últimos 90 dias
     const fromDate = filterDateFrom || localDaysAgo(90);
     const toDate = filterDateTo || toLocalDateStr();
-    const fromTs = `${fromDate}T00:00:00`;
-    const toTs = `${toDate}T23:59:59.999`;
+    const fromTs = brtStart(fromDate);
+    const toTsExclusive = brtNextDay(toDate);
 
     // Período anterior (mesma duração)
-    const fromMs = new Date(fromDate).getTime();
-    const toMs = new Date(toDate).getTime();
+    const fromMs = new Date(`${fromDate}T12:00:00Z`).getTime();
+    const toMs = new Date(`${toDate}T12:00:00Z`).getTime();
     const periodMs = Math.max(86400000, toMs - fromMs + 86400000);
     const prevToDate = new Date(fromMs - 86400000).toISOString().slice(0, 10);
     const prevFromDate = new Date(fromMs - periodMs).toISOString().slice(0, 10);
-    const prevFromTs = `${prevFromDate}T00:00:00`;
-    const prevToTs = `${prevToDate}T23:59:59.999`;
+    const prevFromTs = brtStart(prevFromDate);
+    const prevToTsExclusive = brtNextDay(prevToDate);
 
     const { fetchAll } = await import("@/lib/supabasePaginate");
 
@@ -79,9 +91,9 @@ export default function Financas() {
       fetchAll((from, to) =>
         supabase.from("imphq_vendas")
           .select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda, utm_campaign")
-          .eq("status", "aprovado")
+          .in("status", [...PAID_SALE_STATUSES])
           .gte("data_venda", fromTs)
-          .lte("data_venda", toTs)
+          .lt("data_venda", toTsExclusive)
           .order("data_venda", { ascending: false })
           .range(from, to),
         1000, 20000,
@@ -97,13 +109,13 @@ export default function Financas() {
       ),
       supabase.from("imphq_projects").select("id, name, icon, data").or("is_archived.eq.false,is_archived.is.null").order("name"),
       supabase.from("imphq_vendas").select("id", { count: "exact", head: true })
-        .eq("status", "aprovado").gte("data_venda", fromTs).lte("data_venda", toTs),
+        .in("status", [...PAID_SALE_STATUSES]).gte("data_venda", fromTs).lt("data_venda", toTsExclusive),
       compareMode ? fetchAll((from, to) =>
         supabase.from("imphq_vendas")
           .select("id, project_id, produto_nome, valor, valor_liquido, plataforma, status, data_venda")
-          .eq("status", "aprovado")
+          .in("status", [...PAID_SALE_STATUSES])
           .gte("data_venda", prevFromTs)
-          .lte("data_venda", prevToTs)
+          .lt("data_venda", prevToTsExclusive)
           .order("data_venda", { ascending: false })
           .range(from, to),
         1000, 20000,

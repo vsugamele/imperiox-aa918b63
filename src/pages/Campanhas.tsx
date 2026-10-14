@@ -1,6 +1,6 @@
 import type { Json } from "@/integrations/supabase/types";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Target, Trash2, Pencil, Users, Copy } from "lucide-react";
 import { toast } from "sonner";
-import { Plus, Target, Trash2, Pencil } from "lucide-react";
 import { TagAutocomplete } from "@/components/projeto/TagAutocomplete";
 import { GuideDrawer } from "@/components/assistente/GuideDrawer";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
+import { jsonFields, jsonText } from "@/lib/json-fields";
 
 const Lancamentos = lazy(() => import("@/pages/Lancamentos"));
 const ABTests = lazy(() => import("@/pages/ABTests"));
@@ -51,7 +52,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Campanhas() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const activeTab = (params.get("tab") || "campanhas") as "campanhas" | "lancamentos" | "ab-tests";
 
   const handleTabChange = (val: string) => {
@@ -64,8 +67,18 @@ export default function Campanhas() {
   const [produtoOptions, setProdutoOptions] = useState<string[]>([]);
   const [leadCounts, setLeadCounts] = useState<Record<string, { d7: number; d30: number; total: number }>>({});
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterProject, setFilterProject] = useState("all");
+  const [filterProject, setFilterProject] = useState<string>(() => globalProjectId ?? "all");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const next = globalProjectId ?? "all";
+    setFilterProject((prev) => (prev === next ? prev : next));
+  }, [globalProjectId]);
+
+  const handleProjectFilterChange = (val: string) => {
+    setFilterProject(val);
+    setGlobalProjectId(val === "all" ? null : val);
+  };
 
   const [edit, setEdit] = useState<Partial<Campaign> | null>(null);
 
@@ -158,7 +171,7 @@ export default function Campanhas() {
           {activeTab === "campanhas" && (
             <div className="flex items-center gap-2">
               <GuideDrawer area="campanhas" projectId={filterProject !== "all" ? filterProject : undefined} />
-              <Button onClick={() => setEdit({ status: "ativa", funil: "aquisicao" })}>
+              <Button onClick={() => setEdit({ status: "ativa", funil: "aquisicao", project_id: filterProject !== "all" ? filterProject : null })}>
                 <Plus className="h-4 w-4 mr-1" /> Nova campanha
               </Button>
             </div>
@@ -192,7 +205,7 @@ export default function Campanhas() {
             <SelectItem value="arquivada">Arquivada</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterProject} onValueChange={setFilterProject}>
+        <Select value={filterProject} onValueChange={handleProjectFilterChange}>
           <SelectTrigger className="w-52 bg-secondary"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos projetos</SelectItem>
@@ -211,6 +224,9 @@ export default function Campanhas() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(c => {
             const counts = leadCounts[c.id] || { d7: 0, d30: 0, total: 0 };
+            const rawTags = jsonFields(c.data).tags;
+            const tags = Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === "string") : [];
+            const firstTag = tags[0];
             return (
               <Card key={c.id} className="bg-secondary/40 border-border hover:border-primary/30 transition">
                 <CardHeader className="pb-3">
@@ -239,11 +255,41 @@ export default function Campanhas() {
                       <div className="text-[10px] text-muted-foreground uppercase">total</div>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="outline" className="text-xs h-7 flex-1" onClick={() => setEdit(c)}>
-                      <Pencil className="h-3 w-3 mr-1" /> Editar
+                  <div className="flex gap-1 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7 flex-1 gap-1"
+                      onClick={() => {
+                        if (c.project_id) setGlobalProjectId(c.project_id);
+                        if (firstTag) {
+                          navigate(`/leads?tab=leads&tag=${encodeURIComponent(firstTag)}`);
+                        } else {
+                          navigate(`/leads?tab=leads`);
+                        }
+                      }}
+                      title="Ver leads desta campanha"
+                    >
+                      <Users className="h-3 w-3" /> Leads
                     </Button>
-                    <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive" onClick={() => removeCampaign(c.id)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7 gap-1"
+                      onClick={() => {
+                        const slug = c.nome.toLowerCase().trim().replace(/\s+/g, "-");
+                        const utm = `?utm_source=meta&utm_medium=cpc&utm_campaign=${encodeURIComponent(slug)}`;
+                        navigator.clipboard.writeText(utm);
+                        toast.success("UTM copiada para a área de transferência!");
+                      }}
+                      title="Copiar parâmetros UTM da campanha"
+                    >
+                      <Copy className="h-3 w-3" /> UTM
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setEdit(c)} title="Editar campanha">
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-xs h-7 text-destructive" onClick={() => removeCampaign(c.id)} title="Remover campanha">
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -361,4 +407,3 @@ export default function Campanhas() {
     </div>
   );
 }
-import { jsonFields, jsonText } from "@/lib/json-fields";

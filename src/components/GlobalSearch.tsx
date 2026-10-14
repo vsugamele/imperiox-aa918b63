@@ -67,7 +67,7 @@ export function GlobalSearch() {
       ...(leadRes.data || []).map((l) => ({ id: l.id, title: l.nome || l.email, type: "lead" as const, url: "/leads", subtitle: l.email })),
       ...(docRes.data || []).map((d) => ({ id: d.id, title: d.title, type: "doc" as const, url: "/docs" })),
       ...(funilRes.data || []).map((f) => ({ id: f.id, title: f.nome, type: "funil" as const, url: "/funis" })),
-      ...(chatRes.data || []).map((c) => ({ id: c.id, title: c.content?.slice(0, 80), type: "doc" as const, url: "/chat", subtitle: "Mensagem do chat" })),
+      ...(chatRes.data || []).map((c) => ({ id: c.id, title: c.content?.slice(0, 80), type: "doc" as const, url: "/inbox?tab=whatsapp", subtitle: "Mensagem do chat" })),
     ];
     setResults(items);
   }, []);
@@ -82,6 +82,15 @@ export function GlobalSearch() {
     acc[r.type].push(r);
     return acc;
   }, {} as Record<string, SearchResult[]>);
+
+  const quickNav = [
+    { label: "Hoje no Império", subtitle: "Rotina diária e prioridades", url: "/hoje" },
+    { label: "Fila de Aprovação", subtitle: "Copies, anúncios e Pix travados", url: "/aprovar" },
+    { label: "Mapa da Empresa", subtitle: "Canvas visual de funis e gargalos", url: "/mapa" },
+    { label: "Ordens de Teste", subtitle: "Hipóteses e lotes de criativos", url: "/testes" },
+    { label: "Inbox Unificada", subtitle: "WhatsApp, Instagram e Leads Quentes", url: "/inbox" },
+    { label: "Projetos & Produtos", subtitle: "Lista completa de produtos", url: "/projetos" },
+  ];
 
   return (
     <>
@@ -99,20 +108,39 @@ export function GlobalSearch() {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Buscar projetos, tarefas, leads, docs…"
+          placeholder="Buscar projetos, tarefas, leads, docs ou páginas…"
           value={query}
           onValueChange={setQuery}
         />
 
         <CommandList>
           <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-          {Object.entries(grouped).map(([type, items], gi) => {
+          {query.trim().length < 2 && (
+            <CommandGroup heading="Acesso Rápido">
+              {quickNav.map((item) => (
+                <CommandItem
+                  key={item.url}
+                  value={`${item.label} ${item.subtitle}`}
+                  onSelect={() => { navigate(item.url); setOpen(false); setQuery(""); }}
+                  className="cursor-pointer"
+                >
+                  <Target className="mr-2 h-4 w-4 text-primary" />
+                  <div className="flex flex-col">
+                    <span>{item.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{item.subtitle}</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+          {Object.entries(grouped).map(([type, items]) => {
             const Icon = TYPE_ICONS[type as keyof typeof TYPE_ICONS];
             return (
               <CommandGroup key={type} heading={TYPE_LABELS[type as keyof typeof TYPE_LABELS]}>
                 {items.map(item => (
                   <CommandItem
                     key={item.id}
+                    value={`${item.title} ${item.subtitle || ""}`}
                     onSelect={() => { navigate(item.url); setOpen(false); setQuery(""); }}
                     className="cursor-pointer"
                   >

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Link2, Loader2, Plus } from "lucide-react";
@@ -12,6 +12,7 @@ import { errorMessage } from "@/lib/error-message";
 import { planPlaybook, type Playbook } from "@shared/playbooks";
 import { findProjectMap } from "@shared/playbook-apply";
 import { useApplyPlaybook, useMapContext, useProjectsAndMaps } from "@/hooks/usePlaybooks";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 interface ApplyPlaybookDialogProps {
   playbook: Playbook | null;
@@ -20,6 +21,7 @@ interface ApplyPlaybookDialogProps {
 
 export function ApplyPlaybookDialog({ playbook, onOpenChange }: ApplyPlaybookDialogProps) {
   const navigate = useNavigate();
+  const { projectId: globalProjectId } = useGlobalProject();
   const { data: targets } = useProjectsAndMaps();
   const apply = useApplyPlaybook();
   const [projectId, setProjectId] = useState<string>("");
@@ -28,6 +30,17 @@ export function ApplyPlaybookDialog({ playbook, onOpenChange }: ApplyPlaybookDia
   const [plataforma, setPlataforma] = useState("Instagram");
   const [conta, setConta] = useState("");
   const { data: mapCtx, isLoading: loadingMap } = useMapContext(mapId || null);
+
+  useEffect(() => {
+    if (playbook && globalProjectId && globalProjectId !== "all" && !projectId && targets?.projects?.length) {
+      const p = targets.projects.find((x) => x.id === globalProjectId);
+      if (p) {
+        setProjectId(p.id);
+        setProduto(p.name);
+        setMapId(findProjectMap(targets.maps ?? [], p.name)?.id ?? "");
+      }
+    }
+  }, [playbook, globalProjectId, projectId, targets]);
 
   const project = targets?.projects.find((p) => p.id === projectId) ?? null;
   const isOrganic = playbook?.familia === "organico";

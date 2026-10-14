@@ -1,6 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { USD_BRL_RATE } from "@/lib/revenueMode";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +65,7 @@ type CircuitBreakerConfig = {
   updated_at: string;
 };
 
-const BRL_RATE = 5.60;
+const BRL_RATE = USD_BRL_RATE;
 
 const usd = (n: number) => `$${n.toFixed(4)}`;
 const usdShort = (n: number) => `$${n.toFixed(2)}`;
@@ -96,8 +98,8 @@ function effectiveCost(r: Row): number {
   return 0;
 }
 
-function getProviderBadge(provider: string) {
-  const p = provider.toLowerCase();
+function getProviderBadge(provider?: string | null) {
+  const p = (provider || "—").toLowerCase();
   if (p === "openrouter") return { label: "OpenRouter", className: "bg-purple-500/15 text-purple-400 border-purple-500/30" };
   if (p === "kie") return { label: "Kie.ai", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
   if (p === "elevenlabs") return { label: "ElevenLabs", className: "bg-sky-500/15 text-sky-400 border-sky-500/30" };
@@ -107,15 +109,19 @@ function getProviderBadge(provider: string) {
   if (p === "anthropic") return { label: "Anthropic", className: "bg-orange-500/15 text-orange-400 border-orange-500/30" };
   if (p === "google") return { label: "Google AI", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" };
   if (p === "higgsfield") return { label: "Higgsfield", className: "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/30" };
-  return { label: provider, className: "bg-secondary/60 text-muted-foreground border-border" };
+  return { label: provider || "—", className: "bg-secondary/60 text-muted-foreground border-border" };
 }
 
 function group(rows: Row[], key: (r: Row) => string) {
-  const map = new Map<string, { label: string; cost: number; tokens: number; calls: number }>();
+  const map = new Map<string, { label: string; cost: number; tokens: number; calls: number; knownCostCalls: number }>();
   for (const r of rows) {
     const k = key(r) || "—";
-    const cur = map.get(k) || { label: k, cost: 0, tokens: 0, calls: 0 };
-    cur.cost += effectiveCost(r);
+    const cur = map.get(k) || { label: k, cost: 0, tokens: 0, calls: 0, knownCostCalls: 0 };
+    const c = effectiveCost(r);
+    cur.cost += c;
+    if (c > 0 || (r.cost_usd !== null && r.cost_usd !== undefined)) {
+      cur.knownCostCalls += 1;
+    }
     cur.tokens += Number(r.total_tokens || 0);
     cur.calls += 1;
     map.set(k, cur);
@@ -125,10 +131,20 @@ function group(rows: Row[], key: (r: Row) => string) {
 
 export default function CustosIA() {
   const queryClient = useQueryClient();
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [period, setPeriod] = useState<"1d" | "7d" | "30d" | "all">("30d");
-  const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedProject, setSelectedProjectState] = useState<string>(() => globalProjectId || "all");
   const [selectedProvider, setSelectedProvider] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
+
+  useEffect(() => {
+    setSelectedProjectState(globalProjectId || "all");
+  }, [globalProjectId]);
+
+  const setSelectedProject = (val: string) => {
+    setSelectedProjectState(val);
+    if (val !== "none") setGlobalProjectId(val || "all");
+  };
 
   // Estado do diálogo de configuração do Circuit Breaker
   const [configOpen, setConfigOpen] = useState(false);
@@ -182,7 +198,7 @@ export default function CustosIA() {
   });
 
   // Query 3: Linhas de Consumo em imphq_ai_usage
-  const { data: rawRows = [], isLoading } = useQuery({
+  const { data: rawRows = [], isLoading, isError } = useQuery({
     queryKey: ["ai-usage", period],
     staleTime: 30_000,
     queryFn: async () => {
@@ -247,7 +263,7 @@ export default function CustosIA() {
   });
 
   const projectName = (id: string) =>
-    projects.find((p) => p.id === id)?.name || (id === "—" || !id ? "Geral / Sem projeto" : id);
+    projects.find((p) => p.id === id)?.name || (id === "—" || !id ? "Sem projeto" : id);
 
   // Gasto do dia atual para o termômetro do Circuit Breaker
   const todaySpentUSD = useMemo(() => {
@@ -268,14 +284,14 @@ export default function CustosIA() {
         if (selectedProject === "none" && r.project_id) return false;
         if (selectedProject !== "none" && r.project_id !== selectedProject) return false;
       }
-      if (selectedProvider !== "all" && r.provider.toLowerCase() !== selectedProvider.toLowerCase()) {
+      if (selectedProvider !== "all" && (r.provider || "").toLowerCase() !== selectedProvider.toLowerCase()) {
         return false;
       }
       if (search.trim()) {
         const s = search.toLowerCase();
-        const matchFn = r.function_name.toLowerCase().includes(s);
+        const matchFn = (r.function_name || "").toLowerCase().includes(s);
         const matchModel = (r.model || "").toLowerCase().includes(s);
-        const matchProv = r.provider.toLowerCase().includes(s);
+        const matchProv = (r.provider || "").toLowerCase().includes(s);
         const matchTag = (r.tag || "").toLowerCase().includes(s);
         if (!matchFn && !matchModel && !matchProv && !matchTag) return false;
       }
@@ -283,19 +299,26 @@ export default function CustosIA() {
     });
   }, [rawRows, selectedProject, selectedProvider, search]);
 
+  const unknownCostCalls = filteredRows.filter((r) => effectiveCost(r) === 0 && (r.cost_usd === null || r.cost_usd === undefined)).length;
+  const unknownTokenCalls = filteredRows.filter((r) => r.total_tokens === null || r.total_tokens === undefined).length;
+  const hasAnyKnownCost = filteredRows.length > 0 && unknownCostCalls < filteredRows.length;
+  const hasAnyKnownTokens = filteredRows.length > 0 && unknownTokenCalls < filteredRows.length;
+
   const totalCost = filteredRows.reduce((s, r) => s + effectiveCost(r), 0);
   const totalTokens = filteredRows.reduce((s, r) => s + Number(r.total_tokens || 0), 0);
   const totalCalls = filteredRows.length;
   const avgCostPerCall = totalCalls > 0 ? totalCost / totalCalls : 0;
 
-  const byProvider = useMemo(() => group(filteredRows, (r) => r.provider), [filteredRows]);
+  const byProvider = useMemo(() => group(filteredRows, (r) => r.provider || "—"), [filteredRows]);
   const byFunction = useMemo(() => group(filteredRows, (r) => r.function_name), [filteredRows]);
   const byProject = useMemo(() => group(filteredRows, (r) => r.project_id || "—"), [filteredRows]);
   const byModel = useMemo(() => group(filteredRows, (r) => r.model || "Modelo não informado"), [filteredRows]);
 
   const availableProviders = useMemo(() => {
     const set = new Set<string>();
-    rawRows.forEach((r) => set.add(r.provider.toLowerCase()));
+    rawRows.forEach((r) => {
+      if (r.provider) set.add(r.provider.toLowerCase());
+    });
     return Array.from(set).sort();
   }, [rawRows]);
 
@@ -403,11 +426,11 @@ export default function CustosIA() {
               <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 pt-1">
                 <div>
                   <span className="text-xs text-muted-foreground">Gasto Hoje: </span>
-                  <span className="text-lg font-bold font-mono text-foreground">{usd(todaySpentUSD)}</span>
+                  <span className="text-lg font-bold font-mono text-foreground">{isError ? "—" : usdShort(todaySpentUSD)}</span>
                   <span className="text-xs text-gold/80 ml-1.5">≈ {brl(todaySpentUSD)}</span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Teto Diário Máximo: <span className="font-semibold text-foreground font-mono">{usd(dailyBudget)}</span>
+                  Teto Diário Máximo: <span className="font-semibold text-foreground font-mono">{usdShort(dailyBudget)}</span>
                   <span className="text-[11px] text-muted-foreground ml-1">({pctConsumedToday.toFixed(1)}% consumido)</span>
                 </div>
               </div>
@@ -507,6 +530,12 @@ export default function CustosIA() {
         })}
       </div>
 
+      {isError && (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          Os valores estão indisponíveis no momento. Tente atualizar novamente em instantes.
+        </div>
+      )}
+
       {/* ==================================================================== */}
       {/* 4. CARDS DE MÉTRICAS CONSOLIDADAS */}
       {/* ==================================================================== */}
@@ -521,10 +550,12 @@ export default function CustosIA() {
               className="text-2xl md:text-3xl italic text-foreground tabular-nums font-bold"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {isLoading ? "—" : usd(totalCost)}
+              {isLoading || isError ? "—" : hasAnyKnownCost ? usd(totalCost) : "A confirmar"}
             </div>
             <p className="text-[11px] text-gold/80 font-medium">
-              ≈ {brl(totalCost)} <span className="text-[10px] text-muted-foreground font-normal">(câmbio R$ {BRL_RATE})</span>
+              {unknownCostCalls > 0
+                ? `${unknownCostCalls} chamada(s) sem custo informado; total parcial`
+                : `≈ ${brl(totalCost)} (câmbio R$ ${BRL_RATE})`}
             </p>
           </CardContent>
         </Card>
@@ -539,10 +570,12 @@ export default function CustosIA() {
               className="text-2xl md:text-3xl italic text-foreground tabular-nums font-bold"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {isLoading ? "—" : int(totalTokens)}
+              {isLoading || isError ? "—" : hasAnyKnownTokens ? int(totalTokens) : "A confirmar"}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Total de tokens processados
+              {unknownTokenCalls > 0
+                ? `${unknownTokenCalls} chamada(s) sem tokens informados; total parcial`
+                : "Total de tokens processados"}
             </p>
           </CardContent>
         </Card>
@@ -557,7 +590,7 @@ export default function CustosIA() {
               className="text-2xl md:text-3xl italic text-foreground tabular-nums font-bold"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {isLoading ? "—" : int(totalCalls)}
+              {isLoading || isError ? "—" : int(totalCalls)}
             </div>
             <p className="text-[11px] text-muted-foreground">
               Requisições registradas
@@ -575,7 +608,7 @@ export default function CustosIA() {
               className="text-2xl md:text-3xl italic text-foreground tabular-nums font-bold"
               style={{ fontFamily: "Cormorant Garamond, serif" }}
             >
-              {isLoading ? "—" : usd(avgCostPerCall)}
+              {isLoading || isError ? "—" : hasAnyKnownCost ? usd(avgCostPerCall) : "A confirmar"}
             </div>
             <p className="text-[11px] text-emerald-400/90 font-medium">
               Custo por tarefa unitária
@@ -623,6 +656,7 @@ export default function CustosIA() {
                 cost: i.cost,
                 tokens: i.tokens,
                 calls: i.calls,
+                knownCostCalls: i.knownCostCalls,
                 badgeClass: getProviderBadge(i.label).className,
               }))}
             />
@@ -637,6 +671,7 @@ export default function CustosIA() {
                 cost: i.cost,
                 tokens: i.tokens,
                 calls: i.calls,
+                knownCostCalls: i.knownCostCalls,
               }))}
             />
 
@@ -650,6 +685,7 @@ export default function CustosIA() {
                 cost: i.cost,
                 tokens: i.tokens,
                 calls: i.calls,
+                knownCostCalls: i.knownCostCalls,
               }))}
             />
 
@@ -663,6 +699,7 @@ export default function CustosIA() {
                 cost: i.cost,
                 tokens: i.tokens,
                 calls: i.calls,
+                knownCostCalls: i.knownCostCalls,
               }))}
             />
           </div>
@@ -854,7 +891,7 @@ function PanelGroup({
   title: string;
   icon?: React.ReactNode;
   total: number;
-  items: { label: string; cost: number; tokens: number; calls: number; badgeClass?: string }[];
+  items: { label: string; cost: number; tokens: number; calls: number; knownCostCalls?: number; badgeClass?: string }[];
 }) {
   return (
     <Card className="bg-card/70 border-border backdrop-blur-sm flex flex-col">
@@ -865,6 +902,7 @@ function PanelGroup({
         <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[360px] pr-1">
           {items.map((i) => {
             const pct = total > 0 ? (i.cost / total) * 100 : 0;
+            const hasKnownCost = (i.knownCostCalls ?? 1) > 0;
             return (
               <div key={i.label} className="space-y-1">
                 <div className="flex items-center justify-between gap-2 text-xs">
@@ -876,7 +914,7 @@ function PanelGroup({
                       {int(i.calls)}x
                     </span>
                     <span className="text-gold font-mono font-medium">
-                      {usd(i.cost)}
+                      {hasKnownCost ? usd(i.cost) : "A confirmar"}
                     </span>
                   </div>
                 </div>

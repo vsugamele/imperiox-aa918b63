@@ -77,3 +77,81 @@ export function useSetStepAssignment() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["today-board"] }),
   });
 }
+
+/** Dispara a execução da etapa via copilot-imperius e move a etapa para "Para revisar" (ready_review) com o entregável salvo nas notas. */
+export function useExecuteAiStep() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      nodeId,
+      projectId,
+      label,
+      prompt,
+      skill,
+    }: {
+      nodeId: string;
+      projectId?: string;
+      label: string;
+      prompt: string;
+      skill?: string | null;
+    }) => {
+      const instruction = [
+        `Execute agora a etapa "${label}" do mapa operacional.`,
+        skill && skill !== "none" ? `Aplique a skill/metodologia: ${skill}.` : null,
+        `Instrução da etapa:\n${prompt}`,
+        `Entregue o resultado pronto e objetivo para revisão humana.`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const { data: invokeData, error: invokeError } = await supabase.functions.invoke("copilot-imperius", {
+        body: {
+          channel: "whatsapp",
+          projectContext: projectId,
+          messages: [{ role: "user", content: instruction }],
+        },
+      });
+      if (invokeError) throw invokeError;
+
+      const aiOutput =
+        typeof invokeData?.text === "string" && invokeData.text.trim()
+          ? invokeData.text.trim()
+          : "Etapa processada pelo Imperius IA.";
+
+      const { data: nodeRow, error: nodeErr } = await supabase
+        .from("imphq_company_map_nodes")
+        .select("notes")
+        .eq("id", nodeId)
+        .single();
+      if (nodeErr) throw nodeErr;
+
+      const stamp = new Date().toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const existingNotes = nodeRow?.notes || "";
+      const combined = `${existingNotes}\n\n--- Entregável IA (${stamp}) ---\n${aiOutput}`.trim();
+      const updatedNotes = writeAgentNotes(combined, { status: "ready_review" });
+
+      const { error: updateErr } = await supabase
+        .from("imphq_company_map_nodes")
+        .update({
+          step_status: "ready_review",
+          status_changed_at: new Date().toISOString(),
+          status_changed_by: "imperius-ia",
+          notes: updatedNotes,
+        })
+        .eq("id", nodeId);
+      if (updateErr) throw updateErr;
+
+      return { aiOutput };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["today-board"] });
+      queryClient.invalidateQueries({ queryKey: ["company-map"] });
+    },
+  });
+}
+

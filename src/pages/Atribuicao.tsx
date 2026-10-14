@@ -1,14 +1,19 @@
 import type { Tables } from "@/integrations/supabase/types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { paginatedQuery } from "@/lib/paginated-query";
-import { Loader2, Radio, ShoppingBag, Sparkles } from "lucide-react";
+import { PAID_SALE_STATUSES } from "@/lib/revenueMode";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
+import { cn } from "@/lib/utils";
+import { Download, Globe, Radio, ShoppingBag, Sparkles, X } from "lucide-react";
+import { toast } from "sonner";
 
 type Channel = "whatsapp" | "ads" | "organic" | "unknown";
 interface Row { venda_id:string; project_id:string|null; data_venda:string|null; produto_nome:string|null; tipo_venda:string|null; valor_liquido:number|null; currency:string; canal_atribuido:Channel; utm_campaign:string|null; utm_source:string|null; wa_template:string|null; wa_source:string|null; attribution_confidence:string; attribution_method:string; }
@@ -16,14 +21,27 @@ interface Row { venda_id:string; project_id:string|null; data_venda:string|null;
 const CHANNEL_LABEL: Record<Row["canal_atribuido"], { label: string; color: string }> = {
   whatsapp: { label: "WhatsApp", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   ads:      { label: "Ads",      color: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
-  organic: { label: "Orgânico", color: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
+  organic:  { label: "Orgânico", color: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
   unknown:  { label: "Sem atribuição", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
 };
 
 export default function Atribuicao() {
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [days, setDays] = useState("30");
   const [currency, setCurrency] = useState("__auto__");
-  const [project, setProject] = useState<string>("__all__");
+  const [project, setProjectState] = useState<string>(() =>
+    globalProjectId && globalProjectId !== "all" ? globalProjectId : "__all__"
+  );
+  const [channelFilter, setChannelFilter] = useState<Channel | "all">("all");
+
+  useEffect(() => {
+    setProjectState(globalProjectId && globalProjectId !== "all" ? globalProjectId : "__all__");
+  }, [globalProjectId]);
+
+  const setProject = (val: string) => {
+    setProjectState(val);
+    setGlobalProjectId(val === "__all__" ? "all" : val);
+  };
 
   const { data: projects = [] } = useQuery({
     queryKey: ["atrib-projects"],
@@ -39,7 +57,7 @@ export default function Atribuicao() {
       const since = new Date(Date.now() - Number(days) * 86400000).toISOString();
       const rows = await paginatedQuery("Atribuição", (from,to) => {
         let q = supabase.from("imphq_tracker_sales").select("*").gte("data_venda",since)
-          .lte("data_venda",new Date().toISOString()).in("status",["aprovado","aprovada","paga","approved","paid"])
+          .lte("data_venda",new Date().toISOString()).in("status",[...PAID_SALE_STATUSES])
           .order("data_venda",{ascending:false}).order("id").range(from,to);
         if(project!=="__all__") q=q.eq("project_id",project);
         return q;
@@ -52,7 +70,14 @@ export default function Atribuicao() {
   const currencies = [...new Set((rawData ?? []).map(r=>r.currency))].sort();
   const currencyFilter = currency === "__auto__" ? (currencies.length===1 ? currencies[0] : null) : currency;
   const selectedCurrency = currencyFilter === "UNKNOWN" ? null : currencyFilter;
-  const data = (rawData ?? []).filter(r=>currencyFilter===null || r.currency===currencyFilter);
+  const data = useMemo(
+    () => (rawData ?? []).filter(r=>currencyFilter===null || r.currency===currencyFilter),
+    [rawData, currencyFilter]
+  );
+  const filteredByChannel = useMemo(
+    () => (channelFilter === "all" ? data : data.filter((r) => r.canal_atribuido === channelFilter)),
+    [data, channelFilter]
+  );
   const missingNet = data.filter(r=>r.valor_liquido===null).length;
   const totals = useMemo(() => {
     const acc = { whatsapp: 0, ads: 0, organic: 0, unknown: 0, total: 0, count: { whatsapp: 0, ads: 0, organic: 0, unknown: 0 } as Record<string, number> };
@@ -67,7 +92,7 @@ export default function Atribuicao() {
 
   const byCampaign = useMemo(() => {
     const map = new Map<string, { key: string; revenue: number; sales: number; canal: string }>();
-    (data ?? []).forEach((r) => {
+    filteredByChannel.forEach((r) => {
       const key =
         r.canal_atribuido === "whatsapp"
           ? `WA · ${r.wa_template || r.wa_source || "direto"}`
@@ -78,7 +103,7 @@ export default function Atribuicao() {
       map.set(key, cur);
     });
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 15);
-  }, [data]);
+  }, [filteredByChannel]);
 
   // Matriz Canal × Etapa do funil (principal / orderbump / upsell / downsell)
   const byStage = useMemo(() => {
@@ -103,16 +128,45 @@ export default function Atribuicao() {
 
   const fmt = (n:number, rowCurrency?:string) => rowCurrency === "UNKNOWN" || !rowCurrency && (!selectedCurrency || missingNet>0) ? "Indisponível" : (rowCurrency || selectedCurrency) + " " + n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 
+  const exportCsv = () => {
+    if (filteredByChannel.length === 0) {
+      toast.error("Sem vendas no filtro atual para exportar.");
+      return;
+    }
+    const headers = ["Data", "Produto", "Tipo", "Canal", "Confianca", "Metodo", "Origem_UTM_WA", "Moeda", "Valor_Liquido"];
+    const rows = filteredByChannel.map((r) => [
+      r.data_venda ? new Date(r.data_venda).toISOString().slice(0, 10) : "",
+      r.produto_nome || "",
+      r.tipo_venda || "",
+      CHANNEL_LABEL[r.canal_atribuido].label,
+      r.attribution_confidence || "",
+      r.attribution_method || "",
+      r.canal_atribuido === "whatsapp" ? (r.wa_template || r.wa_source || "") : (r.utm_campaign || r.utm_source || ""),
+      r.currency || "",
+      r.valor_liquido !== null ? String(r.valor_liquido) : "",
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `atribuicao_${channelFilter}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Relatório de atribuição exportado!");
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-cormorant text-foreground">Atribuição Cross-Channel</h1>
+          <div className="kicker">Capital · Rastreamento</div>
+          <h1 className="section-title mt-1 text-3xl text-foreground">Atribuição Cross-Channel</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            De onde veio cada venda — WhatsApp, Ads ou Sem atribuição.
+            De onde veio cada venda — WhatsApp, Ads, Orgânico ou Sem atribuição. Clique em um canal para filtrar.
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <Select value={currency} onValueChange={setCurrency}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__auto__">Moedas separadas</SelectItem>{currencies.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
           <Select value={project} onValueChange={setProject}>
             <SelectTrigger className="w-56"><SelectValue placeholder="Projeto" /></SelectTrigger>
@@ -131,20 +185,79 @@ export default function Atribuicao() {
               <SelectItem value="90">90 dias</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={exportCsv} className="h-10 gap-1.5 text-xs">
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
         </div>
       </div>
 
       {loadError ? <p role="alert" className="text-destructive">Atribuição indisponível. Não foi possível consultar as vendas.</p> : isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1,2,3].map(i => <Skeleton key={i} className="h-32" />)}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ChannelCard icon={<Radio className="size-4" />} label="WhatsApp" value={totals.whatsapp} count={totals.count.whatsapp} total={totals.total} currency={selectedCurrency} incomplete={missingNet>0} color="emerald" />
-            <ChannelCard icon={<ShoppingBag className="size-4" />} label="Ads (pago)" value={totals.ads} count={totals.count.ads} total={totals.total} currency={selectedCurrency} incomplete={missingNet>0} color="sky" />
-            <ChannelCard icon={<Sparkles className="size-4" />} label="Sem atribuição" value={totals.unknown} count={totals.count.unknown} total={totals.total} currency={selectedCurrency} incomplete={missingNet>0} color="amber" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <ChannelCard
+              icon={<Radio className="size-4" />}
+              label="WhatsApp"
+              value={totals.whatsapp}
+              count={totals.count.whatsapp}
+              total={totals.total}
+              currency={selectedCurrency}
+              incomplete={missingNet>0}
+              color="emerald"
+              active={channelFilter === "whatsapp"}
+              onClick={() => setChannelFilter(channelFilter === "whatsapp" ? "all" : "whatsapp")}
+            />
+            <ChannelCard
+              icon={<ShoppingBag className="size-4" />}
+              label="Ads (pago)"
+              value={totals.ads}
+              count={totals.count.ads}
+              total={totals.total}
+              currency={selectedCurrency}
+              incomplete={missingNet>0}
+              color="sky"
+              active={channelFilter === "ads"}
+              onClick={() => setChannelFilter(channelFilter === "ads" ? "all" : "ads")}
+            />
+            <ChannelCard
+              icon={<Globe className="size-4" />}
+              label="Orgânico"
+              value={totals.organic}
+              count={totals.count.organic}
+              total={totals.total}
+              currency={selectedCurrency}
+              incomplete={missingNet>0}
+              color="violet"
+              active={channelFilter === "organic"}
+              onClick={() => setChannelFilter(channelFilter === "organic" ? "all" : "organic")}
+            />
+            <ChannelCard
+              icon={<Sparkles className="size-4" />}
+              label="Sem atribuição"
+              value={totals.unknown}
+              count={totals.count.unknown}
+              total={totals.total}
+              currency={selectedCurrency}
+              incomplete={missingNet>0}
+              color="amber"
+              active={channelFilter === "unknown"}
+              onClick={() => setChannelFilter(channelFilter === "unknown" ? "all" : "unknown")}
+            />
           </div>
+
+          {channelFilter !== "all" && (
+            <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+              <span>
+                Filtrando por canal: <strong className="text-primary">{CHANNEL_LABEL[channelFilter].label}</strong> ({filteredByChannel.length} venda(s))
+              </span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setChannelFilter("all")}>
+                <X className="mr-1 h-3 w-3" /> Mostrar todos
+              </Button>
+            </div>
+          )}
 
           <Card>
             <CardHeader><CardTitle className="text-lg">Por etapa do funil × canal</CardTitle></CardHeader>
@@ -230,7 +343,7 @@ export default function Atribuicao() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(data ?? []).slice(0, 50).map((r) => (
+                  {filteredByChannel.slice(0, 50).map((r) => (
                     <TableRow key={r.venda_id}>
                       <TableCell className="text-xs">{r.data_venda ? new Date(r.data_venda).toLocaleDateString("pt-BR") : "—"}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{r.produto_nome || "—"}</TableCell>
@@ -259,15 +372,44 @@ export default function Atribuicao() {
   );
 }
 
-function ChannelCard({ icon, label, value, count, total, color, currency, incomplete }: { icon: React.ReactNode; label: string; value: number; count: number; total: number; color: string; currency:string|null; incomplete:boolean }) {
+function ChannelCard({
+  icon,
+  label,
+  value,
+  count,
+  total,
+  color,
+  currency,
+  incomplete,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  count: number;
+  total: number;
+  color: string;
+  currency: string | null;
+  incomplete: boolean;
+  active?: boolean;
+  onClick?: () => void;
+}) {
   const pct = total > 0 ? (value / total) * 100 : 0;
   return (
-    <Card>
+    <Card
+      onClick={onClick}
+      className={cn(
+        "cursor-pointer transition-all hover:border-primary/40",
+        active && "border-primary ring-1 ring-primary/30 bg-primary/[0.03]"
+      )}
+    >
       <CardContent className="p-5">
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          {icon}{label}
+        <div className="flex items-center justify-between gap-2 text-muted-foreground text-sm">
+          <span className="flex items-center gap-2">{icon}{label}</span>
+          {active && <span className="text-[10px] font-mono uppercase text-primary">Filtrado</span>}
         </div>
-        <div className="mt-2 text-2xl font-cormorant text-foreground">
+        <div className="mt-2 text-2xl font-serif font-semibold text-foreground">
           {!currency || incomplete ? "Indisponível" : currency + " " + value.toLocaleString("pt-BR", {minimumFractionDigits:2,maximumFractionDigits:2})}
         </div>
         <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">

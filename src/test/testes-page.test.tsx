@@ -33,6 +33,7 @@ vi.mock("@/hooks/useTestOrders", () => ({
     }],
   }),
   useGenerateVariations: () => ({ mutate, isPending: false }),
+  useUpdateVariantStatus: () => ({ mutate: vi.fn(), isPending: false }),
   useTestLive: () => ({
     data: { o1: { sync: "2026-10-06T12:20:00Z", readings: [{ ordem: 1, gasto: 11.5, ic: 4, cliques: 10, impressoes: 400, ctr: 2.5, compras_pixel: 4, vendas: 1, receita_liquida: 23.5, cpa: 11.5, status_meta: "ACTIVE" }] } },
   }),

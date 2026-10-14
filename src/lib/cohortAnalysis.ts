@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { jsonFields } from "@/lib/json-fields";
+import { PAID_SALE_STATUSES, USD_BRL_RATE } from "@/lib/revenueMode";
 
 export interface LeadRow {
   id: string;
@@ -27,6 +28,7 @@ export interface AdsSpendRow {
   project_id: string | null;
   data_ref: string | null;
   valor: number | null;
+  moeda?: string | null;
   plataforma: string | null;
   campanha: string | null;
 }
@@ -85,22 +87,28 @@ export const extractUtmSource = (lead: LeadRow): string => {
 };
 
 export async function fetchCohortDataset(projectId?: string) {
-  const leadsQ = supabase
+  let leadsQ = supabase
     .from("imphq_leads")
     .select("id, project_id, criado_em, email, phone, nome, data")
     .order("criado_em", { ascending: true })
     .limit(5000);
-  const vendasQ = supabase
+  let vendasQ = supabase
     .from("imphq_vendas")
     .select("id, lead_id, project_id, valor, valor_liquido, data_venda, utm_source, data")
-    .eq("status", "aprovado")
+    .in("status", [...PAID_SALE_STATUSES])
     .order("data_venda", { ascending: true })
     .limit(5000);
-  const adsQ = supabase
+  let adsQ = supabase
     .from("imphq_ads_spend")
-    .select("project_id, data_ref, valor, plataforma, campanha")
+    .select("project_id, data_ref, valor, moeda, plataforma, campanha")
     .order("data_ref", { ascending: false })
     .limit(5000);
+
+  if (projectId) {
+    leadsQ = leadsQ.eq("project_id", projectId);
+    vendasQ = vendasQ.eq("project_id", projectId);
+    adsQ = adsQ.eq("project_id", projectId);
+  }
 
   const filterByProject = <T extends { project_id?: string | null }>(rows: T[]) =>
     projectId ? rows.filter((r) => r.project_id === projectId) : rows;
@@ -115,7 +123,7 @@ export async function fetchCohortDataset(projectId?: string) {
   }));
   const ads: AdsSpendRow[] = filterByProject(adsRes.data || []).map((a) => ({
     ...a,
-    valor: Number(a.valor || 0),
+    valor: Number(a.valor || 0) * (a.moeda === "USD" ? USD_BRL_RATE : 1),
   }));
 
   return { leads, vendas, ads };

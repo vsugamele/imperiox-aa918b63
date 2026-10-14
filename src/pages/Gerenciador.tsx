@@ -1,15 +1,6 @@
 import type { Tables } from "@/integrations/supabase/types";
 type AdSpend = Tables<"imphq_ads_spend">;
 type RevenueRow = Pick<Tables<"imphq_vendas">,"id"|"project_id"|"produto_nome"|"valor"|"valor_liquido"|"plataforma"|"data_venda"|"utm_campaign"|"utm_content"|"utm_term"|"status"|"tipo_venda">;
-/** Só venda paga conta no faturamento (recusado, pix gerado e reembolso ficam de fora). */
-const PAID_STATUSES = ["aprovado", "approved", "paid", "completed"];
-/** Limites do dia em BRT: data_venda é timestamp, então "≤ 2026-10-07" cortava o próprio dia (o filtro "Hoje" dava zero). */
-const brtStart = (day: string) => `${day}T00:00:00-03:00`;
-const brtNextDay = (day: string) => {
-  const d = new Date(`${day}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return `${d.toISOString().slice(0, 10)}T00:00:00-03:00`;
-};
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, Calendar, Plus, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { toLocalDateStr, localDaysAgo } from "@/lib/periodUtils";
+import { toLocalDateStr, localDaysAgo, brtStart, brtNextDay } from "@/lib/periodUtils";
 import { CampanhasTable } from "@/components/gerenciador/CampanhasTable";
 import { AcoesHistorico } from "@/components/gerenciador/AcoesHistorico";
 import { KpiCardsHeader } from "@/components/gerenciador/KpiCardsHeader";
@@ -29,8 +20,10 @@ import { TictoEventFlowDiagnostic } from "@/components/gerenciador/TictoEventFlo
 import { RulesPanel } from "@/components/gerenciador/RulesPanel";
 import { CreateCampaignModal } from "@/components/gerenciador/CreateCampaignModal";
 import { RevenueModeToggle } from "@/components/shared/RevenueModeToggle";
-import { useRevenueMode, getRevenue } from "@/lib/revenueMode";
+import { useRevenueMode, getRevenue, PAID_SALE_STATUSES } from "@/lib/revenueMode";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
+const PAID_STATUSES = [...PAID_SALE_STATUSES];
 
 const PERIODS = [
   { label: "Hoje", days: 0 },
@@ -41,8 +34,11 @@ const PERIODS = [
 ];
 
 export default function Gerenciador() {
+  const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [projects, setProjects] = useState<{ id: string; name: string; data?: unknown }[]>([]);
-  const [projectId, setProjectId] = useState<string>("__all__");
+  const [projectId, setProjectIdState] = useState<string>(() =>
+    globalProjectId && globalProjectId !== "all" ? globalProjectId : "__all__"
+  );
   const [days, setDays] = useState<number>(30);
   const [ads, setAds] = useState<AdSpend[]>([]);
   const [adsPrev, setAdsPrev] = useState<AdSpend[]>([]);
@@ -51,6 +47,15 @@ export default function Gerenciador() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [forcedSearch, setForcedSearch] = useState<string | undefined>();
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    setProjectIdState(globalProjectId && globalProjectId !== "all" ? globalProjectId : "__all__");
+  }, [globalProjectId]);
+
+  const setProjectId = (val: string) => {
+    setProjectIdState(val);
+    setGlobalProjectId(val === "__all__" ? "all" : val);
+  };
 
 
   // Carregar projetos

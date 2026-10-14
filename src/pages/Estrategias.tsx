@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, ArrowRight, Bot, Cog, Gauge, Loader2, Plug, Target, User, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { ApplyPlaybookDialog } from "@/components/estrategias/ApplyPlaybookDialo
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { useProjectsAndMaps, usePlaybooks, type PlaybookApplication } from "@/hooks/usePlaybooks";
 import { CopyLibrary } from "@/components/estrategias/CopyLibrary";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 const FAMILIES = Object.keys(FAMILY_LABEL) as PlaybookFamily[];
 const EXECUTOR_ICON: Record<ExecutorGroup, typeof Bot> = { ia: Bot, automatico: Cog, ferramenta: Plug, humano: User };
@@ -44,6 +46,8 @@ export default function Estrategias() {
 }
 
 function PlaybooksView() {
+  const navigate = useNavigate();
+  const { setProjectId: setGlobalProjectId } = useGlobalProject();
   const { data, isLoading, error } = usePlaybooks();
   const { data: targets } = useProjectsAndMaps();
   const [familia, setFamilia] = useState<PlaybookFamily | "todas">("todas");
@@ -97,7 +101,30 @@ function PlaybooksView() {
                 </div>
                 {projects.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {projects.map((id) => <span key={id} className="rounded bg-success/10 px-1.5 py-0.5 text-[11px] text-success">em uso · {projectName(id)}</span>)}
+                    {projects.map((id) => (
+                      <span
+                        key={id}
+                        role="link"
+                        tabIndex={0}
+                        title={`Filtrar por ${projectName(id)} e abrir Hoje`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setGlobalProjectId(id);
+                          navigate("/hoje");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setGlobalProjectId(id);
+                            navigate("/hoje");
+                          }
+                        }}
+                        className="rounded bg-success/10 px-1.5 py-0.5 text-[11px] text-success hover:bg-success/20 transition-colors cursor-pointer"
+                      >
+                        em uso · {projectName(id)}
+                      </span>
+                    ))}
                   </div>
                 )}
               </motion.button>

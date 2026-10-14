@@ -1,10 +1,12 @@
+import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   LayoutDashboard, FolderKanban, ListTodo, Users, DollarSign,
   Search, Brain, FileText, Link2,
   Zap, UsersRound, Building2, Settings, LogOut, Crown, Gauge, Boxes,
   KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
   Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow, Globe, Coins,
+  Inbox, Pencil, Workflow, Globe, Coins, ChevronDown, ChevronRight,
   Layers, Map as MapIcon, CalendarCheck, Lightbulb, CheckCheck, FlaskConical, HeartPulse,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -15,8 +17,20 @@ import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 import { useSystemHealth } from "@/lib/system-health";
 import { useSidebarFavorites } from "@/hooks/useSidebarFavorites";
 
+const COLLAPSED_GROUPS_KEY = "imphq:sidebar:collapsed-groups";
+
+function readCollapsedGroups(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(COLLAPSED_GROUPS_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Nav items ──────────────────────────────────────────────────────────
-// Reorganizado em 5 hubs para reduzir ruído e criar caminhos claros.
+// Reorganizado em hubs operacionais com colapso persistente por seção.
 const hojeitems = [
   { title: "Hoje",             url: "/hoje",       icon: CalendarCheck },
   { title: "Aprovar",          url: "/aprovar",    icon: CheckCheck,      badge: "aprovar" as const },
@@ -85,7 +99,7 @@ type NavItem = {
   badge?: "imperius" | "inbox" | "leads" | "rag" | "aprovar" | "saude";
 };
 
-// â”€â”€ Badge pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Badge pill ──────────────────────────────────────────────────────────────
 function BadgePill({ count }: { count: number }) {
   if (!count) return null;
   return (
@@ -95,7 +109,7 @@ function BadgePill({ count }: { count: number }) {
   );
 }
 
-// â”€â”€ Single nav item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Single nav item ─────────────────────────────────────────────────────────
 function NavItemRow({
   item,
   collapsed,
@@ -160,6 +174,8 @@ function NavGroup({
   badges,
   favorites,
   toggleFavorite,
+  isGroupCollapsed,
+  onToggleGroup,
 }: {
   label: string;
   items: NavItem[];
@@ -167,32 +183,56 @@ function NavGroup({
   badges: Record<string, number>;
   favorites: string[];
   toggleFavorite: (url: string) => void;
+  isGroupCollapsed?: boolean;
+  onToggleGroup?: () => void;
 }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const groupBadgeTotal = items.reduce((sum, i) => sum + (i.badge ? (badges[i.badge] ?? 0) : 0), 0);
 
   return (
-    <SidebarGroup className={!isLast ? "pb-3 mb-2 border-b border-border/60" : "pb-3"}>
+    <SidebarGroup className={!isLast ? "pb-2 mb-1.5 border-b border-border/60" : "pb-3"}>
       {!collapsed && (
-        <SidebarGroupLabel className="font-mono text-[9px] tracking-[0.2em] text-subtle uppercase px-3 pb-1 pt-1 font-medium">
-          · {label}
+        <SidebarGroupLabel asChild>
+          <button
+            type="button"
+            onClick={onToggleGroup}
+            aria-expanded={!isGroupCollapsed}
+            className="w-full flex items-center justify-between font-mono text-[9px] tracking-[0.2em] text-subtle hover:text-foreground uppercase px-3 pb-1 pt-1 font-medium transition-colors cursor-pointer"
+          >
+            <span>· {label}</span>
+            <span className="flex items-center gap-1.5">
+              {isGroupCollapsed && groupBadgeTotal > 0 && (
+                <span className="font-mono text-[9px] text-primary-foreground bg-primary rounded-full px-1.5 py-px font-semibold tracking-normal">
+                  {groupBadgeTotal > 99 ? "99+" : groupBadgeTotal}
+                </span>
+              )}
+              {isGroupCollapsed ? (
+                <ChevronRight className="h-3 w-3 opacity-60" />
+              ) : (
+                <ChevronDown className="h-3 w-3 opacity-60" />
+              )}
+            </span>
+          </button>
         </SidebarGroupLabel>
       )}
 
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) => (
-            <NavItemRow
-              key={item.url}
-              item={item}
-              collapsed={collapsed}
-              badges={badges}
-              isFavorite={favorites.includes(item.url)}
-              toggleFavorite={toggleFavorite}
-            />
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
+      {(!isGroupCollapsed || collapsed) && (
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {items.map((item) => (
+              <NavItemRow
+                key={item.url}
+                item={item}
+                collapsed={collapsed}
+                badges={badges}
+                isFavorite={favorites.includes(item.url)}
+                toggleFavorite={toggleFavorite}
+              />
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      )}
     </SidebarGroup>
   );
 }
@@ -200,11 +240,33 @@ function NavGroup({
 // ── Main sidebar ──────────────────────────────────────────────────────
 export function AppSidebar() {
   const { state } = useSidebar();
+  const location = useLocation();
   const collapsed = state === "collapsed";
   const { signOut } = useAuth();
   const { data: badgeData } = useSidebarBadges();
   const { data: health } = useSystemHealth();
   const { favorites, toggleFavorite } = useSidebarFavorites();
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>(readCollapsedGroups);
+
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label];
+      try {
+        localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore storage errors */
+      }
+      return next;
+    });
+  };
+
+  const isSectionCollapsed = (label: string, sectionItems: NavItem[]) => {
+    const hasActiveRoute = sectionItems.some(
+      (i) => location.pathname === i.url || location.pathname.startsWith(`${i.url}/`)
+    );
+    if (hasActiveRoute) return false;
+    return collapsedGroups.includes(label);
+  };
 
   const badges: Record<string, number> = {
     imperius: badgeData?.imperius ?? 0,
@@ -276,12 +338,12 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <NavGroup label="Hoje"         items={hojeitems}         {...sharedProps} />
-        <NavGroup label="Vender"       items={venderItems}       {...sharedProps} />
-        <NavGroup label="Inteligência" items={inteligenciaItems} {...sharedProps} />
-        <NavGroup label="Capital"      items={capitalItems}      {...sharedProps} />
-        <NavGroup label="Acervo"       items={acervoItems}       {...sharedProps} />
-        <NavGroup label="Setup"        items={configurarItems}   {...sharedProps} isLast />
+        <NavGroup label="Hoje"         items={hojeitems}         {...sharedProps} isGroupCollapsed={isSectionCollapsed("Hoje", hojeitems)} onToggleGroup={() => toggleGroup("Hoje")} />
+        <NavGroup label="Vender"       items={venderItems}       {...sharedProps} isGroupCollapsed={isSectionCollapsed("Vender", venderItems)} onToggleGroup={() => toggleGroup("Vender")} />
+        <NavGroup label="Inteligência" items={inteligenciaItems} {...sharedProps} isGroupCollapsed={isSectionCollapsed("Inteligência", inteligenciaItems)} onToggleGroup={() => toggleGroup("Inteligência")} />
+        <NavGroup label="Capital"      items={capitalItems}      {...sharedProps} isGroupCollapsed={isSectionCollapsed("Capital", capitalItems)} onToggleGroup={() => toggleGroup("Capital")} />
+        <NavGroup label="Acervo"       items={acervoItems}       {...sharedProps} isGroupCollapsed={isSectionCollapsed("Acervo", acervoItems)} onToggleGroup={() => toggleGroup("Acervo")} />
+        <NavGroup label="Setup"        items={configurarItems}   {...sharedProps} isGroupCollapsed={isSectionCollapsed("Setup", configurarItems)} onToggleGroup={() => toggleGroup("Setup")} isLast />
 
       </SidebarContent>
 

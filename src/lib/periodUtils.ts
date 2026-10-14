@@ -86,3 +86,16 @@ export function calcDelta(current: number, previous: number): number | null {
   if (!previous || previous === 0) return current > 0 ? 100 : null;
   return ((current - previous) / previous) * 100;
 }
+
+/** Início do dia em horário de Brasília (BRT, UTC-3) para consultas em colunas timestamp. */
+export function brtStart(day: string): string {
+  return `${day}T00:00:00-03:00`;
+}
+
+/** Início do dia seguinte em horário de Brasília (BRT, UTC-3), usado como limite superior exclusivo (< brtNextDay). */
+export function brtNextDay(day: string): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return `${d.toISOString().slice(0, 10)}T00:00:00-03:00`;
+}
+
