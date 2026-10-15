@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TestOrder } from "@/hooks/useTestOrders";
 import { PORTAS, CARGAS, PORTA_PONTO, type Porta, type Carga } from "@shared/hw-taxonomy";
+import { CREATIVE_ANGLES } from "@/data/creativeAngles";
 import {
   loadProjectIntelligence,
   promoteWinnerToProjectControl,
@@ -10,22 +11,39 @@ import {
 } from "@/lib/project-intelligence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Grid3X3, Loader2, Palette, PlusCircle, Sparkles, Trophy, Play, Skull, Wand2 } from "lucide-react";
+import {
+  Grid3X3,
+  Loader2,
+  Palette,
+  PlusCircle,
+  Sparkles,
+  Trophy,
+  Play,
+  Skull,
+  Wand2,
+  Search,
+  Video,
+  Image as ImageIcon,
+  Layers,
+} from "lucide-react";
 
-interface MatrixFormatCol {
+export interface MatrixFormatCol {
   key: string;
   shortLabel: string;
   fullLabel: string;
+  mediaType: "video" | "imagem" | "ambos";
   defaultCarga: Carga;
   jeitoHint: string;
 }
 
-const MATRIX_FORMATS: MatrixFormatCol[] = [
+export const MATRIX_FORMATS: MatrixFormatCol[] = [
   {
     key: "ugc_fala",
     shortLabel: "UGC Fala",
     fullLabel: "UGC · Pessoa falando pra câmera",
+    mediaType: "video",
     defaultCarga: "rosto_emocao",
     jeitoHint: "Selfie frontal natural, corte seco a cada 2.5s, olhando na lente",
   },
@@ -33,6 +51,7 @@ const MATRIX_FORMATS: MatrixFormatCol[] = [
     key: "narrativa_broll",
     shortLabel: "B-Roll + Off",
     fullLabel: "Narrativa com B-roll + voz em off",
+    mediaType: "video",
     defaultCarga: "cena_vida",
     jeitoHint: "Cenas de rotina/mecanismo nos primeiros 3s + locução conversacional",
   },
@@ -40,6 +59,7 @@ const MATRIX_FORMATS: MatrixFormatCol[] = [
     key: "demonstracao",
     shortLabel: "Demo Física",
     fullLabel: "Demonstração física / tela",
+    mediaType: "video",
     defaultCarga: "objeto_estranho",
     jeitoHint: "Close-up no teste físico, textura, copo ou prova visual imediata",
   },
@@ -47,37 +67,182 @@ const MATRIX_FORMATS: MatrixFormatCol[] = [
     key: "entrevista_podcast",
     shortLabel: "Podcast/Corte",
     fullLabel: "Entrevista / corte de podcast",
-    defaultCarga: "contradicao",
+    mediaType: "video",
+    defaultCarga: "rosto_emocao",
     jeitoHint: "Microfone de mesa visível, enquadramento 45°, revelação de especialista",
   },
   {
-    key: "antes_depois",
-    shortLabel: "Antes × Depois",
-    fullLabel: "Antes e depois / transformação",
-    defaultCarga: "cena_vida",
-    jeitoHint: "Contraste visual de estado inicial vs. alívio sem violar compliance",
+    key: "depoimento",
+    shortLabel: "Depoimento",
+    fullLabel: "Depoimento / Review de cliente real",
+    mediaType: "ambos",
+    defaultCarga: "rosto_emocao",
+    jeitoHint: "Relato sincero focado no ceticismo inicial e na virada específica",
   },
   {
     key: "estatico",
     shortLabel: "Estático",
     fullLabel: "Imagem estática",
-    defaultCarga: "contradicao",
+    mediaType: "imagem",
+    defaultCarga: "cena_vida",
     jeitoHint: "Manchete grande no topo + comparativo Nós vs. Eles ou raio-X do ativo",
   },
   {
     key: "carrossel",
     shortLabel: "Carrossel",
     fullLabel: "Carrossel narrativo",
-    defaultCarga: "objeto_estranho",
+    mediaType: "imagem",
+    defaultCarga: "contradicao",
     jeitoHint: "Slide 1 choque/curiosidade → Slide 3 mecanismo → Slide 5 oferta",
   },
   {
     key: "print_conversa",
-    shortLabel: "Print WhatsApp",
-    fullLabel: "Print de conversa / depoimento",
-    defaultCarga: "cena_vida",
+    shortLabel: "Print Conversa",
+    fullLabel: "Print de conversa / WhatsApp / Tweet",
+    mediaType: "imagem",
+    defaultCarga: "objeto_estranho",
     jeitoHint: "Print nativo de cliente relatando resultado inesperado + áudio acelerado",
   },
+  {
+    key: "antes_depois",
+    shortLabel: "Antes × Depois",
+    fullLabel: "Antes e depois / transformação",
+    mediaType: "ambos",
+    defaultCarga: "contradicao",
+    jeitoHint: "Contraste visual de estado inicial vs. alívio sem violar compliance",
+  },
+  {
+    key: "infografico",
+    shortLabel: "Infográfico",
+    fullLabel: "Infográfico / Lista / Raio-X educativo",
+    mediaType: "imagem",
+    defaultCarga: "contradicao",
+    jeitoHint: "Diagrama visual limpo comparando mecanismo tradicional vs. novo",
+  },
+  {
+    key: "meme",
+    shortLabel: "Meme Nativo",
+    fullLabel: "Meme / Humor de identificação",
+    mediaType: "imagem",
+    defaultCarga: "objeto_estranho",
+    jeitoHint: "Quebra de padrão nativa com dor interna que só o avatar entende",
+  },
+  {
+    key: "produto",
+    shortLabel: "Packshot/Oferta",
+    fullLabel: "Product Shot / Card de Oferta",
+    mediaType: "imagem",
+    defaultCarga: "cena_vida",
+    jeitoHint: "Foco tangível nos entregáveis, kits, bônus e garantia incondicional",
+  },
+  {
+    key: "outro",
+    shortLabel: "Outro",
+    fullLabel: "Outro formato experimental",
+    mediaType: "ambos",
+    defaultCarga: "cena_vida",
+    jeitoHint: "Formato livre focado em pattern interrupt nos 3 primeiros segundos",
+  },
+];
+
+export interface CanonicalAngleEntry {
+  id: string;
+  numero: number;
+  categoria: "problema" | "solucao" | "produto" | "oferta" | "generico" | "wander_filemon" | "projeto";
+  nome: string;
+  resumo: string;
+  exemploHook?: string;
+  visualPrompt?: string;
+}
+
+export const CANONICAL_78_ANGLES: CanonicalAngleEntry[] = [
+  // PROBLEMA (1-20)
+  { id: "angulo-1", numero: 1, categoria: "problema", nome: "Dor / Agitação (PAS)", resumo: "Escancara e intensifica a dor antes de apresentar qualquer solução." },
+  { id: "angulo-2", numero: 2, categoria: "problema", nome: "Medo / Consequência futura", resumo: "Projeta o custo de não agir: o problema de hoje se tornando a crise de amanhã." },
+  { id: "angulo-3", numero: 3, categoria: "problema", nome: "Inimigo comum", resumo: "Nomeia um vilão externo responsável pela dor do avatar e tira a culpa da pessoa." },
+  { id: "angulo-4", numero: 4, categoria: "problema", nome: "Nós contra eles", resumo: "Cria tribalismo: o público faz parte de um grupo que enxerga o que a maioria não vê." },
+  { id: "angulo-5", numero: 5, categoria: "problema", nome: "Erro invisível", resumo: "Revela que a pessoa está cometendo um erro sem saber que explica a falta de resultado." },
+  { id: "angulo-6", numero: 6, categoria: "problema", nome: "Sintoma → causa raiz", resumo: "Mostra que o que ela acha que é o problema é só sintoma; a causa real é outra." },
+  { id: "angulo-7", numero: 7, categoria: "problema", nome: "Mito / Crença falsa", resumo: "Destrói uma crença estabelecida do mercado (mythbusting) e reconstrói a visão." },
+  { id: "angulo-8", numero: 8, categoria: "problema", nome: "Dilema", resumo: "Apresenta as duas saídas conhecidas como ruins e abre espaço para uma terceira via." },
+  { id: "angulo-9", numero: 9, categoria: "problema", nome: "Paradoxo", resumo: "Quanto mais a pessoa se esforça no caminho atual, pior fica o resultado." },
+  { id: "angulo-10", numero: 10, categoria: "problema", nome: "Contra-intuitivo", resumo: "Afirma que a verdade é o oposto do senso comum e sustenta a afirmação." },
+  { id: "angulo-11", numero: 11, categoria: "problema", nome: "Contraste", resumo: "Coloca dois cenários lado a lado (com/sem, certo/errado) para tornar a diferença gritante." },
+  { id: "angulo-12", numero: 12, categoria: "problema", nome: "Custo oculto", resumo: "Quantifica quanto o problema já está custando em dinheiro, tempo ou saúde." },
+  { id: "angulo-13", numero: 13, categoria: "problema", nome: "Diagnóstico / Autoidentificação", resumo: "Lista sinais ou sintomas para a pessoa se reconhecer no anúncio ('se você tem esses 3 sinais')." },
+  { id: "angulo-14", numero: 14, categoria: "problema", nome: "Frustração acumulada", resumo: "Valida quem já tentou de tudo e nada funcionou, explicando por que falhou." },
+  { id: "angulo-15", numero: 15, categoria: "problema", nome: "FOMO do problema", resumo: "Mostra que todos ao redor estão resolvendo o problema — menos a pessoa." },
+  { id: "angulo-16", numero: 16, categoria: "problema", nome: "Urgência do contexto (news hijack)", resumo: "Pega carona em notícia ou mudança do setor para tornar o problema urgente hoje." },
+  { id: "angulo-17", numero: 17, categoria: "problema", nome: "Confissão / Vulnerabilidade", resumo: "Conta a dor em primeira pessoa ('eu também passei por isso') gerando identificação." },
+  { id: "angulo-18", numero: 18, categoria: "problema", nome: "Comparação social negativa", resumo: "Mostra pessoas comuns conseguindo o que o avatar não consegue e pergunta o que elas sabem." },
+  { id: "angulo-19", numero: 19, categoria: "problema", nome: "Zeitgeist / Crença em colapso", resumo: "Diagnostica a crença dominante que está prestes a se provar errada." },
+  { id: "angulo-20", numero: 20, categoria: "problema", nome: "Injustiça", resumo: "Declara que não é culpa da pessoa: o jogo foi montado contra ela." },
+
+  // SOLUÇÃO (21-38)
+  { id: "angulo-21", numero: 21, categoria: "solucao", nome: "Novidade", resumo: "Apresenta a solução como descoberta ou método novo." },
+  { id: "angulo-22", numero: 22, categoria: "solucao", nome: "Mecanismo único", resumo: "Explica POR QUE a solução funciona quando tudo o mais falhou." },
+  { id: "angulo-23", numero: 23, categoria: "solucao", nome: "Contraste (antes / depois)", resumo: "Mostra a transformação de forma visível e concreta." },
+  { id: "angulo-24", numero: 24, categoria: "solucao", nome: "Comparação de métodos", resumo: "Coloca o método novo contra o tradicional ponto a ponto." },
+  { id: "angulo-25", numero: 25, categoria: "solucao", nome: "Atalho / Economia de tempo", resumo: "Promete o mesmo resultado com menos esforço ou em menos tempo." },
+  { id: "angulo-26", numero: 26, categoria: "solucao", nome: "Simplicidade", resumo: "Reduz a solução a poucos passos ou poucos segundos por dia." },
+  { id: "angulo-27", numero: 27, categoria: "solucao", nome: "Contra-mainstream / Segredo", resumo: "Posiciona a solução como algo que a indústria conhece mas não divulga." },
+  { id: "angulo-28", numero: 28, categoria: "solucao", nome: "Prova científica / Dado", resumo: "Ancora a solução em estudo, estatística ou princípio fisiológico/técnico." },
+  { id: "angulo-29", numero: 29, categoria: "solucao", nome: "Descoberta acidental", resumo: "Narra a solução como achado inesperado ('descobri isso por acaso')." },
+  { id: "angulo-30", numero: 30, categoria: "solucao", nome: "História de transformação", resumo: "Storytelling completo: fundo do poço, encontro com o método e virada." },
+  { id: "angulo-31", numero: 31, categoria: "solucao", nome: "Empréstimo de autoridade", resumo: "Associa o método a uma figura ou grupo de referência ('o que os grandes usam')." },
+  { id: "angulo-32", numero: 32, categoria: "solucao", nome: "Origem improvável", resumo: "A solução vem de outro país, cultura ancestral ou ritual exótico." },
+  { id: "angulo-33", numero: 33, categoria: "solucao", nome: "Sem o sacrifício esperado", resumo: "Entrega o resultado desejado SEM o sacrifício que o avatar odeia." },
+  { id: "angulo-34", numero: 34, categoria: "solucao", nome: "Demonstração", resumo: "Mostra a solução funcionando em tempo real na tela ou no copo." },
+  { id: "angulo-35", numero: 35, categoria: "solucao", nome: "Futuro projetado (visualização)", resumo: "Faz a pessoa viver mentalmente o resultado antes de comprar." },
+  { id: "angulo-36", numero: 36, categoria: "solucao", nome: "Pequeno ajuste (regra dos 1%)", resumo: "Um único ajuste pequeno que destrava todo o resultado." },
+  { id: "angulo-37", numero: 37, categoria: "solucao", nome: "Permissão", resumo: "Libera o avatar de uma obrigação pesada ('você não precisa mais fazer X')." },
+  { id: "angulo-38", numero: 38, categoria: "solucao", nome: "Velocidade do resultado", resumo: "Foca em QUANDO a primeira vitória rápida acontece." },
+
+  // PRODUTO (39-53)
+  { id: "angulo-39", numero: 39, categoria: "produto", nome: "Prova social", resumo: "Usa depoimentos e números de clientes/alunos como argumento central." },
+  { id: "angulo-40", numero: 40, categoria: "produto", nome: "Autoridade do criador", resumo: "Constrói o criativo sobre as credenciais e resultados de quem criou." },
+  { id: "angulo-41", numero: 41, categoria: "produto", nome: "Feature → Benefício", resumo: "Traduz cada característica do produto em ganho concreto na vida real." },
+  { id: "angulo-42", numero: 42, categoria: "produto", nome: "Bastidores / Como é feito", resumo: "Abre a caixa-preta e mostra o processo e o rigor por trás da entrega." },
+  { id: "angulo-43", numero: 43, categoria: "produto", nome: "Especificidade", resumo: "Usa números exatos e detalhes precisos para gerar credibilidade imediata." },
+  { id: "angulo-44", numero: 44, categoria: "produto", nome: "Estudo de caso", resumo: "Acompanha UM cliente do início ao fim com contexto, processo e números." },
+  { id: "angulo-45", numero: 45, categoria: "produto", nome: "Superioridade declarada", resumo: "Reivindica um posto único ('o único que...', 'o primeiro que...')." },
+  { id: "angulo-46", numero: 46, categoria: "produto", nome: "Transubstanciação (Nova Categoria)", resumo: "Tira o produto da categoria saturada e batiza como novo protocolo/sistema." },
+  { id: "angulo-47", numero: 47, categoria: "produto", nome: "Tour / O que tem dentro", resumo: "Mostra concretamente o que a pessoa recebe por dentro." },
+  { id: "angulo-48", numero: 48, categoria: "produto", nome: "Endosso de terceiros", resumo: "Validação externa: mídia, prêmios, selos ou especialistas do nicho." },
+  { id: "angulo-49", numero: 49, categoria: "produto", nome: "Objeção respondida", resumo: "Dedica o criativo inteiro a destruir UMA objeção que trava a compra." },
+  { id: "angulo-50", numero: 50, categoria: "produto", nome: "Anti-venda / Desqualificação", resumo: "Diz abertamente para quem o produto NÃO é, aumentando o desejo do público certo." },
+  { id: "angulo-51", numero: 51, categoria: "produto", nome: "Identidade / Status", resumo: "Vende o que o produto diz sobre quem a pessoa é (pertencimento e status)." },
+  { id: "angulo-52", numero: 52, categoria: "produto", nome: "Efeito manada qualificado", resumo: "Mostra que um grupo específico e admirado já migrou para essa solução." },
+  { id: "angulo-53", numero: 53, categoria: "produto", nome: "Origem / História do produto", resumo: "Conta POR QUE o produto foi criado e a dor que o fundador viveu." },
+
+  // OFERTA (54-69)
+  { id: "angulo-54", numero: 54, categoria: "oferta", nome: "Exclusividade", resumo: "Acesso restrito a convidados, qualificados ou lote fechado." },
+  { id: "angulo-55", numero: 55, categoria: "oferta", nome: "Escassez", resumo: "Quantidade limitada de vagas, frascos ou unidades." },
+  { id: "angulo-56", numero: 56, categoria: "oferta", nome: "Urgência / Deadline", resumo: "Prazo definido: a condição encerra em data e hora marcadas." },
+  { id: "angulo-57", numero: 57, categoria: "oferta", nome: "Ancoragem", resumo: "Estabelece referência de valor alta antes de revelar o preço real." },
+  { id: "angulo-58", numero: 58, categoria: "oferta", nome: "Empilhamento de valor", resumo: "Soma tudo que está incluso item a item até superar em muito o preço." },
+  { id: "angulo-59", numero: 59, categoria: "oferta", nome: "Bônus como protagonista", resumo: "O criativo gira em torno de UM bônus irresistível." },
+  { id: "angulo-60", numero: 60, categoria: "oferta", nome: "Garantia / Risco invertido", resumo: "Transfere 100% do risco da compra para o vendedor." },
+  { id: "angulo-61", numero: 61, categoria: "oferta", nome: "Gratuidade / Amostra", resumo: "Entrega valor gratuito antecipado (diagnóstico, aula, teste)." },
+  { id: "angulo-62", numero: 62, categoria: "oferta", nome: "Custo por dia", resumo: "Reparcela mentalmente o preço em unidades triviais ('menos que 1 café/dia')." },
+  { id: "angulo-63", numero: 63, categoria: "oferta", nome: "Comparação de custo", resumo: "Compara o preço da oferta com o custo alto de continuar no problema." },
+  { id: "angulo-64", numero: 64, categoria: "oferta", nome: "Facilidade de pagamento", resumo: "Foca na acessibilidade imediata: parcelamento ou PIX com desconto." },
+  { id: "angulo-65", numero: 65, categoria: "oferta", nome: "Última chance / Nunca mais", resumo: "Comunica que a condição atual não vai se repetir." },
+  { id: "angulo-66", numero: 66, categoria: "oferta", nome: "Justificativa da oferta (reason why)", resumo: "Explica POR QUE a condição especial existe (lote, aniversário, meta)." },
+  { id: "angulo-67", numero: 67, categoria: "oferta", nome: "Condição / Qualificação", resumo: "Inverte o poder: a oferta só vale para quem cumprir um critério." },
+  { id: "angulo-68", numero: 68, categoria: "oferta", nome: "Aumento de preço iminente", resumo: "Avisa que o preço vai subir em data definida." },
+  { id: "angulo-69", numero: 69, categoria: "oferta", nome: "ROI declarado", resumo: "Mostra a conta lógica de quanto a pessoa economiza ou recupera." },
+
+  // GENÉRICO / TRANSVERSAL (70-78)
+  { id: "angulo-70", numero: 70, categoria: "generico", nome: "Curiosidade / Loop aberto", resumo: "Entrega informação incompleta que o cérebro precisa fechar." },
+  { id: "angulo-71", numero: 71, categoria: "generico", nome: "Pattern interrupt", resumo: "Abertura inesperada ou absurda que interrompe o scroll nos 2 primeiros segundos." },
+  { id: "angulo-72", numero: 72, categoria: "generico", nome: "Pergunta direta", resumo: "Abre com pergunta que o avatar responde mentalmente na hora." },
+  { id: "angulo-73", numero: 73, categoria: "generico", nome: "Dog whistle / Chamada ao avatar", resumo: "Usa situação, sintoma ou código que só o público ideal reconhece." },
+  { id: "angulo-74", numero: 74, categoria: "generico", nome: "UGC / Nativo", resumo: "O ângulo é parecer conteúdo orgânico espontâneo, nunca propaganda." },
+  { id: "angulo-75", numero: 75, categoria: "generico", nome: "Polêmica / Opinião impopular", resumo: "Declaração forte que divide opiniões e multiplica comentários." },
+  { id: "angulo-76", numero: 76, categoria: "generico", nome: "Desafio", resumo: "Desafia o público a testar por X dias e comprovar." },
+  { id: "angulo-77", numero: 77, categoria: "generico", nome: "Analogia", resumo: "Traduz o mecanismo técnico usando uma metáfora simples do dia a dia." },
+  { id: "angulo-78", numero: 78, categoria: "generico", nome: "Psicologia Reversa", resumo: "Em vez de empurrar, desencoraja ou desafia se a pessoa está pronta." },
 ];
 
 const PORTA_EXAMPLES: Record<Porta, string> = {
@@ -88,13 +253,28 @@ const PORTA_EXAMPLES: Record<Porta, string> = {
   descoberta: "Novo hábito, ritual ou mecanismo ('Existe um ritual de 15 segundos antes do café...')",
 };
 
-const DEFAULT_STRATEGIC_ANGLES = [
-  "Mecanismo Oculto / Causa-Raiz Ignorada",
-  "Invalidação do Método Tradicional ('Por que falhou')",
-  "Ancoragem de Custo Diário (Menos que 1 café/dia)",
-  "Teste Caseiro de 5 Segundos (Auto-diagnóstico)",
-  "Ritual Matinal Simples de 15 Segundos",
-];
+const LAYER_TABS = [
+  { key: "prioritarios", label: "⚡ Prioritários do Projeto", badge: "Top" },
+  { key: "problema", label: "🔴 Problema", badge: "20" },
+  { key: "solucao", label: "🔵 Solução", badge: "18" },
+  { key: "produto", label: "🟢 Produto", badge: "15" },
+  { key: "oferta", label: "🟡 Oferta", badge: "16" },
+  { key: "generico", label: "🟣 Genérico / Hooks", badge: "9" },
+  { key: "wander_filemon", label: "🔥 Filemon & Wander", badge: "21" },
+  { key: "todos", label: "📚 Todos os Ângulos", badge: "99+" },
+] as const;
+
+type LayerKey = (typeof LAYER_TABS)[number]["key"];
+
+const LAYER_BADGE_STYLE: Record<string, string> = {
+  problema: "border-rose-500/30 bg-rose-500/10 text-rose-300",
+  solucao: "border-sky-500/30 bg-sky-500/10 text-sky-300",
+  produto: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  oferta: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  generico: "border-purple-500/30 bg-purple-500/10 text-purple-300",
+  wander_filemon: "border-orange-500/30 bg-orange-500/10 text-orange-300",
+  projeto: "border-primary/40 bg-primary/10 text-primary",
+};
 
 interface CellStats {
   total: number;
@@ -104,9 +284,19 @@ interface CellStats {
   status: "winner" | "running" | "dead" | "virgin";
 }
 
+interface LibraryPropItem {
+  id: string;
+  nome: string;
+  categoria: string;
+  numero: number;
+  biblioteca?: string;
+  explicacao?: string | null;
+  exemplo?: string | null;
+}
+
 interface CreativeAngleFormatMatrixProps {
   orders: TestOrder[];
-  library: Array<{ id: string; nome: string; categoria: string; numero: number }>;
+  library: Array<LibraryPropItem>;
   projectId?: string | null;
   onSelectCombination?: (combo: {
     angle: string;
@@ -126,7 +316,14 @@ export function CreativeAngleFormatMatrix({
 }: CreativeAngleFormatMatrixProps) {
   const navigate = useNavigate();
   const [selectedPorta, setSelectedPorta] = useState<Porta>("descoberta");
-  const [activeCell, setActiveCell] = useState<{ angle: string; format: MatrixFormatCol } | null>(null);
+  const [selectedLayer, setSelectedLayer] = useState<LayerKey>("prioritarios");
+  const [formatFilter, setFormatFilter] = useState<"todos" | "video" | "imagem">("todos");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCell, setActiveCell] = useState<{
+    angle: string;
+    entry: CanonicalAngleEntry;
+    format: MatrixFormatCol;
+  } | null>(null);
   const [creatingVariant, setCreatingVariant] = useState(false);
   const [generatingArt, setGeneratingArt] = useState(false);
   const [optimisticPlannedCells, setOptimisticPlannedCells] = useState<Record<string, number>>({});
@@ -144,34 +341,160 @@ export function CreativeAngleFormatMatrix({
 
   const portaKeys = Object.keys(PORTAS) as Porta[];
 
-  // Collect distinct angles from order variants + copy library + project avatar/mechanism + canonical strategic angles
-  const angles = useMemo(() => {
-    const set = new Set<string>();
+  // Merge DB library (if loaded) with the 78 canonical @renanmsap angles + 21 Filemon/Wander presets + Project specific angles
+  const allCatalogAngles = useMemo<CanonicalAngleEntry[]>(() => {
+    const dbById = new Map<string, LibraryPropItem>();
+    for (const item of library) {
+      if (!item.biblioteca || item.biblioteca === "angulo") {
+        dbById.set(item.id, item);
+      }
+    }
+
+    const merged78: CanonicalAngleEntry[] = CANONICAL_78_ANGLES.map((canon) => {
+      const db = dbById.get(canon.id);
+      return {
+        ...canon,
+        nome: db?.nome?.trim() || canon.nome,
+        resumo: db?.explicacao?.trim() || canon.resumo,
+        exemploHook: db?.exemplo?.trim() || canon.exemploHook,
+      };
+    });
+
+    const wanderFilemon: CanonicalAngleEntry[] = CREATIVE_ANGLES.map((ca, idx) => ({
+      id: `preset-${ca.slug}`,
+      numero: 101 + idx,
+      categoria: "wander_filemon",
+      nome: `${ca.nome} (${ca.categoria.toUpperCase()})`,
+      resumo: `${ca.descricao} · Gatilho: ${ca.gatilho}`,
+      exemploHook: ca.exemploHook,
+      visualPrompt: ca.visualPrompt,
+    }));
+
+    const projectSpecific: CanonicalAngleEntry[] = [];
+    const seenNames = new Set(merged78.map((a) => a.nome.toLowerCase()));
+
     for (const o of orders) {
       for (const v of o.variantes ?? []) {
-        if (v.angulo && v.angulo.trim()) set.add(v.angulo.trim());
+        const trimmed = v.angulo?.trim();
+        if (trimmed && !seenNames.has(trimmed.toLowerCase())) {
+          seenNames.add(trimmed.toLowerCase());
+          projectSpecific.push({
+            id: v.copy_lib_id || `order-angle-${projectSpecific.length + 1}`,
+            numero: 0,
+            categoria: "projeto",
+            nome: trimmed,
+            resumo: v.hipotese || "Ângulo em teste ativo na operação do projeto",
+            exemploHook: v.texto || undefined,
+          });
+        }
       }
     }
-    if (intel) {
-      if (intel.mechanismName) set.add(`Mecanismo: ${intel.mechanismName}`);
-      if (intel.deepPains[0]) set.add(`Dor Raiz: ${intel.deepPains[0].slice(0, 48)}`);
-    }
-    for (const item of library) {
-      if (item.nome && item.nome.trim() && set.size < 6) {
-        set.add(item.nome.trim());
-      }
-    }
-    for (const def of DEFAULT_STRATEGIC_ANGLES) {
-      if (set.size < 6) set.add(def);
-    }
-    return Array.from(set).slice(0, 7);
-  }, [orders, library, intel]);
 
-  // Build lookup matrix: angle -> formatKey -> stats
+    if (intel) {
+      if (intel.mechanismName && !seenNames.has(`mecanismo: ${intel.mechanismName}`.toLowerCase())) {
+        projectSpecific.push({
+          id: "proj-mecanismo",
+          numero: 0,
+          categoria: "projeto",
+          nome: `Mecanismo: ${intel.mechanismName}`,
+          resumo: `Mecanismo único extraído do dossiê de ${intel.projectName}`,
+          exemploHook: intel.synthesizedHooks[0]?.text,
+        });
+      }
+      if (intel.deepPains[0]) {
+        const painLabel = `Dor Raiz: ${intel.deepPains[0].slice(0, 48)}`;
+        if (!seenNames.has(painLabel.toLowerCase())) {
+          projectSpecific.push({
+            id: "proj-dor-raiz",
+            numero: 0,
+            categoria: "projeto",
+            nome: painLabel,
+            resumo: `Dor visceral mapeada do avatar ${intel.avatarName}`,
+            exemploHook: intel.synthesizedHooks[1]?.text,
+          });
+        }
+      }
+    }
+
+    return [...projectSpecific, ...merged78, ...wanderFilemon];
+  }, [library, orders, intel]);
+
+  // Filter formats by media type
+  const visibleFormats = useMemo(() => {
+    if (formatFilter === "todos") return MATRIX_FORMATS;
+    if (formatFilter === "video") {
+      return MATRIX_FORMATS.filter((f) => f.mediaType === "video" || f.mediaType === "ambos");
+    }
+    return MATRIX_FORMATS.filter((f) => f.mediaType === "imagem" || f.mediaType === "ambos");
+  }, [formatFilter]);
+
+  // Filter angles by selected layer and search query
+  const visibleAngles = useMemo<CanonicalAngleEntry[]>(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      return allCatalogAngles.filter(
+        (a) =>
+          a.nome.toLowerCase().includes(q) ||
+          a.resumo.toLowerCase().includes(q) ||
+          a.id.toLowerCase().includes(q) ||
+          String(a.numero) === q
+      );
+    }
+
+    if (selectedLayer === "todos") {
+      return allCatalogAngles;
+    }
+
+    if (selectedLayer === "prioritarios") {
+      const prio: CanonicalAngleEntry[] = [];
+      const usedIds = new Set<string>();
+      const pushUnique = (entry?: CanonicalAngleEntry) => {
+        if (!entry || usedIds.has(entry.id)) return;
+        usedIds.add(entry.id);
+        prio.push(entry);
+      };
+
+      // 1. Project angles & active order angles
+      allCatalogAngles.filter((a) => a.categoria === "projeto").forEach(pushUnique);
+
+      // 2. Any library angle already referenced in orders
+      const orderLibIds = new Set<string>();
+      for (const o of orders) {
+        for (const v of o.variantes ?? []) {
+          if (v.copy_lib_id) orderLibIds.add(v.copy_lib_id);
+        }
+      }
+      allCatalogAngles.filter((a) => orderLibIds.has(a.id)).forEach(pushUnique);
+
+      // 3. Top strategic angles across layers up to 10 rows
+      const strategicIds = [
+        "angulo-6",  // Sintoma -> causa raiz
+        "angulo-22", // Mecanismo único
+        "angulo-3",  // Inimigo comum
+        "angulo-5",  // Erro invisível
+        "angulo-13", // Diagnóstico / Autoidentificação
+        "angulo-29", // Descoberta acidental
+        "angulo-34", // Demonstração
+        "angulo-62", // Custo por dia
+        "angulo-70", // Curiosidade / Loop aberto
+        "preset-mecanismo-oculto",
+      ];
+      for (const id of strategicIds) {
+        if (prio.length >= 10) break;
+        pushUnique(allCatalogAngles.find((a) => a.id === id));
+      }
+      return prio;
+    }
+
+    return allCatalogAngles.filter((a) => a.categoria === selectedLayer);
+  }, [allCatalogAngles, selectedLayer, searchQuery, orders]);
+
+  // Build lookup matrix: angle.nome -> formatKey -> stats
   const matrixStats = useMemo(() => {
     const map = new Map<string, CellStats>();
-    for (const angle of angles) {
-      for (const fmt of MATRIX_FORMATS) {
+    for (const entry of visibleAngles) {
+      const angle = entry.nome;
+      for (const fmt of visibleFormats) {
         const key = `${angle}:::${fmt.key}`;
         let total = 0;
         let winners = 0;
@@ -181,10 +504,12 @@ export function CreativeAngleFormatMatrix({
         for (const order of orders) {
           for (const v of order.variantes ?? []) {
             const varAngle = (v.angulo || "").trim().toLowerCase();
-            const angleMatch =
-              varAngle === angle.toLowerCase() ||
-              (varAngle.length > 5 && angle.toLowerCase().includes(varAngle));
-            if (!angleMatch) continue;
+            const byLibId = Boolean(v.copy_lib_id && v.copy_lib_id === entry.id);
+            const byName =
+              varAngle.length > 0 &&
+              (varAngle === angle.toLowerCase() ||
+                (varAngle.length > 5 && angle.toLowerCase().includes(varAngle)));
+            if (!byLibId && !byName) continue;
 
             if (v.formato === fmt.key) {
               total += 1;
@@ -206,7 +531,7 @@ export function CreativeAngleFormatMatrix({
       }
     }
     return map;
-  }, [angles, orders, optimisticPlannedCells]);
+  }, [visibleAngles, visibleFormats, orders, optimisticPlannedCells]);
 
   const virginCount = useMemo(() => {
     let c = 0;
@@ -216,7 +541,8 @@ export function CreativeAngleFormatMatrix({
     return c;
   }, [matrixStats]);
 
-  const handleLaunchCombo = (angle: string, fmt: MatrixFormatCol) => {
+  const handleLaunchCombo = (entry: CanonicalAngleEntry, fmt: MatrixFormatCol) => {
+    const angle = entry.nome;
     if (onSelectCombination) {
       onSelectCombination({
         angle,
@@ -240,19 +566,24 @@ export function CreativeAngleFormatMatrix({
     const params = new URLSearchParams({
       briefing: [
         `CRIATIVO MATRIZ ÂNGULO × FORMATO × JEITO`,
-        `• Ângulo Central: ${angle}`,
+        `• Ângulo Central: ${angle} (${entry.id}) — ${entry.resumo}`,
+        entry.exemploHook ? `• Exemplo de Hook Canônico: "${entry.exemploHook}"` : "",
+        entry.visualPrompt ? `• Diretriz Visual do Ângulo: ${entry.visualPrompt}` : "",
         `• Formato Visual: ${fmt.fullLabel}`,
         `• Jeito de Execução: ${fmt.jeitoHint}`,
         `• Porta de Entrada (H&W): ${PORTAS[selectedPorta]} — ${PORTA_EXAMPLES[selectedPorta]}`,
         `• Carga do 1º Quadro: ${CARGAS[fmt.defaultCarga]}`,
         ...projectLines,
         `• Regra: Entregar gancho de 3s + descrição do 1º quadro + pouso na 2ª frase + corpo de mecanismo + CTA direto.`,
-      ].join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
     });
     navigate(`/copy-lab?${params.toString()}`);
   };
 
-  const handleCreateTestFromCell = async (angle: string, fmt: MatrixFormatCol) => {
+  const handleCreateTestFromCell = async (entry: CanonicalAngleEntry, fmt: MatrixFormatCol) => {
+    const angle = entry.nome;
     setCreatingVariant(true);
     const cellKey = `${angle}:::${fmt.key}`;
     try {
@@ -297,8 +628,9 @@ export function CreativeAngleFormatMatrix({
 
       if (targetOrderId) {
         const nextOrdem = (targetOrder?.variantes?.length ?? 0) + 1;
-        const matchedLib = library.find((l) => l.nome.toLowerCase() === angle.toLowerCase());
-        const synthesizedHook = intel?.synthesizedHooks[0]?.text || PORTA_EXAMPLES[selectedPorta];
+        const copyLibId = entry.id.startsWith("angulo-") ? entry.id : null;
+        const synthesizedHook =
+          entry.exemploHook || intel?.synthesizedHooks[0]?.text || PORTA_EXAMPLES[selectedPorta];
         const { error: varErr } = await supabase.from("imphq_test_variants").insert({
           order_id: targetOrderId,
           ordem: nextOrdem,
@@ -308,7 +640,7 @@ export function CreativeAngleFormatMatrix({
           carga: fmt.defaultCarga,
           ponto_rota: PORTA_PONTO[selectedPorta],
           pouso: "pousou",
-          copy_lib_id: matchedLib?.id ?? null,
+          copy_lib_id: copyLibId,
           metodo: "matriz_hw",
           hipotese: `${angle} em ${fmt.shortLabel} abrindo pela porta ${PORTAS[selectedPorta]} (${intel?.avatarName || "Avatar"})`,
           headline: angle,
@@ -337,7 +669,8 @@ export function CreativeAngleFormatMatrix({
     }
   };
 
-  const handleGenerateZeroShotArt = async (angle: string, fmt: MatrixFormatCol) => {
+  const handleGenerateZeroShotArt = async (entry: CanonicalAngleEntry, fmt: MatrixFormatCol) => {
+    const angle = entry.nome;
     setGeneratingArt(true);
     try {
       const targetOrder = orders[0];
@@ -360,7 +693,7 @@ export function CreativeAngleFormatMatrix({
           angulo: angle,
           hipotese: `${fmt.fullLabel} · Porta ${PORTAS[selectedPorta]} · 1º Quadro ${CARGAS[fmt.defaultCarga]}`,
           oferta: targetOrder?.oferta || intel?.offerSummary || "Protocolo Oficial",
-          texto_base: `${intel?.synthesizedHooks[0]?.text || PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${fmt.jeitoHint}`,
+          texto_base: `${entry.exemploHook || intel?.synthesizedHooks[0]?.text || PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${fmt.jeitoHint}${entry.visualPrompt ? `\nDiretriz Visual: ${entry.visualPrompt}` : ""}`,
           quantidade: 2,
           eixos: ["headline", "avatar"],
         },
@@ -370,11 +703,11 @@ export function CreativeAngleFormatMatrix({
         toast.success("Lote de 2 artes Zero-Shot enviado para a fábrica IA (1 a 3 min)!");
       } else {
         toast.info("Briefing visual Zero-Shot preparado — abrindo no Copy Lab.");
-        handleLaunchCombo(angle, fmt);
+        handleLaunchCombo(entry, fmt);
       }
     } catch {
       toast.info("Abrindo gerador com o briefing visual do 1º quadro preenchido.");
-      handleLaunchCombo(angle, fmt);
+      handleLaunchCombo(entry, fmt);
     } finally {
       setGeneratingArt(false);
     }
@@ -393,10 +726,10 @@ export function CreativeAngleFormatMatrix({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-sm font-bold text-foreground">
-                Matriz Combinatória Viva · Ângulo × Formato × Jeito
+                Matriz Combinatória Viva · 78 Ângulos Biblioteca + 21 Presets × 13 Formatos × 5 Portas H&W
               </h2>
               <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400">
-                {virginCount} células virgens prontas para testar
+                {virginCount} células virgens nesta visão
               </Badge>
               {intel && (
                 <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
@@ -405,7 +738,7 @@ export function CreativeAngleFormatMatrix({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Escolha a <strong>Porta (Jeito do Gancho)</strong> e clique em qualquer célula para criar uma ordem de teste real, gerar a 1ª arte IA ou abrir o roteiro no Copy Lab.
+              Navegue pelas <strong>5 Camadas da Biblioteca (@renanmsap)</strong>, pelos <strong>21 Presets Filemon/Wander</strong> e pelos <strong>13 Formatos Canônicos</strong>. Clique em qualquer célula para criar teste, gerar arte IA ou abrir no Copy Lab.
             </p>
           </div>
         </div>
@@ -426,103 +759,207 @@ export function CreativeAngleFormatMatrix({
         </div>
       </div>
 
-      {/* Selector for "Jeito / Porta H&W" */}
-      <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">
-          Jeito do Gancho (Porta H&W):
-        </span>
-        {portaKeys.map((key) => {
-          const active = key === selectedPorta;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setSelectedPorta(key)}
-              title={PORTA_EXAMPLES[key]}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
-                active
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-background/60 text-muted-foreground border-border/60 hover:text-foreground"
-              }`}
-            >
-              {PORTAS[key]}
-            </button>
-          );
-        })}
-        <span className="text-[11px] text-muted-foreground ml-auto hidden xl:inline">
-          Ex.: <em className="text-foreground/90">{PORTA_EXAMPLES[selectedPorta]}</em>
-        </span>
+      {/* Filter Bar 1: Layer selector (78 Biblioteca + 21 Filemon/Wander + Projeto) & Search */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/15 p-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
+            <Layers className="h-3.5 w-3.5 text-primary" /> Camada de Ângulos:
+          </span>
+          {LAYER_TABS.map((tab) => {
+            const active = selectedLayer === tab.key && !searchQuery.trim();
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  setSelectedLayer(tab.key);
+                  setSearchQuery("");
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all border ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background/60 text-muted-foreground border-border/60 hover:text-foreground"
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={`rounded px-1 py-0.2 text-[10px] font-mono ${
+                    active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {tab.badge}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar nos 99 ângulos (ex: #22, inimigo, dor)..."
+            className="h-7 pl-8 text-xs"
+          />
+        </div>
+      </div>
+
+      {/* Filter Bar 2: "Jeito / Porta H&W" + Format Media Filter (13 Formats) */}
+      <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">
+            Porta H&W (1ª Frase):
+          </span>
+          {portaKeys.map((key) => {
+            const active = key === selectedPorta;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSelectedPorta(key)}
+                title={PORTA_EXAMPLES[key]}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background/60 text-muted-foreground border-border/60 hover:text-foreground"
+                }`}
+              >
+                {PORTAS[key]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 13 Formats Media Filter */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">
+            Formatos:
+          </span>
+          <button
+            type="button"
+            onClick={() => setFormatFilter("todos")}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+              formatFilter === "todos"
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                : "bg-background/60 text-muted-foreground border-border/60 hover:text-foreground"
+            }`}
+          >
+            Todos (13)
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormatFilter("video")}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+              formatFilter === "video"
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                : "bg-background/60 text-muted-foreground border-border/60 hover:text-foreground"
+            }`}
+          >
+            <Video className="h-3 w-3" /> Vídeo (6)
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormatFilter("imagem")}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+              formatFilter === "imagem"
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                : "bg-background/60 text-muted-foreground border-border/60 hover:text-foreground"
+            }`}
+          >
+            <ImageIcon className="h-3 w-3" /> Imagem (9)
+          </button>
+        </div>
       </div>
 
       {/* Matrix Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[540px] overflow-y-auto rounded-lg border border-border/50">
         <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr className="border-b border-border/80">
-              <th className="text-left py-2 px-2.5 font-mono uppercase text-[10px] text-muted-foreground min-w-[200px]">
-                Ângulo de Ataque \ Formato
+          <thead className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border/80">
+            <tr>
+              <th className="text-left py-2.5 px-2.5 font-mono uppercase text-[10px] text-muted-foreground min-w-[250px]">
+                Ângulo de Ataque ({visibleAngles.length}) \ Formato ({visibleFormats.length})
               </th>
-              {MATRIX_FORMATS.map((fmt) => (
+              {visibleFormats.map((fmt) => (
                 <th
                   key={fmt.key}
                   className="text-center py-2 px-1.5 font-mono uppercase text-[10px] text-muted-foreground min-w-[92px]"
-                  title={fmt.jeitoHint}
+                  title={`${fmt.fullLabel} — ${fmt.jeitoHint}`}
                 >
-                  {fmt.shortLabel}
+                  <div>{fmt.shortLabel}</div>
+                  <div className="text-[9px] font-normal text-muted-foreground/70 lowercase">
+                    {fmt.mediaType === "video" ? "🎥 vídeo" : fmt.mediaType === "imagem" ? "🖼️ img" : "🎥/🖼️"}
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {angles.map((angle) => (
-              <tr key={angle} className="hover:bg-muted/20 transition-colors">
-                <td className="py-2 px-2.5 font-medium text-foreground max-w-[240px] truncate" title={angle}>
-                  {angle}
-                </td>
-                {MATRIX_FORMATS.map((fmt) => {
-                  const stats = matrixStats.get(`${angle}:::${fmt.key}`) ?? {
-                    total: 0,
-                    winners: 0,
-                    running: 0,
-                    dead: 0,
-                    status: "virgin" as const,
-                  };
-                  const isSelected =
-                    activeCell?.angle === angle && activeCell?.format.key === fmt.key;
-
-                  let cellStyle =
-                    "border-dashed border-border/70 bg-background/40 text-muted-foreground hover:border-primary/50 hover:text-primary";
-                  let label = "✨ Virgem";
-
-                  if (stats.status === "winner") {
-                    cellStyle =
-                      "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 font-semibold";
-                    label = `🏆 ${stats.winners} win`;
-                  } else if (stats.status === "running") {
-                    cellStyle =
-                      "border-amber-500/40 bg-amber-500/15 text-amber-300 font-medium";
-                    label = `▶ ${stats.running} ativo`;
-                  } else if (stats.status === "dead") {
-                    cellStyle = "border-rose-500/30 bg-rose-500/10 text-rose-300";
-                    label = `✖ ${stats.dead} morto`;
-                  }
-
-                  return (
-                    <td key={fmt.key} className="p-1 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setActiveCell({ angle, format: fmt })}
-                        className={`w-full py-1.5 px-1.5 rounded-md border text-[11px] transition-all ${cellStyle} ${
-                          isSelected ? "ring-2 ring-primary" : ""
-                        }`}
+            {visibleAngles.map((entry) => {
+              const angle = entry.nome;
+              const badgeClass = LAYER_BADGE_STYLE[entry.categoria] || LAYER_BADGE_STYLE.generico;
+              return (
+                <tr key={entry.id} className="hover:bg-muted/20 transition-colors">
+                  <td className="py-2 px-2.5 font-medium text-foreground max-w-[280px]" title={entry.resumo}>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`shrink-0 rounded border px-1.5 py-0.2 font-mono text-[9px] uppercase ${badgeClass}`}
                       >
-                        {label}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+                        {entry.numero > 0 && entry.numero <= 78
+                          ? `#${entry.numero}`
+                          : entry.categoria === "wander_filemon"
+                            ? "Preset"
+                            : "Proj"}
+                      </span>
+                      <span className="truncate font-semibold">{angle}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{entry.resumo}</p>
+                  </td>
+                  {visibleFormats.map((fmt) => {
+                    const stats = matrixStats.get(`${angle}:::${fmt.key}`) ?? {
+                      total: 0,
+                      winners: 0,
+                      running: 0,
+                      dead: 0,
+                      status: "virgin" as const,
+                    };
+                    const isSelected =
+                      activeCell?.angle === angle && activeCell?.format.key === fmt.key;
+
+                    let cellStyle =
+                      "border-dashed border-border/70 bg-background/40 text-muted-foreground hover:border-primary/50 hover:text-primary";
+                    let label = "✨ Virgem";
+
+                    if (stats.status === "winner") {
+                      cellStyle =
+                        "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 font-semibold";
+                      label = `🏆 ${stats.winners} win`;
+                    } else if (stats.status === "running") {
+                      cellStyle =
+                        "border-amber-500/40 bg-amber-500/15 text-amber-300 font-medium";
+                      label = `▶ ${stats.running} ativo`;
+                    } else if (stats.status === "dead") {
+                      cellStyle = "border-rose-500/30 bg-rose-500/10 text-rose-300";
+                      label = `✖ ${stats.dead} morto`;
+                    }
+
+                    return (
+                      <td key={fmt.key} className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setActiveCell({ angle, entry, format: fmt })}
+                          className={`w-full py-1.5 px-1.5 rounded-md border text-[11px] transition-all ${cellStyle} ${
+                            isSelected ? "ring-2 ring-primary" : ""
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -530,15 +967,26 @@ export function CreativeAngleFormatMatrix({
       {/* Selected cell action bar */}
       {activeCell && (
         <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-0.5">
+          <div className="space-y-1 max-w-3xl">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className="text-[10px]">Célula Selecionada</Badge>
+              <Badge variant="outline" className="font-mono text-[10px]">
+                {activeCell.entry.id}
+              </Badge>
               <span className="text-xs font-bold text-foreground">{activeCell.angle}</span>
               <span className="text-xs text-muted-foreground">×</span>
               <span className="text-xs font-semibold text-primary">{activeCell.format.fullLabel}</span>
               <span className="text-xs text-muted-foreground">×</span>
               <span className="text-xs font-semibold text-amber-400">Porta: {PORTAS[selectedPorta]}</span>
             </div>
+            <p className="text-[11px] text-foreground/90">
+              <strong>Tese do Ângulo:</strong> {activeCell.entry.resumo}
+              {activeCell.entry.exemploHook ? (
+                <span className="text-emerald-300 ml-1.5">
+                  · <strong>Hook Exemplo:</strong> "{activeCell.entry.exemploHook}"
+                </span>
+              ) : null}
+            </p>
             <p className="text-[11px] text-muted-foreground">
               <strong>Jeito de gravar/montar:</strong> {activeCell.format.jeitoHint} ·{" "}
               <strong>1º Quadro:</strong> {CARGAS[activeCell.format.defaultCarga]}
@@ -551,7 +999,7 @@ export function CreativeAngleFormatMatrix({
               variant="outline"
               className="h-8 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
               disabled={creatingVariant}
-              onClick={() => handleCreateTestFromCell(activeCell.angle, activeCell.format)}
+              onClick={() => handleCreateTestFromCell(activeCell.entry, activeCell.format)}
             >
               {creatingVariant ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -565,7 +1013,7 @@ export function CreativeAngleFormatMatrix({
               variant="outline"
               className="h-8 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
               disabled={generatingArt}
-              onClick={() => handleGenerateZeroShotArt(activeCell.angle, activeCell.format)}
+              onClick={() => handleGenerateZeroShotArt(activeCell.entry, activeCell.format)}
             >
               {generatingArt ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -586,7 +1034,7 @@ export function CreativeAngleFormatMatrix({
                   title: `${activeCell.angle} × ${activeCell.format.shortLabel}`,
                   angle: activeCell.angle,
                   format: `${activeCell.format.fullLabel} (${PORTAS[selectedPorta]})`,
-                  content: `Ângulo: ${activeCell.angle}\nFormato: ${activeCell.format.fullLabel}\nJeito: ${activeCell.format.jeitoHint}\nPorta: ${PORTAS[selectedPorta]} — ${PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${CARGAS[activeCell.format.defaultCarga]}`,
+                  content: `Ângulo: ${activeCell.angle} (${activeCell.entry.id})\nTese: ${activeCell.entry.resumo}\nFormato: ${activeCell.format.fullLabel}\nJeito: ${activeCell.format.jeitoHint}\nPorta: ${PORTAS[selectedPorta]} — ${PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${CARGAS[activeCell.format.defaultCarga]}`,
                 });
                 if (res.ok) {
                   toast.success("🏆 Combinação Ângulo × Formato salva como Controle Vencedor do projeto!");
@@ -601,7 +1049,7 @@ export function CreativeAngleFormatMatrix({
             <Button
               size="sm"
               className="h-8 text-xs"
-              onClick={() => handleLaunchCombo(activeCell.angle, activeCell.format)}
+              onClick={() => handleLaunchCombo(activeCell.entry, activeCell.format)}
             >
               <Wand2 className="h-3.5 w-3.5 mr-1.5" />
               Abrir Roteiro no Copy Lab
