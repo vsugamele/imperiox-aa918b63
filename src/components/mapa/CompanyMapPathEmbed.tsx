@@ -97,11 +97,33 @@ export function CompanyMapPathEmbed({
           return;
         }
 
-        // Load nodes and edges
-        const [{ data: nData }, { data: eData }] = await Promise.all([
+        // Load nodes, edges, and project URLs in parallel
+        const [{ data: nData }, { data: eData }, { data: projRow }, { data: projSites }] = await Promise.all([
           supabase.from("imphq_company_map_nodes").select("*").eq("map_id", targetMapId),
           supabase.from("imphq_company_map_edges").select("*").eq("map_id", targetMapId),
+          supabase.from("imphq_projects").select("id, data").eq("id", activeProjectId).maybeSingle(),
+          supabase
+            .from("imphq_project_sites")
+            .select("role, is_primary, site:imphq_sites(url, page_type, funnel_stage)")
+            .eq("project_id", activeProjectId),
         ]);
+
+        const rawData =
+          projRow?.data && typeof projRow.data === "object" && !Array.isArray(projRow.data)
+            ? (projRow.data as Record<string, any>)
+            : {};
+        const siteRows = (projSites || []) as Array<{ role?: string; is_primary?: boolean; site?: { url?: string; page_type?: string } | null }>;
+        const primaryLpUrl =
+          siteRows.find((s) => s.role === "lp" || s.role === "vsl" || s.site?.page_type === "vsl" || s.site?.page_type === "lp")?.site?.url ||
+          (typeof rawData.vsl_url === "string" ? rawData.vsl_url : "") ||
+          (rawData.links && typeof rawData.links === "object" ? String(rawData.links.vsl || rawData.links.site || "") : "") ||
+          siteRows[0]?.site?.url ||
+          "";
+        const checkoutFallbackUrl =
+          siteRows.find((s) => s.role === "checkout" || s.site?.page_type === "checkout" || s.site?.page_type === "pdp")?.site?.url ||
+          (typeof rawData.checkout_url === "string" ? rawData.checkout_url : "") ||
+          (rawData.links && typeof rawData.links === "object" ? String(rawData.links.checkout || "") : "") ||
+          "";
 
         if (isMounted) {
           setMapId(targetMapId);
@@ -114,6 +136,15 @@ export function CompanyMapPathEmbed({
                   done: Boolean(it?.done),
                 }))
               : [];
+            const combinedKind = `${n.kind || ""} ${n.label || ""}`.toLowerCase();
+            let resolvedUrl = n.url;
+            if (!resolvedUrl) {
+              if (/checkout|pagamento|compra|kiwify|ticto|hotmart|pdp/.test(combinedKind) && checkoutFallbackUrl) {
+                resolvedUrl = checkoutFallbackUrl;
+              } else if (/vsl|pagina|página|lp|advertorial|captura|quiz|site/.test(combinedKind) && primaryLpUrl) {
+                resolvedUrl = primaryLpUrl;
+              }
+            }
             return {
               id: n.id,
               map_id: n.map_id,
@@ -124,7 +155,7 @@ export function CompanyMapPathEmbed({
               size: (n.size as MapNode["size"]) || "M",
               description: n.description,
               notes: n.notes,
-              url: n.url,
+              url: resolvedUrl,
               linked_project_id: n.linked_project_id || activeProjectId,
               metrics_target: n.metrics_target,
               step_status: n.step_status,

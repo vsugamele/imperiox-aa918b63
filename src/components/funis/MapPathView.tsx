@@ -9,18 +9,25 @@ import {
   ChevronRight,
   Crosshair,
   DollarSign,
+  ExternalLink,
   Eye,
+  Globe,
+  Layout,
   Layers,
   MapPin,
+  Monitor,
   MoreHorizontal,
+  Play,
   RotateCcw,
   ShoppingCart,
+  Smartphone,
   Sparkles,
   Star,
   StarOff,
   TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { buildMapPath, metricVerdict, parseMetricRule, pathFocus, type MetricVerdict } from "@shared/map-path";
@@ -29,8 +36,83 @@ import { elementType, FUNNEL_PHASES, phaseOf } from "@shared/map-elements";
 import { METRIC_KEYS } from "@shared/metric-keys";
 import type { NodeMetricSnapshot, ProjectMetricSnapshot } from "@/lib/map-stage-metrics";
 import type { MapNode } from "@/components/funis/map-node-model";
+import { MapNodeVisualPreview, resolveVisualPreviewForNode } from "@/components/funis/MapNodeVisualPreview";
 
 export type PathRole = "principal" | "alternativa" | null;
+
+export interface StageVisualBlueprint {
+  isPage: boolean;
+  formatBadge: string;
+  wireframeType: "vsl" | "advertorial" | "pdp" | "captura" | "checkout" | "ads" | "whatsapp";
+  blocks: string[];
+  primaryCta: string;
+}
+
+export function getStageVisualBlueprint(node: MapNode): StageVisualBlueprint {
+  const combined = `${node.kind ?? ""} ${node.label ?? ""}`.toLowerCase();
+
+  if (combined.includes("advertorial") || combined.includes("pre-sell") || combined.includes("presell")) {
+    return {
+      isPage: true,
+      formatBadge: "Página Editorial / Advertorial",
+      wireframeType: "advertorial",
+      blocks: ["Manchete Editorial", "História / Descoberta", "Prova Científica", "CTA Nativo → VSL"],
+      primaryCta: "Ler matéria / Assistir apresentação",
+    };
+  }
+  if (combined.includes("pdp") || combined.includes("ecommerce") || combined.includes("kit") || combined.includes("loja")) {
+    return {
+      isPage: true,
+      formatBadge: "Página de Produto (PDP)",
+      wireframeType: "pdp",
+      blocks: ["Galeria do Produto", "Seletor de Kits (1/3/5)", "Tabela Nutricional / Fórmula", "Reviews + Comprar"],
+      primaryCta: "Escolher Kit e Ir ao Checkout",
+    };
+  }
+  if (combined.includes("quiz") || combined.includes("captura") || combined.includes("optin") || combined.includes("lead") || combined.includes("webinar")) {
+    return {
+      isPage: true,
+      formatBadge: "Página de Captura / Quiz",
+      wireframeType: "captura",
+      blocks: ["Headline de Diagnóstico", "Perguntas Interativas / Form", "Captura WhatsApp + E-mail", "Redirecionamento"],
+      primaryCta: "Destravar Resultado / Entrar no Grupo",
+    };
+  }
+  if (combined.includes("checkout") || combined.includes("compra") || combined.includes("venda") || combined.includes("upsell") || combined.includes("downsell") || combined.includes("obrigado")) {
+    return {
+      isPage: true,
+      formatBadge: combined.includes("upsell") || combined.includes("downsell") ? "Página de Upsell / Oferta VIP" : "Tela de Checkout & Pagamento",
+      wireframeType: "checkout",
+      blocks: ["Resumo do Kit + Garantia", "PIX Instantâneo / Cartão 12x", "Order Bump 1-Clique", "Confirmação Segura"],
+      primaryCta: "Finalizar Pedido com PIX / Cartão",
+    };
+  }
+  if (combined.includes("whatsapp") || combined.includes("x1") || combined.includes("recupera") || combined.includes("manychat") || combined.includes("direct")) {
+    return {
+      isPage: false,
+      formatBadge: "Fluxo Conversacional (X1 / WhatsApp)",
+      wireframeType: "whatsapp",
+      blocks: ["Abordagem Personalizada", "Áudio + Quebra de Objeção", "Prova Social Real", "Link Direto de Checkout"],
+      primaryCta: "Enviar Link de Pagamento no X1",
+    };
+  }
+  if (combined.includes("vsl") || combined.includes("pagina") || combined.includes("página") || combined.includes("lp") || combined.includes("site") || combined.includes("oferta")) {
+    return {
+      isPage: true,
+      formatBadge: "Página de Vendas / VSL",
+      wireframeType: "vsl",
+      blocks: ["Headline + Subheadline", "Player VSL + Retenção", "Empilhamento da Oferta", "Garantia + Provas Sociais"],
+      primaryCta: "Quero Garantir Meu Acesso Agora",
+    };
+  }
+  return {
+    isPage: false,
+    formatBadge: "Criativo / Anúncio em Tráfego",
+    wireframeType: "ads",
+    blocks: ["Hook Visual (0-3s)", "Corpo / Mecanismo Único", "Prova Visual Rápida", "CTA Clique no Anúncio"],
+    primaryCta: "Toque em Saiba Mais",
+  };
+}
 
 export interface MapPathViewProps {
   nodes: MapNode[];
@@ -93,6 +175,9 @@ export function MapPathView({
   onSwitchToCanvas,
 }: MapPathViewProps) {
   const [showFora, setShowFora] = useState(false);
+  const [previewNode, setPreviewNode] = useState<MapNode | null>(null);
+  const [previewMode, setPreviewMode] = useState<"visual" | "wireframe" | "live">("visual");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const path = useMemo(() => buildMapPath(nodes, edges), [nodes, edges]);
   const focus = useMemo(() => pathFocus(path.principal, nodes, today), [path.principal, nodes, today]);
@@ -395,7 +480,7 @@ export function MapPathView({
           </button>
         )}
 
-        {/* Linha principal com os passos numerados e métricas no corpo do card */}
+        {/* Linha principal com os passos numerados, preview visual real da página/etapa e métricas */}
         {path.principal.length > 0 ? (
           <ol className="relative space-y-4">
             {path.principal.map((id, i) => {
@@ -407,6 +492,8 @@ export function MapPathView({
               const alts = path.alternativas.get(id) ?? [];
               const phase = phaseOf(node.kind);
               const isLast = i === path.principal.length - 1;
+              const blueprint = getStageVisualBlueprint(node);
+              const hasLiveUrl = Boolean(node.url && /^https?:\/\//i.test(node.url.trim()));
 
               return (
                 <li key={id} className="relative pl-12">
@@ -432,57 +519,164 @@ export function MapPathView({
                     {done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
                   </span>
 
-                  {/* Card da etapa */}
+                  {/* Card da etapa com Preview Visual Real ao lado */}
                   <div
                     className={cn(
                       "rounded-xl border bg-card p-4 transition-all shadow-sm hover:border-primary/40",
                       isFocus ? "border-warning/60 ring-1 ring-warning/30 bg-warning/[0.02]" : "border-border"
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                      {/* Coluna esquerda: Dados, Anatomia da Página e Métrica */}
+                      <div className="min-w-0 flex-1 w-full">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                className="text-left text-base font-semibold text-foreground hover:text-primary transition-colors"
+                                onClick={() => onOpen(id)}
+                              >
+                                {node.label}
+                              </button>
+                              {blueprint.isPage && (
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold border",
+                                    hasLiveUrl
+                                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                      : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                  )}
+                                >
+                                  <Layout className="h-2.5 w-2.5" />
+                                  {hasLiveUrl ? "Página no Ar" : "Etapa de Página (Protótipo)"}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span className={cn(
+                                "rounded-full px-2 py-0.5 font-medium text-[10px]",
+                                phase === "aquisicao" && "bg-blue-500/10 text-blue-400 border border-blue-500/20",
+                                phase === "conversao" && "bg-purple-500/10 text-purple-400 border border-purple-500/20",
+                                phase === "ascensao" && "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+                                phase === "relacionamento" && "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+                                phase === "operacao" && "bg-secondary text-foreground"
+                              )}>
+                                {PHASE_LABEL[phase] ?? "—"}
+                              </span>
+                              <span className="rounded bg-secondary/80 px-1.5 py-0.5 font-medium text-[10px] text-foreground/80">
+                                {elementType(node.kind)?.label ?? node.kind}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground/80">
+                                · {blueprint.formatBadge}
+                              </span>
+                              {done && <span className="font-semibold text-success">feito</span>}
+                              {node.path_role === "principal" && <span className="text-[10px] text-muted-foreground">(manual)</span>}
+                            </div>
+                          </div>
+
+                          {roleMenu(node, true)}
+                        </div>
+
+                        {/* URL real conectada (quando houver) */}
+                        {hasLiveUrl && (
+                          <div className="mt-2 flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-[11px]">
+                            <Globe className="h-3 w-3 text-emerald-400 shrink-0" />
+                            <a
+                              href={node.url!}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-emerald-300 hover:underline truncate flex-1"
+                            >
+                              {node.url}
+                            </a>
+                            <ExternalLink className="h-3 w-3 text-emerald-400/80 shrink-0" />
+                          </div>
+                        )}
+
+                        {/* Blocos Visuais da Página / Etapa (mostra a estrutura real da tela) */}
+                        <div className="mt-2.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {blueprint.blocks.map((blk, blkIdx) => (
+                              <span
+                                key={blk}
+                                className="inline-flex items-center gap-1 rounded border border-border/60 bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-foreground/85"
+                              >
+                                <span className="font-mono text-[9px] text-primary font-bold">{blkIdx + 1}.</span>
+                                {blk}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Entrega / Saída da etapa */}
+                        {entrega && (
+                          <div className="mt-2.5 rounded-md bg-secondary/30 px-2.5 py-1.5 text-[12px] text-foreground/90 border border-border/30">
+                            <span className="font-medium text-muted-foreground">{entrega.label}: </span>
+                            <span>{entrega.text}</span>
+                          </div>
+                        )}
+
+                        {/* Métrica da etapa */}
+                        {metricLine(node)}
+                      </div>
+
+                      {/* Coluna direita: Miniatura Visual Real da Página / Etapa + Ações */}
+                      <div className="w-full sm:w-52 shrink-0 flex flex-col gap-1.5">
+                        <MapNodeVisualPreview
+                          kind={node.kind}
+                          label={node.label}
+                          url={node.url}
+                          customImageUrl={node.image_url}
+                          compact={false}
+                          onOpenLightbox={() => {
+                            setPreviewNode(node);
+                            setPreviewMode(hasLiveUrl ? "visual" : "wireframe");
+                          }}
+                          className="h-28 border-primary/25 shadow-md"
+                        />
+                        <div className="flex items-center gap-1.5">
+                          <Button
                             type="button"
-                            className="text-left text-base font-semibold text-foreground hover:text-primary transition-colors"
-                            onClick={() => onOpen(id)}
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 flex-1 gap-1 text-[11px] font-medium"
+                            onClick={() => {
+                              setPreviewNode(node);
+                              setPreviewMode(hasLiveUrl ? "visual" : "wireframe");
+                            }}
                           >
-                            {node.label}
-                          </button>
-                        </div>
-
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                          <span className={cn(
-                            "rounded-full px-2 py-0.5 font-medium text-[10px]",
-                            phase === "aquisicao" && "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-                            phase === "conversao" && "bg-purple-500/10 text-purple-400 border border-purple-500/20",
-                            phase === "ascensao" && "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-                            phase === "relacionamento" && "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-                            phase === "operacao" && "bg-secondary text-foreground"
-                          )}>
-                            {PHASE_LABEL[phase] ?? "—"}
-                          </span>
-                          <span className="rounded bg-secondary/80 px-1.5 py-0.5 font-medium text-[10px] text-foreground/80">
-                            {elementType(node.kind)?.label ?? node.kind}
-                          </span>
-                          {done && <span className="font-semibold text-success">feito</span>}
-                          {node.path_role === "principal" && <span className="text-[10px] text-muted-foreground">(manual)</span>}
+                            <Eye className="h-3 w-3 text-primary" />
+                            {blueprint.isPage ? "Ver Página" : "Ver Visual"}
+                          </Button>
+                          {hasLiveUrl ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[11px]"
+                              asChild
+                            >
+                              <a href={node.url!} target="_blank" rel="noreferrer" title="Abrir URL em nova aba">
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[10px]"
+                              onClick={() => onOpen(node.id)}
+                              title="Vincular URL ou editar etapa"
+                            >
+                              + URL
+                            </Button>
+                          )}
                         </div>
                       </div>
-
-                      {roleMenu(node, true)}
                     </div>
-
-                    {/* Entrega / Saída da etapa */}
-                    {entrega && (
-                      <div className="mt-2.5 rounded-md bg-secondary/30 px-2.5 py-1.5 text-[12px] text-foreground/90 border border-border/30">
-                        <span className="font-medium text-muted-foreground">{entrega.label}: </span>
-                        <span>{entrega.text}</span>
-                      </div>
-                    )}
-
-                    {/* Métrica da etapa */}
-                    {metricLine(node)}
                   </div>
 
                   {/* Ramos de apoio / alternativas (ex: recuperação, downsell, remarketing) */}
@@ -536,9 +730,22 @@ export function MapPathView({
                       {PHASE_LABEL[phaseOf(n.kind)] ?? n.kind}
                     </span>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onSetRole(n.id, "principal")}>
-                    <Star className="h-3 w-3" /> Fixar
-                  </Button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        setPreviewNode(n);
+                        setPreviewMode(n.url ? "visual" : "wireframe");
+                      }}
+                    >
+                      <Eye className="h-3 w-3" /> Visual
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onSetRole(n.id, "principal")}>
+                      <Star className="h-3 w-3" /> Fixar
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -568,6 +775,256 @@ export function MapPathView({
             {showFora && <div className="space-y-1.5">{path.fora.map(branch)}</div>}
           </section>
         )}
+
+        {/* Modal Interativo de Inspeção Visual da Página / Etapa */}
+        <Dialog open={Boolean(previewNode)} onOpenChange={(open) => !open && setPreviewNode(null)}>
+          <DialogContent className="max-w-4xl border-border bg-card p-0 overflow-hidden">
+            {previewNode && (() => {
+              const bp = getStageVisualBlueprint(previewNode);
+              const resolved = resolveVisualPreviewForNode(previewNode.kind, previewNode.label, previewNode.url);
+              const hasUrl = Boolean(previewNode.url && /^https?:\/\//i.test(previewNode.url.trim()));
+              return (
+                <div>
+                  <DialogHeader className="border-b border-border/70 bg-secondary/30 px-5 py-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pr-6">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                            {bp.formatBadge}
+                          </span>
+                          <DialogTitle className="text-base font-bold text-foreground">
+                            {previewNode.label}
+                          </DialogTitle>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {hasUrl ? previewNode.url : "Sem URL publicada vinculada ainda — exibindo protótipo visual e estrutura da etapa"}
+                        </p>
+                      </div>
+
+                      {/* Controles de Modo e Dispositivo */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="inline-flex rounded-lg border border-border bg-background p-0.5 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewMode("visual")}
+                            className={cn(
+                              "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                              previewMode === "visual" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            Print / Visual
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewMode("wireframe")}
+                            className={cn(
+                              "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                              previewMode === "wireframe" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            Wireframe da Página
+                          </button>
+                          {hasUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewMode("live")}
+                              className={cn(
+                                "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                                previewMode === "live" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              Página ao Vivo
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDevice("desktop")}
+                            className={cn(
+                              "rounded-md p-1.5 transition-colors",
+                              previewDevice === "desktop" ? "bg-secondary text-foreground" : "text-muted-foreground"
+                            )}
+                            title="Visão Desktop"
+                          >
+                            <Monitor className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDevice("mobile")}
+                            className={cn(
+                              "rounded-md p-1.5 transition-colors",
+                              previewDevice === "mobile" ? "bg-secondary text-foreground" : "text-muted-foreground"
+                            )}
+                            title="Visão Mobile"
+                          >
+                            <Smartphone className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </DialogHeader>
+
+                  {/* Corpo do Inspetor Visual */}
+                  <div className="p-5 bg-[#090b10] max-h-[72vh] overflow-y-auto">
+                    <div
+                      className={cn(
+                        "mx-auto transition-all duration-200",
+                        previewDevice === "mobile" ? "max-w-[380px]" : "max-w-full"
+                      )}
+                    >
+                      {/* Barra de navegador simulada */}
+                      <div className="flex items-center justify-between gap-2 rounded-t-xl border border-white/10 bg-[#12151e] px-3 py-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2.5 w-2.5 rounded-full bg-rose-500/70" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-amber-500/70" />
+                          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
+                        </div>
+                        <div className="flex-1 truncate rounded bg-black/50 px-3 py-1 text-center font-mono text-[11px] text-white/75 border border-white/10">
+                          {hasUrl ? previewNode.url : `https://prototipo.imperio.hq/${previewNode.kind || "pagina"}`}
+                        </div>
+                        {hasUrl && (
+                          <a
+                            href={previewNode.url!}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
+                          >
+                            Abrir <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Conteúdo conforme modo */}
+                      {previewMode === "live" && hasUrl ? (
+                        <div className="h-[460px] w-full overflow-hidden rounded-b-xl border-x border-b border-white/10 bg-white">
+                          <iframe
+                            src={previewNode.url!}
+                            title={previewNode.label}
+                            className="h-full w-full border-0"
+                            sandbox="allow-scripts allow-same-origin allow-forms"
+                          />
+                        </div>
+                      ) : previewMode === "visual" ? (
+                        <div className="overflow-hidden rounded-b-xl border-x border-b border-white/10 bg-[#0d1017]">
+                          <MapNodeVisualPreview
+                            kind={previewNode.kind}
+                            label={previewNode.label}
+                            url={previewNode.url}
+                            customImageUrl={previewNode.image_url}
+                            compact={false}
+                            className="h-72 rounded-none border-0"
+                          />
+                          <div className="p-4 border-t border-white/10 bg-card/90">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                              Estrutura Visual desta Etapa ({bp.formatBadge})
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {bp.blocks.map((b, idx) => (
+                                <div key={b} className="flex items-center gap-2 rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-xs">
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-mono text-[11px] font-bold text-primary shrink-0">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="font-medium text-foreground">{b}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Wireframe Visual Realista da Página */
+                        <div className="rounded-b-xl border-x border-b border-white/10 bg-gradient-to-b from-[#111520] to-[#0b0d14] p-6 text-white space-y-4">
+                          {/* Topo / Headline da Página */}
+                          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-center">
+                            <span className="inline-block rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300 mb-1.5">
+                              Bloco 1 · {bp.blocks[0]}
+                            </span>
+                            <h4 className="text-lg font-bold tracking-tight text-white">
+                              {previewNode.label} — Headline de Conversão Principal
+                            </h4>
+                            <p className="mt-1 text-xs text-white/70 max-w-xl mx-auto">
+                              {previewNode.description || "Promessa direta conectada ao mecanismo único e à dor central do avatar do projeto."}
+                            </p>
+                          </div>
+
+                          {/* Bloco Central Visual (Player VSL / Artigo Advertorial / Galeria PDP / Checkout PIX) */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2 rounded-xl border border-white/15 bg-black/50 p-5 flex flex-col items-center justify-center min-h-[180px] text-center relative overflow-hidden">
+                              <img
+                                src={resolved.assetPath}
+                                alt={previewNode.label}
+                                className="absolute inset-0 h-full w-full object-cover opacity-30"
+                              />
+                              <div className="relative z-10 flex flex-col items-center">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-lg mb-2">
+                                  <Play className="h-5 w-5 fill-current" />
+                                </div>
+                                <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                                  Bloco 2 · {bp.blocks[1]}
+                                </span>
+                                <p className="mt-1 text-xs text-white/80 max-w-sm">
+                                  Elemento visual central da etapa ({bp.formatBadge})
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-white/15 bg-white/[0.03] p-4 flex flex-col justify-between space-y-3">
+                              <div>
+                                <span className="text-[10px] font-mono uppercase text-emerald-400 font-semibold">
+                                  Bloco 3 · {bp.blocks[2]}
+                                </span>
+                                <ul className="mt-2 space-y-1.5 text-xs text-white/80">
+                                  {bp.blocks.map((blk) => (
+                                    <li key={blk} className="flex items-center gap-1.5">
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                      <span>{blk}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+
+                              <div className="rounded-lg bg-emerald-500 text-black font-bold text-xs py-2.5 px-3 text-center shadow-md">
+                                {bp.primaryCta}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rodapé de Ações Rápidas do Modal */}
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
+                      <span className="text-xs text-muted-foreground">
+                        Quer trocar a URL, subir print personalizado ou editar o contrato desta página?
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const id = previewNode.id;
+                            setPreviewNode(null);
+                            onOpen(id);
+                          }}
+                        >
+                          Editar Etapa / Colar URL
+                        </Button>
+                        {hasUrl && (
+                          <Button size="sm" asChild>
+                            <a href={previewNode.url!} target="_blank" rel="noreferrer" className="gap-1.5">
+                              Abrir Página Real <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
