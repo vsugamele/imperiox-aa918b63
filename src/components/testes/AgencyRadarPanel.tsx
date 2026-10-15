@@ -370,7 +370,41 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
         <div className="text-xs text-muted-foreground py-4">Sincronizando conversas X1, CRM, Avatar, Documentos e Skills...</div>
       ) : activeTab === "voc" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {complaints.slice(0, 6).map((cluster, idx) => (
+          {complaints.slice(0, 6).map((cluster, idx) => {
+            const canonMap: Record<string, { obj: string; proof: string; derickHook: string }> = {
+              preco_valor: {
+                obj: "Objeção #18 ('Tá caro' / Valor percebido)",
+                proof: "Prova #30 (Custo de não agir + Conta por dia)",
+                derickHook: "Derick G14 (Sintoma → Reversão → Economia)",
+              },
+              ceticismo_funciona: {
+                obj: "Objeção #7 ('Já tentei parecido e falhou')",
+                proof: "Prova #8 + #14 (Cadeia MP→MF→MS + Contraprova)",
+                derickHook: "Derick G2 (Se-Qualificador + Absolvição)",
+              },
+              confianca_golpe: {
+                obj: "Objeção #13 ('Como sei que não é golpe?')",
+                proof: "Prova #27 (Garantia 30d + Rastreio ao Vivo)",
+                derickHook: "Derick G5 (Review Espontâneo Não-Patrocinado)",
+              },
+              efeito_colateral_saude: {
+                obj: "Objeção #16 ('Será que serve pro MEU caso?')",
+                proof: "Prova #23 + #24 (Admissão Bencivenga + Especialista)",
+                derickHook: "Derick G24 (Pergunta Real do Paciente)",
+              },
+              prazo_demora: {
+                obj: "Objeção #10 ('Não tenho tempo / Demora muito')",
+                proof: "Prova #11 + #17 (Demonstração 15s + Prazo exato)",
+                derickHook: "Derick G3 (Cena-Objeto Banal de 15 Segundos)",
+              },
+            };
+            const mapped = canonMap[cluster.id] ?? {
+              obj: `Objeção #${(idx % 24) + 1} (Catálogo 24 @renanmsap)`,
+              proof: "Prova #11 (Demonstração física + Garantia)",
+              derickHook: "Derick G1 (Credencial + Anomalia Datada)",
+            };
+
+            return (
             <div
               key={cluster.id}
               className="rounded-xl border border-border/80 bg-background/70 p-3.5 flex flex-col justify-between gap-3 hover:border-primary/40 transition-colors"
@@ -398,6 +432,18 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[10px] font-mono uppercase text-primary shrink-0">Ângulo antídoto:</span>
                     <span className="font-semibold text-foreground">{cluster.recommendedAngle}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 text-[11px] text-rose-300">
+                    <span className="font-mono uppercase text-[10px] shrink-0">Catálogo 24:</span>
+                    <span className="truncate">{mapped.obj}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 text-[11px] text-emerald-300">
+                    <span className="font-mono uppercase text-[10px] shrink-0">Prova 34:</span>
+                    <span className="truncate">{mapped.proof}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 text-[11px] text-pink-300">
+                    <span className="font-mono uppercase text-[10px] shrink-0">Gancho Derick:</span>
+                    <span className="truncate">{mapped.derickHook}</span>
                   </div>
                   <div className="flex items-baseline gap-1.5 text-[11px] text-muted-foreground">
                     <span className="font-mono uppercase text-[10px] shrink-0">Formato + Jeito:</span>
@@ -453,7 +499,8 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
                 </Button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

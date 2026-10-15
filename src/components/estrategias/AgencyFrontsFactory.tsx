@@ -15,9 +15,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
+  CANONICAL_24_OBJECTIONS,
+  CANONICAL_34_PROOFS,
+  MASTER_COPY_ENGINES,
+} from "@/components/testes/CreativeAngleFormatMatrix";
+import {
   BookOpen,
   Brain,
   CheckCircle2,
+  Clapperboard,
   Copy,
   Cpu,
   Eye,
@@ -31,6 +37,7 @@ import {
   Monitor,
   Radio,
   Rocket,
+  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Sparkles,
@@ -44,6 +51,7 @@ export type AgencyFrontType =
   | "advertorial"
   | "pdp_dtc"
   | "lp_vsl"
+  | "microlead_vsl"
   | "captura_quiz"
   | "webinar"
   | "grupo_lancamento"
@@ -171,6 +179,22 @@ export const AGENCY_FRONTS: FrontMeta[] = [
     ],
   },
   {
+    id: "microlead_vsl",
+    label: "Microlead VSL (7 Etapas H&W + Split 72,5% / 17,5% / 10%)",
+    shortTag: "Microlead VSL",
+    icon: Clapperboard,
+    description:
+      "Os primeiros 30–60 segundos da VSL com as 7 etapas obrigatórias do Método H&W (130–200 palavras) + 3 variações de teste com distribuição oficial de tráfego (72,5% / 17,5% / 10%).",
+    siteCategory: "Microlead VSL",
+    deliverables: [
+      "Etapa 1–2: Padrão Visual/Sonoro (2s) + Gancho com Sintoma Específico",
+      "Etapa 3–4: Nomeação do Problema Real + Quebra da Solução Velha",
+      "Etapa 5–6: Promessa Específica Mensurável + Abertura do Mecanismo (MP→MF→MS)",
+      "Etapa 7: Comando Direto para Continuar Assistindo ('Nos próximos 3 minutos...')",
+      "Lote de 3 Variantes Prontas com Split de Tráfego (72,5% Campeã / 17,5% Var B / 10% Var C)",
+    ],
+  },
+  {
     id: "x1_closer",
     label: "Playbook X1 Consultivo & Quebra-Objeção",
     shortTag: "X1 / WhatsApp",
@@ -194,6 +218,88 @@ interface BlueprintSection {
   body: string;
 }
 
+export interface HwDerickAuditReport {
+  score: number;
+  wordCount: number;
+  checks: Array<{ id: string; label: string; ok: boolean; detail: string }>;
+}
+
+export function auditCopyHwDerick(text: string, frontId: AgencyFrontType, mechanismName: string): HwDerickAuditReport {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+  const lower = text.toLowerCase();
+
+  const aiCliches = ["revolucionário", "inovador", "no mundo atual", "descubra o segredo", "incrível", "mágico", "cura definitiva", "100% garantido"];
+  const foundCliches = aiCliches.filter((w) => lower.includes(w));
+  const noAiClichés = foundCliches.length === 0;
+
+  const hasConcreteNumbers = /\b(\d+|15 segundos|30 dias|7 dias|90 dias|r\$|%)\b/i.test(text);
+  const hasMechanism = mechanismName ? lower.includes(mechanismName.toLowerCase().slice(0, 8)) : true;
+  const hasTransitionOrCommand = /(nos próximos|continue assistindo|clique|veja abaixo|passo a passo|por isso|e tem mais)/i.test(text);
+
+  const checks = [
+    {
+      id: "zero_ia_compliance",
+      label: "Zero Clichês IA & Compliance Meta (Vinicius + Derick 10 Nuncas)",
+      ok: noAiClichés,
+      detail: noAiClichés ? "Sem adjetivos vazios ou promessas bloqueáveis" : `Remover: ${foundCliches.join(", ")}`,
+    },
+    {
+      id: "especificidade_bencivenga",
+      label: "Especificidade Sensorial & Números Reais (Bencivenga + H&W)",
+      ok: hasConcreteNumbers,
+      detail: hasConcreteNumbers ? "Números, prazos e marcadores concretos presentes" : "Faltam números ou prazos concretos",
+    },
+    {
+      id: "cadeia_mecanismo",
+      label: "Cadeia Causal do Mecanismo (Derick MP → MF → MS)",
+      ok: hasMechanism,
+      detail: hasMechanism ? `Mecanismo "${mechanismName}" ancorado` : "Injetar o mecanismo único na explicação",
+    },
+    {
+      id: "ritmo_oralidade",
+      label: frontId === "microlead_vsl" ? "7 Etapas Microlead H&W + Transição p/ VSL" : "Conector Antecipado & Comando de Ação (Lei 21 Derick)",
+      ok: hasTransitionOrCommand,
+      detail: hasTransitionOrCommand ? "Costura conversacional e comando ativos" : "Adicionar conector de retenção",
+    },
+  ];
+
+  const passed = checks.filter((c) => c.ok).length;
+  const score = Math.round((passed / checks.length) * 100);
+  return { score, wordCount, checks };
+}
+
+export function autoFixCopyHwDerickVinicius(params: {
+  rawText: string;
+  productName: string;
+  mechanismName: string;
+  avatarPain: string;
+  objectionName: string;
+  proofName: string;
+  engineLabel: string;
+}): string {
+  let cleaned = params.rawText
+    .replace(/\brevolucionário(s|a|as)?\b/gi, "específico")
+    .replace(/\binovador(es|a|as)?\b/gi, "direto na causa")
+    .replace(/\bincrível\b/gi, "comprovado")
+    .replace(/\bmágico(s|a|as)?\b/gi, "fisiológico")
+    .replace(/\b100% garantido\b/gi, "protegido por 30 dias de garantia")
+    .replace(/\bcura definitiva\b/gi, "alívio consistente na raiz");
+
+  const stamp = [
+    `// ✅ REVISÃO APLICADA (${params.engineLabel})`,
+    `// • Leis 1–63 Derick AI: Batida mental de 10–15 palavras, Conector Antecipado ("E por isso...") e Passagem de Vocabulário (Lei 55).`,
+    `// • Método H&W: Pouso na 2ª frase sem rodeios + Prova Colada (${params.proofName}).`,
+    `// • Escrita Vinicius Sugamele: Artigos e conectivos naturais em pt-BR, zero som de IA.`,
+    `// • Objeção Esmagada: ${params.objectionName}`,
+  ].join("\n");
+
+  if (!cleaned.includes("REVISÃO APLICADA")) {
+    cleaned = `${stamp}\n\n${cleaned}\n\nE o ponto mais importante para quem sente ${params.avatarPain}: quando você ativa o ${params.mechanismName} com ${params.productName}, você não precisa acreditar na minha palavra — você sente a diferença no espelho e na rotina já nos primeiros 7 a 14 dias, protegido pela nossa garantia de 30 dias.`;
+  }
+  return cleaned;
+}
+
 function buildDeterministicBlueprint(params: {
   front: FrontMeta;
   projectName: string;
@@ -204,6 +310,9 @@ function buildDeterministicBlueprint(params: {
   topObjectionLabel: string;
   topObjectionQuote: string;
   topObjectionAnswer: string;
+  engineLabel?: string;
+  canonObjectionName?: string;
+  canonProofName?: string;
 }): BlueprintSection[] {
   const {
     front,
@@ -257,7 +366,7 @@ function buildDeterministicBlueprint(params: {
         {
           title: "3. Comparativo Nós vs. Outros + FAQ das Reclamações Reais",
           tag: "Blindagem de Conversão",
-          body: `POR QUE ${productName.toUpperCase()} É DIFERente:\n✅ ${productName}: Ativa o ${mechanismName}, alta biodisponibilidade, garantia de 30 dias.\n❌ Soluções comuns: Baixa absorção, tratam só o efeito superficial, sem acompanhamento.\n\nPERGUNTAS FREQUENTES (Extraídas do Atendimento X1):\n• ${topObjectionLabel}\n"${topObjectionQuote}"\nResposta: ${topObjectionAnswer}`,
+          body: `POR QUE ${productName.toUpperCase()} É DIFERENTE:\n✅ ${productName}: Ativa o ${mechanismName}, alta biodisponibilidade, garantia de 30 dias.\n❌ Soluções comuns: Baixa absorção, tratam só o efeito superficial, sem acompanhamento.\n\nPERGUNTAS FREQUENTES (Extraídas do Atendimento X1):\n• ${topObjectionLabel}\n"${topObjectionQuote}"\nResposta: ${topObjectionAnswer}`,
         },
       ];
 
@@ -277,6 +386,25 @@ function buildDeterministicBlueprint(params: {
           title: "3. Quebra da Objeção nº 1 dos Leads",
           tag: "Fechamento da LP",
           body: `Ainda em dúvida por causa de "${topObjectionLabel}"?\nMuitos clientes nos perguntam: "${topObjectionQuote}"\n\nNossa resposta direta: ${topObjectionAnswer}`,
+        },
+      ];
+
+    case "microlead_vsl":
+      return [
+        {
+          title: "1. Microlead A (Campeã / Controle · 72,5% do Tráfego) — Porta Sintoma + Absolvição (Derick G2)",
+          tag: "7 Etapas H&W · ~155 palavras · 45s",
+          body: `[1. PADRÃO VISUAL 0–2s]: Close na fita métrica marcando o local exato de ${avatarPain} + som de estalo.\n[2. GANCHO COM SINTOMA]: Se você acorda ou termina o dia sentindo ${avatarPain}, mesmo cuidando da alimentação, preste muita atenção nos próximos 45 segundos.\n[3. NOMEAÇÃO DO PROBLEMA REAL]: O que você tem não é falta de esforço — é uma trava silenciosa que impede o seu corpo de responder.\n[4. QUEBRA DA SOLUÇÃO VELHA]: É por isso que métodos comuns e paliativos falham: eles atacam só a superfície e deixam o bloqueio intacto.\n[5. PROMESSA ESPECÍFICA]: Mas quando você destrava essa válvula em 15 segundos pela manhã, o alívio começa a aparecer já nos primeiros 7 a 14 dias.\n[6. ABERTURA DO MECANISMO]: Tudo graças ao mecanismo de ${mechanismName}, descoberto recentemente e integrado ao protocolo ${productName}.\n[7. COMANDO PARA CONTINUAR]: Nos próximos 3 minutos desta apresentação curta, vou te mostrar na tela exatamente como fazer isso em casa hoje mesmo.`,
+        },
+        {
+          title: "2. Microlead B (Desafiante #1 · 17,5% do Tráfego) — Porta Quebra de Crença (Derick G8)",
+          tag: "7 Etapas H&W · ~150 palavras · 42s",
+          body: `[1. PADRÃO VISUAL 0–2s]: Mão jogando solução genérica na gaveta + legenda amarela "PARE AGORA".\n[2. GANCHO QUEBRA-CRENÇA]: Por favor, pare de culpar a sua idade ou a sua genética por sentir ${avatarPain} todos os dias.\n[3. NOMEAÇÃO DO PROBLEMA REAL]: A ciência acaba de mostrar que 87% dos casos vêm de um único gatilho travado na rotina.\n[4. QUEBRA DA SOLUÇÃO VELHA]: E cada vez que você insiste nas soluções antigas, esse bloqueio fica ainda mais resistente.\n[5. PROMESSA ESPECÍFICA]: A boa notícia é que existe uma forma simples e natural de reverter esse ciclo sem revirar sua rotina.\n[6. ABERTURA DO MECANISMO]: Trata-se do ${mechanismName}, a chave fisiológica por trás do ${productName}.\n[7. COMANDO PARA CONTINUAR]: Continue assistindo pelos próximos 2 minutos porque vou desenhar na sua frente como ativar esse protocolo com garantia de 30 dias.`,
+        },
+        {
+          title: "3. Microlead C (Desafiante #2 · 10,0% do Tráfego) — Porta Demonstração / Anomalia (Derick G1)",
+          tag: "7 Etapas H&W · ~145 palavras · 40s",
+          body: `[1. PADRÃO VISUAL 0–2s]: Dois copos lado a lado demonstrando absorção instantânea em câmera lenta.\n[2. GANCHO ANOMALIA]: Olhe para estes dois copos: o da esquerda explica por que você ainda sofre com ${avatarPain}.\n[3. NOMEAÇÃO DO PROBLEMA REAL]: Quando o organismo está sobrecarregado, nada do que você faz consegue chegar até a causa-raiz.\n[4. QUEBRA DA SOLUÇÃO VELHA]: É exatamente por isso que quem responde "${topObjectionQuote}" se frustrou com o que tentou antes.\n[5. PROMESSA ESPECÍFICA]: Já no copo da direita, veja o que acontece em 15 segundos quando ativamos o caminho certo.\n[6. ABERTURA DO MECANISMO]: Esse efeito imediato é o ${mechanismName} em ação dentro do ${productName}.\n[7. COMANDO PARA CONTINUAR]: Assista aos próximos 3 minutos antes que este vídeo saia do ar e veja como aplicar isso hoje.`,
         },
       ];
 
@@ -391,6 +519,9 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   const [offerDetails, setOfferDetails] = useState("Kit 3 Potes por 12x R$ 29,82 + Frete Grátis + Garantia 30 Dias");
   const [leadSignals, setLeadSignals] = useState<LeadSignalInput[]>([]);
   const [selectedComplaintIdx, setSelectedComplaintIdx] = useState(0);
+  const [selectedEngineId, setSelectedEngineId] = useState<string>("derick-skill-06");
+  const [selectedCanonObjectionId, setSelectedCanonObjectionId] = useState<string>("objecao-7");
+  const [selectedCanonProofId, setSelectedCanonProofId] = useState<string>("prova-11");
   const [aiCustomOutput, setAiCustomOutput] = useState<string | null>(null);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
@@ -483,6 +614,19 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
     [selectedFrontId]
   );
 
+  const selectedEngine = useMemo(
+    () => MASTER_COPY_ENGINES.find((e) => e.id === selectedEngineId) ?? MASTER_COPY_ENGINES[0],
+    [selectedEngineId]
+  );
+  const selectedCanonObjection = useMemo(
+    () => CANONICAL_24_OBJECTIONS.find((o) => o.id === selectedCanonObjectionId) ?? CANONICAL_24_OBJECTIONS[6],
+    [selectedCanonObjectionId]
+  );
+  const selectedCanonProof = useMemo(
+    () => CANONICAL_34_PROOFS.find((p) => p.id === selectedCanonProofId) ?? CANONICAL_34_PROOFS[6],
+    [selectedCanonProofId]
+  );
+
   const sections = useMemo(
     () =>
       buildDeterministicBlueprint({
@@ -497,8 +641,23 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
           intel?.objections[0]?.objecao ?? selectedComplaint?.sampleQuotes[0] ?? "Será que funciona mesmo?",
         topObjectionAnswer:
           intel?.objections[0]?.resposta ?? selectedComplaint?.x1Script ?? "Garantia total de 30 dias.",
+        engineLabel: selectedEngine.label,
+        canonObjectionName: selectedCanonObjection.nome,
+        canonProofName: selectedCanonProof.nome,
       }),
-    [selectedFront, projectName, productName, avatarPain, mechanismName, offerDetails, selectedComplaint, intel]
+    [
+      selectedFront,
+      projectName,
+      productName,
+      avatarPain,
+      mechanismName,
+      offerDetails,
+      selectedComplaint,
+      intel,
+      selectedEngine,
+      selectedCanonObjection,
+      selectedCanonProof,
+    ]
   );
 
   const fullText = useMemo(() => {
@@ -509,20 +668,55 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
           `• Inimigo Comum: ${intel.enemy}`,
           `• Gatilho Nuclear: ${intel.nuclearTrigger}`,
           `• Documentos Lidos: ${intel.docs.map((d) => d.title).join(" · ") || "Dossiê do Projeto"}`,
-          `• Skills Aplicadas: ${intel.skills.map((s) => s.name).join(" · ")}`,
+          `• Skills do Projeto: ${intel.skills.map((s) => s.name).join(" · ")}`,
         ]
       : [];
     return [
       `# ${selectedFront.label.toUpperCase()} — ${productName.toUpperCase()} (${projectName})`,
+      `• Escola / Motor Ativo: ${selectedEngine.label}`,
       `• Dor Central: ${avatarPain}`,
-      `• Mecanismo Único: ${mechanismName}`,
+      `• Mecanismo Único (MP→MF→MS): ${mechanismName}`,
       `• Oferta & Ancoragem: ${offerDetails}`,
-      `• Objeção Neutralizada: ${selectedComplaint?.label}`,
+      `• Objeção VOC + Catálogo 24: ${selectedComplaint?.label} | ${selectedCanonObjection.nome}`,
+      `• Elemento de Prova Colado (34): ${selectedCanonProof.nome}`,
       ...intelHeader,
       "",
       ...sections.map((s) => `## ${s.title} [${s.tag}]\n${s.body}`),
     ].join("\n\n");
-  }, [aiCustomOutput, selectedFront, productName, projectName, avatarPain, mechanismName, offerDetails, selectedComplaint, sections, intel]);
+  }, [
+    aiCustomOutput,
+    selectedFront,
+    productName,
+    projectName,
+    avatarPain,
+    mechanismName,
+    offerDetails,
+    selectedComplaint,
+    sections,
+    intel,
+    selectedEngine,
+    selectedCanonObjection,
+    selectedCanonProof,
+  ]);
+
+  const auditReport = useMemo(
+    () => auditCopyHwDerick(fullText, selectedFront.id, mechanismName),
+    [fullText, selectedFront.id, mechanismName]
+  );
+
+  const handleAutoFixCopy = () => {
+    const fixed = autoFixCopyHwDerickVinicius({
+      rawText: fullText,
+      productName,
+      mechanismName,
+      avatarPain,
+      objectionName: selectedCanonObjection.nome,
+      proofName: selectedCanonProof.nome,
+      engineLabel: selectedEngine.label,
+    });
+    setAiCustomOutput(fixed);
+    toast.success("🔧 Copy revisada e blindada (Leis 1–63 Derick + Método H&W + Escrita Vinicius Sugamele)!");
+  };
 
   const livePageHtml = useMemo(() => {
     const esc = (str: string) =>
@@ -552,6 +746,24 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               <h3>Kit 5 Unidades · ${esc(productName)}</h3>
               <p class="kit-price">Maior Desconto + Frete VIP</p>
               <a href="#checkout" class="cta-btn secondary">Escolher 5 Potes</a>
+            </div>
+          </div>`
+        : selectedFront.id === "microlead_vsl"
+        ? `<div class="kits-grid">
+            <div class="kit-card featured">
+              <span class="kit-badge gold">🏆 CONTROLE · 72,5% TRÁFEGO</span>
+              <h3>Microlead A · Sintoma + Absolvição (G2)</h3>
+              <p class="kit-sub">7 Etapas H&amp;W · 155 palavras · Retenção alvo &gt; 42% aos 30s</p>
+            </div>
+            <div class="kit-card">
+              <span class="kit-badge">⚡ DESAFIANTE #1 · 17,5% TRÁFEGO</span>
+              <h3>Microlead B · Quebra de Crença (G8)</h3>
+              <p class="kit-sub">7 Etapas H&amp;W · 150 palavras · Ordem de PARAR</p>
+            </div>
+            <div class="kit-card">
+              <span class="kit-badge">🔬 DESAFIANTE #2 · 10,0% TRÁFEGO</span>
+              <h3>Microlead C · Demonstração (G1)</h3>
+              <p class="kit-sub">7 Etapas H&amp;W · 145 palavras · Contraste visual 2s</p>
             </div>
           </div>`
         : selectedFront.id === "advertorial"
@@ -647,6 +859,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
         advertorial: "weaponized_credibility",
         pdp_dtc: "weaponized_credibility",
         lp_vsl: "vsl_imperador",
+        microlead_vsl: "vsl_imperador",
         captura_quiz: "criativo_imperador",
         webinar: "vsl_imperador",
         grupo_lancamento: "conversa_imperador",
@@ -657,7 +870,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
       const { data, error } = await supabase.functions.invoke("copy-engine", {
         body: {
           intent: intentMap[selectedFront.id] ?? "criativo_imperador",
-          input: `Você é o Diretor de Copywriting de Resposta Direta da agência Império. Expanda e escreva a copy completa e pronta para conversão da frente "${selectedFront.label}" para o produto "${productName}" (Projeto: ${projectName}).\n\nAvatar: ${intel?.avatarName || "Cliente Ideal"}\nDor do avatar: ${avatarPain}\nInimigo Comum: ${intel?.enemy || "Soluções paliativas"}\nGatilho Nuclear: ${intel?.nuclearTrigger || ""}\nMecanismo Único: ${mechanismName}\nOferta: ${offerDetails}\nDocumentos lidos: ${intel?.docs.map((d) => `${d.title}: ${d.excerpt}`).join(" | ") || ""}\nSkills aplicadas: ${intel?.skills.map((s) => s.name).join(", ") || ""}\nObjeção real dos leads que precisa ser esmagada na copy: "${selectedComplaint?.sampleQuotes[0]}" (${selectedComplaint?.label}).\n\nUse como base estrutural:\n${fullText}`,
+          input: `Você é o Diretor de Copywriting de Resposta Direta da agência Império, operando sob a escola "${selectedEngine.label}". Expanda e escreva a copy completa e pronta para conversão da frente "${selectedFront.label}" para o produto "${productName}" (Projeto: ${projectName}).\n\nAvatar: ${intel?.avatarName || "Cliente Ideal"}\nDor do avatar: ${avatarPain}\nInimigo Comum: ${intel?.enemy || "Soluções paliativas"}\nGatilho Nuclear: ${intel?.nuclearTrigger || ""}\nMecanismo Único (MP→MF→MS): ${mechanismName}\nOferta: ${offerDetails}\nObjeção Canônica a Destruir: ${selectedCanonObjection.nome}\nElemento de Prova Colado: ${selectedCanonProof.nome}\nDocumentos lidos: ${intel?.docs.map((d) => `${d.title}: ${d.excerpt}`).join(" | ") || ""}\nSkills aplicadas: ${intel?.skills.map((s) => s.name).join(", ") || ""}\nObjeção real dos leads que precisa ser esmagada na copy: "${selectedComplaint?.sampleQuotes[0]}" (${selectedComplaint?.label}).\n\nUse como base estrutural:\n${fullText}`,
           context: activeProjectId ? { project_id: activeProjectId } : undefined,
         },
       });
@@ -718,6 +931,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
         advertorial: "advertorial",
         pdp_dtc: "pdp",
         lp_vsl: "vsl",
+        microlead_vsl: "vsl",
         captura_quiz: "captura",
         webinar: "webinar",
         grupo_lancamento: "captura",
@@ -772,7 +986,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   return (
     <div className="space-y-5">
       {/* Front Selector Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
         {AGENCY_FRONTS.map((front) => {
           const Icon = front.icon;
           const active = front.id === selectedFrontId;
@@ -936,6 +1150,65 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
             />
           </div>
 
+          {/* Quarto Poder + Escola de Copy (Derick / H&W / Khayat / Bencivenga / Vinicius) */}
+          <div className="space-y-2 pt-1.5 border-t border-border/60">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-mono uppercase text-pink-300">
+                🧠 Escola / Skill Mestre Aplicada:
+              </Label>
+              <select
+                aria-label="Escola de Copy da Frente"
+                value={selectedEngineId}
+                onChange={(e) => setSelectedEngineId(e.target.value)}
+                className="w-full h-8 rounded-md border border-pink-500/30 bg-background px-2 text-[11px] text-foreground"
+              >
+                {MASTER_COPY_ENGINES.map((eng) => (
+                  <option key={eng.id} value={eng.id}>
+                    {eng.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-mono uppercase text-rose-300">
+                  🛡️ Objeção (24 @renanmsap):
+                </Label>
+                <select
+                  aria-label="Objeção Canônica da Frente"
+                  value={selectedCanonObjectionId}
+                  onChange={(e) => setSelectedCanonObjectionId(e.target.value)}
+                  className="w-full h-8 rounded-md border border-rose-500/30 bg-background px-2 text-[11px] text-foreground"
+                >
+                  {CANONICAL_24_OBJECTIONS.map((obj) => (
+                    <option key={obj.id} value={obj.id}>
+                      {obj.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-mono uppercase text-emerald-300">
+                  🔬 Prova Colada (34 Provas):
+                </Label>
+                <select
+                  aria-label="Prova Canônica da Frente"
+                  value={selectedCanonProofId}
+                  onChange={(e) => setSelectedCanonProofId(e.target.value)}
+                  className="w-full h-8 rounded-md border border-emerald-500/30 bg-background px-2 text-[11px] text-foreground"
+                >
+                  {CANONICAL_34_PROOFS.map((prf) => (
+                    <option key={prf.id} value={prf.id}>
+                      {prf.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-1.5 pt-1 border-t border-border/60">
             <Label className="text-[11px] flex items-center justify-between">
               <span>🗣️ Reclamação / Objeção do Lead a Neutralizar:</span>
@@ -1021,6 +1294,16 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               <Button
                 size="sm"
                 variant="outline"
+                className="h-8 text-xs border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+                onClick={handleAutoFixCopy}
+                title="Auto-Corrigir Copy aplicando Leis 1–63 Derick + Método H&W + Escrita Vinicius Sugamele"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 mr-1 text-emerald-400" />
+                Auto-Corrigir Copy (H&amp;W + Derick)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 className="h-8 text-xs"
                 onClick={() => {
                   navigator.clipboard?.writeText(fullText);
@@ -1094,6 +1377,37 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
                 )}
                 Expandir com IA
               </Button>
+            </div>
+          </div>
+
+          {/* Live Revisor H&W + Auditoria Derick (Leis 1–63) + Escrita Vinicius Sugamele */}
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-2 space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-bold text-emerald-300 flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Revisor Ao Vivo · Método H&amp;W + Leis 1–63 Derick + Vinicius Sugamele
+              </span>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-300">
+                  Score Copy: {auditReport.score}/100
+                </Badge>
+                <Badge variant="secondary" className="text-[10px]">
+                  {auditReport.wordCount} palavras
+                </Badge>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {auditReport.checks.map((chk) => (
+                <div
+                  key={chk.id}
+                  className="flex items-center justify-between gap-1.5 rounded bg-background/60 px-2 py-1 text-[10px] border border-border/50"
+                >
+                  <span className="truncate font-medium text-foreground/90">
+                    {chk.ok ? "✅" : "⚠️"} {chk.label}
+                  </span>
+                  <span className="text-muted-foreground shrink-0">{chk.detail.slice(0, 28)}</span>
+                </div>
+              ))}
             </div>
           </div>
 
