@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ALL_NAV_ITEMS, LABORATORIO } from "@/lib/navigation";
 import {
   MessageSquare, Users, Bot, Zap, TrendingUp, Instagram,
   PauseCircle, BarChart2, Send, Settings, Flame, Target,
@@ -171,8 +172,19 @@ export function CommandPalette({ onCreateWACampaign }: CommandPaletteProps) {
     },
   ];
 
+  // UX1.1: todas as telas (menu e Laboratório) aparecem ao digitar, em "Ir para".
+  const LAB = new Set(LABORATORIO.map((i) => i.url));
+  const pages: Command[] = ALL_NAV_ITEMS.map((i) => ({
+    id: `page:${i.url}`,
+    label: i.title,
+    description: LAB.has(i.url) ? `${i.url} · no Laboratório` : i.url,
+    icon: <i.icon className="h-4 w-4 text-muted-foreground" />,
+    action: () => navigate(i.url),
+    category: "Ir para",
+  }));
+
   const filtered = query
-    ? commands.filter(
+    ? [...commands, ...pages].filter(
         c =>
           c.label.toLowerCase().includes(query.toLowerCase()) ||
           c.description?.toLowerCase().includes(query.toLowerCase()) ||

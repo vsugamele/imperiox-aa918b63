@@ -11,6 +11,7 @@ import { CARGAS, PORTAS } from "@shared/hw-taxonomy";
 import type { LevaItem } from "@shared/batch-strategist";
 import { useGenerateLeva, useLevaAction, usePlanLeva, useSavedLevas, type ElencoResumo, type LevaPreview, type SavedLeva } from "@/hooks/useBatchStrategist";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 const BLOCO_LABEL: Record<LevaItem["bloco"], string> = { variacao: "Variação do vencedor", angulo_novo: "Ângulo novo", formato_novo: "Formato novo" };
 const STATUS_LABEL: Record<string, string> = { planejado: "Aguardando aprovação", aprovado: "Aprovada (pronta para gerar)", descartado: "Descartada", processing: "Gerando artes", completed: "Artes prontas", failed: "Geração falhou" };
@@ -21,7 +22,10 @@ export function NextBatchPanel() {
   const { data: levas = [] } = useSavedLevas();
   const plan = usePlanLeva();
   const action = useLevaAction();
-  const [projectId, setProjectId] = useState("");
+  // Usa o projeto escolhido no topo (seletor global); trocar aqui troca lá também.
+  const { projectId: globalProject, setProjectId: setGlobalProject } = useGlobalProject();
+  const projectId = globalProject ?? "";
+  const setProjectId = (v: string) => setGlobalProject(v || null);
   const [tamanho, setTamanho] = useState(20);
   const [preview, setPreview] = useState<LevaPreview | null>(null);
   // Troca manual de avatar por peça antes de salvar (índice → avatar ou null = ninguém).

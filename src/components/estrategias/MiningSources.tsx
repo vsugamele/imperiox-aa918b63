@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/error-message";
 import { useAddMiningSource, useMiningSources, useRunMiningSource, useToggleMiningSource, type MiningSource } from "@/hooks/useMiningSources";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 const TIPO_LABEL = { palavra: "Palavra-chave", pagina: "Página (concorrente)", url: "Link da Biblioteca" } as const;
 
@@ -16,7 +17,10 @@ export function MiningSources() {
   const { data: sources = [] } = useMiningSources();
   const { data: targets } = useProjectsAndMaps();
   const add = useAddMiningSource();
-  const [projectId, setProjectId] = useState("");
+  // Usa o projeto escolhido no topo (seletor global); trocar aqui troca lá também.
+  const { projectId: globalProject, setProjectId: setGlobalProject } = useGlobalProject();
+  const projectId = globalProject ?? "";
+  const setProjectId = (v: string) => setGlobalProject(v || null);
   const [tipo, setTipo] = useState<"palavra" | "pagina" | "url">("palavra");
   const [valor, setValor] = useState("");
   const [pais, setPais] = useState("BR");

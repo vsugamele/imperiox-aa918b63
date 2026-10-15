@@ -1,14 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import {
-  LayoutDashboard, FolderKanban, ListTodo, Users, DollarSign,
-  Search, Brain, FileText, Link2,
-  Zap, UsersRound, Building2, Settings, LogOut, Crown, Gauge, Boxes,
-  KeyRound, BookOpen, Sparkles, Mail, LifeBuoy, Clapperboard,
-  Library, Bot, Compass, Radio, Target, Activity, Star, StarOff,
-  Inbox, Pencil, Workflow, Globe, Coins, ChevronDown, ChevronRight,
-  Layers, Map as MapIcon, CalendarCheck, Lightbulb, CheckCheck, FlaskConical, HeartPulse,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, LogOut, Star, StarOff } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/auth-context";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter } from "@/components/ui/sidebar";
@@ -29,76 +21,8 @@ function readCollapsedGroups(): string[] {
   }
 }
 
-// ── Nav items ──────────────────────────────────────────────────────────
-// Reorganizado em hubs operacionais com colapso persistente por seção.
-const hojeitems = [
-  { title: "Escritório",       url: "/escritorio", icon: Building2 },
-  { title: "Hoje",             url: "/hoje",       icon: CalendarCheck },
-  { title: "Aprovar",          url: "/aprovar",    icon: CheckCheck,      badge: "aprovar" as const },
-  { title: "Dashboard",        url: "/dashboard",  icon: LayoutDashboard, badge: "rag" as const },
-  { title: "Mapa da Empresa",  url: "/mapa",       icon: MapIcon },
-  { title: "Imperius",         url: "/imperius",   icon: Bot,             badge: "imperius" as const },
-  { title: "Caixa de Entrada", url: "/inbox",      icon: Inbox,           badge: "inbox" as const },
-  { title: "Leads",            url: "/leads",      icon: Users,           badge: "leads" as const },
-  { title: "Recuperação",      url: "/recuperacao",icon: LifeBuoy },
-  { title: "Saúde do sistema", url: "/saude",      icon: HeartPulse,      badge: "saude" as const },
-];
-
-const venderItems = [
-  { title: "Projetos",   url: "/projetos",  icon: FolderKanban },
-  { title: "Funis",      url: "/funis",     icon: Layers },
-  { title: "Estratégias", url: "/estrategias", icon: Lightbulb },
-  { title: "Testes", url: "/testes", icon: FlaskConical },
-  { title: "Campanhas",  url: "/campanhas", icon: Target },
-  { title: "Sites",      url: "/sites",     icon: Globe },
-  { title: "OpenFlow",   url: "/openflow",  icon: Workflow },
-];
-
-const inteligenciaItems = [
-  { title: "Inteligência IA",  url: "/inteligencia-ia",icon: Brain },
-  { title: "Assistente",       url: "/assistente",     icon: Compass },
-  { title: "Estúdio",          url: "/studio",         icon: Clapperboard },
-  { title: "Copy Lab",         url: "/copy-lab",       icon: Zap },
-  { title: "Hook Labs",        url: "/hooks",          icon: Sparkles },
-  { title: "Swipe File",       url: "/swipe",          icon: Library },
-  { title: "Market Intel",     url: "/market-intel",   icon: Search },
-  { title: "Skills",           url: "/skills",         icon: Zap },
-];
-
-const capitalItems = [
-  { title: "Gerenciador Ads",  url: "/gerenciador",       icon: Activity },
-  { title: "Tracker",          url: "/tracker",           icon: Link2 },
-  { title: "Atribuição",       url: "/atribuicao",        icon: Radio },
-  { title: "Finanças",         url: "/financas",          icon: DollarSign },
-  { title: "Custos IA",        url: "/custos-ia",         icon: Coins },
-];
-
-// Fora do menu (rotas seguem no ar, só com login): /cockpit e /redesign (experimentos) e /openrouter-custos (repete Custos IA).
-const acervoItems = [
-  { title: "Acervo RAG",   url: "/acervo",      icon: Brain },
-  { title: "Referências",  url: "/referencias", icon: Library },
-  { title: "Conteúdo",     url: "/rascunhos",   icon: Pencil },
-  { title: "Docs / KB",    url: "/docs",        icon: FileText },
-  { title: "Guia Claude",  url: "/claude-skills", icon: BookOpen },
-];
-
-const configurarItems = [
-  { title: "Empresa", url: "/empresa",       icon: Building2 },
-  { title: "Equipe",  url: "/equipe",        icon: UsersRound },
-  { title: "Cofre",   url: "/cofre",         icon: KeyRound },
-  { title: "Config",  url: "/configuracoes", icon: Settings },
-  { title: "Sala de máquinas", url: "/sala-de-maquinas", icon: Gauge },
-  { title: "Plataformas", url: "/plataformas", icon: Boxes },
-  { title: "Guia",    url: "/guia",          icon: BookOpen },
-];
-
-
-type NavItem = {
-  title: string;
-  url: string;
-  icon: React.ElementType;
-  badge?: "imperius" | "inbox" | "leads" | "rag" | "aprovar" | "saude";
-};
+// UX1.1: o menu por tarefa vem de src/lib/navigation.ts (MENU); o que saiu dele está no Laboratório (/laboratorio).
+import { ALL_NAV_ITEMS, MENU, type NavItem } from "@/lib/navigation";
 
 // ── Badge pill ──────────────────────────────────────────────────────────────
 function BadgePill({ count }: { count: number }) {
@@ -278,11 +202,8 @@ export function AppSidebar() {
     saude: health?.checks.filter((c) => c.status === "fail").length ?? 0,
   };
 
-  // All items pool for favourites lookup
-  const allItems: NavItem[] = [
-    ...hojeitems, ...venderItems, ...inteligenciaItems,
-    ...capitalItems, ...acervoItems, ...configurarItems,
-  ];
+  // Favoritos podem vir do menu ou do Laboratório.
+  const allItems: NavItem[] = ALL_NAV_ITEMS;
 
   const favItems = favorites
     .map((url) => allItems.find((i) => i.url === url))
@@ -339,12 +260,10 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <NavGroup label="Hoje"         items={hojeitems}         {...sharedProps} isGroupCollapsed={isSectionCollapsed("Hoje", hojeitems)} onToggleGroup={() => toggleGroup("Hoje")} />
-        <NavGroup label="Vender"       items={venderItems}       {...sharedProps} isGroupCollapsed={isSectionCollapsed("Vender", venderItems)} onToggleGroup={() => toggleGroup("Vender")} />
-        <NavGroup label="Inteligência" items={inteligenciaItems} {...sharedProps} isGroupCollapsed={isSectionCollapsed("Inteligência", inteligenciaItems)} onToggleGroup={() => toggleGroup("Inteligência")} />
-        <NavGroup label="Capital"      items={capitalItems}      {...sharedProps} isGroupCollapsed={isSectionCollapsed("Capital", capitalItems)} onToggleGroup={() => toggleGroup("Capital")} />
-        <NavGroup label="Acervo"       items={acervoItems}       {...sharedProps} isGroupCollapsed={isSectionCollapsed("Acervo", acervoItems)} onToggleGroup={() => toggleGroup("Acervo")} />
-        <NavGroup label="Setup"        items={configurarItems}   {...sharedProps} isGroupCollapsed={isSectionCollapsed("Setup", configurarItems)} onToggleGroup={() => toggleGroup("Setup")} isLast />
+        {MENU.map((g, i) => (
+          <NavGroup key={g.label} label={g.label} items={g.items} {...sharedProps}
+            isGroupCollapsed={isSectionCollapsed(g.label, g.items)} onToggleGroup={() => toggleGroup(g.label)} isLast={i === MENU.length - 1} />
+        ))}
 
       </SidebarContent>
 

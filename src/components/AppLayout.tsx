@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useGlobalProject, useGlobalProjectList } from "@/hooks/useGlobalProject";
 import { Check, ChevronDown, ExternalLink, FolderKanban, Sparkles, X } from "lucide-react";
+import { usePageViewTracking } from "@/hooks/usePageViewTracking";
 
 
 function useLiveLeadCount(): number | null {
@@ -130,6 +131,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   "product-copilot": { kicker: "IA", title: "Copilot de Produtos" },
   "infoproduto-copilot": { kicker: "IA", title: "Copilot de Infoproduto" },
   webinar: { kicker: "Evento", title: "Webinar" },
+  laboratorio: { kicker: "Sistema", title: "Laboratório" },
 };
 
 function EditorialBreadcrumb() {
@@ -251,6 +253,7 @@ export function AppLayout() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const liveLeadCount = useLiveLeadCount();
+  usePageViewTracking();
   const [architectOpen, setArchitectOpen] = useState(false);
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;

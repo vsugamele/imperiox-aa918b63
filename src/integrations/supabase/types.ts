@@ -27093,6 +27093,12 @@ export type Database = {
           },
         ]
       }
+      imphq_page_views: {
+        Row: { em: string; id: number; rota: string; user_id: string }
+        Insert: { em?: string; id?: never; rota: string; user_id?: string }
+        Update: { em?: string; id?: never; rota?: string; user_id?: string }
+        Relationships: []
+      }
       imphq_page_splits: {
         Row: {
           created_at: string
@@ -57973,6 +57979,10 @@ export type Database = {
       }
     }
     Functions: {
+      imphq_page_usage: {
+        Args: { p_dias?: number }
+        Returns: { pessoas: number; rota: string; ultima: string; visitas: number }[]
+      }
       imphq_split_counts: {
         Args: { p_split_ids: string[] }
         Returns: { enviados: number; novos: number; split_id: string; variante: string }[]

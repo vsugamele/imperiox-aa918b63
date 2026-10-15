@@ -9,6 +9,7 @@ import { errorMessage } from "@/lib/error-message";
 import { TIPOS_AVATAR, type TipoAvatar } from "@shared/cast";
 import { useCast, useGenerateCastPhotos, useSaveAvatar, useSuggestCast, useToggleAvatar, type CastAvatar } from "@/hooks/useCast";
 import { useProjectsAndMaps } from "@/hooks/usePlaybooks";
+import { useGlobalProject } from "@/hooks/useGlobalProject";
 
 const PAPEL_LABEL: Record<CastAvatar["papel"], string> = { elenco: "Aparece nas artes", publico: "Persona do público", ambos: "Aparece e é o público" };
 
@@ -18,7 +19,10 @@ const PAPEL_LABEL: Record<CastAvatar["papel"], string> = { elenco: "Aparece nas 
  */
 export function CastTab() {
   const { data: targets } = useProjectsAndMaps();
-  const [projectId, setProjectId] = useState("");
+  // Usa o projeto escolhido no topo (seletor global); trocar aqui troca lá também.
+  const { projectId: globalProject, setProjectId: setGlobalProject } = useGlobalProject();
+  const projectId = globalProject ?? "";
+  const setProjectId = (v: string) => setGlobalProject(v || null);
   const { data: cast = [], isLoading } = useCast(projectId || null);
   const suggest = useSuggestCast();
   const [produto, setProduto] = useState("");
