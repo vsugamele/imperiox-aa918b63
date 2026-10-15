@@ -11,6 +11,8 @@ import {
   FileCheck2,
   Film,
   HelpCircle,
+  Headset,
+  Layers,
   Loader2,
   MessageSquareReply,
   Send,
@@ -35,9 +37,11 @@ import { AiDidFeed } from "@/components/aprovar/AiDidFeed";
 
 const SOURCES: ApprovalSource[] = [
   "pix_travado",
+  "suporte",
   "semaforo_ads",
   "duvida_bot",
   "rascunho",
+  "leva",
   "etapa",
   "acao_ia",
   "conteudo",
@@ -45,6 +49,8 @@ const SOURCES: ApprovalSource[] = [
 
 const SOURCE_ICON: Record<ApprovalSource, typeof Bot> = {
   pix_travado: Zap,
+  suporte: Headset,
+  leva: Layers,
   semaforo_ads: SlidersHorizontal,
   duvida_bot: HelpCircle,
   rascunho: MessageSquareReply,
@@ -55,6 +61,8 @@ const SOURCE_ICON: Record<ApprovalSource, typeof Bot> = {
 
 const APPROVE_LABEL: Record<ApprovalSource, string> = {
   pix_travado: "Disparar WhatsApp (1-Clique)",
+  suporte: "Resolvido",
+  leva: "Aprovar leva",
   semaforo_ads: "Executar Decisão",
   duvida_bot: "Aprovar no Acervo (RAG)",
   rascunho: "Abrir para responder",
@@ -65,6 +73,8 @@ const APPROVE_LABEL: Record<ApprovalSource, string> = {
 
 const REJECT_LABEL: Record<ApprovalSource, string> = {
   pix_travado: "Descartar",
+  suporte: "Não é suporte",
+  leva: "Descartar",
   semaforo_ads: "Ignorar / Manter",
   duvida_bot: "Descartar",
   rascunho: "",
@@ -546,7 +556,7 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
             </div>
           )}
 
-          {/* GENERIC FALLBACK FOR OTHER SOURCES (RASCUNHO, ETAPA, ACAO_IA, CONTEUDO) */}
+          {/* GENERIC FALLBACK FOR OTHER SOURCES (SUPORTE, RASCUNHO, LEVA, ETAPA, ACAO_IA, CONTEUDO) */}
           {!["pix_travado", "semaforo_ads", "duvida_bot"].includes(item.source) && (
             <>
               {item.detail && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.detail}</p>}
@@ -590,7 +600,7 @@ function ApprovalCard({ item, index, project }: { item: ApprovalItem; index: num
                 ) : (
                   <Button asChild size="sm" className="h-7">
                     <Link to={item.link}>
-                      <MessageSquareReply className="mr-1.5 h-3.5 w-3.5" /> {APPROVE_LABEL[item.source]}
+                      <MessageSquareReply className="mr-1.5 h-3.5 w-3.5" /> {item.source === "leva" ? "Gerar na Fábrica" : APPROVE_LABEL[item.source]}
                     </Link>
                   </Button>
                 )}

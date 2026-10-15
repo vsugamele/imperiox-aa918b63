@@ -1,6 +1,6 @@
-// Linhas do banco → linhas da fila Aprovar (pix travado, semáforo de anúncios, dúvidas do bot).
+// Linhas do banco → linhas da fila Aprovar (pix travado, semáforo de anúncios, dúvidas do bot, suporte parado).
 // TS puro: a tela /aprovar e o project-mcp montam a fila com a mesma regra (IA1.1).
-import type { AiActionRow, KnowledgeGapRow, PixRow, SemaforoRow } from "./approval-queue.ts";
+import type { AiActionRow, KnowledgeGapRow, PixRow, SemaforoRow, SupportRow } from "./approval-queue.ts";
 
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {});
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
@@ -89,4 +89,37 @@ export interface KnowledgeRow { id: string; project_id: string | null; pergunta:
 
 export function knowledgeGapRows(rows: ReadonlyArray<KnowledgeRow>): KnowledgeGapRow[] {
   return rows.map((k) => ({ id: k.id, project_id: k.project_id ?? "", pergunta: k.pergunta ?? "", resposta: k.resposta, created_at: k.created_at, source: k.source }));
+}
+
+export interface SupportStateRow {
+  channel: string;
+  conversation_id: string;
+  project_id: string | null;
+  support_kind: string | null;
+  support_status: string | null;
+  support_opened_at: string | null;
+  latest_message_at: string | null;
+}
+export interface WaConversationRow { id: string; contact_name?: string | null; nome?: string | null; phone?: string | null; last_message?: string | null }
+export interface IgConversationRow { id: string; participant_name?: string | null; participant_username?: string | null; last_message?: string | null }
+
+/** Suporte do JP parado (handoff/pending) + nome e última mensagem da conversa de cada canal. */
+export function supportRows(
+  states: ReadonlyArray<SupportStateRow>,
+  wa: ReadonlyArray<WaConversationRow>,
+  ig: ReadonlyArray<IgConversationRow>,
+): SupportRow[] {
+  const waById = new Map(wa.map((c) => [c.id, c]));
+  const igById = new Map(ig.map((c) => [c.id, c]));
+  return states.flatMap((s): SupportRow[] => {
+    if (s.channel === "whatsapp") {
+      const c = waById.get(s.conversation_id);
+      return [{ ...s, channel: "whatsapp", contact_name: c?.contact_name || c?.nome || null, contact_phone: c?.phone ?? null, last_message: c?.last_message ?? null }];
+    }
+    if (s.channel === "instagram") {
+      const c = igById.get(s.conversation_id);
+      return [{ ...s, channel: "instagram", contact_name: c?.participant_name || (c?.participant_username ? `@${c.participant_username}` : null), last_message: c?.last_message ?? null }];
+    }
+    return [];
+  });
 }

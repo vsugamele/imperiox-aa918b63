@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { buildApprovalQueue, type ApprovalItem } from "@shared/approval-queue";
-import { knowledgeGapRows, pixRowsFromSales, splitAdsActions } from "@shared/approval-rows";
+import { knowledgeGapRows, pixRowsFromSales, splitAdsActions, supportRows, type SupportStateRow } from "@shared/approval-rows";
 import { decideApproval, type ApprovalDecision, type ApprovalStore } from "@shared/approval-decide";
 import { writeAgentNotes, type StepStatus } from "@shared/map-steps";
 import { toJson } from "@/lib/funis-data";
@@ -11,7 +11,7 @@ export type { ApprovalDecision } from "@shared/approval-decide";
 async function loadApprovals(): Promise<ApprovalItem[]> {
   const cutoff48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-  const [actionsRes, contentsRes, draftsRes, vendasRes, knowledgeRes] = await Promise.all([
+  const [actionsRes, contentsRes, draftsRes, vendasRes, knowledgeRes, levasRes, supportRes] = await Promise.all([
     supabase.from("imphq_ai_actions")
       .select("id, kind, title, reason, risk_level, impact_brl, projeto_id, created_at, source, payload")
       .eq("status", "proposed").order("created_at", { ascending: false }).limit(100),
@@ -33,6 +33,12 @@ async function loadApprovals(): Promise<ApprovalItem[]> {
       .eq("aprovada", false).eq("answered", false).not("resposta", "is", null).neq("resposta", "")
       .order("created_at", { ascending: false })
       .limit(30),
+    supabase.from("imphq_creative_batches")
+      .select("id, project_id, nome, status, total_planejado, created_at, updated_at")
+      .eq("briefing->>tipo", "leva").in("status", ["planejado", "aprovado"]).limit(50),
+    supabase.from("imphq_jp_conversation_state")
+      .select("channel, conversation_id, project_id, support_kind, support_status, support_opened_at, latest_message_at")
+      .in("support_status", ["handoff", "pending"]).limit(50),
   ]);
 
   for (const res of [actionsRes, contentsRes, draftsRes]) {
@@ -47,6 +53,7 @@ async function loadApprovals(): Promise<ApprovalItem[]> {
     for (const l of leads ?? []) leadsMap[l.id] = { nome: l.nome, phone: l.phone };
   }
   const { semaforo, generic } = splitAdsActions(actionsRes.data ?? []);
+  const support = await loadSupport((supportRes.data ?? []) as SupportStateRow[]);
 
   return buildApprovalQueue({
     steps: [],
@@ -56,7 +63,20 @@ async function loadApprovals(): Promise<ApprovalItem[]> {
     pix: pixRowsFromSales(vendas, leadsMap),
     semaforo,
     knowledge: knowledgeGapRows(knowledgeRes.data ?? []),
+    levas: levasRes.data ?? [],
+    support,
   });
+}
+
+/** Nome e última mensagem das conversas de suporte paradas (WhatsApp e Instagram). */
+async function loadSupport(states: SupportStateRow[]) {
+  if (!states.length) return [];
+  const ids = (ch: string) => states.filter((s) => s.channel === ch).map((s) => s.conversation_id);
+  const [wa, ig] = await Promise.all([
+    ids("whatsapp").length ? supabase.from("imphq_wa_conversations").select("id, contact_name, nome, phone, last_message").in("id", ids("whatsapp")) : null,
+    ids("instagram").length ? supabase.from("imphq_ig_conversations").select("id, participant_name, participant_username, last_message").in("id", ids("instagram")) : null,
+  ]);
+  return supportRows(states, wa?.data ?? [], ig?.data ?? []);
 }
 
 /** Fila única "Aprovar": focada em decisões de impacto comercial (Semáforo de anúncios, Pix travados, Dúvidas do bot, Ações IA). */
@@ -105,6 +125,15 @@ const store: ApprovalStore = {
   async updateKnowledge(id, patch) { const { error } = await supabase.from("imphq_wa_knowledge").update(patch).eq("id", id); if (error) throw error; },
   setStepStatus,
   async updateContent(id, patch) { const { error } = await supabase.from("imphq_content_items").update(patch).eq("id", id); if (error) throw error; },
+  async decideLeva(id, modo) {
+    const { data, error } = await supabase.functions.invoke("batch-strategist", { body: { modo, leva_id: id } });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || "Não deu para decidir a leva");
+  },
+  async updateSupport(channel, conversationId, patch) {
+    const { error } = await supabase.from("imphq_jp_conversation_state").update(patch).eq("channel", channel).eq("conversation_id", conversationId);
+    if (error) throw error;
+  },
 };
 
 /** Decide um item da fila com a regra compartilhada (_shared/approval-decide.ts). */

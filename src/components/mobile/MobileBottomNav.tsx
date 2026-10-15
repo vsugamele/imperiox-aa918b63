@@ -1,11 +1,11 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, MessageSquare, Users, BookMarked, MoreHorizontal } from "lucide-react";
+import { CalendarCheck, MessageSquare, Users, BookMarked, MoreHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useSidebarBadges } from "@/hooks/useSidebarBadges";
 
 const PRIMARY = [
-  { to: "/dashboard", label: "Cockpit", icon: LayoutDashboard, key: "dashboard" as const },
+  { to: "/hoje", label: "Hoje", icon: CalendarCheck, key: "hoje" as const },
   { to: "/inbox", label: "Inbox", icon: MessageSquare, key: "inbox" as const },
   { to: "/leads", label: "Leads", icon: Users, key: "leads" as const },
   { to: "/referencias", label: "Refs", icon: BookMarked, key: "refs" as const },

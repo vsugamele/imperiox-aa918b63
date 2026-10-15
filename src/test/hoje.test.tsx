@@ -17,6 +17,8 @@ const boards = buildTodayBoard({
 });
 
 vi.mock("@/components/saude/HealthAlertStrip", () => ({ HealthAlertStrip: () => null }));
+vi.mock("@/components/hoje/DecisionsSummary", () => ({ DecisionsSummary: () => null }));
+vi.mock("@/components/dashboard/cockpit/ProjectSellingGrid", () => ({ ProjectSellingGrid: () => null }));
 vi.mock("@/hooks/useTodayBoard", () => ({
   useTodayBoard: () => ({ data: boards, isLoading: false, isFetching: false, error: null, refetch: vi.fn() }),
   useSetStepStatus: () => ({ mutate: vi.fn(), isPending: false }),

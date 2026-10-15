@@ -6,13 +6,13 @@ export interface SidebarBadges {
   inbox: number;      // unread WA + IG messages
   leads: number;      // hot leads (score > 80, last 2h)
   rag: number;        // knowledge gaps unanswered (AI couldn't answer leads)
-  aprovar: number;    // fila única /aprovar (etapas para revisar, ações da IA, conteúdo pronto, respostas pendentes)
+  aprovar: number;    // fila única /aprovar (etapas para revisar, ações da IA, conteúdo pronto, respostas pendentes, levas para aprovar, suporte parado)
 }
 
 async function fetchBadges(): Promise<SidebarBadges> {
   const twoHoursAgo = new Date(Date.now() - 2 * 3600_000).toISOString();
 
-  const [{ count: imperiusCount }, { count: waUnreadCount }, { count: igUnreadCount }, { count: leadsCount }, { count: ragCount }, { count: contentCount }, { count: draftCount }] =
+  const [{ count: imperiusCount }, { count: waUnreadCount }, { count: igUnreadCount }, { count: leadsCount }, { count: ragCount }, { count: contentCount }, { count: draftCount }, { count: levaCount }, { count: supportCount }] =
     await Promise.all([
       supabase
         .from("imphq_ai_actions")
@@ -40,6 +40,8 @@ async function fetchBadges(): Promise<SidebarBadges> {
         .neq("resposta", ""),
       supabase.from("imphq_content_items").select("id", { count: "exact", head: true }).eq("status", "pronto"),
       supabase.from("imphq_wa_ai_drafts").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("imphq_creative_batches").select("id", { count: "exact", head: true }).eq("briefing->>tipo", "leva").eq("status", "planejado"),
+      supabase.from("imphq_jp_conversation_state").select("conversation_id", { count: "exact", head: true }).in("support_status", ["handoff", "pending"]),
     ]);
 
   return {
@@ -47,8 +49,8 @@ async function fetchBadges(): Promise<SidebarBadges> {
     inbox: (waUnreadCount ?? 0) + (igUnreadCount ?? 0),
     leads: leadsCount ?? 0,
     rag: ragCount ?? 0,
-    // Fila /aprovar focada apenas em decisões comerciais e financeiras reais (ações IA, conteúdo e respostas)
-    aprovar: (imperiusCount ?? 0) + (contentCount ?? 0) + (draftCount ?? 0),
+    // Fila /aprovar: ações IA, conteúdo, respostas, levas para aprovar e suporte parado
+    aprovar: (imperiusCount ?? 0) + (contentCount ?? 0) + (draftCount ?? 0) + (levaCount ?? 0) + (supportCount ?? 0),
   };
 }
 

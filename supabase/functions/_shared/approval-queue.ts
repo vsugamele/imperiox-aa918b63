@@ -1,7 +1,7 @@
 // Fila única "Aprovar" (UX1.3): tudo que espera um sim ou não de alguém do time, de qualquer origem.
 // TS puro: tela /aprovar, contador do menu e (depois) MCP usam a mesma regra.
 
-export type ApprovalSource = "pix_travado" | "semaforo_ads" | "duvida_bot" | "rascunho" | "etapa" | "acao_ia" | "conteudo";
+export type ApprovalSource = "pix_travado" | "suporte" | "semaforo_ads" | "duvida_bot" | "rascunho" | "leva" | "etapa" | "acao_ia" | "conteudo";
 
 export interface ApprovalMetadata {
   // Pix
@@ -28,6 +28,10 @@ export interface ApprovalMetadata {
   suggestedAnswer?: string;
   knowledgeId?: string;
   sourceType?: string;
+
+  // Suporte JP (a chave da conversa é canal + id)
+  channel?: "whatsapp" | "instagram";
+  conversationId?: string;
 }
 
 export interface ApprovalItem {
@@ -51,9 +55,11 @@ export interface ApprovalItem {
 
 export const SOURCE_LABEL: Record<ApprovalSource, string> = {
   pix_travado: "Pix Travados",
+  suporte: "Suporte parado",
   semaforo_ads: "Semáforo Ads",
   duvida_bot: "Dúvidas do Bot",
   rascunho: "Respostas da IA",
+  leva: "Levas de criativos",
   etapa: "Etapas para revisar",
   acao_ia: "Ações da IA",
   conteudo: "Conteúdo pronto",
@@ -101,16 +107,32 @@ export interface KnowledgeGapRow {
   source?: string | null;
 }
 
+export interface LevaRow { id: string; project_id: string; nome?: string | null; status: string; total_planejado?: number | null; created_at: string; updated_at?: string | null }
+export interface SupportRow {
+  channel: "whatsapp" | "instagram";
+  conversation_id: string;
+  project_id?: string | null;
+  support_kind?: string | null;
+  support_status: string | null;
+  support_opened_at?: string | null;
+  latest_message_at?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  last_message?: string | null;
+}
+
 const RISK: Record<string, ApprovalItem["risk"]> = { low: "low", medium: "medium", high: "high" };
 const RISK_ORDER = { high: 0, medium: 1, low: 2 } as const;
 const SOURCE_ORDER: Record<ApprovalSource, number> = {
   pix_travado: 0,
-  semaforo_ads: 1,
-  duvida_bot: 2,
-  rascunho: 3,
-  etapa: 4,
-  acao_ia: 5,
-  conteudo: 6,
+  suporte: 1,
+  semaforo_ads: 2,
+  duvida_bot: 3,
+  rascunho: 4,
+  leva: 5,
+  etapa: 6,
+  acao_ia: 7,
+  conteudo: 8,
 };
 
 const clip = (text: string | null | undefined, max = 160) => {
@@ -126,6 +148,8 @@ export function buildApprovalQueue(input: {
   pix?: ReadonlyArray<PixRow>;
   semaforo?: ReadonlyArray<SemaforoRow>;
   knowledge?: ReadonlyArray<KnowledgeGapRow>;
+  levas?: ReadonlyArray<LevaRow>;
+  support?: ReadonlyArray<SupportRow>;
 }): ApprovalItem[] {
   const items: ApprovalItem[] = [
     // 1. Pix travados: conversão imediata de quem tentou pagar e precisa de estímulo
@@ -159,6 +183,30 @@ export function buildApprovalQueue(input: {
           recoveryLevel: p.recovery_level || 1,
           whatsappUrl: waUrl,
         },
+      };
+    }),
+
+    // 1b. Suporte parado: cliente esperando alguém do time (a IA passou adiante ou não resolveu)
+    ...(input.support ?? []).filter((t) => t.support_status === "handoff" || t.support_status === "pending").map((t): ApprovalItem => {
+      const canal = t.channel === "instagram" ? "Instagram" : "WhatsApp";
+      const phone = (t.contact_phone ?? "").replace(/\D/g, "");
+      return {
+        key: `suporte:${t.channel}:${t.conversation_id}`,
+        source: "suporte",
+        id: `${t.channel}:${t.conversation_id}`,
+        title: `Suporte ${t.support_status === "handoff" ? "passado para a equipe" : "sem resposta"} · ${t.contact_name || "cliente"} (${canal})`,
+        detail: [
+          t.support_kind === "access" ? "Acesso à área de membros" : "Outro assunto",
+          t.last_message ? `Última mensagem: "${clip(t.last_message, 100)}"` : null,
+        ].filter(Boolean).join(" · "),
+        projectId: t.project_id ?? null,
+        createdAt: t.support_opened_at || t.latest_message_at || "",
+        link: t.channel === "whatsapp" && phone ? `/inbox?tab=whatsapp&phone=${encodeURIComponent(phone)}` : `/inbox?tab=${t.channel}`,
+        media: null,
+        risk: t.support_status === "handoff" ? "high" : "medium",
+        impactBrl: null,
+        inline: true,
+        metadata: { channel: t.channel, conversationId: t.conversation_id, customerName: t.contact_name || undefined },
       };
     }),
 
@@ -217,6 +265,21 @@ export function buildApprovalQueue(input: {
       detail: clip(d.suggested_text) ?? clip(d.incoming_text),
       projectId: d.project_id ?? null, createdAt: d.created_at ?? "", link: "/rascunhos", media: null, risk: null, impactBrl: null, inline: false,
     })),
+
+    // 4b. Levas de criativos: planejada espera o sim; aprovada espera alguém gerar as artes na Fábrica
+    ...(input.levas ?? []).filter((l) => l.status === "planejado" || l.status === "aprovado").map((l): ApprovalItem => {
+      const planejada = l.status === "planejado";
+      return {
+        key: `leva:${l.id}`, source: "leva", id: l.id,
+        title: planejada ? `Leva para aprovar: ${l.nome || "sem nome"}` : `Leva aprovada esperando gerar as artes: ${l.nome || "sem nome"}`,
+        detail: [
+          l.total_planejado ? `${l.total_planejado} criativo(s)` : null,
+          planejada ? "Aprovar libera a geração (gerar continua sendo um clique na Fábrica)" : "Abra a Fábrica e clique em gerar",
+        ].filter(Boolean).join(" · "),
+        projectId: l.project_id, createdAt: l.updated_at || l.created_at, link: "/fabrica#passo-leva",
+        media: null, risk: null, impactBrl: null, inline: planejada,
+      };
+    }),
 
     // 5. Etapas para revisar
     ...(input.steps ?? []).map((s): ApprovalItem => ({

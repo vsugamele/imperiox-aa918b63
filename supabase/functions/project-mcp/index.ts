@@ -11,10 +11,10 @@ import { CAPABILITY_TASKS, capabilitiesForSkill, pickCapabilities, pickStepCapab
 import { orderSteps } from "../_shared/map-order.ts";
 import { FAMILY_LABEL, planPlaybook } from "../_shared/playbooks.ts";
 import { findProjectMap, playbookFromRows, writePlaybookPlan, type PlaybookRow, type PlaybookStepRow } from "../_shared/playbook-apply.ts";
-import { buildApprovalQueue, SOURCE_LABEL, type AiActionRow, type ApprovalItem, type ApprovalSource, type ContentRow, type DraftRow, type ReviewStepRow } from "../_shared/approval-queue.ts";
+import { buildApprovalQueue, SOURCE_LABEL, type AiActionRow, type ApprovalItem, type ApprovalSource, type ContentRow, type DraftRow, type LevaRow, type ReviewStepRow } from "../_shared/approval-queue.ts";
 import { approvalCounts, approvalLine, buildProjectBriefing, mcpDecisions, type JournalEntry, type PaymentPulse } from "../_shared/project-briefing.ts";
-import { knowledgeGapRows, pixRowsFromSales, splitAdsActions, type KnowledgeRow, type PendingSaleRow, type RawAction } from "../_shared/approval-rows.ts";
-import { decideApproval as applyDecision, DECISIONS_BY_SOURCE, type ApprovalDecision, type ApprovalStore } from "../_shared/approval-decide.ts";
+import { knowledgeGapRows, pixRowsFromSales, splitAdsActions, supportRows, type KnowledgeRow, type PendingSaleRow, type RawAction, type SupportStateRow } from "../_shared/approval-rows.ts";
+import { decideApproval as applyDecision, DECISIONS_BY_SOURCE, parseSupportId, type ApprovalDecision, type ApprovalStore } from "../_shared/approval-decide.ts";
 import { AUTONOMY_LABEL, AUTONOMY_RULES, checkAutonomy, effectiveAutonomy } from "../_shared/autonomy.ts";
 import { cutAllowed, evaluateTestOrder, launchSteps, planTestOrder, type TestOrderInput, type VariantReading } from "../_shared/test-order.ts";
 import { buildTodayBoard, type BoardNode, type BoardSale } from "../_shared/today-board.ts";
@@ -1272,7 +1272,7 @@ const MCP_TOOLS = [
 /** Fila "Aprovar" com as mesmas origens e regras da tela /aprovar (useApprovals), mais as etapas para revisar. */
 async function loadApprovals(supabase: Supabase, projectId?: string | null): Promise<ApprovalItem[]> {
   const cutoff48h = new Date(Date.now() - 48 * 3600000).toISOString();
-  const [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes, salesRes, knowledgeRes] = await Promise.all([
+  const [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes, salesRes, knowledgeRes, levasRes, supportRes] = await Promise.all([
     supabase.from("imphq_company_map_nodes")
       .select("id, map_id, label, description, linked_project_id, status_changed_at, updated_at, image_url")
       .eq("step_status", "ready_review"),
@@ -1293,8 +1293,20 @@ async function loadApprovals(supabase: Supabase, projectId?: string | null): Pro
     supabase.from("imphq_wa_knowledge")
       .select("id, project_id, pergunta, resposta, source, created_at")
       .eq("aprovada", false).eq("answered", false).not("resposta", "is", null).neq("resposta", "").order("created_at", { ascending: false }).limit(30),
+    supabase.from("imphq_creative_batches")
+      .select("id, project_id, nome, status, total_planejado, created_at, updated_at")
+      .eq("briefing->>tipo", "leva").in("status", ["planejado", "aprovado"]).limit(50),
+    supabase.from("imphq_jp_conversation_state")
+      .select("channel, conversation_id, project_id, support_kind, support_status, support_opened_at, latest_message_at")
+      .in("support_status", ["handoff", "pending"]).limit(50),
   ]);
   for (const res of [stepsRes, actionsRes, contentsRes, draftsRes, archivedRes]) if (res.error) throw res.error;
+  const states = (supportRes.data ?? []) as SupportStateRow[];
+  const convIds = (ch: string) => states.filter((t) => t.channel === ch).map((t) => t.conversation_id);
+  const [waConv, igConv] = await Promise.all([
+    convIds("whatsapp").length ? supabase.from("imphq_wa_conversations").select("id, contact_name, nome, phone, last_message").in("id", convIds("whatsapp")) : null,
+    convIds("instagram").length ? supabase.from("imphq_ig_conversations").select("id, participant_name, participant_username, last_message").in("id", convIds("instagram")) : null,
+  ]);
   const archived = new Set((archivedRes.data ?? []).map((m) => m.id));
   const sales = (salesRes.data ?? []) as PendingSaleRow[];
   const leadIds = sales.map((v) => v.lead_id).filter((v): v is string => !!v);
@@ -1312,6 +1324,8 @@ async function loadApprovals(supabase: Supabase, projectId?: string | null): Pro
     pix: pixRowsFromSales(sales, leads),
     semaforo,
     knowledge: knowledgeGapRows((knowledgeRes.data ?? []) as KnowledgeRow[]),
+    levas: (levasRes.data ?? []) as LevaRow[],
+    support: supportRows(states, waConv?.data ?? [], igConv?.data ?? []),
   });
   return projectId ? items.filter((i) => i.projectId === projectId) : items;
 }
@@ -1403,6 +1417,17 @@ async function decideApproval(supabase: Supabase, key: string, decision: Approva
     if (decision === "approve" && !(opts.resposta ?? k.resposta ?? "").trim()) throw new Error("Informe a resposta para o acervo (campo resposta).");
     titulo = k.pergunta ?? "";
     metadata = { suggestedAnswer: k.resposta ?? undefined };
+  } else if (src === "leva") {
+    const { data: leva } = await db.from("imphq_creative_batches").select("nome, status").eq("id", itemId).eq("briefing->>tipo", "leva").maybeSingle();
+    if (!leva) throw new Error(`Leva '${itemId}' não encontrada`);
+    if (leva.status !== "planejado" && !(decision === "reject" && leva.status === "aprovado")) throw new Error(`Esta leva não está esperando aprovação (status: ${leva.status}).`);
+    titulo = leva.nome ?? "leva";
+  } else if (src === "suporte") {
+    const { channel, conversationId } = parseSupportId(itemId);
+    const { data: st } = await db.from("imphq_jp_conversation_state").select("support_status").eq("channel", channel).eq("conversation_id", conversationId).maybeSingle();
+    if (!st) throw new Error(`Conversa de suporte '${itemId}' não encontrada`);
+    if (st.support_status !== "handoff" && st.support_status !== "pending") throw new Error(`Este suporte não está parado (status: ${st.support_status ?? "sem suporte"}).`);
+    titulo = `Suporte ${channel} ${conversationId.slice(0, 8)}`;
   }
 
   const store: ApprovalStore = {
@@ -1430,6 +1455,15 @@ async function decideApproval(supabase: Supabase, key: string, decision: Approva
       await must(db.from("imphq_company_map_nodes").update({ step_status: status, status_changed_at: now, status_changed_by: actor, notes }).eq("id", id));
     },
     updateContent: (id, patch) => must(db.from("imphq_content_items").update(patch).eq("id", id)),
+    async decideLeva(id, modo) {
+      // Mesma regra do batch-strategist (aprovar: planejado/failed; descartar: o que ainda não está gerando).
+      const de = modo === "aprovar" ? ["planejado", "failed"] : ["planejado", "aprovado", "failed"];
+      const { data, error } = await db.from("imphq_creative_batches").update({ status: modo === "aprovar" ? "aprovado" : "descartado", updated_at: now })
+        .eq("id", id).eq("briefing->>tipo", "leva").in("status", de).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error(`leva já está em outra etapa (só ${de.join("/")} pode ${modo})`);
+    },
+    updateSupport: (channel, conversationId, patch) => must(db.from("imphq_jp_conversation_state").update(patch).eq("channel", channel).eq("conversation_id", conversationId)),
   };
 
   const resultado = await applyDecision({ source: src, id: itemId, metadata }, decision, store, { now, customAnswer: opts.resposta });

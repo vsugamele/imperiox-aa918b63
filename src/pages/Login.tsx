@@ -16,7 +16,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   if (user) {
-    navigate("/dashboard", { replace: true });
+    navigate("/hoje", { replace: true });
     return null;
   }
 
@@ -25,7 +25,7 @@ export default function Login() {
     setIsLoading(true);
     try {
       await signIn(email, password);
-      navigate("/dashboard", { replace: true });
+      navigate("/hoje", { replace: true });
     } catch (err: unknown) {
       toast({ title: "Erro ao entrar", description: errorMessage(err), variant: "destructive" });
     } finally {

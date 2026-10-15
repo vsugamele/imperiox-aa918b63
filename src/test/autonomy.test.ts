@@ -36,6 +36,8 @@ function fakeStore(): ApprovalStore & { calls: string[] } {
     updateKnowledge: vi.fn(async (id, patch) => { calls.push(`kb:${id}:${patch.aprovada}:${patch.resposta ?? ""}`); }),
     setStepStatus: vi.fn(async (id, status) => { calls.push(`step:${id}:${status}`); }),
     updateContent: vi.fn(async (id, patch) => { calls.push(`content:${id}:${patch.status}`); }),
+    decideLeva: vi.fn(async (id, modo) => { calls.push(`leva:${id}:${modo}`); }),
+    updateSupport: vi.fn(async (channel, conversationId, patch) => { calls.push(`suporte:${channel}:${conversationId}:${patch.support_status}`); }),
   };
 }
 

@@ -21,6 +21,8 @@ import { useCompanyMap } from "@/hooks/useCompanyMap";
 import { Stat } from "@/components/mapa/Stat";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { HealthAlertStrip } from "@/components/saude/HealthAlertStrip";
+import { DecisionsSummary } from "@/components/hoje/DecisionsSummary";
+import { ProjectSellingGrid } from "@/components/dashboard/cockpit/ProjectSellingGrid";
 
 const STEP_STATUSES: StepStatus[] = ["pending", "in_progress", "ready_review", "done"];
 const MAX_ROWS = 6;
@@ -102,6 +104,8 @@ export default function Hoje() {
 
       <HealthAlertStrip />
 
+      <DecisionsSummary projectId={globalProjectId} />
+
       {members.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="De quem">
           {([
@@ -124,6 +128,11 @@ export default function Hoje() {
         <Stat label="Vendas hoje" value={totals.sales} tone={totals.sales ? "text-success" : undefined} />
         <Stat label="Leads hoje" value={totals.leads} />
       </div>
+
+      <details className="group rounded-lg border border-border bg-card p-4" aria-label="Dinheiro por projeto">
+        <summary className="cursor-pointer text-sm font-semibold text-foreground">Dinheiro por projeto (vendas, gasto e leads quentes)</summary>
+        <div className="mt-3"><ProjectSellingGrid /></div>
+      </details>
 
       {isLoading && <PageSkeleton variant="cards" label="Lendo os mapas" />}
 

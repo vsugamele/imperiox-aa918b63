@@ -7,9 +7,11 @@ export type ApprovalDecision = "approve" | "reject" | "mark_paid";
 
 export const DECISIONS_BY_SOURCE: Record<ApprovalSource, ApprovalDecision[]> = {
   pix_travado: ["approve", "mark_paid", "reject"],
+  suporte: ["approve", "reject"],
   semaforo_ads: ["approve", "reject"],
   duvida_bot: ["approve", "reject"],
   rascunho: [],
+  leva: ["approve", "reject"],
   etapa: ["approve", "reject"],
   acao_ia: ["approve", "reject"],
   conteudo: ["approve", "reject"],
@@ -30,6 +32,20 @@ export interface ApprovalStore {
   updateKnowledge(id: string, patch: { aprovada: boolean; answered: boolean; resposta?: string; updated_at: string }): Promise<void>;
   setStepStatus(id: string, status: StepStatus): Promise<void>;
   updateContent(id: string, patch: { status: string; approved_at?: string; updated_at: string }): Promise<void>;
+  /** Aprova (planejado/failed → aprovado) ou descarta uma leva, com a mesma regra do batch-strategist. */
+  decideLeva(id: string, modo: "aprovar" | "descartar"): Promise<void>;
+  /** Fecha o suporte de uma conversa do JP (chave: canal + id da conversa). */
+  updateSupport(channel: "whatsapp" | "instagram", conversationId: string, patch: SupportPatch): Promise<void>;
+}
+
+export interface SupportPatch { support_status: "confirmed" | null; support_kind?: null; support_confirmed_at?: string; updated_at: string }
+
+/** "whatsapp:uuid" → canal e id da conversa. */
+export function parseSupportId(id: string): { channel: "whatsapp" | "instagram"; conversationId: string } {
+  const i = id.indexOf(":");
+  const channel = i > 0 ? id.slice(0, i) : "";
+  if (channel !== "whatsapp" && channel !== "instagram") throw new Error(`Suporte inválido: ${id}`);
+  return { channel, conversationId: id.slice(i + 1) };
 }
 
 /** O que a decisão fez, em uma frase (vai para o diário e para a resposta da IA). */
@@ -72,6 +88,18 @@ export async function decideApproval(
     case "conteudo": {
       await store.updateContent(item.id, decision === "approve" ? { status: "aprovado", approved_at: now, updated_at: now } : { status: "reprovado", updated_at: now });
       return decision === "approve" ? "Conteúdo aprovado" : "Conteúdo reprovado";
+    }
+    case "leva": {
+      await store.decideLeva(item.id, decision === "approve" ? "aprovar" : "descartar");
+      return decision === "approve" ? "Leva aprovada: gere as artes na Fábrica" : "Leva descartada";
+    }
+    case "suporte": {
+      const { channel, conversationId } = parseSupportId(item.id);
+      // Resolvido = confirmado; "não é suporte" limpa a marcação e a conversa volta ao atendimento normal.
+      await store.updateSupport(channel, conversationId, decision === "approve"
+        ? { support_status: "confirmed", support_confirmed_at: now, updated_at: now }
+        : { support_status: null, support_kind: null, updated_at: now });
+      return decision === "approve" ? "Suporte marcado como resolvido" : "Conversa tirada do suporte";
     }
     default:
       throw new Error("Este item é decidido na tela de origem");

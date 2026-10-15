@@ -33,6 +33,10 @@ export const AUTONOMY_RULES: AutonomyRule[] = [
   { key: "duvida_bot:reject", label: "Descartar dúvida do bot", teto: "auto", padrao: "auto", motivo: "Só tira da fila." },
   { key: "conteudo:approve", label: "Aprovar conteúdo para publicar", teto: "aprovar", padrao: "aprovar", motivo: "Vai para a esteira de publicação." },
   { key: "conteudo:reject", label: "Reprovar conteúdo", teto: "auto", padrao: "auto", motivo: "Só tira da esteira." },
+  { key: "leva:approve", label: "Aprovar leva de criativos", teto: "aprovar", padrao: "aprovar", motivo: "Libera a geração das artes, que gasta crédito de imagem." },
+  { key: "leva:reject", label: "Descartar leva de criativos", teto: "auto", padrao: "auto", motivo: "Só tira da fila; nada é apagado." },
+  { key: "suporte:approve", label: "Marcar suporte do JP como resolvido", teto: "auto", padrao: "aprovar", motivo: "Tira o cliente da fila; só depois de alguém conferir que foi atendido." },
+  { key: "suporte:reject", label: "Tirar conversa do suporte (não era suporte)", teto: "auto", padrao: "aprovar", motivo: "A conversa volta ao atendimento normal." },
   { key: "rascunho:approve", label: "Enviar resposta da IA ao cliente", teto: "nunca", padrao: "nunca", motivo: "Envio para cliente acontece na tela de Rascunhos." },
   { key: "rascunho:reject", label: "Descartar resposta da IA", teto: "nunca", padrao: "nunca", motivo: "Decidido na tela de Rascunhos." },
   // Outras ações do MCP
