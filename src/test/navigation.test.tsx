@@ -18,7 +18,7 @@ describe("menu por tarefa (UX1.1)", () => {
 
   it("menu enxuto, sem repetição entre menu e Laboratório", () => {
     const menu = MENU.flatMap((g) => g.items.map((i) => i.url));
-    expect(menu.length).toBeLessThanOrEqual(26);
+    expect(menu.length).toBeLessThanOrEqual(27);
     expect(new Set(menu).size).toBe(menu.length);
     expect(LABORATORIO.some((l) => menu.includes(l.url))).toBe(false);
     expect(LABORATORIO.every((l) => l.motivo.length > 0)).toBe(true);

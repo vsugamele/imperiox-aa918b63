@@ -132,6 +132,7 @@ const ROUTE_META: Record<string, { kicker: string; title: string }> = {
   "infoproduto-copilot": { kicker: "IA", title: "Copilot de Infoproduto" },
   webinar: { kicker: "Evento", title: "Webinar" },
   laboratorio: { kicker: "Sistema", title: "Laboratório" },
+  fabrica: { kicker: "Criativos", title: "Fábrica de criativos" },
 };
 
 function EditorialBreadcrumb() {

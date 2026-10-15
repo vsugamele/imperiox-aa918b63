@@ -2,7 +2,7 @@
 // ar; nada foi apagado). Critério: o que tem uso real fica no menu; o que está vazio ou parado vai para o Laboratório
 // até a medição de uso (imphq_page_views) dizer o que volta e o que pode ser arquivado de vez.
 import {
-  Activity, Bot, Boxes, BookOpen, Brain, Building2, CalendarCheck, CheckCheck, Clapperboard, Coins, Compass, DollarSign,
+  Activity, Bot, Factory, Boxes, BookOpen, Brain, Building2, CalendarCheck, CheckCheck, Clapperboard, Coins, Compass, DollarSign,
   FileText, FlaskConical, FolderKanban, FlaskRound, Gauge, Globe, HeartPulse, Inbox, KeyRound, LayoutDashboard, Layers,
   Library, LifeBuoy, Lightbulb, Link2, Map as MapIcon, Pencil, Radio, Search, Settings, Sparkles, Target, Users,
   UsersRound, Workflow, Zap,
@@ -38,7 +38,8 @@ export const MENU: NavGroupDef[] = [
   {
     label: "Criativos",
     items: [
-      { title: "Testes e levas", url: "/testes", icon: FlaskConical },
+      { title: "Fábrica (passo a passo)", url: "/fabrica", icon: Factory },
+      { title: "Testes e placar", url: "/testes", icon: FlaskConical },
       { title: "Estratégias", url: "/estrategias", icon: Lightbulb },
       { title: "Studio (Elenco)", url: "/studio", icon: Clapperboard },
       { title: "Referências", url: "/referencias", icon: Library },
