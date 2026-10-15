@@ -1,5 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { createVirtualSiteFromUrl, normalizeProjectIcon, type SiteThumbnailItem } from "@/components/sites/SiteThumbnail";
+import type { Site } from "@/components/sites/SiteCard";
+
+interface ProjectSiteLinkRow {
+  papel: string;
+  site: Site | null;
+}
 
 export interface ProjectDocSummary {
   id: string;
@@ -86,6 +92,10 @@ function stripMarkdown(md: string, maxLen = 220): string {
   return clean.length > maxLen ? `${clean.slice(0, maxLen).trim()}...` : clean;
 }
 
+function asRecord(val: unknown): Record<string, unknown> {
+  return val && typeof val === "object" && !Array.isArray(val) ? (val as Record<string, unknown>) : {};
+}
+
 function asStringArray(val: unknown): string[] {
   if (!val) return [];
   if (Array.isArray(val)) {
@@ -112,7 +122,7 @@ function asStringArray(val: unknown): string[] {
 export async function loadProjectIntelligence(projectId?: string | null): Promise<ProjectIntelligenceBundle | null> {
   try {
     // 1. Fetch project (either requested ID or first available active project)
-    let projectRow: Record<string, any> | null = null;
+    let projectRow: Record<string, unknown> | null = null;
 
     if (projectId && projectId !== "__none__") {
       const { data } = await supabase
@@ -140,23 +150,24 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
     const [docsRes, skillsRes, linksRes] = await Promise.all([
       supabase
         .from("imphq_docs")
-        .select("id, title, category, content, body, tags, project_id")
+        .select("id, title, category:cat, content, body, tags, project_id")
         .or(`project_id.eq.${resolvedId},project_id.is.null`)
         .limit(30),
       supabase
         .from("imphq_skills")
-        .select("id, name, slug, category, description, system_prompt")
-        .eq("is_active", true)
+        .select("id, name:nome, slug, category:categoria, description:descricao, system_prompt")
+        .in("status", ["ativo", "Ativo", "Ativa"])
         .limit(30),
       supabase
         .from("imphq_project_sites")
-        .select("project_id, role, is_primary, site:imphq_sites(id, name, url, thumbnail_url, category, page_type, funnel_stage, status, project_slug)")
-        .eq("project_id", resolvedId),
+        .select("papel, site:imphq_sites(*)")
+        .eq("projeto_id", resolvedId)
+        .returns<ProjectSiteLinkRow[]>(),
     ]);
 
-    const rawData = (projectRow.data && typeof projectRow.data === "object" ? projectRow.data : {}) as Record<string, any>;
-    const topAvatar = (projectRow.avatar && typeof projectRow.avatar === "object" ? projectRow.avatar : {}) as Record<string, any>;
-    const nestedAvatar = (rawData.avatar && typeof rawData.avatar === "object" ? rawData.avatar : {}) as Record<string, any>;
+    const rawData = (projectRow.data && typeof projectRow.data === "object" ? projectRow.data : {}) as Record<string, unknown>;
+    const topAvatar = (projectRow.avatar && typeof projectRow.avatar === "object" ? projectRow.avatar : {}) as Record<string, unknown>;
+    const nestedAvatar = (rawData.avatar && typeof rawData.avatar === "object" ? rawData.avatar : {}) as Record<string, unknown>;
     const avatar = { ...nestedAvatar, ...topAvatar };
 
     const avatarName = String(
@@ -198,17 +209,18 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
 
     const rawObjections = Array.isArray(avatar.objecoes) ? avatar.objecoes : [];
     const objections = rawObjections
-      .map((o: any) => {
+      .map((o: unknown) => {
         if (typeof o === "string") return { objecao: o };
         if (o && typeof o === "object") {
+          const obj = asRecord(o);
           return {
-            objecao: String(o.objecao || o.pergunta || o.mito || ""),
-            resposta: o.resposta || o.quebra ? String(o.resposta || o.quebra) : undefined,
+            objecao: String(obj.objecao || obj.pergunta || obj.mito || ""),
+            resposta: obj.resposta || obj.quebra ? String(obj.resposta || obj.quebra) : undefined,
           };
         }
         return null;
       })
-      .filter((o): o is { objecao: string; resposta?: string } => Boolean(o && o.objecao));
+      .filter((o: { objecao: string; resposta?: string } | null): o is { objecao: string; resposta?: string } => Boolean(o && o.objecao));
 
     const avatarNativeHooks = [
       ...asStringArray(avatar.ganchos),
@@ -224,7 +236,7 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
     // Mechanism & Offer extraction
     const mecObj =
       rawData.mecanismo_unico && typeof rawData.mecanismo_unico === "object"
-        ? (rawData.mecanismo_unico as Record<string, any>)
+        ? (rawData.mecanismo_unico as Record<string, unknown>)
         : {};
 
     const mechanismName = String(
@@ -271,11 +283,14 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
       ? rawData.esteira
       : [];
     const products = rawProds
-      .map((p: any) => ({
-        name: String(p?.nome || p?.name || p?.titulo || projectRow.name),
-        price: p?.preco || p?.price || p?.ticket ? String(p.preco || p.price || p.ticket) : undefined,
-        role: p?.tipo || p?.role || p?.etapa ? String(p.tipo || p.role || p.etapa) : undefined,
-      }))
+      .map((raw: unknown) => {
+        const p = asRecord(raw);
+        return {
+          name: String(p.nome || p.name || p.titulo || projectRow.name),
+          price: p.preco || p.price || p.ticket ? String(p.preco || p.price || p.ticket) : undefined,
+          role: p.tipo || p.role || p.etapa ? String(p.tipo || p.role || p.etapa) : undefined,
+        };
+      })
       .slice(0, 6);
 
     const offerSummary =
@@ -284,7 +299,7 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
         : String(rawData.oferta || `${projectRow.name} — Oferta Direta`);
 
     // Filter & rank docs (project-specific first, then copywriting/avatar/hooks docs)
-    const allDocs = (docsRes.data || []) as Array<Record<string, any>>;
+    const allDocs = (docsRes.data || []) as Array<Record<string, unknown>>;
     const projectNameLower = String(projectRow.name || "").toLowerCase();
     const projectIdLower = resolvedId.toLowerCase();
 
@@ -318,7 +333,7 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
     }));
 
     // Rank skills (prioritize copy/hook/avatar/mechanism skills)
-    const allSkills = (skillsRes.data || []) as Array<Record<string, any>>;
+    const allSkills = (skillsRes.data || []) as Array<Record<string, unknown>>;
     const sortedSkills = [...allSkills]
       .sort((a, b) => {
         const idxA = PRIORITY_SKILL_SLUGS.indexOf(String(a.slug));
@@ -340,22 +355,23 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
 
     // Sites & Visual Thumbnails
     const linkedSites: SiteThumbnailItem[] = [];
-    for (const row of (linksRes.data || []) as any[]) {
+    for (const row of linksRes.data || []) {
       if (row.site && row.site.url) {
         linkedSites.push({
           ...row.site,
-          role: row.role,
+          role: row.papel,
         });
       }
     }
 
     // Fallback virtual sites from project.data if needed
+    const rawLinks = asRecord(rawData.links);
     const vslUrl =
       (typeof rawData.vsl_url === "string" && rawData.vsl_url) ||
-      (rawData.links && typeof rawData.links === "object" && (rawData.links.vsl || rawData.links.pagina_vendas || rawData.links.landing_page));
+      rawLinks.vsl || rawLinks.pagina_vendas || rawLinks.landing_page;
     const checkoutUrl =
       (typeof rawData.checkout_url === "string" && rawData.checkout_url) ||
-      (rawData.links && typeof rawData.links === "object" && rawData.links.checkout);
+      rawLinks.checkout;
 
     if (typeof vslUrl === "string" && vslUrl.startsWith("http") && !linkedSites.some((s) => s.url === vslUrl)) {
       linkedSites.push(createVirtualSiteFromUrl(vslUrl, `${projectRow.name} — VSL / LP`, "vsl"));
@@ -447,7 +463,7 @@ export async function loadProjectIntelligence(projectId?: string | null): Promis
     return {
       projectId: resolvedId,
       projectName: String(projectRow.name || resolvedId),
-      projectIcon: normalizeProjectIcon(projectRow.icon),
+      projectIcon: normalizeProjectIcon(typeof projectRow.icon === "string" ? projectRow.icon : null),
       projectCategory: String(projectRow.category || "Funil Direto"),
       projectDescription: String(projectRow.description || ""),
       avatarName,

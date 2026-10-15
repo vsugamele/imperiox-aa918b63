@@ -3,6 +3,9 @@ import type { Site } from "./SiteCard";
 import { jsonFields } from "@/lib/json-fields";
 import { Globe, Video, Newspaper, ShoppingBag, Layout, CheckCircle, FileText, Lock, Sparkles, RefreshCw } from "lucide-react";
 
+/** Site exibível na miniatura, com o papel opcional que ele cumpre no projeto. */
+export type SiteThumbnailItem = Site & { role?: string | null };
+
 interface SiteThumbnailProps {
   site: Site;
   className?: string;

@@ -314,11 +314,11 @@ export default function HookLabs() {
                   <div
                     key={site.id || site.url}
                     className="w-28 rounded-lg overflow-hidden border border-border/70 bg-background/60 shrink-0"
-                    title={`${site.name} (${site.url})`}
+                    title={`${site.titulo} (${site.url})`}
                   >
-                    <SiteThumbnail site={site} aspectClassName="aspect-[16/9]" showUrlBar={false} />
+                    <SiteThumbnail site={site} aspect="aspect-[16/9]" showBrowserBar={false} />
                     <div className="px-1.5 py-0.5 text-[9px] font-medium truncate text-muted-foreground">
-                      {site.name}
+                      {site.titulo}
                     </div>
                   </div>
                 ))}

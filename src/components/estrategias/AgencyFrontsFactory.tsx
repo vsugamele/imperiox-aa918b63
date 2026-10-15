@@ -624,29 +624,34 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-");
 
-      const siteId = `site_front_${slug}_${Date.now().toString(36)}`;
-      const siteUrl = intel?.sites[0]?.url || `https://blueprint.imperio.hq/${slug}`;
+      // URL única por blueprint: imphq_sites tem UNIQUE (user_id, url) e não deve sobrescrever a página real do projeto
+      const siteUrl = `https://blueprint.imperio.hq/${slug}-${Date.now().toString(36)}`;
+      const tipo = pageTypeMap[selectedFront.id] ?? "vsl";
 
-      const { error } = await supabase.from("imphq_sites").upsert({
-        id: siteId,
-        name: `[${selectedFront.shortTag}] ${productName} — ${mechanismName.slice(0, 32)}`,
-        url: siteUrl,
-        category: "nossos",
-        page_type: pageTypeMap[selectedFront.id] ?? "vsl",
-        funnel_stage: selectedFront.id === "x1_closer" ? "retencao" : "conversao",
-        status: "ativo",
-        project_slug: activeProjectId || slug,
-        notes: fullText,
-      });
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Usuário não autenticado");
+
+      const { data: savedSite, error } = await supabase
+        .from("imphq_sites")
+        .insert({
+          user_id: userData.user.id,
+          titulo: `[${selectedFront.shortTag}] ${productName} — ${mechanismName.slice(0, 32)}`,
+          url: siteUrl,
+          tipo,
+          status: "ativo",
+          tags: ["nossos", tipo, selectedFront.id === "x1_closer" ? "retencao" : "conversao"],
+          content_md: fullText,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
 
       if (activeProjectId) {
-        await supabase.from("imphq_project_sites").upsert({
-          id: `ps_${activeProjectId}_${siteId}`,
-          project_id: activeProjectId,
-          site_id: siteId,
-          role: pageTypeMap[selectedFront.id] ?? "vsl",
-          is_primary: false,
+        await supabase.from("imphq_project_sites").insert({
+          user_id: userData.user.id,
+          projeto_id: activeProjectId,
+          site_id: savedSite.id,
+          papel: tipo,
         });
       }
 
@@ -729,11 +734,11 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
                 <div
                   key={site.id || site.url}
                   className="w-28 rounded-lg overflow-hidden border border-border/70 bg-background/60 shrink-0"
-                  title={`${site.name} (${site.url})`}
+                  title={`${site.titulo} (${site.url})`}
                 >
-                  <SiteThumbnail site={site} aspectClassName="aspect-[16/9]" showUrlBar={false} />
+                  <SiteThumbnail site={site} aspect="aspect-[16/9]" showBrowserBar={false} />
                   <div className="px-1.5 py-0.5 text-[9px] font-medium truncate text-muted-foreground">
-                    {site.name}
+                    {site.titulo}
                   </div>
                 </div>
               ))}
