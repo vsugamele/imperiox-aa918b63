@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { extractLeadComplaints, type LeadSignalInput } from "@/lib/agency-radar";
-import { loadProjectIntelligence, type ProjectIntelligenceBundle } from "@/lib/project-intelligence";
+import {
+  loadProjectIntelligence,
+  promoteWinnerToProjectControl,
+  type ProjectIntelligenceBundle,
+} from "@/lib/project-intelligence";
 import { normalizeProjectIcon, SiteThumbnail } from "@/components/sites/SiteThumbnail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +20,7 @@ import {
   CheckCircle2,
   Copy,
   Cpu,
+  Eye,
   FileCode2,
   FileText,
   Flame,
@@ -23,10 +28,13 @@ import {
   Layers,
   Loader2,
   MessageCircle,
+  Monitor,
   Radio,
   Rocket,
   ShoppingBag,
+  Smartphone,
   Sparkles,
+  Trophy,
   UserCheck,
   Users,
   Wand2,
@@ -386,6 +394,9 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   const [aiCustomOutput, setAiCustomOutput] = useState<string | null>(null);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
+  const [promotingWinner, setPromotingWinner] = useState(false);
+  const [outputViewMode, setOutputViewMode] = useState<"copy" | "page">("copy");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
   // 1. Load project list & WhatsApp signals on mount
   useEffect(() => {
@@ -513,6 +524,122 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
     ].join("\n\n");
   }, [aiCustomOutput, selectedFront, productName, projectName, avatarPain, mechanismName, offerDetails, selectedComplaint, sections, intel]);
 
+  const livePageHtml = useMemo(() => {
+    const esc = (str: string) =>
+      String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const specialHeroVisual =
+      selectedFront.id === "pdp_dtc"
+        ? `<div class="kits-grid">
+            <div class="kit-card">
+              <span class="kit-badge">Experimentação · 30 Dias</span>
+              <h3>1 Unidade · ${esc(productName)}</h3>
+              <p class="kit-price">R$ 197 <span>à vista ou 12x R$ 19,78</span></p>
+              <a href="#checkout" class="cta-btn secondary">Escolher 1 Pote</a>
+            </div>
+            <div class="kit-card featured">
+              <span class="kit-badge gold">🔥 MAIS ESCOLHIDO · 90 Dias</span>
+              <h3>Kit 3 Unidades · ${esc(productName)}</h3>
+              <p class="kit-price">${esc(offerDetails)}</p>
+              <p class="kit-sub">Protocolo completo de ativação do ${esc(mechanismName)} + Frete Grátis</p>
+              <a href="#checkout" class="cta-btn">QUERO O KIT DE 3 POTES →</a>
+            </div>
+            <div class="kit-card">
+              <span class="kit-badge">Máximo Resultado · 150 Dias</span>
+              <h3>Kit 5 Unidades · ${esc(productName)}</h3>
+              <p class="kit-price">Maior Desconto + Frete VIP</p>
+              <a href="#checkout" class="cta-btn secondary">Escolher 5 Potes</a>
+            </div>
+          </div>`
+        : selectedFront.id === "advertorial"
+        ? `<div class="editorial-bar">
+            <span>PORTAL SAÚDE &amp; CIÊNCIA INVESTIGATIVA</span>
+            <span>Leitura: 3 min · Atualizado Hoje</span>
+          </div>`
+        : selectedFront.id === "captura_quiz"
+        ? `<div class="quiz-box">
+            <div class="quiz-progress"><div class="quiz-fill"></div></div>
+            <p class="quiz-q">Pergunta 1 de 4: Em qual momento você mais sente <strong>${esc(avatarPain)}</strong>?</p>
+            <div class="quiz-opts">
+              <button type="button" class="quiz-opt">1. Logo ao acordar / durante a manhã</button>
+              <button type="button" class="quiz-opt">2. No final da tarde e à noite</button>
+              <button type="button" class="quiz-opt">3. O dia inteiro, mesmo tentando controlar</button>
+            </div>
+          </div>`
+        : `<div class="vsl-player">
+            <div class="play-circle">▶</div>
+            <p class="vsl-caption">🔊 Apresentação Oficial: Como o <strong>${esc(mechanismName)}</strong> atua na causa-raiz de ${esc(avatarPain)}</p>
+          </div>`;
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${esc(productName)} — ${esc(selectedFront.label)}</title>
+  <style>
+    :root { --bg: #090b10; --card: #121622; --accent: #10b981; --gold: #f59e0b; --text: #f3f4f6; --muted: #9ca3af; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: radial-gradient(circle at top, #151b2d 0%, var(--bg) 60%); color: var(--text); line-height: 1.65; padding: 28px 16px 48px; }
+    .container { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+    .editorial-bar { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+    .hero { text-align: center; padding: 12px 8px; }
+    .kicker { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--gold); background: rgba(245,158,11,0.14); border: 1px solid rgba(245,158,11,0.35); padding: 5px 12px; border-radius: 999px; margin-bottom: 12px; }
+    h1 { font-size: clamp(22px, 3.8vw, 34px); line-height: 1.22; color: #fff; font-weight: 800; margin-bottom: 10px; }
+    .meta { font-size: 14px; color: var(--muted); max-width: 660px; margin: 0 auto; }
+    .vsl-player { background: linear-gradient(145deg, #0f131f, #1a2136); border: 1px solid rgba(245,158,11,0.35); border-radius: 18px; min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.45); }
+    .play-circle { width: 64px; height: 64px; border-radius: 999px; background: var(--gold); color: #090b10; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; margin-bottom: 14px; box-shadow: 0 0 30px rgba(245,158,11,0.5); }
+    .vsl-caption { font-size: 13px; color: #e5e7eb; max-width: 520px; }
+    .kits-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+    .kit-card { background: var(--card); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+    .kit-card.featured { border: 2px solid var(--gold); background: linear-gradient(180deg, rgba(245,158,11,0.12), var(--card)); transform: translateY(-2px); }
+    .kit-badge { font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+    .kit-badge.gold { color: var(--gold); }
+    .kit-price { font-size: 15px; font-weight: 800; color: #fff; }
+    .kit-sub { font-size: 12px; color: var(--muted); }
+    .quiz-box { background: var(--card); border: 1px solid rgba(16,185,129,0.35); border-radius: 16px; padding: 22px; }
+    .quiz-progress { height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; margin-bottom: 14px; overflow: hidden; }
+    .quiz-fill { width: 35%; height: 100%; background: var(--accent); }
+    .quiz-q { font-size: 15px; margin-bottom: 14px; color: #fff; }
+    .quiz-opts { display: flex; flex-direction: column; gap: 8px; }
+    .quiz-opt { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 12px 14px; border-radius: 10px; text-align: left; font-size: 13px; cursor: pointer; }
+    .section { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 22px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
+    .section-title { font-size: 15px; font-weight: 700; color: var(--accent); }
+    .section-tag { font-size: 11px; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px; color: var(--muted); }
+    .section-body { white-space: pre-line; font-size: 14px; color: #e5e7eb; }
+    .cta-btn { display: block; width: 100%; text-align: center; background: var(--accent); color: #04130d; font-weight: 800; font-size: 15px; padding: 15px 22px; border-radius: 12px; text-decoration: none; margin-top: 6px; box-shadow: 0 10px 25px rgba(16,185,129,0.25); }
+    .cta-btn.secondary { background: rgba(255,255,255,0.08); color: #fff; box-shadow: none; font-size: 13px; padding: 11px 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <span class="kicker">${esc(selectedFront.shortTag)} · ${esc(projectName)}</span>
+      <h1>${esc(productName)}: O Protocolo com ${esc(mechanismName)} contra ${esc(avatarPain)}</h1>
+      <p class="meta">Condição Especial Ativa: ${esc(offerDetails)}</p>
+    </header>
+    ${specialHeroVisual}
+    ${sections
+      .map(
+        (s) => `<section class="section">
+      <div class="section-header">
+        <span class="section-title">${esc(s.title)}</span>
+        <span class="section-tag">${esc(s.tag)}</span>
+      </div>
+      <div class="section-body">${esc(s.body)}</div>
+    </section>`
+      )
+      .join("\n")}
+    <a href="#checkout" class="cta-btn">GARANTIR ${esc(productName.toUpperCase())} COM GARANTIA BLINDADA DE 30 DIAS →</a>
+  </div>
+</body>
+</html>`;
+  }, [selectedFront, productName, projectName, mechanismName, avatarPain, offerDetails, sections]);
+
   const handleRefineWithAi = async () => {
     setGeneratingAi(true);
     try {
@@ -550,51 +677,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   };
 
   const handleDownloadHtml = () => {
-    const htmlDoc = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${productName} — ${selectedFront.label}</title>
-  <style>
-    :root { --bg: #0b0d12; --card: #131722; --accent: #10b981; --gold: #f59e0b; --text: #f3f4f6; --muted: #9ca3af; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; padding: 32px 16px; }
-    .container { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
-    .kicker { display: inline-block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--gold); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); padding: 4px 10px; border-radius: 999px; margin-bottom: 8px; }
-    h1 { font-size: clamp(24px, 4vw, 36px); line-height: 1.2; color: #fff; }
-    .meta { font-size: 14px; color: var(--muted); }
-    .section { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; }
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
-    .section-title { font-size: 16px; font-weight: 700; color: var(--accent); }
-    .section-tag { font-size: 11px; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px; color: var(--muted); }
-    .section-body { white-space: pre-line; font-size: 15px; color: #e5e7eb; }
-    .cta-btn { display: block; width: 100%; text-align: center; background: var(--accent); color: #04130d; font-weight: 800; font-size: 16px; padding: 16px 24px; border-radius: 12px; text-decoration: none; margin-top: 8px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <span class="kicker">${selectedFront.shortTag} · ${projectName}</span>
-      <h1>${productName} — ${mechanismName}</h1>
-      <p class="meta">Oferta ativa: ${offerDetails}</p>
-    </header>
-    ${sections
-      .map(
-        (s) => `<section class="section">
-      <div class="section-header">
-        <span class="section-title">${s.title}</span>
-        <span class="section-tag">${s.tag}</span>
-      </div>
-      <div class="section-body">${s.body.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-    </section>`
-      )
-      .join("\n")}
-    <a href="#checkout" class="cta-btn">GARANTIR ${productName.toUpperCase()} COM GARANTIA DE 30 DIAS →</a>
-  </div>
-</body>
-</html>`;
-    const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
+    const blob = new Blob([livePageHtml], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -604,6 +687,28 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success("Página HTML pronta baixada!");
+  };
+
+  const handlePromoteFrontAsControl = async () => {
+    setPromotingWinner(true);
+    try {
+      const res = await promoteWinnerToProjectControl({
+        projectId: activeProjectId,
+        projectName,
+        kind: "pagina",
+        title: `${selectedFront.shortTag} · ${productName} (${mechanismName})`,
+        angle: avatarPain,
+        format: selectedFront.label,
+        content: fullText,
+      });
+      if (res.ok) {
+        toast.success(`🏆 "${selectedFront.shortTag}" salvo como Controle Vencedor na memória do projeto!`);
+      } else {
+        toast.error("Não foi possível salvar no banco agora, mas a estrutura segue ativa.");
+      }
+    } finally {
+      setPromotingWinner(false);
+    }
   };
 
   const handleSaveToSites = async () => {
@@ -722,6 +827,11 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-300">
                 <Cpu className="h-3 w-3 mr-1" /> {intel.skills.length} Skills
               </Badge>
+              {intel.winningControls.length > 0 && (
+                <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-300">
+                  <Trophy className="h-3 w-3 mr-1" /> {intel.winningControls.length} Controle(s) Ativo(s)
+                </Badge>
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground">
               <strong>Inimigo:</strong> {intel.enemy} · <strong>Gatilho Nuclear:</strong> {intel.nuclearTrigger}
@@ -753,7 +863,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
               <Flame className="h-3.5 w-3.5" />
-              Motor da Frente · Contexto & Objeção Real
+              Motor da Frente · Contexto &amp; Objeção Real
             </h3>
             <Badge variant="outline" className="text-[10px]">
               {selectedFront.shortTag}
@@ -818,7 +928,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
           </div>
 
           <div className="space-y-1">
-            <Label className="text-[11px]">Oferta, Kits & Garantia</Label>
+            <Label className="text-[11px]">Oferta, Kits &amp; Garantia</Label>
             <Input
               value={offerDetails}
               onChange={(e) => setOfferDetails(e.target.value)}
@@ -867,7 +977,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
           </div>
         </div>
 
-        {/* Generated Blueprint & Copy Output */}
+        {/* Generated Blueprint, Live Visual HTML Page Preview & Copy Output */}
         <div className="lg:col-span-7 rounded-xl border border-border bg-card p-4 flex flex-col justify-between space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-border/60">
             <div>
@@ -881,6 +991,33 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
+              {/* Alternador Copy vs Preview Visual de Página */}
+              <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setOutputViewMode("copy")}
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    outputViewMode === "copy"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  📄 Copy &amp; Blocos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOutputViewMode("page")}
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                    outputViewMode === "page"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Eye className="h-3 w-3" />
+                  🖥️ Página Visual (HTML Live)
+                </button>
+              </div>
+
               <Button
                 size="sm"
                 variant="outline"
@@ -902,6 +1039,21 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               >
                 <Globe className="h-3.5 w-3.5 mr-1" />
                 Baixar HTML
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                onClick={handlePromoteFrontAsControl}
+                disabled={promotingWinner}
+                title="Salvar como Controle Vencedor na memória do projeto"
+              >
+                {promotingWinner ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Trophy className="h-3.5 w-3.5 mr-1 text-amber-400" />
+                )}
+                Marcar Vencedor
               </Button>
               <Button
                 size="sm"
@@ -945,7 +1097,55 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
             </div>
           </div>
 
-          {aiCustomOutput ? (
+          {outputViewMode === "page" ? (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-secondary/30 px-3 py-1.5">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-semibold text-foreground">
+                    Renderização Visual Real da Página ({selectedFront.shortTag})
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`rounded p-1 transition-colors ${
+                      previewDevice === "desktop" ? "bg-primary/20 text-primary" : "text-muted-foreground"
+                    }`}
+                    title="Desktop"
+                  >
+                    <Monitor className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`rounded p-1 transition-colors ${
+                      previewDevice === "mobile" ? "bg-primary/20 text-primary" : "text-muted-foreground"
+                    }`}
+                    title="Mobile"
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-[#090b10] p-3">
+                <div
+                  className={`mx-auto overflow-hidden rounded-lg border border-white/10 shadow-xl transition-all ${
+                    previewDevice === "mobile" ? "max-w-[375px]" : "w-full"
+                  }`}
+                >
+                  <iframe
+                    title={`Preview Visual — ${selectedFront.label}`}
+                    srcDoc={livePageHtml}
+                    className="h-[500px] w-full border-0 bg-[#090b10]"
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : aiCustomOutput ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Badge className="text-[10px]">Versão Expandida pela IA</Badge>

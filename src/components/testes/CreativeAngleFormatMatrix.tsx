@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TestOrder } from "@/hooks/useTestOrders";
 import { PORTAS, CARGAS, PORTA_PONTO, type Porta, type Carga } from "@shared/hw-taxonomy";
-import { loadProjectIntelligence, type ProjectIntelligenceBundle } from "@/lib/project-intelligence";
+import {
+  loadProjectIntelligence,
+  promoteWinnerToProjectControl,
+  type ProjectIntelligenceBundle,
+} from "@/lib/project-intelligence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -569,6 +573,30 @@ export function CreativeAngleFormatMatrix({
                 <Palette className="h-3.5 w-3.5 mr-1.5" />
               )}
               Gerar 1ª Arte IA (Zero-Shot)
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/10"
+              onClick={async () => {
+                const res = await promoteWinnerToProjectControl({
+                  projectId: projectId && projectId !== "all" ? projectId : intel?.projectId,
+                  projectName: intel?.projectName,
+                  kind: "criativo",
+                  title: `${activeCell.angle} × ${activeCell.format.shortLabel}`,
+                  angle: activeCell.angle,
+                  format: `${activeCell.format.fullLabel} (${PORTAS[selectedPorta]})`,
+                  content: `Ângulo: ${activeCell.angle}\nFormato: ${activeCell.format.fullLabel}\nJeito: ${activeCell.format.jeitoHint}\nPorta: ${PORTAS[selectedPorta]} — ${PORTA_EXAMPLES[selectedPorta]}\n1º Quadro: ${CARGAS[activeCell.format.defaultCarga]}`,
+                });
+                if (res.ok) {
+                  toast.success("🏆 Combinação Ângulo × Formato salva como Controle Vencedor do projeto!");
+                } else {
+                  toast.info("Combinação marcada como controle da sessão.");
+                }
+              }}
+            >
+              <Trophy className="h-3.5 w-3.5 mr-1.5 text-yellow-400" />
+              Marcar Controle
             </Button>
             <Button
               size="sm"

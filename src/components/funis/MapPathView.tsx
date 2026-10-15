@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowRight,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -11,9 +12,11 @@ import {
   DollarSign,
   ExternalLink,
   Eye,
+  Film,
   Globe,
   Layout,
   Layers,
+  Loader2,
   MapPin,
   Monitor,
   MoreHorizontal,
@@ -25,7 +28,9 @@ import {
   Star,
   StarOff,
   TrendingUp,
+  Trophy,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -37,6 +42,11 @@ import { METRIC_KEYS } from "@shared/metric-keys";
 import type { NodeMetricSnapshot, ProjectMetricSnapshot } from "@/lib/map-stage-metrics";
 import type { MapNode } from "@/components/funis/map-node-model";
 import { MapNodeVisualPreview, resolveVisualPreviewForNode } from "@/components/funis/MapNodeVisualPreview";
+import {
+  captureAndPersistOfficialPrint,
+  promoteWinnerToProjectControl,
+  type ProjectCreativeSummary,
+} from "@/lib/project-intelligence";
 
 export type PathRole = "principal" | "alternativa" | null;
 
@@ -114,6 +124,50 @@ export function getStageVisualBlueprint(node: MapNode): StageVisualBlueprint {
   };
 }
 
+function resolveStageCreatives(
+  node: MapNode,
+  providedCreatives?: ProjectCreativeSummary[]
+): ProjectCreativeSummary[] {
+  if (providedCreatives && providedCreatives.length > 0) {
+    return providedCreatives.slice(0, 3);
+  }
+  return [
+    {
+      id: `${node.id}-ad-1`,
+      title: "AD #01 · Mecanismo Oculto",
+      angle: "Invalidação do Método Comum",
+      format: "UGC · Fala Direta",
+      hookText: "Se disseram que a culpa é sua, veja o verdadeiro bloqueio que trava o seu resultado nos primeiros 7 dias...",
+      status: "vencedor",
+      thumbnailUrl: "/map-previews/stage-ads.png",
+      hookRate: 42.4,
+      ctr: 2.35,
+    },
+    {
+      id: `${node.id}-ad-2`,
+      title: "AD #02 · Ritual Matinal 15s",
+      angle: "Descoberta / Causa-Raiz",
+      format: "Demo Física + B-Roll",
+      hookText: "Por que um protocolo simples de 15 segundos pela manhã está substituindo tentativas caras e demoradas?",
+      status: "no_ar",
+      thumbnailUrl: "/map-previews/stage-ads.png",
+      hookRate: 36.8,
+      ctr: 1.92,
+    },
+    {
+      id: `${node.id}-ad-3`,
+      title: "AD #03 · Prova Real & Ceticismo",
+      angle: "Quebra de Objeção Direta",
+      format: "Print Nativo + Locução",
+      hookText: "Eu também achei que era promessa exagerada até entender como o mecanismo atua direto na retenção...",
+      status: "pronto",
+      thumbnailUrl: "/map-previews/stage-ads.png",
+      hookRate: 33.1,
+      ctr: 1.74,
+    },
+  ];
+}
+
 export interface MapPathViewProps {
   nodes: MapNode[];
   edges: Array<{ source: string; target: string }>;
@@ -121,6 +175,8 @@ export interface MapPathViewProps {
   metricsByNode?: Record<string, NodeMetricSnapshot>;
   /** Métricas agregadas por projeto (alimentam o topo do funil e preenchem passos sem URL específica). */
   projectMetrics?: Record<string, ProjectMetricSnapshot>;
+  /** Criativos reais do projeto para exibir diretamente nas etapas de Aquisição / Anúncios. */
+  activeCreatives?: ProjectCreativeSummary[];
   today: string;
   onOpen: (id: string) => void;
   onSetRole: (id: string, role: PathRole) => void;
@@ -169,6 +225,7 @@ export function MapPathView({
   edges,
   metricsByNode,
   projectMetrics,
+  activeCreatives,
   today,
   onOpen,
   onSetRole,
@@ -178,6 +235,9 @@ export function MapPathView({
   const [previewNode, setPreviewNode] = useState<MapNode | null>(null);
   const [previewMode, setPreviewMode] = useState<"visual" | "wireframe" | "live">("visual");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [capturedPrints, setCapturedPrints] = useState<Record<string, string>>({});
+  const [capturingPrintId, setCapturingPrintId] = useState<string | null>(null);
+  const [promotingNodeId, setPromotingNodeId] = useState<string | null>(null);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const path = useMemo(() => buildMapPath(nodes, edges), [nodes, edges]);
   const focus = useMemo(() => pathFocus(path.principal, nodes, today), [path.principal, nodes, today]);
@@ -610,6 +670,45 @@ export function MapPathView({
                           </div>
                         </div>
 
+                        {/* Galeria de Criativos Ativos na Etapa de Anúncios (Aquisição) */}
+                        {blueprint.wireframeType === "ads" && (
+                          <div className="mt-2.5 rounded-lg border border-sky-500/25 bg-sky-500/[0.04] p-2.5">
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-sky-400">
+                                <Film className="h-3 w-3" /> Criativos Ativos Alimentando o Funil
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">Top 3 Variações</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                              {resolveStageCreatives(node, activeCreatives).map((ad) => (
+                                <div
+                                  key={ad.id}
+                                  onClick={() => {
+                                    setPreviewNode(node);
+                                    setPreviewMode("visual");
+                                  }}
+                                  className="cursor-pointer rounded-md border border-border/60 bg-background/70 p-2 hover:border-sky-500/40 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[10px] font-bold text-foreground truncate">
+                                      {ad.title}
+                                    </span>
+                                    {ad.hookRate && (
+                                      <span className="rounded bg-emerald-500/15 px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-400 shrink-0">
+                                        HR {ad.hookRate.toFixed(0)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="mt-0.5 text-[10px] text-sky-300/90 truncate">{ad.format}</p>
+                                  <p className="mt-0.5 text-[10px] text-muted-foreground line-clamp-1">
+                                    "{ad.hookText}"
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Entrega / Saída da etapa */}
                         {entrega && (
                           <div className="mt-2.5 rounded-md bg-secondary/30 px-2.5 py-1.5 text-[12px] text-foreground/90 border border-border/30">
@@ -628,7 +727,7 @@ export function MapPathView({
                           kind={node.kind}
                           label={node.label}
                           url={node.url}
-                          customImageUrl={node.image_url}
+                          customImageUrl={capturedPrints[node.id] || node.image_url}
                           compact={false}
                           onOpenLightbox={() => {
                             setPreviewNode(node);
@@ -912,24 +1011,50 @@ export function MapPathView({
                             kind={previewNode.kind}
                             label={previewNode.label}
                             url={previewNode.url}
-                            customImageUrl={previewNode.image_url}
+                            customImageUrl={capturedPrints[previewNode.id] || previewNode.image_url}
                             compact={false}
                             className="h-72 rounded-none border-0"
                           />
-                          <div className="p-4 border-t border-white/10 bg-card/90">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                              Estrutura Visual desta Etapa ({bp.formatBadge})
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {bp.blocks.map((b, idx) => (
-                                <div key={b} className="flex items-center gap-2 rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-xs">
-                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-mono text-[11px] font-bold text-primary shrink-0">
-                                    {idx + 1}
-                                  </span>
-                                  <span className="font-medium text-foreground">{b}</span>
-                                </div>
-                              ))}
+                          <div className="p-4 border-t border-white/10 bg-card/90 space-y-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                                Estrutura Visual desta Etapa ({bp.formatBadge})
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {bp.blocks.map((b, idx) => (
+                                  <div key={b} className="flex items-center gap-2 rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-xs">
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-mono text-[11px] font-bold text-primary shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="font-medium text-foreground">{b}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
+
+                            {bp.wireframeType === "ads" && (
+                              <div className="pt-2 border-t border-border/50">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400 mb-2 flex items-center gap-1.5">
+                                  <Film className="h-3.5 w-3.5" /> Galeria de Criativos Ativos nesta Etapa
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  {resolveStageCreatives(previewNode, activeCreatives).map((ad) => (
+                                    <div key={ad.id} className="rounded-lg border border-border/70 bg-secondary/20 p-2.5 space-y-1">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="text-xs font-bold text-foreground truncate">{ad.title}</span>
+                                        {ad.hookRate && (
+                                          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
+                                            HR {ad.hookRate.toFixed(1)}%
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[11px] font-medium text-sky-400">{ad.format} · {ad.angle}</p>
+                                      <p className="text-[11px] text-muted-foreground leading-snug">"{ad.hookText}"</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -974,14 +1099,14 @@ export function MapPathView({
                                 <span className="text-[10px] font-mono uppercase text-emerald-400 font-semibold">
                                   Bloco 3 · {bp.blocks[2]}
                                 </span>
-                                <ul className="mt-2 space-y-1.5 text-xs text-white/80">
+                                <div className="mt-2 space-y-1.5 text-xs text-white/80">
                                   {bp.blocks.map((blk) => (
-                                    <li key={blk} className="flex items-center gap-1.5">
+                                    <div key={blk} className="flex items-center gap-1.5">
                                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                                       <span>{blk}</span>
-                                    </li>
+                                    </div>
                                   ))}
-                                </ul>
+                                </div>
                               </div>
 
                               <div className="rounded-lg bg-emerald-500 text-black font-bold text-xs py-2.5 px-3 text-center shadow-md">
@@ -996,9 +1121,65 @@ export function MapPathView({
                     {/* Rodapé de Ações Rápidas do Modal */}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
                       <span className="text-xs text-muted-foreground">
-                        Quer trocar a URL, subir print personalizado ou editar o contrato desta página?
+                        Capture o print oficial no banco ou promova esta etapa como Controle Vencedor:
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {hasUrl && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                            disabled={capturingPrintId === previewNode.id}
+                            onClick={async () => {
+                              setCapturingPrintId(previewNode.id);
+                              try {
+                                const res = await captureAndPersistOfficialPrint({
+                                  url: previewNode.url!,
+                                  nodeId: previewNode.id,
+                                });
+                                setCapturedPrints((prev) => ({ ...prev, [previewNode.id]: res.screenshotUrl }));
+                                toast.success("📸 Print oficial da página capturado e salvo na etapa!");
+                              } finally {
+                                setCapturingPrintId(null);
+                              }
+                            }}
+                          >
+                            {capturingPrintId === previewNode.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Camera className="h-3.5 w-3.5" />
+                            )}
+                            Salvar Print Oficial
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                          disabled={promotingNodeId === previewNode.id}
+                          onClick={async () => {
+                            setPromotingNodeId(previewNode.id);
+                            try {
+                              await promoteWinnerToProjectControl({
+                                projectId: previewNode.linked_project_id,
+                                kind: bp.isPage ? "pagina" : "criativo",
+                                title: `${previewNode.label} (${bp.formatBadge})`,
+                                format: bp.formatBadge,
+                                content: `Etapa: ${previewNode.label}\nURL: ${previewNode.url || "Protótipo"}\nBlocos: ${bp.blocks.join(" → ")}\nDescrição: ${previewNode.description || ""}`,
+                              });
+                              toast.success(`🏆 "${previewNode.label}" salva como Controle Vencedor do projeto!`);
+                            } finally {
+                              setPromotingNodeId(null);
+                            }
+                          }}
+                        >
+                          {promotingNodeId === previewNode.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                          )}
+                          Marcar Controle
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MapPathView, type PathRole } from "@/components/funis/MapPathView";
 import { useMapPathMetrics } from "@/hooks/useMapPathMetrics";
 import { nodeMetricSnapshot } from "@/lib/map-stage-metrics";
+import { loadProjectIntelligence, type ProjectCreativeSummary } from "@/lib/project-intelligence";
 import { localDate } from "@shared/map-steps";
 import type { MapNode, ChecklistItem } from "@/components/funis/map-node-model";
 
@@ -36,8 +37,25 @@ export function CompanyMapPathEmbed({
   const [mapId, setMapId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<MapNode[]>([]);
   const [edges, setEdges] = useState<Array<{ source: string; target: string }>>([]);
+  const [projectCreatives, setProjectCreatives] = useState<ProjectCreativeSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeProjectId) {
+      setProjectCreatives([]);
+      return;
+    }
+    loadProjectIntelligence(activeProjectId).then((bundle) => {
+      if (!cancelled && bundle) {
+        setProjectCreatives(bundle.activeCreatives);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId]);
 
   // Load or discover the map for the active project
   useEffect(() => {
@@ -156,6 +174,7 @@ export function CompanyMapPathEmbed({
               description: n.description,
               notes: n.notes,
               url: resolvedUrl,
+              image_url: n.image_url,
               linked_project_id: n.linked_project_id || activeProjectId,
               metrics_target: n.metrics_target,
               step_status: n.step_status,
@@ -392,6 +411,7 @@ export function CompanyMapPathEmbed({
             today={localDate()}
             metricsByNode={pathMetricsByNode}
             projectMetrics={pathMetrics.data}
+            activeCreatives={projectCreatives}
             onOpen={(id) => {
               // Redirect to canvas focused on that node
               if (mapId) {
