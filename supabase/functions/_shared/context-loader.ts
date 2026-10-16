@@ -70,11 +70,22 @@ export async function loadCopyContext(
       .select("nome,slug,categoria,descricao,system_prompt")
       .in("status", ["ativo", "Ativo", "Ativa"])
       .in("slug", [
-        "derick-escrever-anuncios",
-        "derick-mecanismo",
-        "derick-nome-chiclete",
-        "derick-escrita-vsl",
-        "derick-nsl-dtc",
+        "planejar-e-conduzir-pesquisa-vsl",
+        "encontrar-qualificar-campanhas",
+        "extrair-informacoes-vsl",
+        "extrair-informacoes-anuncios",
+        "pesquisar-organico-youtube",
+        "pesquisar-e-consolidar-avatar",
+        "escrever-anuncios",
+        "mecanismo",
+        "conceito-correlacao",
+        "nome-chiclete",
+        "briefing-vsl",
+        "escrita-marketing-thesis",
+        "escrita-vsl",
+        "revisao-vsl",
+        "escrever-native-ads",
+        "escrever-nsl",
         "metodo-hw",
         "dtc-control-khayat",
         "weaponized-credibility",
@@ -84,7 +95,7 @@ export async function loadCopyContext(
         "angulos-criativos",
         "mecanismo-unico",
       ])
-      .limit(10),
+      .limit(16),
     sb
       .from("imphq_rag_chunks")
       .select("project_id,source_type,source_id,content")
