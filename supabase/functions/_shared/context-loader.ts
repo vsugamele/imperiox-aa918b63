@@ -56,87 +56,130 @@ export async function loadCopyContext(
         : undefined;
   }
 
-  if (input.project_id) {
-    const [projRes, docsRes, skillsRes] = await Promise.all([
-      sb.from("imphq_projects").select("*").eq("id", input.project_id).maybeSingle(),
-      sb
-        .from("imphq_docs")
-        .select("id,title,category,content,body,project_id")
-        .or(`project_id.eq.${input.project_id},project_id.is.null`)
-        .limit(8),
-      sb
-        .from("imphq_skills")
-        .select("name,slug,category,description,system_prompt")
-        .eq("is_active", true)
-        .in("slug", [
-          "hook-arsenal",
-          "angulos-criativos",
-          "mecanismo-unico",
-          "dossie-problemas",
-          "mapeamento-desejos",
-          "vinicius_sugamele",
-          "weaponized-credibility",
-        ])
-        .limit(6),
-    ]);
+  const [projRes, docsRes, skillsRes, ragChunksRes, swipesRes] = await Promise.all([
+    input.project_id
+      ? sb.from("imphq_projects").select("*").eq("id", input.project_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    sb
+      .from("imphq_docs")
+      .select("id,title,cat,content,body,project_id")
+      .or(input.project_id ? `project_id.eq.${input.project_id},project_id.is.null` : "project_id.is.null")
+      .limit(12),
+    sb
+      .from("imphq_skills")
+      .select("nome,slug,categoria,descricao,system_prompt")
+      .in("status", ["ativo", "Ativo", "Ativa"])
+      .in("slug", [
+        "derick-escrever-anuncios",
+        "derick-mecanismo",
+        "derick-nome-chiclete",
+        "derick-escrita-vsl",
+        "derick-nsl-dtc",
+        "metodo-hw",
+        "dtc-control-khayat",
+        "weaponized-credibility",
+        "escrita-vinicius-sugamele",
+        "vinicius_sugamele",
+        "hook-arsenal",
+        "angulos-criativos",
+        "mecanismo-unico",
+      ])
+      .limit(10),
+    sb
+      .from("imphq_rag_chunks")
+      .select("project_id,source_type,source_id,content")
+      .or(input.project_id ? `project_id.eq.${input.project_id},project_id.is.null` : "project_id.is.null")
+      .limit(12),
+    sb
+      .from("imphq_swipes")
+      .select("title,formato,mecanismo,raw_text")
+      .order("rating", { ascending: false })
+      .limit(4),
+  ]);
 
-    const data = projRes.data;
-    if (data) {
-      out.project = data;
-      const d = record(data.data);
-      out.branding = data.brand_kit || d.branding || d.brand || null;
-      out.avatar = data.avatar || d.avatar || d.avatars_por_produto || null;
-      out.expert = d.expert || null;
-      if (input.product_slug && Array.isArray(d.produtos)) {
-        out.product =
-          d.produtos.find(
-            (p: unknown) => record(p).slug === input.product_slug || record(p).nome === input.product_slug
-          ) || null;
-      }
-      if (Array.isArray(d.produtos)) {
-        out.ofertas_block = formatOfertasAtivas(d.produtos, input.product_slug || null);
-      }
+  const data = projRes.data;
+  if (data) {
+    out.project = data;
+    const d = record(data.data);
+    out.branding = data.brand_kit || d.branding || d.brand || null;
+    out.avatar = data.avatar || d.avatar || d.avatars_por_produto || null;
+    out.expert = d.expert || null;
+    if (input.product_slug && Array.isArray(d.produtos)) {
+      out.product =
+        d.produtos.find(
+          (p: unknown) => record(p).slug === input.product_slug || record(p).nome === input.product_slug
+        ) || null;
     }
-
-    if (Array.isArray(docsRes.data) && docsRes.data.length > 0) {
-      out.docs_block = docsRes.data
-        .slice(0, 5)
-        .map((doc: Record<string, unknown>) => {
-          const text = String(doc.content || doc.body || "")
-            .replace(/\s+/g, " ")
-            .slice(0, 320);
-          return `- [${doc.category || "doc"}] ${doc.title}: ${text}`;
-        })
-        .join("\n");
-    }
-
-    if (Array.isArray(skillsRes.data) && skillsRes.data.length > 0) {
-      out.skills_block = skillsRes.data
-        .map((s: Record<string, unknown>) => {
-          const snippet = String(s.system_prompt || s.description || "")
-            .replace(/\s+/g, " ")
-            .slice(0, 260);
-          return `- ${s.name} (${s.slug}): ${snippet}`;
-        })
-        .join("\n");
+    if (Array.isArray(d.produtos)) {
+      out.ofertas_block = formatOfertasAtivas(d.produtos, input.product_slug || null);
     }
   }
 
-  if (!out.rag_snippets) {
-    const slug = (input.extra?.project_slug as string) || input.product_slug || input.project_id;
-    if (slug) {
-      const { data: kData } = await sb
-        .from("imphq_wa_knowledge")
-        .select("pergunta, resposta")
-        .eq("project_id", slug)
-        .order("score_uso", { ascending: false })
-        .limit(5);
-      if (kData && kData.length > 0) {
-        out.rag_snippets = kData
-          .map((k: { pergunta: string; resposta: string }) => `[Q]: ${k.pergunta}\n[A]: ${k.resposta}`)
-          .join("\n\n");
-      }
+  if (Array.isArray(docsRes.data) && docsRes.data.length > 0) {
+    out.docs_block = docsRes.data
+      .slice(0, 8)
+      .map((doc: Record<string, unknown>) => {
+        const text = String(doc.content || doc.body || "")
+          .replace(/\s+/g, " ")
+          .slice(0, 420);
+        return `- [${doc.cat || "doc"}] ${doc.title}: ${text}`;
+      })
+      .join("\n");
+  }
+
+  if (Array.isArray(skillsRes.data) && skillsRes.data.length > 0) {
+    out.skills_block = skillsRes.data
+      .map((s: Record<string, unknown>) => {
+        const snippet = String(s.system_prompt || s.descricao || "")
+          .replace(/\s+/g, " ")
+          .slice(0, 380);
+        return `- ${s.nome} (${s.slug}): ${snippet}`;
+      })
+      .join("\n");
+  }
+
+  const ragParts: string[] = [];
+  if (out.rag_snippets) ragParts.push(out.rag_snippets);
+
+  if (Array.isArray(ragChunksRes.data) && ragChunksRes.data.length > 0) {
+    ragParts.push(
+      ragChunksRes.data
+        .map((c: Record<string, unknown>) => `[RAG ${c.source_type || "acervo"} · ${c.source_id}]: ${c.content}`)
+        .join("\n\n")
+    );
+  }
+
+  if (Array.isArray(swipesRes.data) && swipesRes.data.length > 0) {
+    const swipeLines = swipesRes.data
+      .filter((sw: Record<string, unknown>) => sw.title || sw.raw_text)
+      .map(
+        (sw: Record<string, unknown>) =>
+          `[SWIPE VENCEDOR · ${sw.formato || "Ad/VSL"}]: ${sw.title} — ${String(sw.raw_text || sw.mecanismo || "").slice(0, 260)}`
+      );
+    if (swipeLines.length > 0) {
+      ragParts.push(swipeLines.join("\n"));
     }
+  }
+
+  const slug = (input.extra?.project_slug as string) || input.product_slug || input.project_id;
+  if (slug) {
+    const { data: kData } = await sb
+      .from("imphq_wa_knowledge")
+      .select("pergunta, resposta")
+      .eq("project_id", slug)
+      .order("score_uso", { ascending: false })
+      .limit(5);
+    if (kData && kData.length > 0) {
+      ragParts.push(
+        kData
+          .map((k: { pergunta: string; resposta: string }) => `[VOC/X1 Q]: ${k.pergunta}\n[A]: ${k.resposta}`)
+          .join("\n\n")
+      );
+    }
+  }
+
+  if (ragParts.length > 0) {
+    out.rag_snippets = ragParts.join("\n\n");
   }
 
   if (input.lead_id) {
@@ -155,9 +198,9 @@ export function contextToSystemAddendum(ctx: CopyContextOutput): string {
   if (ctx.avatar) parts.push(`AVATAR PSICOLÓGICO COMPLETO: ${JSON.stringify(ctx.avatar).slice(0, 2200)}`);
   if (ctx.expert) parts.push(`EXPERT: ${JSON.stringify(ctx.expert).slice(0, 400)}`);
   if (ctx.lead) parts.push(`LEAD: ${ctx.lead.nome || ctx.lead.email || ctx.lead.phone}`);
-  if (ctx.docs_block) parts.push(`\n=== DOCUMENTOS DO PROJETO (imphq_docs) ===\n${ctx.docs_block}\n=== FIM DOCUMENTOS ===`);
-  if (ctx.skills_block) parts.push(`\n=== SKILLS APLICADAS (imphq_skills) ===\n${ctx.skills_block}\n=== FIM SKILLS ===`);
-  if (ctx.rag_snippets) parts.push(`\n=== CONHECIMENTO RAG DO PRODUTO (ACERVO) ===\n${ctx.rag_snippets}\n=== FIM CONHECIMENTO RAG ===`);
+  if (ctx.docs_block) parts.push(`\n=== DOCUMENTOS E DOSSIÊS DO ACERVO (imphq_docs) ===\n${ctx.docs_block}\n=== FIM DOCUMENTOS ===`);
+  if (ctx.skills_block) parts.push(`\n=== SKILLS CANÔNICAS APLICADAS (imphq_skills) ===\n${ctx.skills_block}\n=== FIM SKILLS ===`);
+  if (ctx.rag_snippets) parts.push(`\n=== ACERVO RAG DE MARKETING, SWIPES & PRODUTO (imphq_rag_chunks + swipes + wa_knowledge) ===\n${ctx.rag_snippets}\n=== FIM ACERVO RAG ===`);
   const base = parts.length ? `\n\n=== CONTEXTO ===\n${parts.join("\n")}\n=== FIM CONTEXTO ===` : "";
   return `${base}${ctx.ofertas_block || ""}`;
 }

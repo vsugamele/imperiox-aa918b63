@@ -97,13 +97,21 @@ export interface ProjectIntelligenceBundle {
 }
 
 const PRIORITY_SKILL_SLUGS = [
+  "derick-escrever-anuncios",
+  "derick-mecanismo",
+  "derick-nome-chiclete",
+  "derick-escrita-vsl",
+  "derick-nsl-dtc",
+  "metodo-hw",
+  "dtc-control-khayat",
+  "weaponized-credibility",
+  "escrita-vinicius-sugamele",
   "hook-arsenal",
   "angulos-criativos",
   "mecanismo-unico",
   "dossie-problemas",
   "mapeamento-desejos",
   "vinicius_sugamele",
-  "weaponized-credibility",
   "avatar-architect",
 ];
 
