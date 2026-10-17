@@ -1,9 +1,11 @@
 import type { Tables } from "@/integrations/supabase/types";
 import { useEffect, useState, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Upload, FlaskConical, Wand2, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Upload, FlaskConical, Wand2, ShieldCheck, Layers, Zap, Copy, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SwipeImportDialog } from "@/components/swipe/SwipeImportDialog";
@@ -11,6 +13,7 @@ import { SwipeDetail } from "@/components/swipe/SwipeDetail";
 import { SwipeMotorDialog } from "@/components/swipe/SwipeMotorDialog";
 import { SwipeIndexSidebar } from "@/components/swipe/SwipeIndexSidebar";
 import { SwipeRoteiroCard } from "@/components/swipe/SwipeRoteiroCard";
+import { dissecarSwipeDerick } from "@/lib/derick-engines";
 
 function getLabel(s: Pick<Tables<"imphq_swipes">,"title">, idx: number): string {
   const m = String(s.title || "").match(/ROTEIRO\s+([A-Z0-9]+)/i);
@@ -20,6 +23,7 @@ function getLabel(s: Pick<Tables<"imphq_swipes">,"title">, idx: number): string 
 }
 
 export default function Swipe() {
+  const navigate = useNavigate();
   const [swipes, setSwipes] = useState<Tables<"imphq_swipes">[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeChips, setActiveChips] = useState<Set<string>>(new Set());
@@ -31,6 +35,7 @@ export default function Swipe() {
   const [importOpen, setImportOpen] = useState(false);
   const [motorOpen, setMotorOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [dissectedSwipeId, setDissectedSwipeId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const patchSwipe = (id: string, patch: Partial<Tables<"imphq_swipes">>) =>
@@ -302,22 +307,142 @@ export default function Swipe() {
                 <p className="text-sm text-muted-foreground italic">Nenhum roteiro com esses filtros.</p>
               </Card>
             ) : (
-              filtered.map((s, i) => (
-                <SwipeRoteiroCard
-                  key={s.id}
-                  ref={(el) => {
-                    if (el) cardRefs.current.set(s.id, el);
-                    else cardRefs.current.delete(s.id);
-                  }}
-                  swipe={s}
-                  label={getLabel(s, i)}
-                  selected={bulkSelected.has(s.id)}
-                  onToggleSelect={() => toggleBulk(s.id)}
-                  onEdit={() => setSelected(s)}
-                  onDelete={() => deleteSwipe(s.id)}
-                  onChanged={(patch) => patchSwipe(s.id, patch)}
-                />
-              ))
+              filtered.map((s, i) => {
+                const isDissected = dissectedSwipeId === s.id;
+                const dissecacao = isDissected
+                  ? dissecarSwipeDerick(s.title || "Swipe", s.raw_text || "", s.mecanismo, s.nicho)
+                  : null;
+                return (
+                  <div key={s.id} className="space-y-2">
+                    <SwipeRoteiroCard
+                      ref={(el) => {
+                        if (el) cardRefs.current.set(s.id, el);
+                        else cardRefs.current.delete(s.id);
+                      }}
+                      swipe={s}
+                      label={getLabel(s, i)}
+                      selected={bulkSelected.has(s.id)}
+                      onToggleSelect={() => toggleBulk(s.id)}
+                      onEdit={() => setSelected(s)}
+                      onDelete={() => deleteSwipe(s.id)}
+                      onChanged={(patch) => patchSwipe(s.id, patch)}
+                    />
+
+                    {/* Barra de Ação Rápida Derick.AI (Skills 03/04 + Invisible Structure + Lote 50/50) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-secondary/40 border border-amber-500/20">
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-300">
+                          ⚡ Derick.AI Skills 03/04 + Invisible Structure
+                        </Badge>
+                        <span>Extração determinística de Variáveis Fixas (100%), Controle (≥60%) e Esqueleto em 5 Blocos</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant={isDissected ? "default" : "outline"}
+                          onClick={() => setDissectedSwipeId(isDissected ? null : s.id)}
+                          className="h-7 text-[11px] gap-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/15"
+                        >
+                          <Layers className="h-3 w-3" />
+                          {isDissected ? "Ocultar Dissecação Derick" : "Dissecar (Variáveis 100% / 60% + Estrutura Invisível)"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const d = dissecarSwipeDerick(s.title || "Swipe", s.raw_text || "", s.mecanismo, s.nicho);
+                            navigate("/copy-lab", {
+                              state: {
+                                initialIntent: "esteira_anuncios_derick_50_50",
+                                projectId: s.project_id || undefined,
+                                briefing: d.lote5050Briefing,
+                              },
+                            });
+                          }}
+                          className="h-7 text-[11px] gap-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                        >
+                          <Zap className="h-3 w-3" /> Gerar Lote 50% Pago + 50% Orgânico
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Painel Expandido da Dissecação Derick.AI */}
+                    {isDissected && dissecacao && (
+                      <Card className="p-4 bg-gradient-to-br from-amber-500/10 via-secondary/50 to-background border-amber-500/30 space-y-4">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px]">
+                              FICHA TÉCNICA SKILL 03/04 + INVISIBLE STRUCTURE
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px]">
+                              Mediana: {dissecacao.medicaoEscrita.mediana_palavras}w · Micro: {dissecacao.medicaoEscrita.pct_micro}% · Linhas: {dissecacao.medicaoEscrita.linhas}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[11px]"
+                              onClick={() => {
+                                navigator.clipboard.writeText(dissecacao.lote5050Briefing);
+                                toast.success("Briefing 50/50 copiado!");
+                              }}
+                            >
+                              <Copy className="h-3 w-3 mr-1" /> Copiar Briefing 50/50
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={() => setDissectedSwipeId(null)}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="p-3 rounded-lg bg-background/70 border border-border/70 space-y-1.5 text-xs">
+                            <p className="font-bold text-amber-300 uppercase text-[10px] tracking-wider">
+                              🔒 Variáveis Fixas (100% Obrigatórias no Nicho)
+                            </p>
+                            <p><strong>Promessa:</strong> {dissecacao.variaveisFixas100.promessaCentral}</p>
+                            <p><strong>Portador da Dor:</strong> {dissecacao.variaveisFixas100.portadorDaDor}</p>
+                            <p><strong>Inimigo/Crença:</strong> {dissecacao.variaveisFixas100.inimigoOuCrencaQuebrada}</p>
+                            <p><strong>Ponte Lei 54:</strong> {dissecacao.variaveisFixas100.ponteParaOferta}</p>
+                          </div>
+
+                          <div className="p-3 rounded-lg bg-background/70 border border-border/70 space-y-1.5 text-xs">
+                            <p className="font-bold text-cyan-300 uppercase text-[10px] tracking-wider">
+                              🎛️ Variáveis de Controle (≥60%) + Variável Orgânica (50/50)
+                            </p>
+                            <p><strong>Porta de Entrada:</strong> {dissecacao.variaveisControle60.portaDeEntrada}</p>
+                            <p><strong>Consciência:</strong> {dissecacao.variaveisControle60.nivelConsciencia}</p>
+                            <p><strong>Mecanismo Nomeado:</strong> {dissecacao.variaveisControle60.mecanismoNomeado}</p>
+                            <p className="text-emerald-300">
+                              <strong>🌱 Variável Orgânica p/ Teste 50/50:</strong> {dissecacao.variavelOrganica}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="font-bold text-foreground uppercase text-[10px] tracking-wider">
+                            🧬 Estrutura Invisível em 5 Blocos (`invisible-structure`)
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                            {dissecacao.estruturaInvisivel5Blocos.map((b, idx) => (
+                              <div key={idx} className="p-2.5 rounded bg-background/80 border border-border/60 space-y-1">
+                                <p className="text-[10px] font-bold text-amber-300">{b.bloco}</p>
+                                <p className="text-[10px] text-muted-foreground">{b.funcaoPsicologica}</p>
+                                <p className="text-[11px] text-foreground italic line-clamp-3">"{b.trechoExtraido}"</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

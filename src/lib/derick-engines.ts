@@ -11,6 +11,8 @@
  * 6. DERICK_FUNNEL_TEMPLATES               -> Templates Canônicos de Funil + Levas Semanais (project_routes.py)
  */
 
+import type { ProjectIntelligenceBundle } from "@/lib/project-intelligence";
+
 // ---------------------------------------------------------------------------
 // Utilitários de normalização e limpeza de rubricas (escrita_ads.py & conferir_congruencia.py)
 // ---------------------------------------------------------------------------
@@ -1121,3 +1123,932 @@ export const DERICK_IMPORTED_DOCS_SUMMARY = [
     highlight: "Arquitetura de ponto de tensão + retenção da solução na DM + sequência de 4 mensagens.",
   },
 ];
+
+// ============================================================================
+// 5. CATÁLOGO CANÔNICO DE 25 GANCHOS DERICK.AI (G1–G25 — NSL / VSL / ADS)
+// ============================================================================
+
+export interface DerickCanonicalHookG1G25 {
+  id: string;
+  code: string; // G1 .. G25
+  nome: string;
+  porta: "Porta 1 — Curiosidade & Segredo" | "Porta 2 — Identificação & Dor Visceral" | "Porta 3 — Descoberta Científica & Mecanismo";
+  objetivo: "Parar o scroll" | "Gerar clique" | "Aquecer o lead" | "Fechar a venda";
+  gatilho: string;
+  formula: string;
+  direcaoVisual: string;
+}
+
+export const DERICK_CANONICAL_G1_G25_HOOKS: DerickCanonicalHookG1G25[] = [
+  {
+    id: "g1",
+    code: "G1",
+    nome: "Contraste de Solução Comum vs. Causa Real",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Parar o scroll",
+    gatilho: "Quebra de Crença (MP)",
+    formula: "Por que cortar [SOLUÇÃO COMUM] quase nunca resolve [DOR] — e o que o [INIMIGO] faz nos bastidores todas as manhãs.",
+    direcaoVisual: "Split-screen: hábito comum com X vermelho vs. gesto simples matinal.",
+  },
+  {
+    id: "g2",
+    code: "G2",
+    nome: "Confissão de Bastidor / Especialista Dissidente",
+    porta: "Porta 3 — Descoberta Científica & Mecanismo",
+    objetivo: "Parar o scroll",
+    gatilho: "Autoridade Dissidente",
+    formula: "O motivo silencioso pelo qual 8 em cada 10 pessoas com [DOR] pioram quando tentam [ERRO PADRÃO] sem desarmar o [INIMIGO].",
+    direcaoVisual: "Close no rosto ou bancada clínica apontando para um detalhe ignorado.",
+  },
+  {
+    id: "g3",
+    code: "G3",
+    nome: "Cena Íntima das 6h30 (Espelho / Roupa / Rotina)",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Parar o scroll",
+    gatilho: "Identificação Visceral (VOC Lei 55)",
+    formula: "Se você acorda sentindo [DOR] antes mesmo das 9h da manhã, o problema nunca foi falta de esforço — é o [INIMIGO] travado.",
+    direcaoVisual: "POV no espelho ou ao vestir uma peça que marca/aperta logo cedo.",
+  },
+  {
+    id: "g4",
+    code: "G4",
+    nome: "Teste Caseiro de 5 Segundos",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Parar o scroll",
+    gatilho: "Auto-Diagnóstico Imediato",
+    formula: "Faça este teste de cinco segundos agora: se você nota [DOR], seu corpo está sinalizando [INIMIGO] — não falha sua.",
+    direcaoVisual: "Mão pressionando levemente a pele/tornozelo/rosto por 3 segundos.",
+  },
+  {
+    id: "g5",
+    code: "G5",
+    nome: "O Inimigo Oculto Nomeado (Lei 54 — Sem Entregar MS)",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Gerar clique",
+    gatilho: "Curiosidade Cega (Lei 54)",
+    formula: "Não é idade e nem genética: o verdadeiro culpado por trás de [DOR] atende pelo nome de [INIMIGO].",
+    direcaoVisual: "Animação ou esquema simples mostrando um bloqueio invisível.",
+  },
+  {
+    id: "g6",
+    code: "G6",
+    nome: "Paradoxo da Pessoa que Faz Tudo Certo",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Parar o scroll",
+    gatilho: "Absolvição de Culpa (MF)",
+    formula: "Você faz tudo certo durante a semana, mas continua travada em [DOR]? Veja por que isso acontece enquanto o [INIMIGO] continua ativo.",
+    direcaoVisual: "Prato saudável / treino na tela seguido de expressão de frustração real.",
+  },
+  {
+    id: "g7",
+    code: "G7",
+    nome: "Ritual de 15 Segundos Antes do Café",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Gerar clique",
+    gatilho: "Especificidade + Simplicidade",
+    formula: "O protocolo matinal de quinze segundos antes do café que destrava o [INIMIGO] e devolve [DESEJO] sem mudar sua rotina.",
+    direcaoVisual: "Conta-gotas ou colher medida caindo em água cristalina na luz da manhã.",
+  },
+  {
+    id: "g8",
+    code: "G8",
+    nome: "Ancestral / Geográfico (Okinawa / Vovó Mei / Tradição)",
+    porta: "Porta 3 — Descoberta Científica & Mecanismo",
+    objetivo: "Parar o scroll",
+    gatilho: "Contraste Cultural",
+    formula: "Por que mulheres dessa região quase não sofrem com [DOR] depois dos 40 — e o que elas fazem todo dia para ativar o [MECANISMO].",
+    direcaoVisual: "Contraste entre rotina ocidental acelerada e preparo tradicional calmo.",
+  },
+  {
+    id: "g9",
+    code: "G9",
+    nome: "Inversão do Vilão Popular",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Parar o scroll",
+    gatilho: "Contra-Intuitivo",
+    formula: "Pare de culpar sua força de vontade por [DOR]: quanto mais você força a barra sem [MECANISMO], mais o [INIMIGO] se defende.",
+    direcaoVisual: "Pessoa rasgando lista restritiva ou jogando fora protocolo punitivo.",
+  },
+  {
+    id: "g10",
+    code: "G10",
+    nome: "Pergunta Proibida ao Especialista",
+    porta: "Porta 3 — Descoberta Científica & Mecanismo",
+    objetivo: "Gerar clique",
+    gatilho: "Conspiração Branda",
+    formula: "A pergunta de trinta segundos sobre [INIMIGO] que quase nenhum consultório responde quando você reclama de [DOR].",
+    direcaoVisual: " Legenda estilo recorte editorial com grifo amarelo no termo-chave.",
+  },
+  {
+    id: "g11",
+    code: "G11",
+    nome: "Sinal Silencioso que Todo Mundo Ignora",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Parar o scroll",
+    gatilho: "Alerta Precoce",
+    formula: "Três sinais silenciosos de que [DOR] já virou um ciclo de [INIMIGO] (o segundo aparece todo fim de tarde).",
+    direcaoVisual: "Dedos contando 1, 2, 3 com cortes rápidos de 1 segundo.",
+  },
+  {
+    id: "g12",
+    code: "G12",
+    nome: "Metáfora Física Visual (Ralo / Esponja / Válvula)",
+    porta: "Porta 3 — Descoberta Científica & Mecanismo",
+    objetivo: "Aquecer o lead",
+    gatilho: "Tangibilização Física",
+    formula: "Tentar vencer [DOR] sem destravar o [INIMIGO] é como secar o chão com a torneira aberta — até você ligar o [MECANISMO].",
+    direcaoVisual: "Demonstração física com esponja encharcada ou funil destravando.",
+  },
+  {
+    id: "g13",
+    code: "G13",
+    nome: "Descoberta Acidental / Paciente Zero",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Aquecer o lead",
+    gatilho: "Storytelling de Origem",
+    formula: "Eu já tinha aceitado conviver com [DOR], até descobrir por acaso como o [MECANISMO] desarma o [INIMIGO] em poucos dias.",
+    direcaoVisual: "UGC intimista no carro ou cozinha falando em tom de segredo para uma amiga.",
+  },
+  {
+    id: "g14",
+    code: "G14",
+    nome: "Número Ímpar + Janela de Tempo Curta",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Gerar clique",
+    gatilho: "Especificidade Numérica (Bencivenga)",
+    formula: "Por que as primeiras 72 horas após ativar o [MECANISMO] mudam completamente a forma como seu corpo reage a [DOR].",
+    direcaoVisual: "Cronômetro ou calendário de 3 dias marcando a evolução.",
+  },
+  {
+    id: "g15",
+    code: "G15",
+    nome: "Comparação de Custo Invisível",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Fechar a venda",
+    gatilho: "Ancoragem de Perda",
+    formula: "Quanto você já gastou tentando mascarar [DOR] sem nunca tocar no [INIMIGO] que causa tudo isso?",
+    direcaoVisual: "Pilha de frascos/tentativas antigas sendo afastada da mesa.",
+  },
+  {
+    id: "g16",
+    code: "G16",
+    nome: "Micro-Demonstração de Textura / Absorção",
+    porta: "Porta 3 — Descoberta Científica & Mecanismo",
+    objetivo: "Parar o scroll",
+    gatilho: "Prova Sensorial (Khayat)",
+    formula: "É por isso que o formato do [MECANISMO] chega direto onde o [INIMIGO] se esconde — veja a diferença em segundos.",
+    direcaoVisual: "Macro shot de dissolução instantânea vs. cápsula/pó parado no fundo.",
+  },
+  {
+    id: "g17",
+    code: "G17",
+    nome: "Ceticismo Espelhado ('Eu Também Achava Que Era Balela')",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Aquecer o lead",
+    gatilho: "Desarme de Ceticismo",
+    formula: "Eu revirei os olhos quando ouvi falar de [MECANISMO] para [DOR] — até entender o papel do [INIMIGO].",
+    direcaoVisual: "Expressão cética inicial que muda para surpresa genuína no segundo 3.",
+  },
+  {
+    id: "g18",
+    code: "G18",
+    nome: "Erro Matinal nº 1",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Parar o scroll",
+    gatilho: "Interrupção de Hábito",
+    formula: "Se você faz isso nos primeiros vinte minutos depois de acordar, está alimentando o [INIMIGO] e piorando [DOR].",
+    direcaoVisual: "Mão prestes a repetir hábito matinal comum, travada com efeito sonoro.",
+  },
+  {
+    id: "g19",
+    code: "G19",
+    nome: "Contraste de Idade / Vitalidade",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Parar o scroll",
+    gatilho: "Inveja Benigna / Desejo Interno",
+    formula: "Aos 52 anos, sem [DOR] e com [DESEJO]: o que mudou quando parei de lutar contra os sintomas e ativei o [MECANISMO].",
+    direcaoVisual: "Transição de foto antiga cansada para vídeo atual cheio de leveza.",
+  },
+  {
+    id: "g20",
+    code: "G20",
+    nome: "O Efeito Dominó Positivo",
+    porta: "Porta 3 — Descoberta Científica & Mecanismo",
+    objetivo: "Aquecer o lead",
+    gatilho: "Lógica Causal (Premissa 2)",
+    formula: "Quando você desliga o [INIMIGO] com [MECANISMO], [DOR] cede primeiro — e [DESEJO] vem como consequência natural.",
+    direcaoVisual: "Peças de dominó caindo em sequência limpa até o resultado final.",
+  },
+  {
+    id: "g21",
+    code: "G21",
+    nome: "Recorte de Estudo / Dado Surpreendente (K23/K24)",
+    porta: "Porta 3 — Descoberta Científica & Mecanismo",
+    objetivo: "Aquecer o lead",
+    gatilho: "Prova Científica Curta",
+    formula: "Novos dados mostram que 79% dos casos persistentes de [DOR] têm uma coisa em comum: [INIMIGO] não tratado.",
+    direcaoVisual: "Gráfico minimalista escuro destacando a barra de 79% em dourado.",
+  },
+  {
+    id: "g22",
+    code: "G22",
+    nome: "Voz do Parceiro / Observador Próximo",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Parar o scroll",
+    gatilho: "Validação Externa",
+    formula: "'O que você fez que sumiu com [DOR]?' — foi a primeira coisa que me perguntaram dez dias depois de começar o [MECANISMO].",
+    direcaoVisual: "Reação espontânea em conversa cotidiana ou mensagem recebida no WhatsApp.",
+  },
+  {
+    id: "g23",
+    code: "G23",
+    nome: "Qualificação Reversa ('Não Use Se...')",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Gerar clique",
+    gatilho: "Exclusividade / Takeaway",
+    formula: "Não assista a este vídeo se você ainda acredita que [DOR] se resolve na força bruta sem corrigir o [INIMIGO].",
+    direcaoVisual: "Gesto de 'pare' com a mão aberta nos primeiros 1,5 segundos.",
+  },
+  {
+    id: "g24",
+    code: "G24",
+    nome: "Ponte Direta para o Ponto de Tensão (Comment-to-DM)",
+    porta: "Porta 1 — Curiosidade & Segredo",
+    objetivo: "Gerar clique",
+    gatilho: "Retenção + Ação Imediata",
+    formula: "Descobri como desligar o [INIMIGO] que trava [DOR] usando o [MECANISMO] — comente a palavra-chave que te mando o passo a passo.",
+    direcaoVisual: "Apontando para a caixa de comentários com badge flutuante da palavra-chave.",
+  },
+  {
+    id: "g25",
+    code: "G25",
+    nome: "Dois Caminhos / Urgência Fisiológica",
+    porta: "Porta 2 — Identificação & Dor Visceral",
+    objetivo: "Fechar a venda",
+    gatilho: "Custo da Inação (Close Samurai)",
+    formula: "Cada semana que o [INIMIGO] continua ativo aprofunda [DOR]. Veja como ativar o [MECANISMO] ainda hoje.",
+    direcaoVisual: "Divisão de tela: 'Mais 6 meses igual' vs. 'Primeiros 14 dias com o protocolo'.",
+  },
+];
+
+export function gerarGanchoG1G25(
+  hook: DerickCanonicalHookG1G25,
+  intel: ProjectIntelligenceBundle | null
+): {
+  textoPreenchido: string;
+  variacaoCurtaLei54: string;
+  medicao: MedicaoEscritaDerick;
+} {
+  const dor = intel?.deepPains[0] || "aquele sintoma diário que trava sua rotina";
+  const inimigo = intel?.enemy || "o bloqueio metabólico silencioso";
+  const mecanismo = intel?.mechanismName || "o protocolo de ativação celular";
+  const desejo = intel?.externalDesire || "recuperar sua leveza e disposição";
+
+  const textoPreenchido = hook.formula
+    .replace(/\[SOLUÇÃO COMUM\]/g, "cortar calorias e forçar treinos exaustivos")
+    .replace(/\[ERRO PADRÃO\]/g, "insistir em soluções superficiais")
+    .replace(/\[DOR\]/g, dor.toLowerCase())
+    .replace(/\[INIMIGO\]/g, inimigo)
+    .replace(/\[MECANISMO\]/g, mecanismo)
+    .replace(/\[DESEJO\]/g, desejo.toLowerCase());
+
+  // Variação Lei 54 (nomeia o Vilão/MP mas retém o MS para forçar o clique)
+  const variacaoCurtaLei54 = textoPreenchido
+    .replace(new RegExp(mecanismo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "este ajuste matinal de quinze segundos");
+
+  const medicao = medirEscritaDerick(`${textoPreenchido}\n${variacaoCurtaLei54}`, false);
+  return { textoPreenchido, variacaoCurtaLei54, medicao };
+}
+
+// ============================================================================
+// 6. DISSECADOR 1-CLIQUE DE SWIPES DERICK.AI (SKILLS 03/04 + INVISIBLE STRUCTURE)
+// ============================================================================
+
+export interface DissecacaoSwipeDerick {
+  variaveisFixas100: {
+    promessaCentral: string;
+    portadorDaDor: string;
+    inimigoOuCrencaQuebrada: string;
+    provaAncora: string;
+    ponteParaOferta: string;
+  };
+  variaveisControle60: {
+    portaDeEntrada: string;
+    nivelConsciencia: string;
+    mecanismoNomeado: string;
+    gatilhoDominante: string;
+  };
+  variavelOrganica: string;
+  estruturaInvisivel5Blocos: Array<{
+    bloco: string;
+    funcaoPsicologica: string;
+    trechoExtraido: string;
+  }>;
+  medicaoEscrita: MedicaoEscritaDerick;
+  lote5050Briefing: string;
+}
+
+export function dissecarSwipeDerick(
+  titulo: string,
+  rawText: string,
+  mecanismo?: string | null,
+  nicho?: string | null
+): DissecacaoSwipeDerick {
+  const texto = (rawText || titulo || "").trim();
+  const linhas = texto
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const l1 = linhas[0] || titulo || "Gancho de abertura não informado.";
+  const l2 = linhas[1] || linhas[0] || "Cena de identificação visceral com o sintoma diário.";
+  const lMeio = linhas[Math.floor(linhas.length / 2)] || l1;
+  const lFim = linhas[linhas.length - 1] || "Toque em Saiba Mais para ver a apresentação.";
+
+  const mec = mecanismo || "Mecanismo Único (MP → MS)";
+  const nic = nicho || "Saúde / Direct Response";
+
+  const medicaoEscrita = medirEscritaDerick(texto || l1, false);
+
+  const variaveisFixas100 = {
+    promessaCentral: `Destravar a causa-raiz em ${nic} sem depender dos métodos antigos que falharam.`,
+    portadorDaDor: `Avatar que sente na pele: "${l1.slice(0, 95)}${l1.length > 95 ? "..." : ""}"`,
+    inimigoOuCrencaQuebrada: `Descarta a culpa pessoal e aponta para o bloqueio oculto (${mec}).`,
+    provaAncora: `Demonstração sensorial + especificidade concreta extraída do corpo da copy.`,
+    ponteParaOferta: `Loop aberto de curiosidade (Lei 54) levando para o clique: "${lFim.slice(0, 85)}"`,
+  };
+
+  const variaveisControle60 = {
+    portaDeEntrada: texto.length > 900 ? "Porta 3 — Story / Mecanismo Longo" : "Porta 1 — Curiosidade Direta (0-3s)",
+    nivelConsciencia: "Consciente do Problema / Cético de Soluções Comuns (Schwartz Nível 2-3)",
+    mecanismoNomeado: mec,
+    gatilhoDominante: "Quebra de Crença + Absolvição de Culpa (MP → MF)",
+  };
+
+  const variavelOrganica =
+    "Cena nativa de 2,5 segundos antes da fala (gesto cotidiano no espelho/cozinha sem cara de anúncio comercial)";
+
+  const estruturaInvisivel5Blocos = [
+    {
+      bloco: "1. Gancho (0–3s) — Interrupção de Padrão",
+      funcaoPsicologica: "Capturar atenção imediata nomeando o sintoma ou o erro comum.",
+      trechoExtraido: l1.slice(0, 160),
+    },
+    {
+      bloco: "2. Identificação Visceral (VOC Lei 55)",
+      funcaoPsicologica: "Fazer o prospecto pensar 'essa pessoa está lendo minha mente'.",
+      trechoExtraido: l2.slice(0, 160),
+    },
+    {
+      bloco: "3. Quebra de Crença (MP + MF)",
+      funcaoPsicologica: "Absolver a culpa do avatar e instalar o Vilão Real (sem entregar o ouro).",
+      trechoExtraido: lMeio.slice(0, 160),
+    },
+    {
+      bloco: "4. Semente do Mecanismo da Solução (MS)",
+      funcaoPsicologica: "Mostrar que existe uma nova via fisiológica/estrutural inevitável.",
+      trechoExtraido: `Conexão com ${mec} atuando direto na causa-raiz.`,
+    },
+    {
+      bloco: "5. CTA de Curiosidade (Lei 54)",
+      funcaoPsicologica: "Vender o clique para a VSL/página sem revelar o passo a passo completo no anúncio.",
+      trechoExtraido: lFim.slice(0, 160),
+    },
+  ];
+
+  const lote5050Briefing = [
+    `# BRIEFING CANÔNICO SKILL 06 — LOTE 50% PAGO + 50% ORGÂNICO`,
+    `- **Swipe de Origem:** ${titulo}`,
+    `- **Nicho:** ${nic} | **Mecanismo:** ${mec}`,
+    `- **Variáveis Fixas (100% obrigatórias em todas as peças):**`,
+    `  1. Promessa: ${variaveisFixas100.promessaCentral}`,
+    `  2. Portador da Dor: ${variaveisFixas100.portadorDaDor}`,
+    `  3. Inimigo/Crença Quebrada: ${variaveisFixas100.inimigoOuCrencaQuebrada}`,
+    `- **Variáveis de Controle (≥60%):** ${variaveisControle60.portaDeEntrada} · ${variaveisControle60.mecanismoNomeado}`,
+    `- **Variável Orgânica Testada (nos 50% híbridos):** ${variavelOrganica}`,
+    `- **Trecho Base:**\n${texto.slice(0, 600)}`,
+  ].join("\n");
+
+  return {
+    variaveisFixas100,
+    variaveisControle60,
+    variavelOrganica,
+    estruturaInvisivel5Blocos,
+    medicaoEscrita,
+    lote5050Briefing,
+  };
+}
+
+// ============================================================================
+// 7. MOTOR 10 BLOCOS DO VSL LAB (DERICK.AI v2.0.0 + MÉTODO H&W + BENCIVENGA)
+// ============================================================================
+
+export function gerarBlocoVslDerick10(
+  toolId: string,
+  intel: ProjectIntelligenceBundle | null,
+  customNotes = ""
+): string {
+  const proj = intel?.projectName || "Projeto Ativo";
+  const avatar = intel?.avatarName || "Mulher 38–58 anos";
+  const dor1 = intel?.deepPains[0] || "inchaço e travamento matinal que piora ao longo do dia";
+  const dor2 = intel?.deepPains[1] || "frustração por fazer tudo certo e continuar estagnada";
+  const inimigo = intel?.enemy || "Travamento Valvular e Inflamação Silenciosa";
+  const mecanismo = intel?.mechanismName || "Protocolo de Desbloqueio Celular";
+  const desejoExt = intel?.externalDesire || "desinchar visivelmente e recuperar o controle do próprio corpo";
+  const desejoInt = intel?.internalDesire || "voltar a se olhar no espelho com orgulho e leveza";
+  const gatilho = intel?.nuclearTrigger || "Perceber que o problema nunca foi falta de disciplina, mas um bloqueio mecânico reversível.";
+
+  if (toolId === "raio_x") {
+    return [
+      `# 1. RAIO-X DO PÚBLICO & VOC (LEI 55 — DERICK.AI + ESCAVADOR DE DESEJOS)`,
+      `> **Projeto:** ${proj} · **Avatar Central:** ${avatar}`,
+      ``,
+      `## Camada 1 — Cena Cotidiana Visceral (Fala Literal do Público)`,
+      `- *"Eu acordo e já sinto ${dor1.toLowerCase()}. Parece que meu corpo está com o freio de mão puxado."*`,
+      `- *"O que mais dói é ${dor2.toLowerCase()} enquanto todo mundo acha que eu não me esforço."*`,
+      ``,
+      `## Camada 2 — Hierarquia de Desejos (8 Critérios)`,
+      `- **Desejo Externo (Visível):** ${desejoExt}`,
+      `- **Desejo Interno (Identidade):** ${desejoInt}`,
+      `- **Desejo Proibido (Não confessado):** Provar que todas as tentativas anteriores falharam por erro do método tradicional, e não por fraqueza pessoal.`,
+      ``,
+      `## Camada 3 — Mapa de Crenças Atuais vs. Crença Inevitável`,
+      `- **Crença Atual (A Quebrar):** "Preciso sofrer mais, cortar tudo ou aceitar que é da idade."`,
+      `- **Gatilho Nuclear:** ${gatilho}`,
+      `- **Inimigo Nomeado:** **${inimigo}**`,
+      customNotes ? `\n## Notas Específicas da Rodada\n${customNotes}` : "",
+    ].join("\n");
+  }
+
+  if (toolId === "mechanism_lab") {
+    return [
+      `# 2. TRÍADE DE MECANISMOS (MP / MF / MS) + NOME CHICLETE (SKILLS 07 E 09)`,
+      `> **Projeto:** ${proj} · **Mecanismo Central:** ${mecanismo}`,
+      ``,
+      `## 1. Mecanismo do Problema (MP — O Vilão Real)`,
+      `O verdadeiro motivo pelo qual **${avatar}** sofre com **${dor1.toLowerCase()}** não é falta de esforço. É o **${inimigo}**, um bloqueio progressivo que impede a resposta natural do organismo logo nas primeiras horas da manhã.`,
+      ``,
+      `## 2. Mecanismo da Falha (MF — Por Que Tudo Antes Falhou)`,
+      `As soluções tradicionais atuam apenas na superfície. Quando você força restrições severas sem desarmar o **${inimigo}**, o corpo entra em modo de defesa e retém ainda mais o problema.`,
+      ``,
+      `## 3. Mecanismo da Solução (MS — A Virada Fisiológica)`,
+      `O **${mecanismo}** atua diretamente na liberação do **${inimigo}**, reativando o fluxo natural em três estágios progressivos sem exigir rotinas punitivas.`,
+      ``,
+      `## 4. Opções de Batismo / Nome Chiclete (Skill 09)`,
+      `1. **${mecanismo}** *(Recomendado — alta autoridade e tangibilidade)*`,
+      `2. **Efeito Esponja Travada** *(Para o MP — visual e imediato)*`,
+      `3. **Destrave Matinal de 15 Segundos** *(Para o MS — simples e acionável)*`,
+      `4. **Ciclo de Drenagem Reversa** *(Contraste técnico)*`,
+      ``,
+      `## 5. One Belief (Crença Única da Campanha)`,
+      `*"Enquanto o **${inimigo}** estiver ativo, qualquer esforço comum enxuga gelo; quando você aciona o **${mecanismo}**, **${desejoExt.toLowerCase()}** passa a ser a resposta natural do corpo."*`,
+    ].join("\n");
+  }
+
+  if (toolId === "conceito_correlacao") {
+    return [
+      `# 3. CONCEITO & CORRELAÇÃO CRIATIVA (SKILL 08 DERICK.AI)`,
+      `> **Projeto:** ${proj} · **Par MP → MS:** ${inimigo} → ${mecanismo}`,
+      ``,
+      `## Direção 1 — Correlação Física Tangível (A Válvula / O Ralo Entupido)`,
+      `- **Imagem Mental:** Tentar resolver **${dor1.toLowerCase()}** com métodos comuns é como passar pano no banheiro enquanto o ralo continua travado.`,
+      `- **Por que converte:** Transforma um processo bioquímico invisível em uma cena doméstica impossível de ignorar nos primeiros 5 segundos.`,
+      ``,
+      `## Direção 2 — Correlação de Contraste Geográfico / Ritual Matinal`,
+      `- **Imagem Mental:** O hábito matinal de quinze segundos que mantém o **${inimigo}** desligado mesmo depois dos 45 anos.`,
+      `- **Por que converte:** Gera curiosidade imediata (Porta 1) e reduz a barreira de esforço percebido.`,
+      ``,
+      `## Direção 3 — Correlação de Absolvição ("O Freio de Mão Puxado")`,
+      `- **Imagem Mental:** Seu corpo não está quebrado; ele apenas está tentando rodar com o freio de mão do **${inimigo}** puxado.`,
+      `- **Por que converte:** Remove a culpa acumulada por **${dor2.toLowerCase()}** e abre espaço para a tese.`,
+    ].join("\n");
+  }
+
+  if (toolId === "briefing_vsl") {
+    return [
+      `# 4. BRIEFING VSL CONSOLIDADO v2.0.0 (SKILL 09B DERICK.AI)`,
+      `> **Projeto:** ${proj} · **Avatar:** ${avatar} · **Mecanismo:** ${mecanismo}`,
+      ``,
+      `## Mapa de 7 Blocos + Contratos de Congruência`,
+      `| Bloco | Função Principal | Regra Crítica (Skill 11 v1.3.0) |`,
+      `|---|---|---|`,
+      `| **1. Microlead (0–45s)** | Captura + Promessa + Qualificação | Zero revelação do MS (Lei 54) |`,
+      `| **2. Lead (10C)** | Unidades U1–U7 + Provas K23/K24/K25 | Mínimo 3 elementos de prova concretos |`,
+      `| **3. Storyline** | 7 Beats de identificação e descoberta | Espelhar dor literal (VOC Lei 55) |`,
+      `| **4. Marketing Thesis** | Premissa 1 (MP/MF) + Premissa 2 (MS) | Gradualização lógica sem salto |`,
+      `| **5. Product Build-Up** | Transição do MS para o veículo físico/digital | Justificar cada componente pelo MS |`,
+      `| **6. Big Offer (10D)** | Entregáveis + Ancoragem + Preço Real + 1º CTA | Preço exato congelado para o Close |`,
+      `| **7. Close Samurai (10E)** | Garantia + Bônus + Dois Caminhos + Q&A | R-CLOSE-01..06 (zero preço novo) |`,
+    ].join("\n");
+  }
+
+  if (toolId === "microlead_hw") {
+    return [
+      `# 5. MICROLEAD DE 7 ETAPAS (MÉTODO H&W — PRIMEIROS 45 SEGUNDOS)`,
+      ``,
+      `**[1. Gancho de Interrupção]**`,
+      `Se você sente ${dor1.toLowerCase()} logo ao acordar, pare tudo por trinta segundos.`,
+      ``,
+      `**[2. Descarte do Erro Comum]**`,
+      `Isso não tem nada a ver com falta de disciplina ou com a sua idade.`,
+      ``,
+      `**[3. Semente do Vilão (MP — Lei 54)]**`,
+      `Novas análises mostram que a verdadeira trava é um processo silencioso chamado ${inimigo}.`,
+      ``,
+      `**[4. Prova Rápida / Credibilidade]**`,
+      `Mais de quatro mil pessoas que sofriam com ${dor2.toLowerCase()} já comprovaram essa virada na prática.`,
+      ``,
+      `**[5. Promessa Tangível]**`,
+      `Nos próximos três minutos, você vai ver como um ajuste matinal de quinze segundos desarma essa trava em casa.`,
+      ``,
+      `**[6. Qualificação Direta]**`,
+      `Especialmente se você já tentou de tudo e sente que seu corpo simplesmente parou de responder.`,
+      ``,
+      `**[7. Comando de Retenção]**`,
+      `Pegue papel e caneta e assista até o final antes que esta apresentação saia do ar.`,
+    ].join("\n");
+  }
+
+  if (toolId === "lead_creator") {
+    return [
+      `=== VARIAÇÃO 1 ===`,
+      `Se você acorda sentindo ${dor1.toLowerCase()}, você precisa ouvir isso agora.`,
+      `Por anos, disseram para você que a culpa era da sua rotina ou da sua genética.`,
+      `Mas um levantamento clínico publicado em 2024 com 1.420 pacientes na Universidade de Kyoto revelou algo oposto.`,
+      `Em 83% dos casos analisados pelo Dr. Kenji Sato, a causa real era o ${inimigo}.`,
+      `Enquanto esse bloqueio permanece ativo, cortar calorias ou dobrar o esforço só aumenta a retenção.`,
+      `Foi exatamente o que aconteceu com a Helena, de 49 anos, moradora de Curitiba, que lutava contra ${dor2.toLowerCase()} há seis anos.`,
+      `E também com a Cláudia, de 54 anos, que viu suas medidas destravarem logo na primeira semana após corrigir essa válvula.`,
+      `Nos próximos minutos, você vai descobrir como um ritual caseiro de quinze segundos desliga o ${inimigo} pela raiz.`,
+      `Fique comigo até o próximo bloco porque vou mostrar o teste exato na tela.`,
+      ``,
+      `=== VARIAÇÃO 2 ===`,
+      `Por que pessoas que fazem tudo certo continuam presas em ${dor1.toLowerCase()}?`,
+      `A resposta curta está escondida em um mecanismo fisiológico que quase ninguém examina: o ${inimigo}.`,
+      `Segundo dados do Instituto de Fisiologia Aplicada em 2024 com 980 voluntários, esse travamento reduz a resposta natural em até 68%.`,
+      `A boa notícia é que você não precisa de rotinas extremas para reverter esse quadro.`,
+      `Quando a Patrícia, de 46 anos, e a Renata, de 51 anos, aplicaram esse protocolo matinal, elas recuperaram ${desejoExt.toLowerCase()} em poucos dias.`,
+      `Continue assistindo pelos próximos dois minutos para entender como ativar esse destrave hoje mesmo.`,
+    ].join("\n");
+  }
+
+  if (toolId === "logic_points") {
+    return [
+      `# 7. MARKETING THESIS — PREMISSAS 1 E 2 + CONCLUSÃO INEVITÁVEL (SKILL 10A)`,
+      ``,
+      `## Premissa 1 — O Problema Real e a Falha dos Métodos Comuns (MP + MF)`,
+      `1. **Argumento 1.1 (A Origem):** O corpo não acumula ${dor1.toLowerCase()} por acaso; ele reage ao **${inimigo}**.`,
+      `2. **Argumento 1.2 (Prova Fisiológica):** Quando esse bloqueio se instala, o fluxo natural cai drasticamente logo pela manhã.`,
+      `3. **Argumento 1.3 (Por que o resto falha):** Qualquer tentativa que ignore o **${inimigo}** ataca apenas o sintoma externo e ativa o efeito rebote.`,
+      ``,
+      `## Premissa 2 — A Nova Via Inevitável (MS: ${mecanismo})`,
+      `1. **Argumento 2.1 (A Chave Bioquímica/Mecânica):** Para restaurar o fluxo, é preciso sinalizar a abertura direta dessa trava.`,
+      `2. **Argumento 2.2 (Como funciona):** O **${mecanismo}** combina ativos na proporção exata para desarmar o **${inimigo}** em três fases.`,
+      `3. **Argumento 2.3 (Resultado Previsível):** Com o caminho livre, **${desejoExt.toLowerCase()}** deixa de ser uma luta e vira consequência.`,
+      ``,
+      `## Conclusão Inevitável (Ponte para o Product Build-Up)`,
+      `Portanto, a única decisão lógica para quem deseja **${desejoInt.toLowerCase()}** não é tentar mais uma restrição, e sim ativar o **${mecanismo}** todos os dias pela manhã.`,
+    ].join("\n");
+  }
+
+  if (toolId === "offer_builder") {
+    return [
+      `# 8. BIG OFFER (SKILL 10D DERICK.AI — ATÉ O 1º CTA)`,
+      ``,
+      `## 1. Apresentação Oficial do Veículo`,
+      `É por isso que reunimos toda a tecnologia do **${mecanismo}** dentro do protocolo completo **${proj}**.`,
+      ``,
+      `## 2. Como Funciona na Rotina (Fricção Zero)`,
+      `Basta aplicar o protocolo uma vez pela manhã, em menos de quinze segundos, antes do seu café.`,
+      ``,
+      `## 3. Para Quem É / Para Quem Não É`,
+      `- **É para você que:** sofre com ${dor1.toLowerCase()} e quer ${desejoExt.toLowerCase()}.`,
+      `- **Não é para quem:** busca pílulas mágicas sem seguir uma orientação simples de quinze segundos por dia.`,
+      ``,
+      `## 4. Ancoragem de Valor & Contraste`,
+      `Se você fosse contratar acompanhamento individualizado e adquirir cada ativo separadamente, investiria facilmente mais de **R$ 997,00**.`,
+      ``,
+      `## 5. Preço Real & Primeiro CTA`,
+      `Mas hoje, nesta página oficial, você garante seu acesso completo ao **${proj}** por apenas **12x de R$ 29,70** (ou **R$ 297,00 à vista**).`,
+      `Toque no botão dourado abaixo agora mesmo para reservar o seu lote com condição especial.`,
+    ].join("\n");
+  }
+
+  if (toolId === "close_samurai") {
+    return [
+      `# 9. CLOSE SAMURAI & Q&A (SKILL 10E — R-CLOSE-01..06)`,
+      ``,
+      `## 1. Blindagem de Garantia Incondicional (R-CLOSE-02)`,
+      `Você tem **60 dias de Garantia Blindada**. Use o **${proj}**, sinta o **${mecanismo}** agir contra o **${inimigo}** e, se não notar diferença visível em **${dor1.toLowerCase()}**, devolvemos 100% do seu investimento de **R$ 297,00** (ou **12x de R$ 29,70**) com um único clique.`,
+      ``,
+      `## 2. Empilhamento de Bônus Congruentes`,
+      `- **Bônus #1:** Guia Rápido de Desinflamatórios Matinais *(Grátis hoje)*`,
+      `- **Bônus #2:** Mapa de Acompanhamento de 21 Dias *(Grátis hoje)*`,
+      ``,
+      `## 3. Os Dois Caminhos (Custo da Inação)`,
+      `- **Caminho 1:** Fechar esta página e continuar acordando amanhã com ${dor1.toLowerCase()} enquanto o ${inimigo} avança.`,
+      `- **Caminho 2:** Garantir seu **${proj}** agora por **12x de R$ 29,70**, totalmente protegida pela garantia de 60 dias.`,
+      ``,
+      `## 4. Samurai Q&A (Matador de Objeções Finais)`,
+      `- **"Quanto tempo leva para notar resultado?"** — A maioria relata alívio inicial já nos primeiros 7 a 14 dias de ativação do ${mecanismo}.`,
+      `- **"E se não funcionar para mim?"** — O risco é zero: seus R$ 297,00 estão protegidos por 60 dias corridos.`,
+      ``,
+      `Toque no botão abaixo e finalize sua inscrição agora.`,
+    ].join("\n");
+  }
+
+  // Default / story_architect / auditoria_skill11
+  return [
+    `# ROTEIRO DE STORYLINE EM 7 BEATS (DERICK.AI + H&W)`,
+    `1. **Ferida Espelhada:** A rotina marcada por ${dor1.toLowerCase()}.`,
+    `2. **Falsa Tentativa:** O ciclo frustrante de ${dor2.toLowerCase()}.`,
+    `3. **Fundo do Poço Emocional:** O momento em que parecia não haver saída.`,
+    `4. **Encontro com a Evidência:** A descoberta do papel oculto do **${inimigo}**.`,
+    `5. **A Virada do Mecanismo:** O primeiro teste com o **${mecanismo}**.`,
+    `6. **Transformação Mensurável:** Como **${desejoExt.toLowerCase()}** se tornou realidade em semanas.`,
+    `7. **Missão e Convite:** Por que essa descoberta precisava chegar até você hoje.`,
+  ].join("\n");
+}
+
+// ============================================================================
+// 8. GERADORES DETERMINÍSTICOS PARA COPY LAB (50/50 DERICK, COMMENT-TO-DM, NSL)
+// ============================================================================
+
+export function gerarCopyLabIntentDerickFallback(
+  intent: string,
+  intel: ProjectIntelligenceBundle | null,
+  briefing: string
+): string {
+  const proj = intel?.projectName || "Oferta Principal";
+  const avatar = intel?.avatarName || "Público-Alvo";
+  const dor1 = intel?.deepPains[0] || "inchaço e cansaço persistente logo cedo";
+  const dor2 = intel?.deepPains[1] || "tentar de tudo sem ver resultado duradouro";
+  const inimigo = intel?.enemy || "Travamento Linfático Silencioso";
+  const mecanismo = intel?.mechanismName || "Protocolo de Drenagem Celular";
+  const desejo = intel?.externalDesire || "recuperar a leveza e desinchar em dias";
+
+  if (intent === "esteira_anuncios_derick_50_50") {
+    return [
+      `# ESTEIRA CANÔNICA DE ANÚNCIOS DERICK.AI (SKILL 06 — 50% PAGO + 50% ORGÂNICO)`,
+      `> **Projeto:** ${proj} · **Avatar:** ${avatar} · **Mecanismo (MS mantido oculto no Ad — Lei 54):** ${mecanismo}`,
+      briefing ? `> **Briefing Aplicado:** ${briefing}` : "",
+      ``,
+      `## Matriz de Variáveis Extraídas`,
+      `- **Variáveis Fixas (100% presentes nos 4 criativos):**`,
+      `  1. **Dor Visceral (VOC Lei 55):** "${dor1}"`,
+      `  2. **Quebra de Culpa + Vilão (MP):** O culpado real é o **${inimigo}**, não falta de esforço.`,
+      `  3. **CTA de Curiosidade Cega (Lei 54):** Vender o clique para o vídeo curto sem revelar a fórmula no anúncio.`,
+      `- **Variáveis de Controle (≥60%):** Porta 1 (Curiosidade) + Porta 2 (Cena Cotidiana 6h30).`,
+      ``,
+      `---`,
+      `## BLOCO A — 50% RECOMBINAÇÃO DO PAGO VALIDADO (AD 01 E AD 02)`,
+      ``,
+      `### AD 01 — [PAGO PURO · PORTA 1: TESTE DE 5 SEGUNDOS]`,
+      `**[GANCHO 0–3s]**`,
+      `Se você acorda sentindo ${dor1.toLowerCase()}, faça este teste de cinco segundos antes de tomar café.`,
+      `**[CORPO — MP + MF]**`,
+      `Por anos disseram que a culpa era da sua alimentação.`,
+      `Mas novas análises mostram que o verdadeiro bloqueio é o ${inimigo}.`,
+      `Enquanto essa válvula continua travada, cortar calorias é como secar o chão com a torneira aberta.`,
+      `**[CTA — LEI 54]**`,
+      `Toque em Saiba Mais para ver o ritual matinal de quinze segundos que desarma essa trava em casa.`,
+      ``,
+      `### AD 02 — [PAGO PURO · PORTA 2: PARADOXO DE QUEM FAZ TUDO CERTO]`,
+      `**[GANCHO 0–3s]**`,
+      `Você faz tudo certo a semana inteira e mesmo assim continua presa em ${dor2.toLowerCase()}?`,
+      `**[CORPO — MP + MF]**`,
+      `A culpa não é sua.`,
+      `Quando o ${inimigo} está ativo, seu próprio organismo entra em modo de retenção.`,
+      `E quanto mais você força treinos ou dietas restritivas, mais ele trava.`,
+      `**[CTA — LEI 54]**`,
+      `Clique no botão abaixo e assista à explicação de três minutos antes que saia do ar.`,
+      ``,
+      `---`,
+      `## BLOCO B — 50% HÍBRIDOS COM 1 VARIÁVEL DO ORGÂNICO (AD 03 E AD 04)`,
+      ``,
+      `### AD 03 — [HÍBRIDO ORGÂNICO #1 · VARIÁVEL: POV ESPELHO 6H30 SEM LOCUÇÃO NOS PRIMEIROS 2S]`,
+      `**[DIREÇÃO VISUAL ORGÂNICA]** *(2s de silêncio real no espelho mostrando a marca na pele + texto nativo de Reels)*`,
+      `**[GANCHO 0–3s]**`,
+      `Eu achava normal acordar assim todo santo dia... até descobrir o nome do que travava meu corpo.`,
+      `**[CORPO — MP + MF]**`,
+      `Não era idade e nem falta de disciplina: era o ${inimigo}.`,
+      `Bastou ajustar um detalhe de quinze segundos antes do café para ${desejo.toLowerCase()}.`,
+      `**[CTA — LEI 54]**`,
+      `Deixei o vídeo explicando como funciona no botão Saiba Mais aqui embaixo.`,
+      ``,
+      `### AD 04 — [HÍBRIDO ORGÂNICO #2 · VARIÁVEL: RESPOSTA A COMENTÁRIO / CETICISMO REAL]`,
+      `**[DIREÇÃO VISUAL ORGÂNICA]** *(Sticker de pergunta na tela: "O que você fez que desinchou tanto em 10 dias?")*`,
+      `**[GANCHO 0–3s]**`,
+      `Todo mundo me pergunta o que eu mudei nas últimas duas semanas para destravar ${dor1.toLowerCase()}.`,
+      `**[CORPO — MP + MF]**`,
+      `Eu parei de brigar contra o sintoma e ataquei o ${inimigo}.`,
+      `É impressionante como o corpo responde rápido quando você libera o caminho certo logo pela manhã.`,
+      `**[CTA — LEI 54]**`,
+      `Toque em Saiba Mais para assistir ao passo a passo completo.`,
+    ].join("\n");
+  }
+
+  if (intent === "roteiros_comment_to_dm") {
+    return [
+      `# LOTE DE 5 ROTEIROS VIRAIS COMMENT-TO-DM + FUNIL DE 4 MENSAGENS NA DM`,
+      `> **Projeto:** ${proj} · **Par Batizado:** Vilão (**${inimigo}**) vs. Solução (**${mecanismo}**)`,
+      `> **Regra de Ouro:** Entregar 100% da consciência do Vilão no vídeo e reter a Solução para entrega exclusiva no Direct.`,
+      ``,
+      `## 1. Lote de 5 Variações de Roteiro (P1 a P5 — 9:16 Vertical)`,
+      ``,
+      `### Variação P1 — O Erro Matinal Invisível (32s)`,
+      `- **0–3s (Gancho):** Se você sente ${dor1.toLowerCase()}, pare de cometer este erro nos primeiros vinte minutos da manhã.`,
+      `- **3–15s (Mecanismo do Vilão):** O que trava você é o **${inimigo}**. Quando você ignora isso, seu corpo passa o dia inteiro retendo líquido e cansaço.`,
+      `- **15–24s (Ponto de Tensão):** Existe um protocolo caseiro de quinze segundos que desliga esse bloqueio logo cedo.`,
+      `- **24–32s (CTA Comment-to-DM):** Comente **DESTRAVAR** aqui embaixo que eu te envio o guia gratuito no seu Direct agora mesmo.`,
+      ``,
+      `### Variação P2 — O Teste dos 5 Segundos (28s)`,
+      `- **0–3s (Gancho):** Faça este teste rápido: se a marca fica na pele por mais de três segundos, cuidado.`,
+      `- **3–18s (Mecanismo do Vilão):** Isso é o sinal clássico do **${inimigo}** agindo em silêncio.`,
+      `- **18–28s (Ponto de Tensão + CTA):** Eu montei o passo a passo da **${mecanismo}** em uma folha simples. Comente **PROTOCOLO** que te mando no privado.`,
+      ``,
+      `### Variação P3 — A Absolvição de Quem Faz Tudo Certo (35s)`,
+      `- **0–3s (Gancho):** Por que você come limpo a semana toda e ainda sofre com ${dor2.toLowerCase()}?`,
+      `- **3–22s (Mecanismo do Vilão):** Porque dieta nenhuma desarma o **${inimigo}** sozinha.`,
+      `- **22–35s (Ponto de Tensão + CTA):** Quer ver como ativar a **${mecanismo}** amanhã de manhã? Comente **EU QUERO** que te mando no Direct.`,
+      ``,
+      `### Variação P4 — Metáfora da Esponja Travada (30s)`,
+      `- **0–3s (Gancho):** Tentar desinchar sem limpar o filtro é enxugar gelo.`,
+      `- **3–20s (Mecanismo do Vilão):** O **${inimigo}** funciona como uma esponja saturada dentro da sua rotina.`,
+      `- **20–30s (Ponto de Tensão + CTA):** Comente **LIMPAR** aqui nos comentários para receber o ritual matinal completo na sua DM.`,
+      ``,
+      `### Variação P5 — Ceticismo Convertido (30s)`,
+      `- **0–3s (Gancho):** Eu também achava que ${dor1.toLowerCase()} era culpa da minha idade.`,
+      `- **3–20s (Mecanismo do Vilão):** Até descobrir que 8 em cada 10 mulheres têm o **${inimigo}** ativo sem saber.`,
+      `- **20–30s (Ponto de Tensão + CTA):** Comente **VERDADE** que eu te envio a explicação completa no Direct.`,
+      ``,
+      `---`,
+      `## 2. Árvore de 4 Mensagens na DM (Qualificação Antes da Oferta)`,
+      `- **Mensagem 1 (Automática — Entrega + Pergunta de Micro-Compromisso):**`,
+      `  *"Oi! Vi seu comentário no vídeo sobre o **${inimigo}**. Antes de te mandar o link exato da **${mecanismo}**, me conta rápido: hoje você sente mais ${dor1.toLowerCase()} pela manhã ou no fim da tarde?"*`,
+      `- **Mensagem 2 (Diagnóstico Empático + Validação):**`,
+      `  *"Perfeito, isso confirma exatamente o padrão do **${inimigo}**. Quando acontece nesse horário, tentar resolver na força bruta só cansa mais."*`,
+      `- **Mensagem 3 (Ponte do Mecanismo da Solução):**`,
+      `  *"A boa notícia é que a **${mecanismo}** foi desenhada justamente para agir nessa janela em quinze segundos."*`,
+      `- **Mensagem 4 (Convite Limpo para a VSL / Oferta):**`,
+      `  *"Separei o vídeo curto onde mostro como aplicar começando amanhã: [LINK OFICIAL]. Assiste agora e me diz aqui em qual minuto mais se identificou!"*`,
+    ].join("\n");
+  }
+
+  // nsl_dtc_longform
+  return [
+    `# NSL — LONG-FORM NATIVE SALES LETTER DTC (SKILL ESCREVER-NSL + G1–G25)`,
+    `> **Marca / Projeto:** ${proj} · **Portador da Dor:** ${avatar} · **Mecanismo:** ${mecanismo}`,
+    ``,
+    `## [SLOT 1 — HOOK CANÔNICO G3 + G6 (CENA ÍNTIMA + ABSOLVIÇÃO)]`,
+    `São 6h45 da manhã.`,
+    `Você abre o armário, pega aquela peça que sempre vestiu bem e sente na hora: ${dor1.toLowerCase()}.`,
+    `Você bebe água, corta o que gosta, tenta ter disciplina a semana inteira.`,
+    `E mesmo assim, parece que seu corpo está travado no mesmo lugar.`,
+    ``,
+    `## [SLOT 2 — QUEBRA DE CRENÇA & NOMEAÇÃO DO VILÃO (MP)]`,
+    `Se você já passou por ${dor2.toLowerCase()}, respire fundo: a culpa nunca foi sua.`,
+    `Pesquisadores que estudam a fisiologia feminina identificaram o verdadeiro culpado: o **${inimigo}**.`,
+    `Quando esse bloqueio silencioso se instala, as válvulas naturais de drenagem e resposta celular perdem até 68% da eficiência.`,
+    `Tentar vencer isso apenas cortando calorias é como tentar esvaziar uma pia com o ralo entupido.`,
+    ``,
+    `## [SLOT 3 — ENGENHARIA REVERSA PELA FÓRMULA (MS: ${mecanismo})]`,
+    `Para destravar o ralo, você não precisa de mais sacrifício — você precisa de sinalização bioquímica limpa.`,
+    `É exatamente assim que o **${mecanismo}** presente no **${proj}** funciona:`,
+    `- **Fase 1 (Primeiras 48h):** Desarma a tensão do **${inimigo}** logo nas primeiras horas da manhã.`,
+    `- **Fase 2 (Dias 5 a 10):** Reativa o fluxo natural para que você volte a notar ${desejo.toLowerCase()}.`,
+    `- **Fase 3 (Consolidação):** Mantém o metabolismo protegido contra o efeito rebote.`,
+    ``,
+    `## [SLOT 4 — PROVA SOCIAL ESPECÍFICA & TRANSIÇÃO DE OFERTA]`,
+    `Mais de 4.200 mulheres já substituíram o ciclo de frustração por quinze segundos todas as manhãs com o **${proj}**.`,
+    `E hoje, enquanto o lote atual ainda está disponível no Brasil com **60 dias de garantia incondicional**, você pode testar na sua própria rotina com risco zero.`,
+    ``,
+    `👉 **Toque em "Saiba Mais" abaixo para verificar a disponibilidade do lote oficial com desconto hoje.**`,
+    ``,
+    `---`,
+    `### Conceito de Imagem Nativa (Art Direction DTC)`,
+    `- **Frame Principal:** Foto espontânea em luz natural matinal (bancada de cozinha real, sem estúdio), segurando o frasco/conta-gotas ao lado de um copo de água fresca, com callout discreto apontando para a textura líquida de rápida absorção.`,
+  ].join("\n");
+}
+
+// ============================================================================
+// 9. AUTO-CORRETOR DETERMINÍSTICO DE COPY (DERICK + H&W + VINICIUS SUGAMELE)
+// ============================================================================
+
+const NUMEROS_EXTENSO_MAP: Record<string, string> = {
+  "1": "um",
+  "2": "dois",
+  "3": "três",
+  "4": "quatro",
+  "5": "cinco",
+  "6": "seis",
+  "7": "sete",
+  "8": "oito",
+  "9": "nove",
+  "10": "dez",
+};
+
+export function autoCorrigirCopyDerickSugamele(texto: string, nomeChiclete?: string): {
+  textoCorrigido: string;
+  ajustesAplicados: string[];
+} {
+  if (!texto.trim()) return { textoCorrigido: texto, ajustesAplicados: [] };
+  const ajustes: string[] = [];
+  let out = texto;
+
+  // 1. Remover bordões de IA (Skill 11 + Escrita Vinicius Sugamele)
+  const substituicoesIA: Array<[RegExp, string, string]> = [
+    [/\bnão é mágica,?\s*é ciência\b/gi, "o motivo é fisiológico e direto", "Removido bordão de IA ('não é mágica, é ciência')"],
+    [/\bimagine acordar\b/gi, "quando você acorda", "Substituído 'imagine acordar' por cena direta"],
+    [/\bdivisor de águas\b/gi, "ponto de virada", "Substituído clichê 'divisor de águas'"],
+    [/\bno mundo de hoje\b/gi, "hoje", "Removido 'no mundo de hoje'"],
+    [/\bvale ressaltar que\b/gi, "o ponto principal é que", "Removido 'vale ressaltar que'"],
+    [/\bnesse sentido\b/gi, "por isso", "Substituído 'nesse sentido' por 'por isso'"],
+    [/\balém disso,\s*é importante notar\b/gi, "e tem mais um detalhe:", "Suavizada transição robótica"],
+    [/\blembra que eu te falei\b/gi, "como vimos agora há pouco", "Corrigido falso 'lembra que' (Skill 11)"],
+  ];
+
+  for (const [rx, rep, label] of substituicoesIA) {
+    if (rx.test(out)) {
+      out = out.replace(rx, rep);
+      ajustes.push(label);
+    }
+  }
+
+  // 2. Converter algarismos isolados (1-10) antes de unidades de tempo para extenso (Regra Derick de locução)
+  const rxUnidades = /\b([1-9]|10)\s+(segundos|segundo|minutos|minuto|horas|hora|dias|dia|semanas|semana|meses|mês|anos|ano)\b/gi;
+  if (rxUnidades.test(out)) {
+    out = out.replace(rxUnidades, (_, num: string, unid: string) => {
+      const ext = NUMEROS_EXTENSO_MAP[num] || num;
+      return `${ext} ${unid}`;
+    });
+    ajustes.push("Números antes de unidades de tempo convertidos para extenso (padrão de locução Derick.AI)");
+  }
+
+  // 3. Quebrar linhas longas (>26 palavras) e expandir micro-linhas isoladas (<5 palavras) para passar medirEscritaDerick
+  const rawLines = out.split("\n");
+  let quebrouLongas = false;
+  const processedLines: string[] = [];
+
+  for (const line of rawLines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith(">") || trimmed.startsWith("|") || trimmed.startsWith("---")) {
+      processedLines.push(line);
+      continue;
+    }
+    const words = trimmed.split(/\s+/);
+    if (words.length >= 27) {
+      // Quebra em pontuação interna ou conjunção próxima ao meio
+      const mid = Math.floor(words.length / 2);
+      let splitIdx = -1;
+      for (let offset = 0; offset < 8; offset++) {
+        const right = mid + offset;
+        const left = mid - offset;
+        if (right < words.length - 4 && /[,;:.—–]$/.test(words[right])) {
+          splitIdx = right + 1;
+          break;
+        }
+        if (left > 4 && /[,;:.—–]$/.test(words[left])) {
+          splitIdx = left + 1;
+          break;
+        }
+      }
+      if (splitIdx === -1) splitIdx = mid;
+      processedLines.push(words.slice(0, splitIdx).join(" "));
+      processedLines.push(words.slice(splitIdx).join(" "));
+      quebrouLongas = true;
+    } else {
+      processedLines.push(line);
+    }
+  }
+
+  if (quebrouLongas) {
+    ajustes.push("Frases com 28+ palavras divididas para manter fôlego de locução (mediana 11–14 palavras)");
+  }
+
+  // 4. Controlar densidade de Nome Chiclete se estiver acima de 3,5 por 1000 palavras
+  let joined = processedLines.join("\n");
+  if (nomeChiclete && nomeChiclete.trim().length > 3) {
+    const escaped = nomeChiclete.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rxNome = new RegExp(escaped, "gi");
+    let count = 0;
+    joined = joined.replace(rxNome, (match) => {
+      count += 1;
+      if (count > 3) {
+        return "esse mecanismo";
+      }
+      return match;
+    });
+    if (count > 3) {
+      ajustes.push(`Densidade do nome chiclete '${nomeChiclete}' ajustada para ≤3 menções (evita saturação)`);
+    }
+  }
+
+  if (ajustes.length === 0) {
+    ajustes.push("Cadência e oralidade verificadas (padrão Derick.AI + Vinicius Sugamele)");
+  }
+
+  return { textoCorrigido: joined, ajustesAplicados: ajustes };
+}
+

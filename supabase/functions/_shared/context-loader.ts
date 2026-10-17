@@ -83,9 +83,24 @@ export async function loadCopyContext(
         "briefing-vsl",
         "escrita-marketing-thesis",
         "escrita-vsl",
+        "derick-lead-vsl",
+        "lead-vsl",
+        "derick-big-offer-vsl",
+        "big-offer-vsl",
+        "derick-close-vsl",
+        "close-vsl",
         "revisao-vsl",
+        "derick-revisao-vsl",
         "escrever-native-ads",
         "escrever-nsl",
+        "analise-criativos-escalados",
+        "roteiros-virais-comment-to-dm",
+        "briefing-gestor-trafego",
+        "rebel-copy",
+        "devastador-v4",
+        "escavador-desejos",
+        "invisible-structure",
+        "produto-linfaflow",
         "metodo-hw",
         "dtc-control-khayat",
         "weaponized-credibility",
@@ -95,7 +110,7 @@ export async function loadCopyContext(
         "angulos-criativos",
         "mecanismo-unico",
       ])
-      .limit(16),
+      .limit(28),
     sb
       .from("imphq_rag_chunks")
       .select("project_id,source_type,source_id,content")

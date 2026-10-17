@@ -165,6 +165,53 @@ const BUILTIN_INTENTS: Record<string, BuiltinCfg> = {
     enabled: true,
     apply_style: true,
   },
+  esteira_anuncios_derick_50_50: {
+    intent: "esteira_anuncios_derick_50_50",
+    label: "Esteira 50/50 Derick.AI (Skill 06: 50% Pago + 50% Orgânico)",
+    system_prompt: `Você é o Motor Canônico da Skill 06 (escrever-anuncios) da Derick.AI integrado ao Método H&W e à Escrita Vinicius Sugamele.
+Gere um LOTE DE 4 ANÚNCIOS DE ESCALA para funil de VSL / Direct Response seguindo rigorosamente a matriz:
+1. Matriz de Variáveis Extraídas:
+   - Variáveis Fixas (100% obrigatórias em todos os 4 anúncios): Dor Visceral (VOC Lei 55), Vilão/MP Nomeado e CTA de Curiosidade Cega (Lei 54: NUNCA entregue o Mecanismo da Solução no anúncio).
+   - Variáveis de Controle (≥60%): Portas de entrada e estrutura rítmica.
+2. Bloco A — 50% Recombinação Pura do Pago Validado (AD 01 e AD 02).
+3. Bloco B — 50% Híbridos com UMA Variável do Orgânico (AD 03 e AD 04: direção visual nativa nos primeiros 2s + fala conversacional).
+4. Regras Determinísticas de Escrita (Leis 48–52): mediana de 11–14 palavras por linha, máximo 15% de micro-linhas (<5 palavras), zero linhas com 28+ palavras, números isolados (1–10) antes de unidades por extenso.`,
+    model: "google/gemini-2.5-pro",
+    reasoning: "high",
+    output_format: "markdown",
+    enabled: true,
+    apply_style: true,
+  },
+  roteiros_comment_to_dm: {
+    intent: "roteiros_comment_to_dm",
+    label: "Lote 5 Roteiros Virais Comment-to-DM + Árvore de 4 DMs",
+    system_prompt: `Você é o Motor da Skill roteiros-virais-comment-to-dm da Império + Derick.AI.
+Entregue:
+1. Batismo do Par de Mecanismos: Vilão (entregue 100% no vídeo) vs. Solução (retida para entrega exclusiva na DM).
+2. Lote de 5 Variações Verticais (P1 a P5 — 28 a 35s) com cronometragem segundo a segundo (0-3s Gancho, 3-18s Vilão, 18-30s Ponto de Tensão + CTA de Palavra-Chave nos Comentários).
+3. Árvore Completa de 4 Mensagens na DM (Mensagem 1 de entrega + pergunta qualificadora; Mensagem 2 de diagnóstico empático; Mensagem 3 de ponte do mecanismo; Mensagem 4 com convite limpo para a oferta/VSL).`,
+    model: "google/gemini-2.5-pro",
+    reasoning: "high",
+    output_format: "markdown",
+    enabled: true,
+    apply_style: true,
+  },
+  nsl_dtc_longform: {
+    intent: "nsl_dtc_longform",
+    label: "NSL — Long-Form Native Sales Letter DTC (Skill escrever-nsl + G1–G25)",
+    system_prompt: `Você é o Motor da Skill escrever-nsl da Derick.AI para marcas DTC.
+Escreva uma Native Sales Letter (NSL) de aquisição/retargeting estruturada slot a slot:
+- Slot 1: Hook Canônico (G1–G25) com cena cotidiana íntima e absolvição de culpa.
+- Slot 2: Quebra de Crença e nomeação do Mecanismo do Problema (MP).
+- Slot 3: Engenharia reversa pela fórmula e ativação em 3 fases do Mecanismo da Solução (MS).
+- Slot 4: Prova específica (padrão Bencivenga), reversão de risco e CTA nativo.
+- Conceito de Imagem Nativa (Art Direction DTC) no rodapé.`,
+    model: "google/gemini-2.5-pro",
+    reasoning: "high",
+    output_format: "markdown",
+    enabled: true,
+    apply_style: true,
+  },
 };
 
 Deno.serve(async (req) => {

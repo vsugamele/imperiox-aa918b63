@@ -30,6 +30,7 @@ import { useProjectList } from "@/hooks/useProjectList";
 import { useGlobalProject } from "@/hooks/useGlobalProject";
 import { loadProjectIntelligence, type ProjectIntelligenceBundle } from "@/lib/project-intelligence";
 import { normalizeProjectIcon, SiteThumbnail } from "@/components/sites/SiteThumbnail";
+import { DERICK_CANONICAL_G1_G25_HOOKS, gerarGanchoG1G25 } from "@/lib/derick-engines";
 
 const OBJETIVOS = ["Parar o scroll", "Gerar clique", "Aquecer o lead", "Fechar a venda"] as const;
 
@@ -55,6 +56,7 @@ export default function HookLabs() {
   const [gatilho, setGatilho] = useState<string>("");
   const [busca, setBusca] = useState("");
   const [onlyFavs, setOnlyFavs] = useState(false);
+  const [portaDerick, setPortaDerick] = useState<string>("__all__");
   const { projectId: globalProjectId, setProjectId: setGlobalProjectId } = useGlobalProject();
   const [projectId, setProjectId] = useState<string>(globalProjectId || "__none__");
   const [selected, setSelected] = useState<HookTemplate | null>(null);
@@ -467,6 +469,99 @@ export default function HookLabs() {
           )}
         </Card>
       ) : null}
+
+      {/* Catálogo Canônico de 25 Ganchos da Derick.AI (G1–G25 — NSL / VSL / Ads) */}
+      <Card className="p-5 bg-gradient-to-br from-amber-500/10 via-secondary/40 to-background border-amber-500/30 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] uppercase tracking-wider">
+                ⚡ Catálogo Canônico Derick.AI · G1–G25 (Skills escrever-nsl & escrever-anuncios)
+              </Badge>
+              <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-300">
+                Lei 54 (Sem Entregar MS) + Leis 48–52 (Cadência Natural)
+              </Badge>
+            </div>
+            <h2 className="text-base font-bold text-foreground">
+              25 Arquétipos Canônicos de Gancho (`G1` a `G25`) Preenchidos Automaticamente com {intel ? intel.projectName : "Seu Projeto"}
+            </h2>
+          </div>
+
+          <Select value={portaDerick} onValueChange={setPortaDerick}>
+            <SelectTrigger className="w-72 border-amber-500/30 bg-background/80 text-xs">
+              <SelectValue placeholder="Filtrar por Porta de Entrada" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas as 3 Portas (25 Ganchos G1–G25)</SelectItem>
+              <SelectItem value="Porta 1 — Curiosidade & Segredo">Porta 1 — Curiosidade & Segredo</SelectItem>
+              <SelectItem value="Porta 2 — Identificação & Dor Visceral">Porta 2 — Identificação & Dor Visceral</SelectItem>
+              <SelectItem value="Porta 3 — Descoberta Científica & Mecanismo">Porta 3 — Descoberta Científica & Mecanismo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[520px] overflow-y-auto pr-1">
+          {DERICK_CANONICAL_G1_G25_HOOKS.filter((h) => portaDerick === "__all__" || h.porta === portaDerick).map((gh) => {
+            const generated = gerarGanchoG1G25(gh, intel);
+            return (
+              <div
+                key={gh.id}
+                className="p-3.5 rounded-lg bg-background/85 border border-amber-500/25 hover:border-amber-500/50 transition-colors flex flex-col justify-between gap-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      {gh.code} · {gh.nome}
+                    </span>
+                    <Badge variant="outline" className={`text-[10px] ${objetivoColor[gh.objetivo] || ""}`}>
+                      {gh.objetivo}
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-amber-300/80 font-medium">{gh.porta} · {gh.gatilho}</p>
+                  <p className="text-xs font-medium text-foreground leading-relaxed">
+                    "{generated.textoPreenchido}"
+                  </p>
+                  <div className="p-2 rounded bg-secondary/50 border border-border/60 space-y-1">
+                    <p className="text-[10px] text-emerald-300 font-semibold">
+                      🔒 Variação Cega (Lei 54 — Oculta o MS para forçar o clique):
+                    </p>
+                    <p className="text-[11px] text-muted-foreground italic leading-snug">
+                      "{generated.variacaoCurtaLei54}"
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-cyan-300/90">
+                    🎬 <strong>Visual 0–3s:</strong> {gh.direcaoVisual}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground">
+                    Mediana: {generated.medicao.mediana_palavras}w
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copy(generated.variacaoCurtaLei54)}
+                      className="h-6 px-2 text-[10px] text-emerald-300"
+                    >
+                      <Copy className="h-3 w-3 mr-1" /> Lei 54
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copy(generated.textoPreenchido)}
+                      className="h-6 px-2 text-[10px]"
+                    >
+                      <Copy className="h-3 w-3 mr-1" /> Completo
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
       <Card className="p-4 bg-secondary/40 border-border">
         <div className="flex gap-2 flex-wrap items-center">
