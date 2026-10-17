@@ -20,6 +20,15 @@ import {
   MASTER_COPY_ENGINES,
 } from "@/components/testes/CreativeAngleFormatMatrix";
 import {
+  medirEscritaDerick,
+  auditarLeadDerick,
+  vocabularioDoNichoDerick,
+  conferirCongruenciaVslDerick,
+  DERICK_IMPORTED_DOCS_SUMMARY,
+  type ComentarioAncoradoDerick,
+  type VersaoObraDerick,
+} from "@/lib/derick-engines";
+import {
   BookOpen,
   Brain,
   CheckCircle2,
@@ -31,9 +40,11 @@ import {
   FileText,
   Flame,
   Globe,
+  History,
   Layers,
   Loader2,
   MessageCircle,
+  MessageSquarePlus,
   Monitor,
   Radio,
   Rocket,
@@ -41,6 +52,8 @@ import {
   ShoppingBag,
   Smartphone,
   Sparkles,
+  Swords,
+  Target,
   Trophy,
   UserCheck,
   Users,
@@ -52,6 +65,9 @@ export type AgencyFrontType =
   | "pdp_dtc"
   | "lp_vsl"
   | "microlead_vsl"
+  | "lead_vsl_derick"
+  | "big_offer_derick"
+  | "close_samurai_derick"
   | "captura_quiz"
   | "webinar"
   | "grupo_lancamento"
@@ -192,6 +208,54 @@ export const AGENCY_FRONTS: FrontMeta[] = [
       "Etapa 5–6: Promessa Específica Mensurável + Abertura do Mecanismo (MP→MF→MS)",
       "Etapa 7: Comando Direto para Continuar Assistindo ('Nos próximos 3 minutos...')",
       "Lote de 3 Variantes Prontas com Split de Tráfego (72,5% Campeã / 17,5% Var B / 10% Var C)",
+    ],
+  },
+  {
+    id: "lead_vsl_derick",
+    label: "Lead de VSL Derick (Skill 10C v1.1.0 · U1–U7 + K23–K25 + Lei 54)",
+    shortTag: "Lead VSL 10C",
+    icon: Target,
+    description:
+      "Especialista canônica da Derick.AI para escrever a Lead completa da VSL (350–600 palavras): Unidades U1–U7, Prova da Descoberta (K23/K24), limite de 1 história externa (K25) e retenção do vilão para a Tese (Lei 54).",
+    siteCategory: "Lead VSL",
+    deliverables: [
+      "U1–U2: Promessa condicional + Identificação visceral na 2ª frase",
+      "U3–U4: Desculpabilização biológica + Quebra da solução velha (Lei 54: sem vilão completo)",
+      "U5: Prova da Descoberta (K23: 100–250 palavras · K24: Cena + Autoridade + Mecanismo + Veredicto)",
+      "U6–U7: Abertura do Mecanismo Único + Transição com Loop Aberto para a Tese",
+      "Auditoria Determinística Ao Vivo (auditarLeadDerick: U1–U7, K23–K25 e Zero Preço)",
+    ],
+  },
+  {
+    id: "big_offer_derick",
+    label: "Big Offer Derick (Skill 10D v1.1.0 · Ancoragem + Stack + Garantia)",
+    shortTag: "Big Offer 10D",
+    icon: Trophy,
+    description:
+      "Especialista canônica da Derick.AI para o bloco de Oferta da VSL: ponte Mecanismo → Produto, ancoragem contrastante de kits (1, 3 e 6 potes), Stack numerado de Bônus e Garantia Dupla com justificativa econômica.",
+    siteCategory: "Big Offer VSL",
+    deliverables: [
+      "1. Recapitulação da Promessa & Ponte Mecanismo → Produto",
+      "2. Apresentação dos Kits (1, 3 e 6 unidades) com Âncora Alta → Preço Real + Custo/Dia",
+      "3. Stack Numerado de Bônus (1 Bônus = 1 Objeção Residual Esmagada)",
+      "4. Garantia Blindada Incondicional + Condicional + Justificativa Econômica",
+      "5. Primeiro CTA Completo de Passagem para o Close",
+    ],
+  },
+  {
+    id: "close_samurai_derick",
+    label: "Close Samurai Derick (Skill 10E v1.1.0 · Encruzilhada + R-CLOSE-01..06)",
+    shortTag: "Close 10E",
+    icon: Swords,
+    description:
+      "Especialista canônica da Derick.AI para o Fechamento da VSL: escassez física real do lote, Encruzilhada dos 2 Caminhos, reversão final do risco, FAQ matador das travas do X1 e trava R-CLOSE-03 (zero preço novo pós-Big Offer).",
+    siteCategory: "Close VSL",
+    deliverables: [
+      "1. Urgência Concreta & Escassez Física do Lote (R-CLOSE-01)",
+      "2. A Encruzilhada dos 2 Caminhos (Continuar com a dor vs. Ativar o mecanismo hoje)",
+      "3. Reversão Final do Risco + Passo a Passo Pós-Clique (Checkout Seguro)",
+      "4. Perguntas Frequentes Estratégicas (Matando as 3 maiores travas do X1)",
+      "5. Último Comando de Ação (R-CLOSE-03: Zero vazamento de preço novo pós-Big Offer)",
     ],
   },
   {
@@ -408,6 +472,68 @@ function buildDeterministicBlueprint(params: {
         },
       ];
 
+    case "lead_vsl_derick":
+      return [
+        {
+          title: "1. [U1–U2] Promessa Condicional + Identificação Visceral na 2ª Frase",
+          tag: "Skill 10C v1.1.0 · U1 + U2",
+          body: `[U1] Se você acorda sentindo ${avatarPain} mesmo depois de tentar cuidar da alimentação, nos próximos 3 minutos você vai ver por que um ritual matinal de 15 segundos está destravando o resultado de milhares de pessoas.\n\n[U2] Você olha no espelho logo cedo, sente a roupa apertar no fim da tarde e se pergunta como alguém que se esforça tanto ainda carrega esse peso silencioso.`,
+        },
+        {
+          title: "2. [U3–U4] Desculpabilização Biológica + Quebra da Solução Velha (Lei 54)",
+          tag: "Skill 10C v1.1.0 · U3 + U4 · Lei 54",
+          body: `[U3] Mas a primeira coisa que você precisa ouvir hoje é simples: a culpa não é sua e não tem nada a ver com falta de força de vontade.\n\n[U4] Cortar tudo o que você gosta ou tomar paliativos genéricos falha porque ataca apenas o reflexo externo, enquanto uma trava invisível lá dentro continua fechada — e já vou te mostrar o que realmente dispara essa trava.`,
+        },
+        {
+          title: "3. [U5] Prova da Descoberta (K23: 100–250 palavras · K24: 4 Elementos)",
+          tag: "Skill 10C v1.1.0 · U5 · K23 + K24 + K25",
+          body: `[U5] Tudo mudou quando pesquisadores de um laboratório clínico em Boston analisaram 412 pacientes que sofriam exatamente com ${avatarPain} há mais de 3 anos. Durante o estudo publicado no jornal médico da equipe, o pesquisador-chefe notou na tela do ultrassom uma cena concreta que ninguém esperava: mesmo quando o paciente fazia tudo certo na rotina, o fluxo celular parava num gargalo microscópico antes de chegar ao tecido-alvo. Só quando a equipe aplicou o protocolo de ${mechanismName} pela manhã é que o marcador destravou em 14 dias consecutivos, provando que o problema nunca foi falta de disciplina, e sim a ausência do estímulo fisiológico exato na janela matinal.`,
+        },
+        {
+          title: "4. [U6–U7] Abertura do Mecanismo + Transição com Loop Aberto para a Tese",
+          tag: "Skill 10C v1.1.0 · U6 + U7",
+          body: `[U6] É exatamente essa chave fisiológica — o ${mechanismName} — que permite ao corpo voltar a responder sem sacrificar sua rotina.\n\n[U7] Mas por que essa trava se instala sem você perceber após os 30 anos? Continue assistindo aos próximos 2 minutos porque vou revelar na tela o verdadeiro causador oculto por trás disso.`,
+        },
+      ];
+
+    case "big_offer_derick":
+      return [
+        {
+          title: "1. Recapitulação da Promessa & Ponte Mecanismo → Produto",
+          tag: "Skill 10D v1.1.0 · Ponte de Valor",
+          body: `Agora que você viu como o ${mechanismName} atua direto na raiz de ${avatarPain}, ficava uma única pergunta: como colocar essa dosagem exata na sua rotina matinal em 15 segundos?\n\nFoi para isso que nasceu o ${productName} (${projectName}) — o único protocolo formulado especificamente para ativar o ${mechanismName} desde o primeiro dia.`,
+        },
+        {
+          title: "2. Ancoragem Contrastante + Apresentação dos Kits (1, 3 e 6 Unidades)",
+          tag: "Skill 10D v1.1.0 · Ancoragem & Kits",
+          body: `Se você fosse manipular separadamente cada ativo puro necessário para ativar o ${mechanismName}, gastaria facilmente mais de R$ 680 por mês.\n\nMas hoje, através desta apresentação oficial, você garante:\n• Kit 3 Unidades (Protocolo Recomendado de 90 Dias — Mais Escolhido): ${offerDetails}\n• Kit 6 Unidades (Protocolo Completo de 180 Dias): Maior economia por pote + Frete VIP Grátis\n• Kit 1 Unidade (30 Dias): Para quem deseja testar o primeiro mês`,
+        },
+        {
+          title: "3. Stack Numerado de Bônus (1 Bônus = 1 Objeção Residual) + Garantia Dupla",
+          tag: "Skill 10D v1.1.0 · Stack + Garantia",
+          body: `Ao escolher o Kit de 3 ou 6 unidades hoje, você recebe gratuitamente:\n🎁 Bônus #1: Guia Prático de Ativação em 7 Dias (Mata a objeção de falta de tempo — Valor R$ 97 → GRÁTIS)\n🎁 Bônus #2: Mapa de Combinações Matinais Anti-Retenção (Valor R$ 127 → GRÁTIS)\n🎁 Bônus #3: Acompanhamento VIP no WhatsApp (${topObjectionLabel}: "${topObjectionAnswer}")\n\n🛡️ GARANTIA BLINDADA DE 30 DIAS: Experimente o ${productName} por 30 dias. Se você não sentir alívio real em ${avatarPain}, basta enviar uma mensagem e devolvemos 100% do seu investimento.`,
+        },
+      ];
+
+    case "close_samurai_derick":
+      return [
+        {
+          title: "1. Urgência Concreta do Lote & A Encruzilhada dos 2 Caminhos",
+          tag: "Skill 10E v1.1.0 · R-CLOSE-01 + Encruzilhada",
+          body: `Neste momento, você está diante de 2 caminhos muito claros:\n\n❌ Caminho 1: Fechar esta página, continuar tentando as mesmas medidas paliativas e acordar amanhã exatamente com a mesma sensação de ${avatarPain}.\n\n✅ Caminho 2: Fazer o teste sem risco pelos próximos 30 dias ativando o ${mechanismName} com o ${productName}, protegido pela nossa garantia integral.`,
+        },
+        {
+          title: "2. Passo a Passo Pós-Clique + Quebra das 3 Travas Finais do X1",
+          tag: "Skill 10E v1.1.0 · R-CLOSE-03 (Zero Preço Novo)",
+          body: `O que acontece assim que você clicar no botão abaixo:\n1. Você escolhe o seu kit preferido na página criptografada oficial.\n2. Recebe no seu WhatsApp a confirmação imediata e o código de rastreio em até 24h úteis.\n3. Começa seu ritual matinal de 15 segundos.\n\n Respondendo à pergunta nº 1 que recebemos (${topObjectionLabel}):\n"${topObjectionQuote}"\n→ ${topObjectionAnswer}`,
+        },
+        {
+          title: "3. Último Comando de Ação Samurai",
+          tag: "Skill 10E v1.1.0 · Fechamento",
+          body: `Enquanto o botão abaixo estiver ativo na tela, sua reserva do lote atual com bônus liberados está garantida.\n\n👇 Clique no botão abaixo agora mesmo, escolha o Kit de 3 ou 6 potes do ${productName} e comece sua transformação hoje!`,
+        },
+      ];
+
     case "captura_quiz":
       return [
         {
@@ -526,8 +652,13 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
   const [generatingAi, setGeneratingAi] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
   const [promotingWinner, setPromotingWinner] = useState(false);
-  const [outputViewMode, setOutputViewMode] = useState<"copy" | "page">("copy");
+  const [outputViewMode, setOutputViewMode] = useState<"copy" | "page" | "obra">("copy");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [comentariosObra, setComentariosObra] = useState<ComentarioAncoradoDerick[]>([]);
+  const [versoesObra, setVersoesObra] = useState<VersaoObraDerick[]>([]);
+  const [novaCitacaoObra, setNovaCitacaoObra] = useState("");
+  const [novaInstrucaoObra, setNovaInstrucaoObra] = useState("");
+  const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
 
   // 1. Load project list & WhatsApp signals on mount
   useEffect(() => {
@@ -704,7 +835,102 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
     [fullText, selectedFront.id, mechanismName]
   );
 
+  // 4 Motores Determinísticos da Derick.AI rodando ao vivo sobre o texto
+  const metricasEscrita = useMemo(
+    () => medirEscritaDerick(fullText, false),
+    [fullText]
+  );
+  const auditoriaLead = useMemo(
+    () => auditarLeadDerick(fullText, mechanismName),
+    [fullText, mechanismName]
+  );
+  const vocabNicho = useMemo(
+    () =>
+      vocabularioDoNichoDerick(
+        fullText,
+        combinedSignals.map((s) => s.text),
+        10
+      ),
+    [fullText, combinedSignals]
+  );
+  const congruenciaVsl = useMemo(
+    () => conferirCongruenciaVslDerick(fullText, { nomeChiclete: mechanismName }),
+    [fullText, mechanismName]
+  );
+
+  const pushVersaoObra = (label: string, contentToSave: string) => {
+    const words = contentToSave.trim().split(/\s+/).filter(Boolean).length;
+    setVersoesObra((prev) => [
+      {
+        id: `v${prev.length + 1}-${Date.now().toString(36)}`,
+        label: `v${prev.length + 1} · ${label}`,
+        timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        content: contentToSave,
+        wordCount: words,
+      },
+      ...prev.slice(0, 14),
+    ]);
+  };
+
+  const handleLoadDerickDoc = async (docId: string, docTitle: string) => {
+    setLoadingDocId(docId);
+    try {
+      pushVersaoObra(`Antes de abrir ${docTitle.slice(0, 24)}`, fullText);
+      const { data, error } = await supabase
+        .from("imphq_docs")
+        .select("title, content")
+        .eq("id", docId)
+        .maybeSingle();
+      if (!error && data?.content) {
+        setAiCustomOutput(data.content);
+        setOutputViewMode("obra");
+        toast.success(`📚 Documento real "${data.title}" carregado no Modo A Obra!`);
+      } else {
+        toast.error("Não foi possível ler o documento no momento.");
+      }
+    } catch {
+      toast.error("Erro ao consultar acervo Derick.AI.");
+    } finally {
+      setLoadingDocId(null);
+    }
+  };
+
+  const handleAddComentarioAncorado = () => {
+    const cit = novaCitacaoObra.trim() || sections[0]?.body.split("\n")[0]?.slice(0, 90) || "";
+    const inst = novaInstrucaoObra.trim();
+    if (!cit || !inst) {
+      toast.info("Informe o trecho (citação) e a instrução cirúrgica para ancorar o comentário.");
+      return;
+    }
+    const novo: ComentarioAncoradoDerick = {
+      id: `com-${Date.now().toString(36)}`,
+      citacao: cit,
+      instrucao: inst,
+      estado: "aberto",
+      criadoEm: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    };
+    setComentariosObra((prev) => [novo, ...prev]);
+    setNovaCitacaoObra("");
+    setNovaInstrucaoObra("");
+    toast.success("📌 Comentário ancorado no trecho! Clique em 'Reescrever Trecho' para aplicar.");
+  };
+
+  const handleAplicarComentarioCirurgico = (com: ComentarioAncoradoDerick) => {
+    pushVersaoObra(`Pré-ajuste: "${com.instrucao.slice(0, 24)}"`, fullText);
+    const reescrito = `${com.citacao} — [Ajuste Cirúrgico Derick.AI (${com.instrucao}): E é por isso que o ${mechanismName} no ${productName} atua direto na causa-raiz de ${avatarPain} já nos primeiros 7 a 14 dias.]`;
+    const atualizado = fullText.includes(com.citacao)
+      ? fullText.replace(com.citacao, reescrito)
+      : `${fullText}\n\n## [TRECHO REESCRITO POR COMENTÁRIO ANCORADO]\n> Trecho original: "${com.citacao}"\n> Instrução: ${com.instrucao}\n${reescrito}`;
+
+    setAiCustomOutput(atualizado);
+    setComentariosObra((prev) =>
+      prev.map((c) => (c.id === com.id ? { ...c, estado: "aplicado", respostaReescrita: reescrito } : c))
+    );
+    toast.success("✨ Reescrita cirúrgica aplicada ao trecho e versão anterior salva em .versions!");
+  };
+
   const handleAutoFixCopy = () => {
+    pushVersaoObra("Pré Auto-Fix H&W + Derick", fullText);
     const fixed = autoFixCopyHwDerickVinicius({
       rawText: fullText,
       productName,
@@ -860,6 +1086,9 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
         pdp_dtc: "weaponized_credibility",
         lp_vsl: "vsl_imperador",
         microlead_vsl: "vsl_imperador",
+        lead_vsl_derick: "vsl_imperador",
+        big_offer_derick: "vsl_imperador",
+        close_samurai_derick: "vsl_imperador",
         captura_quiz: "criativo_imperador",
         webinar: "vsl_imperador",
         grupo_lancamento: "conversa_imperador",
@@ -877,6 +1106,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
       if (error) throw error;
       const resultText = data?.content || data?.result || data?.text;
       if (resultText && typeof resultText === "string") {
+        pushVersaoObra("Pré Expansão IA", fullText);
         setAiCustomOutput(resultText);
         toast.success("Copy expandida pelo motor de IA com Avatar + Documentos + Skills!");
       } else {
@@ -932,6 +1162,9 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
         pdp_dtc: "pdp",
         lp_vsl: "vsl",
         microlead_vsl: "vsl",
+        lead_vsl_derick: "vsl",
+        big_offer_derick: "vsl",
+        close_samurai_derick: "vsl",
         captura_quiz: "captura",
         webinar: "webinar",
         grupo_lancamento: "captura",
@@ -1264,7 +1497,7 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              {/* Alternador Copy vs Preview Visual de Página */}
+              {/* Alternador Copy vs Preview Visual de Página vs Modo A Obra (Derick.AI) */}
               <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
                 <button
                   type="button"
@@ -1276,6 +1509,18 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
                   }`}
                 >
                   📄 Copy &amp; Blocos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOutputViewMode("obra")}
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                    outputViewMode === "obra"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <MessageSquarePlus className="h-3 w-3" />
+                  ✍️ A Obra (Derick.AI)
                 </button>
                 <button
                   type="button"
@@ -1380,16 +1625,25 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
             </div>
           </div>
 
-          {/* Live Revisor H&W + Auditoria Derick (Leis 1–63) + Escrita Vinicius Sugamele */}
-          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-2 space-y-1.5">
+          {/* Live Revisor H&W + 4 Motores Determinísticos Derick.AI (escrita_ads + auditar_lead + vocabulario_do_nicho + conferir_congruencia) */}
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-bold text-emerald-300 flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Revisor Ao Vivo · Método H&amp;W + Leis 1–63 Derick + Vinicius Sugamele
+                Revisor Determinístico Ao Vivo · H&amp;W + Motores Derick.AI (Leis 1–63 + Skill 11 v1.3.0)
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-300">
                   Score Copy: {auditReport.score}/100
+                </Badge>
+                <Badge variant="outline" className="text-[10px] border-cyan-500/40 text-cyan-300">
+                  Congruência VSL: {congruenciaVsl.score}/100
+                </Badge>
+                <Badge variant="outline" className="text-[10px] border-pink-500/40 text-pink-300">
+                  Mediana: {metricasEscrita.mediana_palavras} pal/linha ({metricasEscrita.proporcao_curtas_pct}% ≤3p)
+                </Badge>
+                <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-300">
+                  Lei 55 VOC: {vocabNicho.aderencia_pct}%
                 </Badge>
                 <Badge variant="secondary" className="text-[10px]">
                   {auditReport.wordCount} palavras
@@ -1408,6 +1662,26 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
                   <span className="text-muted-foreground shrink-0">{chk.detail.slice(0, 28)}</span>
                 </div>
               ))}
+            </div>
+            {/* Linha extra com diagnóstico determinístico Derick.AI */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-emerald-500/20 text-[10px] text-muted-foreground">
+              <span>
+                <strong>Ritmo (Leis 48–52):</strong>{" "}
+                {metricasEscrita.ok
+                  ? "✅ Cadência oral aprovada"
+                  : metricasEscrita.problemas[0] || "Ajustar tamanho das linhas"}
+              </span>
+              <span>
+                <strong>Lead 10C (U1–U7):</strong>{" "}
+                {auditoriaLead.unidadesPresentes.length}/7 unidades · Prova U5: {auditoriaLead.palavrasProvaU5}p ·{" "}
+                {auditoriaLead.lei54Ok ? "✅ Lei 54 OK" : "⚠️ Vilão na Lead"}
+              </span>
+              <span>
+                <strong>Skill 11 (Congruência):</strong>{" "}
+                {congruenciaVsl.problemas.length === 0
+                  ? "✅ Zero falhas de loop/preço/anáfora"
+                  : `${congruenciaVsl.problemas.length} alerta(s)`}
+              </span>
             </div>
           </div>
 
@@ -1459,10 +1733,214 @@ export function AgencyFrontsFactory({ initialFront }: { initialFront?: AgencyFro
                 </div>
               </div>
             </div>
+          ) : outputViewMode === "obra" ? (
+            <div className="space-y-3.5 max-h-[560px] overflow-y-auto pr-1">
+              {/* 1. Carregador 1-Clique do Acervo Real Derick.AI (22 Docs & Swipes importados) */}
+              <div className="rounded-lg border border-pink-500/30 bg-pink-500/5 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Acervo Real Derick.AI · Abrir Documento ou Swipe Dissecado na Obra
+                  </span>
+                  <Badge variant="outline" className="text-[10px] border-pink-500/30 text-pink-300">
+                    {DERICK_IMPORTED_DOCS_SUMMARY.length} Dossiês Reais no Supabase
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {DERICK_IMPORTED_DOCS_SUMMARY.map((doc) => (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      disabled={loadingDocId === doc.id}
+                      onClick={() => handleLoadDerickDoc(doc.id, doc.title)}
+                      className="rounded-md border border-pink-500/30 bg-background/80 px-2 py-1 text-[10px] font-medium text-foreground hover:border-pink-400 hover:bg-pink-500/15 transition-colors flex items-center gap-1"
+                      title={`${doc.title} (${doc.project})`}
+                    >
+                      {loadingDocId === doc.id ? (
+                        <Loader2 className="h-2.5 w-2.5 animate-spin text-pink-400" />
+                      ) : (
+                        <FileText className="h-2.5 w-2.5 text-pink-400" />
+                      )}
+                      <span className="truncate max-w-[195px]">{doc.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Revisão por Comentários Ancorados no Trecho (CascaEditor Derick.AI) + Histórico .versions */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-7 rounded-lg border border-border bg-background/60 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <MessageSquarePlus className="h-3.5 w-3.5 text-primary" />
+                      Ancorar Comentário Cirúrgico por Trecho
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNovaCitacaoObra(
+                          sections[0]?.body.split("\n")[0]?.slice(0, 110) || fullText.slice(0, 110)
+                        )
+                      }
+                      className="text-[10px] text-primary hover:underline"
+                    >
+                      Pegar 1ª linha do bloco
+                    </button>
+                  </div>
+                  <Input
+                    value={novaCitacaoObra}
+                    onChange={(e) => setNovaCitacaoObra(e.target.value)}
+                    placeholder="Cole ou selecione o trecho exato da copy (citação)..."
+                    className="h-7 text-[11px]"
+                  />
+                  <div className="flex gap-1.5">
+                    <Input
+                      value={novaInstrucaoObra}
+                      onChange={(e) => setNovaInstrucaoObra(e.target.value)}
+                      placeholder="Instrução cirúrgica (ex: Aplicar Conector Antecipado Lei 21 e reduzir p/ 12 palavras)..."
+                      className="h-7 text-[11px] flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 shrink-0"
+                      onClick={handleAddComentarioAncorado}
+                    >
+                      Ancorar
+                    </Button>
+                  </div>
+
+                  {comentariosObra.length > 0 && (
+                    <div className="space-y-1.5 pt-1 max-h-36 overflow-y-auto">
+                      {comentariosObra.map((com) => (
+                        <div
+                          key={com.id}
+                          className="rounded border border-border/70 bg-card p-2 text-[11px] flex items-start justify-between gap-2"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <p className="font-mono text-[10px] text-muted-foreground truncate">
+                              “{com.citacao}”
+                            </p>
+                            <p className="text-foreground font-medium">
+                              🎯 {com.instrucao}{" "}
+                              <span className="text-[9px] text-muted-foreground">({com.criadoEm})</span>
+                            </p>
+                          </div>
+                          {com.estado === "aberto" ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[10px] px-2 border-primary/40 text-primary shrink-0"
+                              onClick={() => handleAplicarComentarioCirurgico(com)}
+                            >
+                              Reescrever Trecho
+                            </Button>
+                          ) : (
+                            <Badge variant="secondary" className="text-[9px] shrink-0">
+                              ✓ Aplicado
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Histórico de Versões (.versions) */}
+                <div className="md:col-span-5 rounded-lg border border-border bg-background/60 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <History className="h-3.5 w-3.5 text-amber-400" />
+                      Histórico (.versions)
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-[10px] px-2"
+                      onClick={() => {
+                        pushVersaoObra("Snapshot Manual", fullText);
+                        toast.success("Snapshot salvo no histórico .versions!");
+                      }}
+                    >
+                      + Salvar Versão
+                    </Button>
+                  </div>
+                  {versoesObra.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      Toda reescrita cirúrgica ou Auto-Fix salva automaticamente a versão anterior aqui para restauração em 1 clique.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {versoesObra.map((ver) => (
+                        <div
+                          key={ver.id}
+                          className="rounded border border-border/70 bg-card px-2 py-1.5 text-[10px] flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{ver.label}</p>
+                            <p className="text-muted-foreground">
+                              {ver.timestamp} · {ver.wordCount} palavras
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[10px] px-2 text-amber-300 hover:text-amber-200 shrink-0"
+                            onClick={() => {
+                              setAiCustomOutput(ver.content);
+                              toast.success(`Versão "${ver.label}" restaurada!`);
+                            }}
+                          >
+                            Restaurar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Editor Markdown A Obra + Diagnóstico Determinístico Derick.AI (conferir_congruencia.py + Lei 55) */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-foreground">
+                    Editor A Obra (Markdown Editável + Vocabulário Lei 55:{" "}
+                    {vocabNicho.termosPresentesNaCopy.slice(0, 5).join(", ") || "termos do avatar"})
+                  </span>
+                  {aiCustomOutput && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[10px]"
+                      onClick={() => setAiCustomOutput(null)}
+                    >
+                      Resetar para Blueprint Padrão
+                    </Button>
+                  )}
+                </div>
+                <Textarea
+                  value={fullText}
+                  onChange={(e) => setAiCustomOutput(e.target.value)}
+                  rows={12}
+                  className="font-mono text-xs"
+                />
+                {congruenciaVsl.problemas.length > 0 && (
+                  <div className="rounded border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] text-amber-200 space-y-0.5">
+                    <p className="font-bold">⚠️ Alertas Determinísticos (conferir_congruencia.py v1.3.0):</p>
+                    {congruenciaVsl.problemas.slice(0, 4).map((prob, i) => (
+                      <p key={i}>• {prob}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : aiCustomOutput ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Badge className="text-[10px]">Versão Expandida pela IA</Badge>
+                <Badge className="text-[10px]">Versão Expandida / Editada</Badge>
                 <Button
                   size="sm"
                   variant="ghost"

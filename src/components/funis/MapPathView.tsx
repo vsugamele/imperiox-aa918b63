@@ -47,6 +47,7 @@ import {
   promoteWinnerToProjectControl,
   type ProjectCreativeSummary,
 } from "@/lib/project-intelligence";
+import { DERICK_FUNNEL_TEMPLATES } from "@/lib/derick-engines";
 
 export type PathRole = "principal" | "alternativa" | null;
 
@@ -238,6 +239,16 @@ export function MapPathView({
   const [capturedPrints, setCapturedPrints] = useState<Record<string, string>>({});
   const [capturingPrintId, setCapturingPrintId] = useState<string | null>(null);
   const [promotingNodeId, setPromotingNodeId] = useState<string | null>(null);
+  const [selectedDerickTemplateId, setSelectedDerickTemplateId] = useState<string>(
+    DERICK_FUNNEL_TEMPLATES[0].id
+  );
+  const [activeLevaWeek, setActiveLevaWeek] = useState<"S15" | "S16" | "S17">("S17");
+  const selectedDerickTemplate = useMemo(
+    () =>
+      DERICK_FUNNEL_TEMPLATES.find((t) => t.id === selectedDerickTemplateId) ??
+      DERICK_FUNNEL_TEMPLATES[0],
+    [selectedDerickTemplateId]
+  );
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const path = useMemo(() => buildMapPath(nodes, edges), [nodes, edges]);
   const focus = useMemo(() => pathFocus(path.principal, nodes, today), [path.principal, nodes, today]);
@@ -539,6 +550,76 @@ export function MapPathView({
             </span>
           </button>
         )}
+
+        {/* Arquiteturas Canônicas de Funil Derick.AI (5 Templates + Levas Semanais levas[semana]) */}
+        <div className="mb-5 rounded-xl border border-primary/25 bg-card/60 p-3.5 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" />
+                Templates Canônicos Derick.AI + Levas Semanais:
+              </span>
+              {DERICK_FUNNEL_TEMPLATES.map((tpl) => {
+                const active = tpl.id === selectedDerickTemplate.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => setSelectedDerickTemplateId(tpl.id)}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[11px] font-medium border transition-colors",
+                      active
+                        ? "border-primary bg-primary/15 text-primary font-semibold"
+                        : "border-border bg-background/60 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {tpl.nome}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background/70 p-0.5 text-[10px]">
+              <span className="px-1.5 font-mono text-muted-foreground">Leva:</span>
+              {(["S15", "S16", "S17"] as const).map((wk) => (
+                <button
+                  key={wk}
+                  type="button"
+                  onClick={() => setActiveLevaWeek(wk)}
+                  className={cn(
+                    "rounded px-1.5 py-0.5 font-mono font-semibold transition-colors",
+                    activeLevaWeek === wk
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {wk}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <span>{selectedDerickTemplate.descricao}</span>
+            <span className="font-mono text-[10px] text-emerald-400">
+              Leva {activeLevaWeek}: 1 Controle (72,5%) + 2 Desafiantes (17,5% / 10%)
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {selectedDerickTemplate.etapas.map((et, idx) => (
+              <span
+                key={et.nome}
+                className="inline-flex items-center gap-1 rounded border border-border/70 bg-secondary/40 px-2 py-0.5 text-[10px]"
+                title={`Meta: ${et.meta}`}
+              >
+                <span className="font-mono font-bold text-primary">{idx + 1}.</span>
+                <span className="font-medium text-foreground">{et.nome}</span>
+                <span className="text-muted-foreground">({et.meta})</span>
+              </span>
+            ))}
+          </div>
+        </div>
 
         {/* Linha principal com os passos numerados, preview visual real da página/etapa e métricas */}
         {path.principal.length > 0 ? (

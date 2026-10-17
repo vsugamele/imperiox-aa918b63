@@ -9,15 +9,24 @@ import {
   type ReferenceSignalInput,
 } from "@/lib/agency-radar";
 import { loadProjectIntelligence, type ProjectIntelligenceBundle } from "@/lib/project-intelligence";
+import {
+  qualificarCampanhaDerick,
+  gerarUrlBibliotecaMetaDerick,
+  type ElegibilidadeCampanhaDerick,
+  type SinaisEscalaCampanhaDerick,
+} from "@/lib/derick-engines";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   Copy,
+  ExternalLink,
   Flame,
   MessageSquareWarning,
   Radar,
+  ShieldCheck,
   Sparkles,
+  Target,
   TrendingUp,
   Wand2,
   FileText,
@@ -39,11 +48,23 @@ interface AgencyRadarPanelProps {
 
 export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPanelProps) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"voc" | "trends">("voc");
+  const [activeTab, setActiveTab] = useState<"voc" | "trends" | "qualifier">("voc");
   const [leadSignals, setLeadSignals] = useState<LeadSignalInput[]>([]);
   const [refSignals, setRefSignals] = useState<ReferenceSignalInput[]>([]);
   const [intel, setIntel] = useState<ProjectIntelligenceBundle | null>(null);
   const [loading, setLoading] = useState(false);
+  const [paisMeta, setPaisMeta] = useState("BR");
+  const [elegibilidade, setElegibilidade] = useState<ElegibilidadeCampanhaDerick>({
+    temPlayerVsl: true,
+    temCtaOfertaVisivel: true,
+    mesmoNichoECategoria: true,
+  });
+  const [sinaisEscala, setSinaisEscala] = useState<SinaisEscalaCampanhaDerick>({
+    anunciosAtivosNaPagina: 18,
+    diasRodandoAnuncioMaisAntigo: 21,
+    variantesCriativasDoMesmoFunil: 5,
+    trafegoEstimadoOuCheckoutAtivo: true,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -203,6 +224,45 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
   const complaints = useMemo(() => extractLeadComplaints(leadSignals), [leadSignals]);
   const marketTrends = useMemo(() => extractMarketTrends(refSignals), [refSignals]);
 
+  const qualificacaoResult = useMemo(
+    () => qualificarCampanhaDerick(elegibilidade, sinaisEscala),
+    [elegibilidade, sinaisEscala]
+  );
+
+  const buscasMeta20 = useMemo(() => {
+    const dorBase = intel?.deepPains[0]?.split(",")[0]?.trim() || "inchaço abdominal";
+    const mecBase = intel?.mechanismName || "drenagem linfática";
+    const prodBase = intel?.products[0]?.name || intel?.projectName || "protocolo matinal";
+
+    const amplas15 = [
+      `${dorBase} ao acordar`,
+      `como desinchar rápido`,
+      `retenção de líquido pernas`,
+      `barriga estufada depois de comer`,
+      `metabolismo lento após os 35`,
+      `roupa apertando na cintura`,
+      `cansaço constante pela manhã`,
+      `sensação de peso nas pernas`,
+      `desequilíbrio inflamatório silencioso`,
+      `como destravar o emagrecimento`,
+      `por que dieta não funciona`,
+      `ritual matinal de 15 segundos`,
+      `alívio natural sem efeito rebote`,
+      `eliminar líquido retido em 7 dias`,
+      `voltar a vestir minhas roupas`,
+    ];
+
+    const especificas5 = [
+      `${mecBase}`,
+      `${prodBase} oficial`,
+      `truque da colher de chá matinal`,
+      `válvula linfática travada`,
+      `apresentação completa assista agora`,
+    ];
+
+    return { amplas15, especificas5 };
+  }, [intel]);
+
   // Combine market hooks with project-grounded synthesized hooks (Avatar + Docs + Skills)
   const combinedHooks = useMemo(() => {
     const projectHooks = (intel?.synthesizedHooks || []).map((sh, i) => ({
@@ -312,7 +372,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background/60 p-1">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-background/60 p-1">
           <button
             type="button"
             onClick={() => setActiveTab("voc")}
@@ -336,6 +396,18 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
           >
             <Flame className="h-3.5 w-3.5" />
             O que Está em Alta ({marketTrends.formats.length} formatos)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("qualifier")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+              activeTab === "qualifier"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Target className="h-3.5 w-3.5" />
+            🎯 Qualificador Derick (15+5 Meta Ads)
           </button>
         </div>
       </div>
@@ -502,7 +574,7 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
             );
           })}
         </div>
-      ) : (
+      ) : activeTab === "trends" ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-6 space-y-2.5">
             <div className="flex items-center justify-between">
@@ -598,6 +670,190 @@ export function AgencyRadarPanel({ projectId, onSpawnCreative }: AgencyRadarPane
                   </Button>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ABA 3: Qualificador Determinístico de Campanhas Escaladas Derick.AI (Skill 02 v1.4.0) + 20 Buscas Meta Ads */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-5 rounded-xl border border-border/80 bg-background/70 p-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                Qualificador Derick.AI (Skill 02 v1.4.0)
+              </span>
+              <Badge
+                variant="outline"
+                className={`text-[10px] ${
+                  qualificacaoResult.status === "aprovada"
+                    ? "border-emerald-500/40 text-emerald-300"
+                    : qualificacaoResult.status === "observacao"
+                    ? "border-amber-500/40 text-amber-300"
+                    : "border-rose-500/40 text-rose-300"
+                }`}
+              >
+                {qualificacaoResult.status.toUpperCase()} · {qualificacaoResult.sinaisEscalaConfirmados}/4 Sinais
+              </Badge>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              {qualificacaoResult.motivo}
+            </p>
+
+            {/* 3 Checkboxes de Elegibilidade */}
+            <div className="space-y-1.5 pt-1 border-t border-border/60">
+              <p className="text-[10px] font-mono uppercase text-primary">
+                1. Elegibilidade Obrigatória (3 de 3):
+              </p>
+              {(
+                [
+                  ["temPlayerVsl", "Tem Player de VSL ou Página Long-Form ativa"],
+                  ["temCtaOfertaVisivel", "Tem CTA / Checkout de Oferta Direta"],
+                  ["mesmoNichoECategoria", "Pertence ao mesmo Nicho / Subnicho do Projeto"],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={elegibilidade[key]}
+                    onChange={(e) =>
+                      setElegibilidade((prev) => ({ ...prev, [key]: e.target.checked }))
+                    }
+                    className="rounded border-border"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* 4 Sinais Objetivos de Escala */}
+            <div className="space-y-2 pt-1.5 border-t border-border/60">
+              <p className="text-[10px] font-mono uppercase text-emerald-300">
+                2. Sinais Datados de Escala (Mínimo 2 exigidos):
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-[11px]">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Ads na Página</span>
+                  <input
+                    type="number"
+                    aria-label="Anúncios ativos na página"
+                    value={sinaisEscala.anunciosAtivosNaPagina}
+                    onChange={(e) =>
+                      setSinaisEscala((prev) => ({
+                        ...prev,
+                        anunciosAtivosNaPagina: Number(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full h-7 rounded border border-border bg-card px-2 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Dias no Ar</span>
+                  <input
+                    type="number"
+                    aria-label="Dias rodando anúncio mais antigo"
+                    value={sinaisEscala.diasRodandoAnuncioMaisAntigo}
+                    onChange={(e) =>
+                      setSinaisEscala((prev) => ({
+                        ...prev,
+                        diasRodandoAnuncioMaisAntigo: Number(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full h-7 rounded border border-border bg-card px-2 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Variantes Funil</span>
+                  <input
+                    type="number"
+                    aria-label="Variantes criativas do mesmo funil"
+                    value={sinaisEscala.variantesCriativasDoMesmoFunil}
+                    onChange={(e) =>
+                      setSinaisEscala((prev) => ({
+                        ...prev,
+                        variantesCriativasDoMesmoFunil: Number(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full h-7 rounded border border-border bg-card px-2 text-xs font-mono"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1 pt-1">
+                {qualificacaoResult.detalhesSinais.map((det) => (
+                  <p key={det} className="text-[10px] text-muted-foreground">
+                    {det}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Gerador de 20 Buscas Meta Ads Library (15 Amplas + 5 Específicas — Derick Skill 02) */}
+          <div className="lg:col-span-7 rounded-xl border border-border/80 bg-background/70 p-3.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 text-primary" />
+                  Matriz Derick.AI de 20 Buscas na Biblioteca Meta Ads (15 Amplas + 5 Específicas)
+                </span>
+                <p className="text-[11px] text-muted-foreground">
+                  Clique em qualquer termo para abrir a Meta Ads Library já filtrada em Vídeo + Ativos no país selecionado.
+                </p>
+              </div>
+              <select
+                aria-label="País da Biblioteca Meta Ads"
+                value={paisMeta}
+                onChange={(e) => setPaisMeta(e.target.value)}
+                className="h-7 rounded border border-border bg-card px-2 text-xs font-medium"
+              >
+                <option value="BR">🇧🇷 Brasil (BR)</option>
+                <option value="US">🇺🇸 Estados Unidos (US)</option>
+                <option value="MX">🇲🇽 México (MX)</option>
+                <option value="PT">🇵🇹 Portugal (PT)</option>
+                <option value="ALL">🌎 Todos (ALL)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-mono uppercase text-cyan-300">
+                🔎 15 Buscas Amplas (Sintoma, Dor Diária e Desejo do Avatar):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {buscasMeta20.amplas15.map((termo, i) => (
+                  <a
+                    key={termo}
+                    href={gerarUrlBibliotecaMetaDerick(termo, paisMeta, true)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/5 px-2 py-1 text-[10px] text-foreground hover:border-cyan-400 hover:bg-cyan-500/15 transition-colors"
+                  >
+                    <span className="font-mono text-cyan-300">{i + 1}.</span>
+                    <span>{termo}</span>
+                    <ExternalLink className="h-2.5 w-2.5 text-cyan-300" />
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1 border-t border-border/60">
+              <p className="text-[10px] font-mono uppercase text-pink-300">
+                🧬 5 Buscas Específicas (Mecanismo Único, Ritual e Formato VSL):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {buscasMeta20.especificas5.map((termo, i) => (
+                  <a
+                    key={termo}
+                    href={gerarUrlBibliotecaMetaDerick(termo, paisMeta, true)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-pink-500/30 bg-pink-500/5 px-2 py-1 text-[10px] text-foreground hover:border-pink-400 hover:bg-pink-500/15 transition-colors"
+                  >
+                    <span className="font-mono text-pink-300">E{i + 1}.</span>
+                    <span>{termo}</span>
+                    <ExternalLink className="h-2.5 w-2.5 text-pink-300" />
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         </div>
